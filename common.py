@@ -2,6 +2,7 @@
 
 import logging
 from OpenSSL import SSL,crypto
+import ssl
 #import socket
 import os
 import platform
@@ -83,7 +84,23 @@ def workaround_ssl(text_cert):
     t.write(text_cert)
     return t
 
-        
+def default_sslcont():
+    sslcont=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+    sslcont.set_ciphers("HIGH")
+    sslcont.options=sslcont.options|ssl.OP_SINGLE_DH_USE|ssl.OP_NO_COMPRESSION
+    return sslcont
+
+def gen_sslcont(path):
+    sslcont=default_sslcont()
+    if os.path.isdir(path)==True: #if dir, then capath, if file then cafile
+        sslcont.load_verify_locations(capath=path)
+    else:
+        sslcont.load_verify_locations(path)
+    return sslcont
+
+
+def parse_response(response):
+    return response.read().decode("utf8")
 """
   # ok for the first step
 def scn_connect_nocert(_server_addr,tries=1):

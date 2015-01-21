@@ -5,21 +5,20 @@ import ssl
 #import socket
 import logging
 import sys,signal,threading
+import socketserver #,socket
 
 
-from common import success,error,server_port,client_port,check_certs,generate_certs,init_config_folder,default_configdir,workaround_ssl
+from common import success,error,server_port,client_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont
 
 from os import path
 
 class server(object):
-    pub_cert=None
     nhipmap=None
     nhlist_cache=None
     
-    def __init__(self,_pub_cert):
+    def __init__(self):
         self.nhipmap={}
         self.nhlist_cache=""
-        self.pub_cert=_pub_cert.decode("utf8")
 
     def register(self,_name,_hash,_port,_addr=None):
         if _addr is None: # if port is none
@@ -27,7 +26,7 @@ class server(object):
             _port=client_port
         self.nhipmap[_name]={_hash: (_addr[0],_port)}
         self.nhlist_cache="{}/{}\n{}".format(_name,_hash,self.nhlist_cache)
-        return success
+        return "success".format(success)
     
     def connect(self,_name,_hash,_addr):
         return error
@@ -37,15 +36,15 @@ class server(object):
         if _hash not in self.nhipmap[_name]:
             return "{}certhash".format(error)
         return "{}{}/{}".format(success,*self.nhipmap[_name][_hash])
-    def cert(self,_addr):
-        return success+self.pub_cert
     def listnames(self,_addr):
+        if len(self.nhlist_cache)==0:
+            return "{}empty".format(success)
         return success+self.nhlist_cache
 
     
 class server_handler(BaseHTTPRequestHandler):
-    linkback=None
-    validactions=["register","connect","get","cert","listnames"]
+    #linkback=None
+    validactions=["register","connect","get","listnames"]
        
         
     def index(self):
@@ -68,71 +67,64 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(400,"invalid actions")
             return
         try:
-            func=type(self.linkback).__dict__[action]
-            response=func(self.linkback,*_path[1:])
+            func=type(self.server.server_server).__dict__[action]
+            response=func(self.server.server_server,*_path[1:])
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-                self.send_error(500,str(e))
+                #helps against ssl failing about empty string (EOF)
+                l=str(e)
+                if len(l)>0:
+                    self.send_error(500,l)
+                else:
+                    self.send_error(500,"unknown")
             return
         respparse=response.split("/",1)
         if respparse[0]=="error":
-            self.send_error(400,respparse[1])
+            #helps against ssl failing about empty string (EOF)
+            if len(respparse[1])>0:
+                self.send_error(400,respparse[1])
+            else:
+                self.send_error(400,"unknown")
         else:
             self.send_response(200)
             self.send_header('Content-type',"text")
             self.end_headers()
-            self.wfile.write(bytes(respparse[1],"utf8"))
+            #helps against ssl failing about empty string (EOF)
+            if len(respparse[1])>0:
+                self.wfile.write(bytes(respparse[1],"utf8"))
+            else:
+                self.wfile.write(bytes("success","utf8"))
         
         
 def inputw():
     input("Please enter passphrase:\n")
     
 class http_server_server(HTTPServer):
-    socket=None
     server_server=None
-    crappyssl=None
-
-    def __del__(self):
-        self.crappyssl.close()
+    sslcont=None
+    #def __del__(self):
+    #    self.crappyssl.close()
   
-    def __init__(self, server_address,certs):
+    def __init__(self, server_address,certfpath):
         e=server_handler
-        self.server_server=server(certs[1])
+        self.server_server=server()
         e.linkback=self.server_server
-        self.crappyssl=workaround_ssl(certs[1])
+        socketserver.TCPServer.__init__(self, server_address, e)
+        #self.crappyssl=workaround_ssl(certs[1])
 
-        
-        HTTPServer.__init__(self, server_address,e)
-        """tcontext=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        tcontext.set_ciphers("HIGH")
-        tcontext.options=tcontext.options|ssl.OP_SINGLE_DH_USE|ssl.OP_SINGLE_ECDH_USE|ssl.OP_NO_COMPRESSION
-        tcontext.load_cert_chain(self.crappyssl.name,certs[0])
-        self.socket=tcontext.wrap_socket(tcontext)"""
+        self.sslcont=default_sslcont()
+        self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv")
+        self.socket=self.sslcont.wrap_socket(self.socket)
+
+    #def get_request(self):
+    #    tsocket,address=self.socket.accept()
+    #    if False and address=="127.0.0.1":
+    #        return (tsocket,address)
+    #    else:
+    #        return (self.sslcont.wrap_socket(tsocket),address)
+    
 
 
-    """def shutdown_request(self, request):
-        if request is None:
-            return
-        try:
-            # explicitly shutdown.  socket.close() merely releases
-            # the socket and waits for GC to perform the actual close.
-            request.shutdown() # shutdown of sslsocketwrapper
-            request.sock_shutdown(socket.SHUT_RDWR) # hard shutdown of underlying socket
-        except (OSError):
-            pass # some platforms may raise ENOTCONN here
-        except Exception as e:
-            logging.error("Exception while shutdown")
-            logging.error(e)
-            self.close_request(request)
-
-    def close_request(self,request):
-        if request is None:
-            return
-        try:
-            request.close()
-        except Exception as e:
-            logging.error(e)"""
-#
 class server_init(object):
     config_path=None
     server=None
@@ -144,10 +136,6 @@ class server_init(object):
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(self.config_path+"server_cert")
             logging.debug("Certificate generation complete")
-        """with open(self.config_path+"server_cert"+".priv", 'rb') as readinprivkey:
-            priv_cert=readinprivkey.read()"""
-        with open(self.config_path+"server_cert"+".pub", 'rb') as readinpubkey:
-            pub_cert=readinpubkey.read()
         with open(self.config_path+"server", 'r') as readserver:
             try:
                 _server=readserver.readline().split("/")
@@ -155,7 +143,7 @@ class server_init(object):
                 print("Configuration error in {}".format(self.config_path+"server"))
                 print("<name>/<port>")
                 raise(e)
-        if None in [pub_cert,_server]:
+        if None in [_server]:
             raise(Exception("missing"))
         
 
@@ -165,7 +153,7 @@ class server_init(object):
             _port=int(_server[1])
         else:
             _port=server_port
-        self.server=http_server_server(("0.0.0.0",_port),(self.config_path+"server_cert"+".priv",pub_cert))
+        self.server=http_server_server(("0.0.0.0",_port),self.config_path+"server_cert")
 
     def serve_forever_block(self):
         self.server.serve_forever()
