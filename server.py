@@ -1,35 +1,34 @@
 #! /usr/bin/env python3
 
 from http.server  import BaseHTTPRequestHandler,HTTPServer
-import ssl
+#import ssl
 #import socket
 import logging
 import sys,signal,threading
 import socketserver #,socket
 
 
-from common import success,error,server_port,client_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont
 
 from os import path
 
 class server(object):
     nhipmap=None
-    nhlist_cache=None
+    nhlist_cache=""
     
     def __init__(self):
         self.nhipmap={}
-        self.nhlist_cache=""
 
-    def register(self,_name,_hash,_port,_addr=None):
-        if _addr is None: # if port is none
-            _addr=_port
-            _port=client_port
+    def register(self,_name,_hash,_port,_addr):
+        #if _addr is None: # if port is none
+        #    _addr=_port
+        #    _port=client_port
         self.nhipmap[_name]={_hash: (_addr[0],_port)}
         self.nhlist_cache="{}/{}\n{}".format(_name,_hash,self.nhlist_cache)
-        return "success".format(success)
+        return "{}registered".format(success)
     
     def connect(self,_name,_hash,_addr):
-        return error
+        return "{}unimplemented".format(error)
     def get(self,_name,_hash,_addr):
         if _name not in self.nhipmap:
             return "{}name".format(error)
@@ -39,7 +38,7 @@ class server(object):
     def listnames(self,_addr):
         if len(self.nhlist_cache)==0:
             return "{}empty".format(success)
-        return success+self.nhlist_cache
+        return success+self.nhlist_cache[:-1]
 
     
 class server_handler(BaseHTTPRequestHandler):

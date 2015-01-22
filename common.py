@@ -117,6 +117,10 @@ def dhash(ob):
 class VALNameError(Exception):
     msg="Name doesn't match"
 
+class isself(object):
+    def __str__(*args):
+        return "is calling object"
+    
 class certhash_db(object):
     db_path=None
     

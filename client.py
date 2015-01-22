@@ -10,7 +10,7 @@ import sys,signal,threading
 import os
 from os import path
 
-from common import success,error,server_port,client_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError
+from common import success,error,server_port,client_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself
 
 
 
@@ -98,6 +98,23 @@ class client_client(object):
             server_addr=(server_addr[0],server_port)
         con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
         return self.do_request(con, "/listnames",_certname)
+
+    def parsedlistnames(self,server_addr,_certname=None):
+        temp=self.listnames(server_addr,_certname)
+        if temp[0]==False:
+            return temp
+        temp2=[]
+        for line in temp[1].split("\n"):
+            _split=line.split("/")
+            if len(_split)!=2:
+                logging.debug("invalid element: {}".format(line))
+                continue
+            if _split[1]==self.cert_hash:
+                temp2+=[(_split[0],_split[1],isself),]
+            else:
+                temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
+        
+        return (temp[0],temp2,temp[2])
 
     def getservice(self,client_addr,_service,_certname=None):
         if len(client_addr)==1:
@@ -301,4 +318,5 @@ if __name__ ==  "__main__":
             #print(url)
             print(type(e).__name__)
             print(e)
+            #print(e.printstacktrace())
         
