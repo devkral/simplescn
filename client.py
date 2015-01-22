@@ -64,31 +64,40 @@ class client_client(object):
     def connect(self,server_addr,_name,_hash,_certname=None):
         temp=self.get(server_addr,_name,_hash,_certname)
         return temp    
-    
-    def addcerthash(self,_name,_certhash): #TODO: verify server
-        temp=self.hashdb.addhash(_name,_certhash)
-        if temp[0]==True:
+
+    def gethash(self,_addr):
+        if len(_addr)==1:
+            _addr=(_addr[0],server_port)
+        con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
+        con.connect()
+        pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+        con.close()
+        return (True,(dhash(pcert),pcert),None)
+        
+    def addhash(self,_name,_certhash): #[0] is workaround, be sure that it is a serveradress
+        temp=self.hashdb.addhash(_name[0],_certhash)
+        if temp==True:
             return (True,"success",None)
         else:
             return (False,"error",None)
     
-    def delcerthash(self,_name,_certhash):
-        temp=self.hashdb.delhash(_name,_certhash)
-        if temp[0]==True:
+    def delhash(self,_name,_certhash): #[0] is workaround, be sure that it is a serveradress
+        temp=self.hashdb.delhash(_name[0],_certhash)
+        if temp==True:
             return (True,"success",None)
         else:
             return (False,"error",None)
 
-    def addname(self,_name):
-        temp=self.hashdb.addname(_name)
-        if temp[0]==True:
+    def addname(self,_name): #[0] is workaround, be sure that it is a serveradress
+        temp=self.hashdb.addname(_name[0])
+        if temp==True:
             return (True,"success",None)
         else:
             return (False,"error",None)
 
-    def delname(self,_name):
-        temp=self.hashdb.delname(_name)
-        if temp[0]==True:
+    def delname(self,_name): #[0] is workaround, be sure that it is a serveradress
+        temp=self.hashdb.delname(_name[0])
+        if temp==True:
             return (True,"success",None)
         else:
             return (False,"error",None)
@@ -107,13 +116,12 @@ class client_client(object):
         for line in temp[1].split("\n"):
             _split=line.split("/")
             if len(_split)!=2:
-                logging.debug("invalid element: {}".format(line))
+                logging.debug("invalid element:\n{}".format(line))
                 continue
             if _split[1]==self.cert_hash:
                 temp2+=[(_split[0],_split[1],isself),]
             else:
                 temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
-        
         return (temp[0],temp2,temp[2])
 
     def getservice(self,client_addr,_service,_certname=None):
@@ -310,9 +318,9 @@ if __name__ ==  "__main__":
             else:
                 print("Verified as: "+resp[2])
             if resp[0]==False:
-                print("Error: {}"+resp[1])
+                print("Error:\n{}".format(resp[1]))
             else:
-                print(resp[1])
+                print("Success:\n{}".format(resp[1]))
         except Exception as e:
             print("Error: ")
             #print(url)

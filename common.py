@@ -175,6 +175,9 @@ class certhash_db(object):
     @connecttodb
     def addhash(self,dbcon,_name,_certhash):
         cur = dbcon.cursor()
+        cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
+        if cur.fetchone() is not None:
+            return False
         cur.execute('SELECT name FROM certs WHERE name=? AND certhash=?;',(_name,_certhash))
         if cur.fetchone() is not None:
             return False
@@ -206,4 +209,4 @@ class certhash_db(object):
     def certhash_as_name(self,dbcon,_certhash):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE certhash=?;',(_certhash,))
-        return cur.fetchone()
+        return cur.fetchone()[0]
