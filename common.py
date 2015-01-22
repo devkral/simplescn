@@ -6,6 +6,9 @@ import ssl
 #import socket
 import os
 import platform
+import sqlite3
+import hashlib
+from http import client
 
 from subprocess import Popen,PIPE
 key_size=4096
@@ -100,63 +103,103 @@ def gen_sslcont(path):
 
 
 def parse_response(response):
-    return response.read().decode("utf8")
-"""
-  # ok for the first step
-def scn_connect_nocert(_server_addr,tries=1):
-    if bool(_server_addr)==False:
-        return None
-    if len(_server_addr)<2:
-        _server_addr=(_server_addr[0],server_port)
-    temp_context = SSL.Context(SSL.TLSv1_2_METHOD)
-    temp_context.set_options(SSL.OP_NO_COMPRESSION) #compression insecure (or already fixed??)
-    temp_context.set_options(SSL.OP_SINGLE_DH_USE)
-    temp_context.set_session_cache_mode(SSL.SESS_CACHE_OFF)
-    temp_context.set_cipher_list("HIGH")
+    if response.status==client.OK:
+        return (True,response.read().decode("utf8"))
+    return (False,response.read().decode("utf8"))
 
-    for count in range(0,tries):
-        tempsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #don't use settimeout, pyopenssl error
-        tempsocket = SSL.Connection(temp_context,tempsocket)
-        try:
-            #connect with ssl handshake
-            tempsocket.connect(_server_addr)
-            tempsocket.do_handshake()
-        except Exception as e:
-            raise(e)
-        # TODO: works because loop broken
-        tempsocket.setblocking(True)
-        return tempsocket
-    return None
 
-    
-#secure connection
-def connect_cert(_server_addr, _cert=None, tries=1):
-    if len(_server_addr)<2:
-        _server_addr=(_server_addr[0],server_port)
-    
-    temp_context = SSL.Context(SSL.TLSv1_2_METHOD)
-    temp_context.set_options(SSL.OP_NO_COMPRESSION) #compression insecure (or already fixed??)
-    temp_context.set_options(SSL.OP_SINGLE_DH_USE)
-    temp_context.set_session_cache_mode(SSL.SESS_CACHE_OFF)
-    temp_context.set_cipher_list("HIGH")
-  
-    if _cert!=None:
-        temp_context.use_certificate(crypto.load_certificate(crypto.FILETYPE_PEM,_cert))
+def dhash(ob):
+    if type(ob).__name__=="str":
+        return hashlib.sha256(bytes(ob,"utf8")).hexdigest()
     else:
-        temp_context.set_default_verify_paths()
-    for count in range(0,tries):
-        tempsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #don't use settimeout, pyopenssl error
-        tempsocket = SSL.Connection(temp_context,tempsocket)
+        return hashlib.sha256(ob).hexdigest()
+    
+class VALNameError(Exception):
+    msg="Name doesn't match"
+
+class certhash_db(object):
+    db_path=None
+    
+    def __init__(self,dbpath):
+        self.db_path=dbpath
         try:
-            #connect with ssl handshake
-            tempsocket.connect(_server_addr)
-            tempsocket.do_handshake()
+            con=sqlite3.connect(self.db_path)
         except Exception as e:
-            raise(e)
-        # TODO: works because loop broken
-        tempsocket.setblocking(True)
-        return tempsocket
-    return None
-"""
+            logging.error(e)
+            return
+        try:
+            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, PRIMARY KEY(name), UNIQUE(certhash));''')
+            con.commit()
+        except Exception as e:
+            con.rollback()
+            logging.error(e)
+        con.close()
+        
+    
+    def connecttodb(func):
+        def funcwrap(self,*args,**argvs):
+            temp=None
+            try:
+                dbcon=sqlite3.connect(self.db_path)
+                temp=func(self,dbcon,*args,**argvs)
+                dbcon.close()
+            except Exception as e:
+                logging.error(e)
+            return temp
+        return funcwrap
+
+    @connecttodb
+    def addname(self,dbcon,_name):
+        cur = dbcon.cursor()
+        cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
+        if cur.fetchone() is not None:
+            return False
+        cur.execute('INSERT INTO certs(name) values(?);', (_name,))
+        dbcon.commit()
+        return True
+
+    @connecttodb
+    def delname(self,dbcon,_name):
+        cur = dbcon.cursor()
+        cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
+        if cur.fetchone() is None:
+            return False
+        cur.execute('DELETE FROM certs WHERE name=?;', (_name,))
+        dbcon.commit()
+        return True
+
+    @connecttodb
+    def addhash(self,dbcon,_name,_certhash):
+        cur = dbcon.cursor()
+        cur.execute('SELECT name FROM certs WHERE name=? AND certhash=?;',(_name,_certhash))
+        if cur.fetchone() is not None:
+            return False
+        cur.execute('INSERT INTO certs(name,certhash) values(?,?);', (_name,_certhash))
+        
+        dbcon.commit()
+        return True
+
+    @connecttodb
+    def delhash(self,dbcon,_name,_certhash):
+        cur = dbcon.cursor()
+        cur.execute('SELECT name FROM certs WHERE name=? AND certhash=?;',(_name,_certhash))
+        if cur.fetchone() is None:
+            return False
+        cur.execute('DELETE FROM certs WHERE name=? AND certhash=?;', (_name,_certhash))
+        dbcon.commit()
+        return True
+    
+    @connecttodb
+    def listname(self,dbcon,_name):
+        cur = dbcon.cursor()
+        cur.execute('SELECT certhash FROM certs WHERE name=?;',(_name,))
+        temp=[]
+        for elem in cur.fetchall():
+            temp+=[elem[0],]
+        return temp
+    
+    @connecttodb
+    def certhash_as_name(self,dbcon,_certhash):
+        cur = dbcon.cursor()
+        cur.execute('SELECT name FROM certs WHERE certhash=?;',(_certhash,))
+        return cur.fetchone()

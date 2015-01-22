@@ -6,13 +6,11 @@ from http.server  import BaseHTTPRequestHandler,HTTPServer
 from http import client
 import logging
 import ssl
-import socket
-import hashlib
 import sys,signal,threading
 import os
 from os import path
 
-from common import success,error,server_port,client_port,check_certs,generate_certs,init_config_folder,default_configdir,gen_sslcont,default_sslcont,parse_response
+from common import success,error,server_port,client_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError
 
 
 
@@ -24,123 +22,107 @@ class client_client(object):
     port=None
     sslconts=None
     sslcontc=None
-    certdir=None
+    hashdb=None
     
-    def __init__(self,_name,_port,pub_cert_hash,_certdir):
+    
+    def __init__(self,_name,_port,pub_cert_hash,_certdbpath):
         self.name=_name
         self.cert_hash=pub_cert_hash
         self.port=_port
-        self.certdir=_certdir
-        self.sslconts=gen_sslcont(self.certdir)
-        self.sslconts.verify_flags=ssl.VERIFY_DEFAULT
+        self.hashdb=certhash_db(_certdbpath)
+        #self.certdir=_certdir
+        #self.sslconts.verify_flags=ssl.VERIFY_DEFAULT
         
-        self.sslcontc=default_sslcont()
+        self.sslcont=default_sslcont()
 
+    def do_request(self,con,requeststr,name=None):
+        con.connect()
+        pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+        val=self.hashdb.certhash_as_name(dhash(pcert))
+        if name is not None and name!=val:
+            raise(VALNameError)
+        con.putrequest("GET", requeststr)
+        #con.putheader("test")
+        con.endheaders()
+        
+        resp=parse_response(con.getresponse())
+        con.close()
+        return resp[0],resp[1],val
+        
     def register(self,server_addr,_certname=None):
         if len(server_addr)==1:
             server_addr=(server_addr[0],server_port)
-        if _certname==None:
-            _sslcontext=self.sslconts
-        else:
-            _sslcontext=gen_sslcont("{}{}{}".format(self.certdir,os.sep,_certname))
-            #_sslcontext.verify_flag=ssl.VERIFY_DEFAULT
-        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=_sslcontext)
-        
-        con.request("GET", "/register/{}/{}/{}".format(self.name,self.cert_hash,self.port))
-        
-        return parse_response(con.getresponse())#[0]==200
+        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
+        return self.do_request(con,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.port),_certname)
     
-    def connect(self,server_addr,_name,_hash,_certname=None):
-        return self.get(server_addr,_name,_hash,_certname)
-
     def get(self,server_addr,_name,_hash,_certname=None):
         if len(server_addr)==1:
             server_addr=(server_addr[0],server_port)
-        if _certname==None:
-            _sslcontext=self.sslconts
+        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
+        return self.do_request(con,"/get/{}/{}".format(_name,_hash),_certname)
+    
+    def connect(self,server_addr,_name,_hash,_certname=None):
+        temp=self.get(server_addr,_name,_hash,_certname)
+        return temp    
+    
+    def addcerthash(self,_name,_certhash): #TODO: verify server
+        temp=self.hashdb.addhash(_name,_certhash)
+        if temp[0]==True:
+            return (True,"success",None)
         else:
-            _sslcontext=gen_sslcont("{}{}{}".format(self.certdir,os.sep,_certname))
-            #_sslcontext.verify_flag=ssl.VERIFY_DEFAULT
-        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=_sslcontext)
-        con.request("GET", "/get/{}/{}".format(_name,_hash))
-        return parse_response(con.getresponse())
-        
+            return (False,"error",None)
     
-    def addcert(self,server_addr,name): #TODO: verify server
-        if len(server_addr)==1:
-            server_addr=(server_addr[0],server_port)
-        cert=ssl.get_server_certificate(server_addr,ssl_version=ssl.PROTOCOL_TLSv1_2)
-        #
-        addpath="{}{}{}".format(self.certdir,os.sep,name)
-        if path.exist(addpath)==True:
-            return "error: exists"
-        
-        e=open(addpath,"wb")
-        e.write(cert)
-        e.close()
-        self.sslconts.load_verify_locations(capath=self.certdir)
-        return "success"
-    
-    def delcert(self,name):
-        delpath="{}{}{}".format(self.certdir,os.sep,name)
-        if path.exist(delpath)==False:
-            return "errror: does not exist"
-        os.rm(delpath)
-        return "success"
-        
+    def delcerthash(self,_name,_certhash):
+        temp=self.hashdb.delhash(_name,_certhash)
+        if temp[0]==True:
+            return (True,"success",None)
+        else:
+            return (False,"error",None)
+
+    def addname(self,_name):
+        temp=self.hashdb.addname(_name)
+        if temp[0]==True:
+            return (True,"success",None)
+        else:
+            return (False,"error",None)
+
+    def delname(self,_name):
+        temp=self.hashdb.delname(_name)
+        if temp[0]==True:
+            return (True,"success",None)
+        else:
+            return (False,"error",None)
     
     def listnames(self,server_addr,_certname=None):
         if len(server_addr)==1:
             server_addr=(server_addr[0],server_port)
-        if _certname==None:
-            _sslcontext=self.sslconts
-        else:
-            _sslcontext=gen_sslcont("{}{}{}".format(self.certdir,os.sep,_certname))
+        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
+        return self.do_request(con, "/listnames",_certname)
+
+    def getservice(self,client_addr,_service,_certname=None):
+        if len(client_addr)==1:
+            client_addr=(client_addr[0],client_port)
+        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
+        return self.do_request(con, "/get/{}".format(_service),_certname)
+
+    def registerservice(self,client_addr,_service,_port,_certname=None):
+        if len(client_addr)==1:
+            client_addr=(client_addr[0],client_port)
             #_sslcontext.verify_flag=ssl.VERIFY_DEFAULT
-        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=_sslcontext)
-        con.request("GET", "/listnames")
-        return parse_response(con.getresponse())
+        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
+        return self.do_request(con, "/register/{}/{}".format(_service,_port))
 
-    def getservice(self,client_addr,_service,_certhash=None):
+    def listservices(self,client_addr,_certname=None):
         if len(client_addr)==1:
             client_addr=(client_addr[0],client_port)
-        if _certhash is not None:
-            #_sslcontext=self.sslcont
-            pass
-            #return "error"
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcontc)
-        con.request("GET", "/get/{}".format(_service))
-        return parse_response(con.getresponse())
-
-    def registerservice(self,client_addr,_service,_port):
-        if len(client_addr)==1:
-            client_addr=(client_addr[0],client_port)
-        _sslcontext=self.sslcont
-            #_sslcontext.verify_flag=ssl.VERIFY_DEFAULT
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=_sslcontext)
-        con.request("GET", "/register/{}/{}".format(_service,_port))
-        return parse_response(con.getresponse())
-
-    def listservices(self,client_addr,_certhash=None):
-        if len(client_addr)==1:
-            client_addr=(client_addr[0],client_port)
-        if _certhash is not None:
-            #_sslcontext=self.sslcont
-            pass
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcontc)
-        con.request("GET", "/listservices")
-        return parse_response(con.getresponse())
+        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
+        return self.do_request(con, "/listservices",_certname)
     
-    def info(self,client_addr,_certhash=None):
+    def info(self,client_addr,_certname=None):
         if len(client_addr)==1:
             client_addr=(client_addr[0],client_port)
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcontc)
-        
-        #if _certhash is not None:
-        #    if _certhash!=hashlib.sha256()
-        #    pass
-        con.request("GET", "/info")
-        return parse_response(con.getresponse())
+        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
+        return self.do_request(con,  "/info",_certname)
     
 class client_server(object):
     name=""
@@ -259,11 +241,8 @@ class client_init(object):
                 raise(e)
         with open(self.config_path+"message", 'r') as readinmes:
             message=readinmes.read()
-        if path.exists(self.config_path+os.sep+"certs")==False:
-            os.mkdir(self.config_path+os.sep+"certs")
         if None in [priv_cert,pub_cert,_client,message]:
             raise(Exception("missing"))
-        
         
         if _port is not None:
             _port=int(_port)
@@ -271,7 +250,7 @@ class client_init(object):
             _port=int(_client[1])
         else:
             _port=client_port
-        self.client=client_client(_client[0],_port,hashlib.sha256(pub_cert).hexdigest(),self.config_path+os.sep+"certs")
+        self.client=client_client(_client[0],_port,dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite")
         self.server=http_client_server(("0.0.0.0",_port),_client[0],message,self.config_path+"client_cert")
 
     def serve_forever_block(self):
@@ -309,7 +288,14 @@ if __name__ ==  "__main__":
             func=type(cm.client).__dict__[str(parsed[0])]
             url=parsed[1].split(":",1)
             resp=func(cm.client,url,*parsed[2:])
-            print(resp)
+            if resp[2] is None:
+                print("Unverified")
+            else:
+                print("Verified as: "+resp[2])
+            if resp[0]==False:
+                print("Error: {}"+resp[1])
+            else:
+                print(resp[1])
         except Exception as e:
             print("Error: ")
             #print(url)
