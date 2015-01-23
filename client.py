@@ -64,8 +64,9 @@ class client_client(object):
         temp=self.get(server_addr,_name,_hash,_certname)
         return temp
 
-    def showport(self):
-        return (True,self.links["server"].socket.getsockname()[1],isself)
+    def show(self):
+        return (True,(self.name,self.cert_hash
+                ,str(self.links["server"].socket.getsockname()[1])),isself)
 
     def gethash(self,_addr):
         _addr=_addr.split(":")
@@ -223,7 +224,7 @@ class client_server(object):
 class client_handler(BaseHTTPRequestHandler):
     links=None
     validactions=["info","get","register","listservices"]
-    clientactions=["register","get","connect","gethash", "showport","addhash","deljusthash","delhash","listhashes","searchhash","listnamesl","parsedlistnames","getservice","registerservice","listservices","info"]
+    clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnamesl","parsedlistnames","getservice","registerservice","listservices","info"]
     handle_localhost=False
     
     def index(self):
@@ -235,18 +236,17 @@ class client_handler(BaseHTTPRequestHandler):
     def handle_client(self,_cmdlist):
         if not self.client_address[0] in ["localhost","127.0.0.1","::1"]:
             self.send_error(403,"insufficient permissions")
+        
         try:
             func=type(self.links["client"]).__dict__[_cmdlist[0]]
-            response=func(self.links["client"],*_cmdlist[1:-1]) # remove funcname, addr
+            response=func(self.links["client"],*_cmdlist[1:-1]) # remove address from _cmdlist
         except Exception as e:
             self.send_error(500,str(e))
             return
-        
-        respparse=response.split("/",1)
-        if respparse[0]=="error":
+        if response[0]==False:
             #helps against ssl failing about empty string (EOF)
-            if len(respparse[1])>0:
-                self.send_error(400,respparse[1])
+            if len(response[1])>0:
+                self.send_error(400,response[1])
             else:
                 self.send_error(400,"unknown")
         else:
@@ -254,8 +254,12 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_header('Content-type',"text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
-            if len(respparse[1])>0:
-                self.wfile.write(bytes(respparse[1],"utf8"))
+            if len(response[1])>0:
+                if type(response[1]) is [] or type(response[1]) is ():
+                    for elem in response[1]:
+                        self.wfile.write(bytes(elem+"\n","utf8"))
+                else:
+                    self.wfile.write(bytes(str(response[1]),"utf8"))
             else:
                 self.wfile.write(bytes("success","utf8"))
 
@@ -293,13 +297,14 @@ class client_handler(BaseHTTPRequestHandler):
             self.index()
             return
         _cmdlist=_cmdlist+[self.client_address,]
-        if self.handle_localhost==False and _cmdlist[0] not in self.validactions:
-            self.send_error(400,"invalid actions")
-            return
-        elif self.handle_localhost==True and _cmdlist[0]=="do" and _cmdlist[1] in self.clientactions:
-            self.handle_client(_cmdlist[:1])
-        else:
+        if self.handle_localhost==True and _cmdlist[0]=="do" and _cmdlist[1] in self.clientactions:
+            self.handle_client(_cmdlist[1:]) #remove do
+        elif _cmdlist[0]!="do" and _cmdlist[0] in self.validactions:
             self.handle_server(_cmdlist)
+        else:
+            self.send_error(400,"invalid action")
+            return
+            
         
 class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
         
@@ -363,7 +368,8 @@ class client_init(object):
         self.sthread.start()
 
     def cmd(self):
-        print(self.links["client"].showport()[1])
+        
+        print(*self.links["client"].show()[1],sep="/")
         while True:
             inp=input("Enter command, seperate by \"/\":\n")
             if inp=="":
@@ -406,7 +412,7 @@ if __name__ ==  "__main__":
     else:
         cm=client_init(default_configdir,sys.argv[1])
         
-    client_handler.handle_localhost=True
+    #client_handler.handle_localhost=True
     logging.debug("start server")
     cm.serve_forever_nonblock()
     logging.debug("server started")
