@@ -153,11 +153,11 @@ class certhash_db(object):
         
     
     def connecttodb(func):
-        def funcwrap(self,*args,**argvs):
+        def funcwrap(self,*args,**kwargs):
             temp=None
             try:
                 dbcon=sqlite3.connect(self.db_path)
-                temp=func(self,dbcon,*args,**argvs)
+                temp=func(self,dbcon,*args,**kwargs)
                 dbcon.close()
             except Exception as e:
                 logging.error(e)

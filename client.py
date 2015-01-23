@@ -226,6 +226,7 @@ class client_handler(BaseHTTPRequestHandler):
     validactions=["info","get","register","listservices"]
     clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnamesl","parsedlistnames","getservice","registerservice","listservices","info"]
     handle_localhost=False
+    pwhash=None
     
     def index(self):
         self.send_response(200)
@@ -321,10 +322,21 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
 class client_init(object):
     config_path=None
     links={}
-    #localactions=["addname","delname","addhash","delhash","listnamesl","listhashes","searchhash"]
     
-    def __init__(self,_configpath,_port=None):
-        self.config_path=path.expanduser(_configpath)
+    def __init__(self,configpath,**kwargs):
+        port=kwargs["port"]
+        if "blank" in kwargs:
+            client_handler.handle_localhost=True
+        elif "pwhash" in kwargs:
+            client_handler.handle_localhost=True
+            client_handler.pwhash=None
+        elif "pwfile" in kwargs:
+            client_handler.handle_localhost=True
+            op=open("r")
+            client_handler.pwhash=dhash(op.read()[:-1])
+            op.close()
+            
+        self.config_path=path.expanduser(configpath)
         init_config_folder(self.config_path)
         if check_certs(self.config_path+"client_cert")==False:
             logging.debug("Certificate(s) not found. Generate new...")
@@ -348,16 +360,16 @@ class client_init(object):
         if None in [priv_cert,pub_cert,_client,message]:
             raise(Exception("missing"))
         
-        if _port is not None:
-            _port=int(_port)
+        if port is not None:
+            port=int(port)
         elif len(_client)>=2:
-            _port=int(_client[1])
+            port=int(_client[1])
         else:
-            _port=0
+            port=0
         
         self.links["client_server"]=client_server(_client[0],message)
         client_handler.links=self.links
-        self.links["server"]=http_client_server(("0.0.0.0",_port),self.config_path+"client_cert")
+        self.links["server"]=http_client_server(("0.0.0.0",port),self.config_path+"client_cert")
         self.links["client"]=client_client(_client[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)
 
     def serve_forever_block(self):
@@ -399,18 +411,49 @@ class client_init(object):
     
         
 ##
+def paramhelp():
+    print(\
+"""
+possible parameters:
+port: port
+blank: can command server without pw higher preference than pwhash (not recommended)
+pwhash: sha256 hash of pw, higher preference than pwfile
+pwfile: file with password
+
+""")
+
+def cmdhelp():
+    print(\
+"""
+### cmd-commands ###
+
+
+""")
+    
 def signal_handler(_signal, frame):
   sys.exit(0)
-
-
+  
 #remoteactions=["register","","","listnames"]
 if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    if len(sys.argv)==1:
-        cm=client_init(default_configdir)
-    else:
-        cm=client_init(default_configdir,sys.argv[1])
+    d={"_port":None,"_pwhash":None}
+    if len(sys.argv)>1:
+        tparam=()
+        for elem in sys.argv:
+            elem=elem.strip("-")
+            if elem in ["help","h"]:
+                paramhelp()
+                sys.exit(0)
+            else:
+                tparam=elem.split("=")
+                if len(tparam)==1:
+                    tparam=elem.split(":")
+                if  len(tparam)==1:
+                    continue
+                d[tparam[0]]=tparam[1]
+            
+    cm=client_init(default_configdir,port=d["port"],pwhash=d["pwhash"],pwfile=d["pwfile"])
         
     #client_handler.handle_localhost=True
     logging.debug("start server")
