@@ -128,7 +128,7 @@ class server_handler(BaseHTTPRequestHandler):
 def inputw():
     input("Please enter passphrase:\n")
     
-class http_server_server(HTTPServer):
+class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     server_server=None
     sslcont=None
     #def __del__(self):

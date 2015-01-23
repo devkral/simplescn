@@ -4,6 +4,7 @@
 #from OpenSSL import SSL,crypto
 from http.server  import BaseHTTPRequestHandler,HTTPServer
 from http import client
+import socketserver
 import logging
 import ssl
 import sys,signal,threading
@@ -300,9 +301,8 @@ class client_handler(BaseHTTPRequestHandler):
         else:
             self.handle_server(_cmdlist)
         
-class http_client_server(HTTPServer,client_server):
-    
-    
+class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
+        
     def __init__(self, _client_address,certfpath):
         HTTPServer.__init__(self, _client_address,client_handler)
         self.sslcont=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
