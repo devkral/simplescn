@@ -13,7 +13,7 @@ from http import client
 from subprocess import Popen,PIPE
 key_size=4096
 server_port=4040
-client_port=4041
+#client_port=4041
 
 error="error/"
 success="success/"
@@ -67,7 +67,7 @@ def init_config_folder(_dir):
         os.chmod(_dir,0o700)
     if os.path.exists(_dir+os.sep+"client")==False:
         e=open(_dir+os.sep+"client","w")
-        e.write("{}/{}".format(platform.uname()[1],client_port))
+        e.write("{}/{}".format(platform.uname()[1],0))
         e.close()
     if os.path.exists(_dir+os.sep+"server")==False:
         e=open(_dir+os.sep+"server","w")
@@ -120,7 +120,19 @@ class VALNameError(Exception):
 class isself(object):
     def __str__(*args):
         return "is calling object"
-    
+
+
+def check_hash(_hashstr):
+  if all(c in "0123456789abcdefABCDEF" for c in _hashstr):
+    return True
+  return False
+
+def check_name(_name):
+  if all(c not in " \n\\$\0'%\"\n\r\t\b\x1A\x7F" for c in _name):
+    return True
+  return False
+
+
 class certhash_db(object):
     db_path=None
     
@@ -132,7 +144,7 @@ class certhash_db(object):
             logging.error(e)
             return
         try:
-            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, PRIMARY KEY(name), UNIQUE(certhash));''')
+            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
             con.commit()
         except Exception as e:
             con.rollback()
@@ -155,10 +167,14 @@ class certhash_db(object):
     @connecttodb
     def addname(self,dbcon,_name):
         cur = dbcon.cursor()
-        cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
+        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is not None:
+            logging.info("name exists")
             return False
-        cur.execute('INSERT INTO certs(name) values(?);', (_name,))
+        if check_name(_name)==False:
+            logging.info("name contains invalid elements")
+            return False
+        cur.execute('''INSERT INTO certs(name,certhash) values(?,"default");''', (_name,))
         dbcon.commit()
         return True
 
@@ -167,46 +183,78 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
         if cur.fetchone() is None:
+            logging.info("name doesn't exists")
             return False
-        cur.execute('DELETE FROM certs WHERE name=?;', (_name,))
+        cur.execute('''DELETE FROM certs WHERE name=?;''', (_name,))
         dbcon.commit()
         return True
 
     @connecttodb
     def addhash(self,dbcon,_name,_certhash):
         cur = dbcon.cursor()
-        cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
-        if cur.fetchone() is not None:
+        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
+        if cur.fetchone() is None:
+            logging.info("name doesn't exists")
             return False
-        cur.execute('SELECT name FROM certs WHERE name=? AND certhash=?;',(_name,_certhash))
+        cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
         if cur.fetchone() is not None:
+            logging.info("hash already exists")
             return False
-        cur.execute('INSERT INTO certs(name,certhash) values(?,?);', (_name,_certhash))
+        if check_hash(_certhash)==False:
+            logging.info("hash contains invalid characters")
+            return False
+        cur.execute('''INSERT INTO certs(name,certhash) values(?,?);''', (_name,_certhash))
         
         dbcon.commit()
         return True
 
     @connecttodb
-    def delhash(self,dbcon,_name,_certhash):
+    def delhash(self,dbcon,_certhash,_name=None):
         cur = dbcon.cursor()
-        cur.execute('SELECT name FROM certs WHERE name=? AND certhash=?;',(_name,_certhash))
+        if _name is None:
+            cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
+        else:
+            cur.execute('''SELECT certhash FROM certs WHERE name=? AND certhash=?;''',(_name,_certhash))
+            
         if cur.fetchone() is None:
+            if _name is None:
+                logging.info("name/hash doesn't exists")
+            else:
+                logging.info("hash doesn't exists")
             return False
-        cur.execute('DELETE FROM certs WHERE name=? AND certhash=?;', (_name,_certhash))
+        
+        cur.execute('''DELETE FROM certs WHERE certhash=?;''', (_certhash,))
         dbcon.commit()
         return True
     
     @connecttodb
-    def listname(self,dbcon,_name):
+    def listcerts(self,dbcon,_name):
         cur = dbcon.cursor()
-        cur.execute('SELECT certhash FROM certs WHERE name=?;',(_name,))
+        cur.execute('''SELECT certhash FROM certs WHERE name=?;''',(_name,))
+        temmp=cur.fetchall()
+        if temmp is None:
+            return None
         temp=[]
-        for elem in cur.fetchall():
+        for elem in temmp:
             temp+=[elem[0],]
         return temp
+    
+
+    @connecttodb
+    def listnames(self,dbcon):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT name,certhash FROM certs;''')
+        temmp=cur.fetchall()
+        if temmp is None:
+            return None
+        return temmp
     
     @connecttodb
     def certhash_as_name(self,dbcon,_certhash):
         cur = dbcon.cursor()
-        cur.execute('SELECT name FROM certs WHERE certhash=?;',(_certhash,))
-        return cur.fetchone()[0]
+        cur.execute('''SELECT name FROM certs WHERE certhash=?;''',(_certhash,))
+        temp=cur.fetchone()
+        if temp is None:
+            return None
+        else:
+            return temp[0]

@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 from http.server  import BaseHTTPRequestHandler,HTTPServer
-#import ssl
+import time
 #import socket
 import logging
 import sys,signal,threading
@@ -15,30 +15,60 @@ from os import path
 class server(object):
     nhipmap=None
     nhlist_cache=""
+    refreshthread=None
+    isactive=True
     
     def __init__(self):
         self.nhipmap={}
+        self.nhlist_cond=threading.Event()
+        self.change_sem=threading.Semaphore(1)
+        self.refreshthread=threading.Thread(target=self.refresh_nhlist)
+        self.refreshthread.daemon=True
+        self.refreshthread.start()
+
+    def __del__(self):
+        self.isactive=False
+        self.nhlist_cond.set()
+        try:
+            self.refreshthread.join(4)
+        except Exception as e:
+            logging.error(e)
+
+    def refresh_nhlist(self):
+        while self.isactive:
+            self.change_sem.acquire()
+            tnhlist=""
+            for _name in self.nhipmap:
+                for _hash in self.nhipmap[_name]:
+                    tnhlist="{}\n{}/{}".format(tnhlist,_name,_hash)
+            self.nhlist_cache=tnhlist[1:]
+            self.change_sem.release()
+            self.nhlist_cond.clear()
+            time.sleep(1)
+            self.nhlist_cond.wait()
+  
 
     def register(self,_name,_hash,_port,_addr):
-        #if _addr is None: # if port is none
-        #    _addr=_port
-        #    _port=client_port
+        self.change_sem.acquire(False)
         self.nhipmap[_name]={_hash: (_addr[0],_port)}
-        self.nhlist_cache="{}/{}\n{}".format(_name,_hash,self.nhlist_cache)
+        self.change_sem.release()
+        self.nhlist_cond.set()
         return "{}registered".format(success)
     
     def connect(self,_name,_hash,_addr):
         return "{}unimplemented".format(error)
+    
     def get(self,_name,_hash,_addr):
         if _name not in self.nhipmap:
             return "{}name".format(error)
         if _hash not in self.nhipmap[_name]:
             return "{}certhash".format(error)
-        return "{}{}/{}".format(success,*self.nhipmap[_name][_hash])
+        return "{}{}:{}".format(success,*self.nhipmap[_name][_hash])
+    
     def listnames(self,_addr):
         if len(self.nhlist_cache)==0:
             return "{}empty".format(success)
-        return success+self.nhlist_cache[:-1]
+        return "{}{}".format(success,self.nhlist_cache)
 
     
 class server_handler(BaseHTTPRequestHandler):
@@ -114,14 +144,6 @@ class http_server_server(HTTPServer):
         self.sslcont=default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv")
         self.socket=self.sslcont.wrap_socket(self.socket)
-
-    #def get_request(self):
-    #    tsocket,address=self.socket.accept()
-    #    if False and address=="127.0.0.1":
-    #        return (tsocket,address)
-    #    else:
-    #        return (self.sslcont.wrap_socket(tsocket),address)
-    
 
 
 class server_init(object):
