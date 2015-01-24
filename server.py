@@ -6,25 +6,31 @@ import time
 import logging
 import sys,signal,threading
 import socketserver #,socket
-
-
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont
-
+import traceback
+import os
 from os import path
+
+
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name
+
 
 class server(object):
     nhipmap=None
     nhlist_cache=""
     refreshthread=None
     isactive=True
+    #name=None
+    info=None
     
-    def __init__(self):
+    def __init__(self,_name,_message):
         self.nhipmap={}
         self.nhlist_cond=threading.Event()
         self.change_sem=threading.Semaphore(1)
         self.refreshthread=threading.Thread(target=self.refresh_nhlist)
         self.refreshthread.daemon=True
         self.refreshthread.start()
+        #self.name=_name
+        self.info="{}{}/{}".format(success,_name,_message)
 
     def __del__(self):
         self.isactive=False
@@ -49,6 +55,8 @@ class server(object):
   
 
     def register(self,_name,_hash,_port,_addr):
+        if check_name(_name)==False:
+            return "{}invalid name".format(error)
         self.change_sem.acquire(False)
         self.nhipmap[_name]={_hash: (_addr[0],_port)}
         self.change_sem.release()
@@ -69,12 +77,15 @@ class server(object):
         if len(self.nhlist_cache)==0:
             return "{}empty".format(success)
         return "{}{}".format(success,self.nhlist_cache)
-
+    
+    def info(self,_addr):
+        return self.info 
+    
     
 class server_handler(BaseHTTPRequestHandler):
     #linkback=None
-    validactions=["register","connect","get","listnames"]
-       
+    validactions=["register","connect","get","listnames","info"]
+    links=None
         
     def index(self):
         self.send_response(200)
@@ -96,14 +107,14 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(400,"invalid actions")
             return
         try:
-            func=type(self.server.server_server).__dict__[action]
-            response=func(self.server.server_server,*_path[1:])
+            func=type(self.links["server_server"]).__dict__[action]
+            response=func(self.links["server_server"],*_path[1:])
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
                 #helps against ssl failing about empty string (EOF)
-                l=str(e)
-                if len(l)>0:
-                    self.send_error(500,l)
+                st=str(e)+"\n\n"+str(traceback.format_tb(e))
+                if len(st)>0:
+                    self.send_error(500,st)
                 else:
                     self.send_error(500,"unknown")
             return
@@ -135,10 +146,7 @@ class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     #    self.crappyssl.close()
   
     def __init__(self, server_address,certfpath):
-        e=server_handler
-        self.server_server=server()
-        e.linkback=self.server_server
-        socketserver.TCPServer.__init__(self, server_address, e)
+        socketserver.TCPServer.__init__(self, server_address, server_handler)
         #self.crappyssl=workaround_ssl(certs[1])
 
         self.sslcont=default_sslcont()
@@ -148,36 +156,55 @@ class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
 
 class server_init(object):
     config_path=None
-    server=None
+    links=None
     
     def __init__(self,_configpath,_port=None):
         self.config_path=path.expanduser(_configpath)
-        init_config_folder(self.config_path)
-        if check_certs(self.config_path+"server_cert")==False:
+        if self.config_path[-1]==os.sep:
+            self.config_path=self.config_path[:-1]
+        init_config_folder(self.config_path,"server")
+
+        
+        self.links={}
+        _cpath="{}{}{}".format(self.config_path,os.sep,"server")
+        _message=None
+        _name=None
+        if check_certs(_cpath+"_cert")==False:
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(self.config_path+"server_cert")
             logging.debug("Certificate generation complete")
-        with open(self.config_path+"server", 'r') as readserver:
-            try:
-                _server=readserver.readline().split("/")
-            except Exception as e:
-                print("Configuration error in {}".format(self.config_path+"server"))
-                print("<name>/<port>")
-                raise(e)
-        if None in [_server]:
+        with open(_cpath+"_name", 'r') as readserver:
+            _name=readserver.readline()
+            
+        with open(_cpath+"_message", 'r') as readservmessage:
+            _message=readservmessage.read()
+            if _message[-1] in "\n":
+                _message=_message[:-1]
+        if None in [_name,_message]:
             raise(Exception("missing"))
+
         
+        _name=_name.split("/")
+        if len(_name)>2 or check_name(_name[0])==False:
+            print("Configuration error in {}".format(_cpath+"_name"))
+            print("should be: <name>/<port>")
+            print("Name has some restricted characters")
+            
 
         if _port is not None:
             _port=int(_port)
-        elif len(_server)>=2:
-            _port=int(_server[1])
+        elif len(_name)>=2:
+            _port=int(_name[1])
         else:
             _port=server_port
-        self.server=http_server_server(("0.0.0.0",_port),self.config_path+"server_cert")
+
+        self.links["server_server"]=server(_name[0],_message)
+        server_handler.links=self.links
+        
+        self.links["hserver"]=http_server_server(("0.0.0.0",_port),_cpath+"_cert")
 
     def serve_forever_block(self):
-        self.server.serve_forever()
+        self.links["hserver"].serve_forever()
     def serve_forever_nonblock(self):
         self.sthread = threading.Thread(target=self.serve_forever_block)
         self.sthread.daemon = True

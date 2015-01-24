@@ -60,21 +60,21 @@ def check_certs(_path):
             return True
     return False
 
-def init_config_folder(_dir):
+def init_config_folder(_dir, prefix):
     if os.path.exists(_dir)==False:
         os.makedirs(_dir,0o700)
     else:
         os.chmod(_dir,0o700)
-    if os.path.exists(_dir+os.sep+"client")==False:
-        e=open(_dir+os.sep+"client","w")
-        e.write("{}/{}".format(platform.uname()[1],0))
+    _path="{}{}{}".format(_dir,os.sep,prefix)
+    if os.path.exists(_path+"_name")==False:
+        e=open(_path+"_name","w")
+        if prefix=="client":
+            e.write("{}/{}".format(platform.uname()[1],0))
+        else:
+            e.write("{}/{}".format(platform.uname()[1],server_port))
         e.close()
-    if os.path.exists(_dir+os.sep+"server")==False:
-        e=open(_dir+os.sep+"server","w")
-        e.write("{}/{}".format(platform.uname()[1],server_port))
-        e.close()
-    if os.path.exists(_dir+os.sep+"/message")==False:
-        e=open(_dir+os.sep+"message","w")
+    if os.path.exists(_path+"_message")==False:
+        e=open(_path+"_message","w")
         e.write("<message>")
         e.close()
 
@@ -128,7 +128,8 @@ def check_hash(_hashstr):
   return False
 
 def check_name(_name):
-  if all(c not in " \n\\$\0'%\"\n\r\t\b\x1A\x7F" for c in _name):
+  if all(c not in " \n\\$\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
+     len(_name)<=64: #name shouldn't be too big
     return True
   return False
 
