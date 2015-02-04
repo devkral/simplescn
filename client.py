@@ -12,7 +12,7 @@ import traceback
 import os
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself,check_name
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself,check_name,dhash_salt,gen_passwd_hash
 
 
 
@@ -25,6 +25,7 @@ class client_client(object):
     sslconts=None
     sslcontc=None
     hashdb=None
+    #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
         self.name=_name
@@ -33,36 +34,42 @@ class client_client(object):
         self.sslcont=default_sslcont()
         self.links=_links
 
-    def do_request(self,con,requeststr,name=None):
+    def do_request(self,con,requeststr,dparam):
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         val=self.hashdb.certhash_as_name(dhash(pcert))
-        if name is not None and name!=val:
+        #print(dparam)
+        if dparam["certname"] is not None and dparam["certname"]!=val:
             raise(VALNameError)
         con.putrequest("GET", requeststr)
-        #con.putheader("test")
+        #if pwhash is not None:
+        
+        if dparam["spwhash"] is not None:
+            con.putheader("spwhash",dparam["spwhash"])
+        #elif self.host+"/"+self.port in self.pwcache:
+            
         con.endheaders()
         
         resp=parse_response(con.getresponse())
         con.close()
         return resp[0],resp[1],val
         
-    def register(self,server_addr,_certname=None):
+    def register(self,server_addr,dparam):
         server_addr=server_addr.split(":")
         if len(server_addr)==1:
             server_addr=(server_addr[0],server_port)
         con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
-        return self.do_request(con,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1],_certname))
+        return self.do_request(con,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dparam)
     
-    def get(self,server_addr,_name,_hash,_certname=None):
+    def get(self,server_addr,_name,_hash,dparam):
         server_addr=server_addr.split(":")
         if len(server_addr)==1:
             server_addr=(server_addr[0],server_port)
         con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
-        return self.do_request(con,"/get/{}/{}".format(_name,_hash),_certname)
+        return self.do_request(con,"/get/{}/{}".format(_name,_hash),dparam)
     
-    def connect(self,server_addr,_name,_hash,_certname=None):
-        temp=self.get(server_addr,_name,_hash,_certname)
+    def connect(self,server_addr,_name,_hash,dparam):
+        temp=self.get(server_addr,_name,_hash,dparam)
         return temp
 
     def show(self):
@@ -135,15 +142,15 @@ class client_client(object):
         else:
             return (True,temp,isself)
     
-    def unparsedlistnames(self,server_addr,_certname=None):
+    def unparsedlistnames(self,server_addr,dparam):
         server_addr=server_addr.split(":")
         if len(server_addr)==1:
             server_addr=(server_addr[0],server_port)
         con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
-        return self.do_request(con, "/listnames",_certname)
+        return self.do_request(con, "/listnames",dparam)
 
-    def listnames(self,server_addr,_certname=None):
-        temp=self.unparsedlistnames(server_addr,_certname)
+    def listnames(self,server_addr,dparam):
+        temp=self.unparsedlistnames(server_addr,dparam)
         if temp[0]==False:
             return temp
         temp2=[]
@@ -158,14 +165,14 @@ class client_client(object):
                 temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
         return (temp[0],temp2,temp[2])
 
-    def getservice(self,client_addr,_service,_certname=None):
+    def getservice(self,client_addr,_service,dparam):
         client_addr=client_addr.split(":")
         if len(client_addr)==1:
             return (False,"no port specified",isself)
         con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        return self.do_request(con, "/get/{}".format(_service),_certname)
+        return self.do_request(con, "/get/{}".format(_service),dparam)
 
-    def registerservice(self,client_addr,_service,_port,_certname=None):
+    def registerservice(self,client_addr,_service,_port,dparam):
         client_addr=client_addr.split(":")
         if len(client_addr)==1:
             return (False,"no port specified",isself)
@@ -173,19 +180,19 @@ class client_client(object):
         con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
         return self.do_request(con, "/register/{}/{}".format(_service,_port))
 
-    def listservices(self,client_addr,_certname=None):
+    def listservices(self,client_addr,dparam):
         client_addr=client_addr.split(":")
         if len(client_addr)==1:
             return (False,"no port specified",isself)
         con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        return self.do_request(con, "/listservices",_certname)
+        return self.do_request(con, "/listservices",dparam)
     
-    def info(self,client_addr,_certname=None):
+    def info(self,client_addr,dparam):
         client_addr=client_addr.split(":")
         if len(client_addr)==1:
             return (False,"no port specified",isself)
         con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        temp=self.do_request(con,  "/info",_certname)
+        temp=self.do_request(con,  "/info",dparam)
         if temp[0]==True:
             return temp[0],temp[1].split("/",2),temp[2]
         else:
@@ -206,7 +213,7 @@ class client_server(object):
         if len(_msg)==0:
             logging.debug("Message empty")
             _msg="<empty>"
-        self.info="{}{}/{}".format(success,_name,_msg)
+        self.info="{}{}&{}".format(success,_name,_msg)
     def info(self,_addr):
         #print(self,_addr)
         return self.info
@@ -233,21 +240,49 @@ class client_handler(BaseHTTPRequestHandler):
     clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listnamesl","unparsedlistnames","getservice","registerservice","listservices","info"]
     handle_localhost=False
     handle_remote=False
-    pwhash=None
+    cpwhash=None
+    spwhash=None
+    salt=None
+    icon=b""
     
     def index(self):
         self.send_response(200)
         self.send_header('Content-type',"text/html")
         self.end_headers()
-        self.wfile.write("TODO")
+        self.wfile.write(b"TODO")
 
-    def handle_client(self,_cmdlist):
+    def check_cpw(self,dparam):
+        if self.cpwhash is None:
+            return True
+        if "cpwhash" in self.headers:
+            if dhash_salt(self.headers["cpwhash"],self.salt)==self.cpwhash:
+                return True
+        elif "cpwhash" in dparam:
+            if dhash_salt(dparam["cpwhash"],self.salt)==self.cpwhash:
+                return True
+        return False
+
+    def check_spw(self):
+        if self.spwhash is None:
+            return True
+        if "spwhash" in self.headers:
+            if dhash_salt(self.headers["spwhash"],self.salt)==self.spwhash:
+                return True
+        
+        return False
+    
+    def handle_client(self,_cmdlist,dparam):
+        _cmdlist+=[dparam,]
         if self.handle_remote==False and not self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-            self.send_error(403,"insufficient permissions")
+            self.send_error(401,"insufficient permissions")
+            return
+        if self.check_cpw(dparam)==False:
+            self.send_error(401,"insufficient permissions")            
+            return
         
         try:
             func=type(self.links["client"]).__dict__[_cmdlist[0]]
-            response=func(self.links["client"],*_cmdlist[1:-1]) # remove address from _cmdlist
+            response=func(self.links["client"],*_cmdlist[1:])
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
                 #helps against ssl failing about empty string (EOF)
@@ -278,6 +313,12 @@ class client_handler(BaseHTTPRequestHandler):
                 self.wfile.write(bytes("success","utf8"))
 
     def handle_server(self,_cmdlist):
+         # add address to _cmdlist
+        _cmdlist+=[self.client_address,]
+        
+        if self.check_spw()==False:
+            self.send_error(401,"insufficient permissions")            
+            return
         try:
             func=type(self.links["client_server"]).__dict__[_cmdlist[0]]
             response=func(self.links["client_server"],*_cmdlist[1:])
@@ -306,7 +347,37 @@ class client_handler(BaseHTTPRequestHandler):
                 self.wfile.write(bytes("success","utf8"))
             
     def do_GET(self):
-        _cmdlist=self.path[1:].split("/")
+        if self.path=="/favicon.ico":
+            self.wfile.write(self.icon)
+            return
+        pos_param=self.path.find("?")
+        dparam={"certname":None,"cpwhash":None,"spwhash":None}
+        if pos_param!=-1:
+            _cmdlist=self.path[1:pos_param].split("/")
+            tparam=self.path[pos_param:].split("&")
+            for elem in tparam:
+                elem=elem.split("=")
+                if len(elem)!=2:
+                    self.send_error(400,"invalid key/value pair\n{}".format(elem))
+                    return
+                
+                
+        else:
+            _cmdlist=self.path[1:].split("/")
+        if _cmdlist[0]=="":
+            self.index()
+            return
+        if self.handle_localhost==True and _cmdlist[0]=="do" and _cmdlist[1] in self.clientactions:
+            self.handle_client(_cmdlist[1:],dparam) #remove do
+        elif _cmdlist[0]!="do" and _cmdlist[0] in self.validactions:
+            self.handle_server(_cmdlist) #,dparam)
+        else:
+            self.send_error(400,"invalid action")
+            return
+     
+
+    """def do_POST(self):
+        _cmdlist=???.split("&")
         if _cmdlist[0]=="":
             self.index()
             return
@@ -317,7 +388,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.handle_server(_cmdlist)
         else:
             self.send_error(400,"invalid action")
-            return
+            return"""
             
         
 class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
@@ -341,24 +412,34 @@ class client_init(object):
         if self.config_path[-1]==os.sep:
             self.config_path=self.config_path[:-1]
         _cpath="{}{}{}".format(self.config_path,os.sep,"client")
+        init_config_folder(self.config_path,"client")
+        
+        client_handler.salt=os.urandom(4)
         port=kwargs["port"]
-        if "local" in kwargs:
+        if kwargs["local"] is not None:
             client_handler.handle_localhost=True
-        elif "pwhash" in kwargs:
-            if "remote" in kwargs:
+        elif kwargs["cpwhash"] is not None:
+            if kwargs["remote"] is not None:
                 client_handler.handle_remote=True       
             client_handler.handle_localhost=True
-            client_handler.pwhash=None
-        elif "pwfile" in kwargs:
-            if "remote" in kwargs:
+            client_handler.cpwhash=dhash_salt(kwargs["cpwhash"],client_handler.salt)
+        elif kwargs["cpwfile"] is not None:
+            if kwargs["remote"] is not None:
                 client_handler.handle_remote=True
             client_handler.handle_localhost=True
             op=open("r")
-            client_handler.pwhash=dhash(op.read()[:-1])
+            client_handler.cpwhash=gen_passwd_hash(op.readline())
             op.close()
             
+        if kwargs["spwhash"] is not None:
+            client_handler.spwhash=dhash_salt(kwargs["spwhash"],client_handler.salt)
+        elif kwargs["spwfile"] is not None:
+            op=open("r")
+            client_handler.spwhash=gen_passwd_hash(op.readline())
+            op.close()
         
-        init_config_folder(self.config_path,"client")
+        with open("favicon.ico", 'rb') as faviconr:
+            client_handler.icon=faviconr.read()
         if check_certs(_cpath+"_cert")==False:
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
@@ -404,11 +485,28 @@ class client_init(object):
         
         print(*self.links["client"].show()[1],sep="/")
         while True:
-            inp=input("Enter command, seperate by \"/\":\n")
+            inp=input("Enter command, seperate by \"/\"\nEnter parameters by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n")
             if inp=="":
                 break
-            parsed=inp.strip(" ").rstrip(" ").split("/")
 
+            unparsed=inp.strip(" ").rstrip(" ")
+            if unparsed[:5]=="hash/":
+                print(dhash(unparsed[6:]))
+                continue
+            dparam={"certname":None,"cpwhash":None,"spwhash":None}
+            pos_param=unparsed.find("?")
+            if pos_param!=-1:
+                parsed=unparsed[:pos_param].split("/")
+                tparam=unparsed[pos_param+1:].split("&")
+                for elem in tparam:
+                    elem=elem.split("=")
+                    if len(elem)!=2:
+                        self.send_error(400,"invalid key/value pair\n{}".format(elem))
+                        return
+                    dparam[elem[0]]=elem[1]
+            else:
+                parsed=unparsed.split("/")
+            parsed+=[dparam,]
             try:
                 func=type(self.links["client"]).__dict__[str(parsed[0])]
                 resp=func(self.links["client"],*parsed[1:])
@@ -438,8 +536,10 @@ def paramhelp():
 possible parameters:
 port: port
 blank: can command server without pw (localhost only), higher preference than pwhash
-pwhash: sha256 hash of pw, higher preference than pwfile
-pwfile: file with password
+(s/c)pwhash: sha256 hash of pw, higher preference than pwfile
+(s/c)pwfile: file with password (cleartext)
+s: protect input
+c: protect client control
 remote: lift limit localhost
 
 """)
@@ -462,10 +562,13 @@ if __name__ ==  "__main__":
     d={}
     d.setdefault("config",default_configdir)
     d.setdefault("port",None)
-    d.setdefault("pwhash",None)
-    d.setdefault("pwfile",None)
+    d.setdefault("cpwhash",None)
+    d.setdefault("cpwfile",None)
+    d.setdefault("spwhash",None)
+    d.setdefault("spwfile",None)
     d.setdefault("local",None)
     d.setdefault("remote",None)
+    
     if len(sys.argv)>1:
         tparam=()
         for elem in sys.argv:

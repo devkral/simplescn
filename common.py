@@ -108,11 +108,6 @@ def parse_response(response):
     return (False,response.read().decode("utf8"))
 
 
-def dhash(ob):
-    if type(ob).__name__=="str":
-        return hashlib.sha256(bytes(ob,"utf8")).hexdigest()
-    else:
-        return hashlib.sha256(ob).hexdigest()
     
 class VALNameError(Exception):
     msg="Name doesn't match"
@@ -122,13 +117,38 @@ class isself(object):
         return "is calling object"
 
 
+
+
+def dhash(ob):
+    if type(ob).__name__=="str":
+        return hashlib.sha256(bytes(ob,"utf8")).hexdigest()
+    else:
+        return hashlib.sha256(ob).hexdigest()
+    
+#gen hash for server, gen hash for transmitting
+def dhash_salt(ob,salt):
+    if type(ob).__name__=="str":
+        ha=hashlib.sha256(bytes(ob,"utf8"))
+    else:
+        ha=hashlib.sha256(ob)
+    ha.update(salt)
+    return ha.hexdigest()
+
+
+#hash on server, uses already hashed password (e.g. in file)
+def gen_passwd_hash(passwd,salt):
+    #hash hexdigest of hash of passwd
+    ha=dhash(passwd)
+    return dhash_salt(ha,salt)
+
+
 def check_hash(_hashstr):
   if all(c in "0123456789abcdefABCDEF" for c in _hashstr):
     return True
   return False
 
 def check_name(_name):
-  if all(c not in " \n\\$\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
+  if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
      len(_name)<=64: #name shouldn't be too big
     return True
   return False
@@ -145,7 +165,7 @@ class certhash_db(object):
             logging.error(e)
             return
         try:
-            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
             con.commit()
         except Exception as e:
             con.rollback()
@@ -191,24 +211,45 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def addhash(self,dbcon,_name,_certhash):
+    def addhash(self,dbcon,_name,_certhash,_type=1):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
             logging.info("name doesn't exists")
             return False
+        
+        if check_hash(_certhash)==False:
+            logging.info("hash contains invalid characters")
+            return False
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
         if cur.fetchone() is not None:
             logging.info("hash already exists")
             return False
-        if check_hash(_certhash)==False:
-            logging.info("hash contains invalid characters")
-            return False
-        cur.execute('''INSERT INTO certs(name,certhash) values(?,?);''', (_name,_certhash))
+        
+        cur.execute('''INSERT INTO certs(name,certhash,type) values(?,?,?);''', (_name,_certhash,_type))
         
         dbcon.commit()
         return True
 
+    @connecttodb
+    def changetype(self,dbcon,_name,_certhash,_type):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
+        if cur.fetchone() is None:
+            logging.info("name doesn't exists")
+            return False
+        if check_hash(_certhash)==False:
+            logging.info("hash contains invalid characters")
+            return False
+        cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
+        if cur.fetchone() is None:
+            logging.info("hash does not exist")
+            return False
+        cur.execute('''UPDATE certs SET type=? WHERE name=? AND certhash=?) values(?,?,?);''', (_type,_name,_certhash))
+        
+        dbcon.commit()
+        return True
+    
     @connecttodb
     def delhash(self,dbcon,_certhash,_name=None):
         cur = dbcon.cursor()
@@ -231,7 +272,7 @@ class certhash_db(object):
     @connecttodb
     def listcerts(self,dbcon,_name):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certhash FROM certs WHERE name=?;''',(_name,))
+        cur.execute('''SELECT certhash,type FROM certs WHERE name=?;''',(_name,))
         temmp=cur.fetchall()
         if temmp is None:
             return None

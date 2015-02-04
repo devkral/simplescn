@@ -11,7 +11,7 @@ import os
 from os import path
 
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash
 
 
 class server(object):
@@ -86,14 +86,33 @@ class server_handler(BaseHTTPRequestHandler):
     #linkback=None
     validactions=["register","connect","get","listnames","info"]
     links=None
+    pwhash=None
+    salt=None
+    icon=b""
         
     def index(self):
         self.send_response(200)
         self.send_header('Content-type',"text/html")
         self.end_headers()
-        self.wfile.write("TODO")
-            
+        self.wfile.write(b"TODO")
+
+    def check_pw(self):
+        if self.pwhash is None:
+            return True
+        if "spwhash" in self.headers:
+            if dhash_salt(self.headers["spwhash"],self.salt)==self.pwhash:
+                return True
+        
+        return False
     def do_GET(self):
+        if self.path=="/favicon.ico":
+            self.wfile.write(self.icon)
+            return
+        
+        if self.check_pw()==False:
+            self.send_error(401,"insufficient permissions")            
+            return
+        
         _path=self.path[1:].split("/")
         if _path[0]=="":
             self.index()
@@ -158,12 +177,24 @@ class server_init(object):
     config_path=None
     links=None
     
-    def __init__(self,_configpath,_port=None):
-        self.config_path=path.expanduser(_configpath)
+    def __init__(self,**kwargs):
+        self.config_path=path.expanduser(kwargs["config"])
         if self.config_path[-1]==os.sep:
             self.config_path=self.config_path[:-1]
+        port=kwargs["port"]
         init_config_folder(self.config_path,"server")
-
+        
+        server_handler.salt=os.urandom(4)
+        if "pwhash" in kwargs:
+            server_handler.pwhash=dhash_salt(kwargs["pwhash"],server_handler.salt)
+        elif "pwfile" in kwargs:
+            op=open("r")
+            server_handler.pwhash=gen_passwd_hash(op.readline())
+            op.close()
+        
+        
+        with open("favicon.ico", 'rb') as faviconr:
+            server_handler.icon=faviconr.read()
         
         self.links={}
         _cpath="{}{}{}".format(self.config_path,os.sep,"server")
@@ -191,8 +222,10 @@ class server_init(object):
             print("Name has some restricted characters")
             
 
-        if _port is not None:
-            _port=int(_port)
+        
+        
+        if port is not None:
+            port=int(port)
         elif len(_name)>=2:
             _port=int(_name[1])
         else:
@@ -219,6 +252,23 @@ def signal_handler(_signal, frame):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    cm=server_init(default_configdir)
+    d={"config":default_configdir,"port":None,"pwhash":None,"pwfile":None}
+
+    if len(sys.argv)>1:
+        tparam=()
+        for elem in sys.argv:
+            elem=elem.strip("-")
+            if elem in ["help","h"]:
+                #paramhelp()
+                sys.exit(0)
+            else:
+                tparam=elem.split("=")
+                if len(tparam)==1:
+                    tparam=elem.split(":")
+                if  len(tparam)==1:
+                    continue
+                d[tparam[0]]=tparam[1]
+                
+    cm=server_init(**d)
     logging.debug("server started. Enter mainloop")
     cm.serve_forever_block()
