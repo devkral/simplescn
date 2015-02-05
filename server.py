@@ -185,9 +185,9 @@ class server_init(object):
         init_config_folder(self.config_path,"server")
         
         server_handler.salt=os.urandom(4)
-        if "pwhash" in kwargs:
+        if kwargs["pwhash"] is not None:
             server_handler.pwhash=dhash_salt(kwargs["pwhash"],server_handler.salt)
-        elif "pwfile" in kwargs:
+        elif kwargs["pwfile"] is not None:
             op=open("r")
             server_handler.pwhash=gen_passwd_hash(op.readline())
             op.close()
