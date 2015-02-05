@@ -165,7 +165,7 @@ class certhash_db(object):
             logging.error(e)
             return
         try:
-            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type INTEGER, priority INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
             con.commit()
         except Exception as e:
             con.rollback()
@@ -211,7 +211,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def addhash(self,dbcon,_name,_certhash,_type=1):
+    def addhash(self,dbcon,_name,_certhash,nodetype=1,priority=20):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
@@ -226,7 +226,7 @@ class certhash_db(object):
             logging.info("hash already exists")
             return False
         
-        cur.execute('''INSERT INTO certs(name,certhash,type) values(?,?,?);''', (_name,_certhash,_type))
+        cur.execute('''INSERT INTO certs(name,certhash,type,priority) values(?,?,?);''', (_name,_certhash,nodetype,priority))
         
         dbcon.commit()
         return True
@@ -246,6 +246,25 @@ class certhash_db(object):
             logging.info("hash does not exist")
             return False
         cur.execute('''UPDATE certs SET type=? WHERE name=? AND certhash=?) values(?,?,?);''', (_type,_name,_certhash))
+        
+        dbcon.commit()
+        return True
+
+    @connecttodb
+    def changepriority(self,dbcon,_name,_certhash,_priority):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
+        if cur.fetchone() is None:
+            logging.info("name doesn't exists")
+            return False
+        if check_hash(_certhash)==False:
+            logging.info("hash contains invalid characters")
+            return False
+        cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
+        if cur.fetchone() is None:
+            logging.info("hash does not exist")
+            return False
+        cur.execute('''UPDATE certs SET priority=? WHERE name=? AND certhash=?) values(?,?,?);''', (_priority,_name,_certhash))
         
         dbcon.commit()
         return True
