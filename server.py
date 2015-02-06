@@ -63,8 +63,6 @@ class server(object):
         self.nhlist_cond.set()
         return "{}registered".format(success)
     
-    def connect(self,_name,_hash,_addr):
-        return "{}unimplemented".format(error)
     
     def get(self,_name,_hash,_addr):
         if _name not in self.nhipmap:
@@ -86,7 +84,8 @@ class server_handler(BaseHTTPRequestHandler):
     #linkback=None
     validactions=["register","connect","get","listnames","info"]
     links=None
-    pwhash=None
+    spwhash=None
+    tpwhash=None
     salt=None
     icon=b""
         
@@ -96,20 +95,31 @@ class server_handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"TODO")
 
-    def check_pw(self):
-        if self.pwhash is None:
+    #check server password
+    def check_spw(self):
+        if self.spwhash is None:
             return True
         if "spwhash" in self.headers:
-            if dhash_salt(self.headers["spwhash"],self.salt)==self.pwhash:
+            if dhash_salt(self.headers["spwhash"],self.salt)==self.spwhash:
                 return True
-        
         return False
+
+    #check server password
+    def check_tpw(self):
+        if self.tpwhash is None:
+            return True
+        if "tpwhash" in self.headers:
+            if dhash_salt(self.headers["tpwhash"],self.salt)==self.tpwhash:
+                return True
+        return False
+
+    
     def do_GET(self):
         if self.path=="/favicon.ico":
             self.wfile.write(self.icon)
             return
         
-        if self.check_pw()==False:
+        if self.check_spw()==False:
             self.send_error(401,"insufficient permissions")            
             return
         
@@ -185,11 +195,18 @@ class server_init(object):
         init_config_folder(self.config_path,"server")
         
         server_handler.salt=os.urandom(4)
-        if kwargs["pwhash"] is not None:
-            server_handler.pwhash=dhash_salt(kwargs["pwhash"],server_handler.salt)
-        elif kwargs["pwfile"] is not None:
+        if kwargs["spwhash"] is not None:
+            server_handler.spwhash=dhash_salt(kwargs["spwhash"],server_handler.salt)
+        elif kwargs["spwfile"] is not None:
             op=open("r")
-            server_handler.pwhash=gen_passwd_hash(op.readline())
+            server_handler.spwhash=gen_passwd_hash(op.readline())
+            op.close()
+        
+        if kwargs["tpwhash"] is not None:
+            server_handler.tpwhash=dhash_salt(kwargs["tpwhash"],server_handler.salt)
+        elif kwargs["tpwfile"] is not None:
+            op=open("r")
+            server_handler.tpwhash=gen_passwd_hash(op.readline())
             op.close()
         
         
@@ -252,7 +269,7 @@ def signal_handler(_signal, frame):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    d={"config":default_configdir,"port":None,"pwhash":None,"pwfile":None}
+    d={"config":default_configdir,"port":None,"spwhash":None,"spwfile":None,"tpwhash":None,"tpwfile":None}
 
     if len(sys.argv)>1:
         tparam=()
