@@ -8,21 +8,24 @@ import sys,signal,threading
 import socketserver #,socket
 import traceback
 import os
+import socket
 from os import path
 
-
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket
 
 
 class server(object):
+    capabilities="basic"  #comma seperate
+    
     nhipmap=None
     nhlist_cache=""
     refreshthread=None
     isactive=True
-    #name=None
+    scntype="server"
     info=None
+    priority=None
     
-    def __init__(self,_name,_message):
+    def __init__(self,_name,_priority,_message):
         self.nhipmap={}
         self.nhlist_cond=threading.Event()
         self.change_sem=threading.Semaphore(1)
@@ -30,7 +33,9 @@ class server(object):
         self.refreshthread.daemon=True
         self.refreshthread.start()
         #self.name=_name
-        self.info="{}{}/{}".format(success,_name,_message)
+        self.info="{}{}/{}/{}".format(success,self.scntype,_name,_message)
+        self.capabilities="{}{}".format(success,self.capabilities)
+        self.priority="{}{}".format(success,_priority)
 
     def __del__(self):
         self.isactive=False
@@ -77,16 +82,31 @@ class server(object):
         return "{}{}".format(success,self.nhlist_cache)
     
     def info(self,_addr):
-        return self.info 
+        return self.info
+    
+    def cap(self,_addr):
+        return self.capabilities
+    
+    def prio(self,_addr):
+        return self.priority
     
     
 class server_handler(BaseHTTPRequestHandler):
-    #linkback=None
-    validactions=["register","connect","get","listnames","info"]
+
+    server_version = 'simple scn server 0.5'
+    
+    validactions=["register","get","listnames","info","cap","prio"]
     links=None
-    spwhash=None
-    tpwhash=None
     salt=None
+
+    #server use pw
+    spwhash=None
+        
+    #tunnel stuff
+    tpwhash=None
+    tbsize=1500
+    ttimeout=None
+    
     icon=b""
         
     def index(self):
@@ -120,7 +140,7 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         if self.check_spw()==False:
-            self.send_error(401,"insufficient permissions")            
+            self.send_error(401,"insufficient permissions – server")            
             return
         
         _path=self.path[1:].split("/")
@@ -163,6 +183,40 @@ class server_handler(BaseHTTPRequestHandler):
                 self.wfile.write(bytes(respparse[1],"utf8"))
             else:
                 self.wfile.write(bytes("success","utf8"))
+
+    def do_CONNECT(self):
+        if self.check_tpw()==False:
+            self.send_error(407,"insufficient permissions - tunnel")            
+            return
+        port_i=self.path.find(":")
+        if port_i>=0:
+            if self.path[port_i+1:].isdecimal()==True:
+                dest=(self.path[:port_i],int(self.path[port_i+1:]))
+            else:
+                self.send_error(400,"portnumber invalid")
+                return
+        
+        else:
+            dest=(self.path[:port_i],80)
+        try:
+            sockd=socket.create_connection(dest,self.ttimeout)
+                
+        except Exception:
+            self.send_error(400,"Connection failed")
+            return
+        
+        self.send_response(200)
+        self.send_header('Connection established')
+        #self.send_header(self.version_string())
+        self.end_headers()
+        redout=threading.Thread(target=rw_socket,args=(self.socket,sockd))
+        redout.daemon=True
+        redin=threading.Thread(target=rw_socket,args=(sockd,self.socket))
+        redin.daemon=True
+        redin.run()
+        redout.run()
+        redin.join()
+        
         
         
 def inputw():
@@ -208,7 +262,8 @@ class server_init(object):
             op=open("r")
             server_handler.tpwhash=gen_passwd_hash(op.readline())
             op.close()
-        
+        server_handler.ttimeout=int(kwargs["ttimeout"])
+        server_handler.stimeout=int(kwargs["stimeout"])
         
         with open("favicon.ico", 'rb') as faviconr:
             server_handler.icon=faviconr.read()
@@ -248,7 +303,7 @@ class server_init(object):
         else:
             _port=server_port
 
-        self.links["server_server"]=server(_name[0],_message)
+        self.links["server_server"]=server(_name[0],kwargs["priority"],_message)
         server_handler.links=self.links
         
         self.links["hserver"]=http_server_server(("0.0.0.0",_port),_cpath+"_cert")
@@ -269,7 +324,16 @@ def signal_handler(_signal, frame):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    d={"config":default_configdir,"port":None,"spwhash":None,"spwfile":None,"tpwhash":None,"tpwfile":None}
+    d={"config":default_configdir,
+       "port":None,
+       "spwhash":None,
+       "spwfile":None,
+       "tpwhash":None,
+       "tpwfile":None,
+       "priority":"20",
+       "ttimeout":"300",
+       "stimeout":"30"
+   }
 
     if len(sys.argv)>1:
         tparam=()

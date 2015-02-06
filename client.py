@@ -53,7 +53,11 @@ class client_client(object):
         resp=parse_response(con.getresponse())
         con.close()
         return resp[0],resp[1],val
-        
+
+    def show(self):
+        return (True,(self.name,self.cert_hash
+                ,str(self.links["server"].socket.getsockname()[1])),isself)
+    
     def register(self,server_addr,dparam):
         server_addr=server_addr.split(":")
         if len(server_addr)==1:
@@ -72,10 +76,6 @@ class client_client(object):
         temp=self.get(server_addr,_name,_hash,dparam)
         return temp
 
-    def show(self):
-        return (True,(self.name,self.cert_hash
-                ,str(self.links["server"].socket.getsockname()[1])),isself)
-
     def gethash(self,_addr):
         _addr=_addr.split(":")
         if len(_addr)==1:
@@ -86,62 +86,7 @@ class client_client(object):
         con.close()
         return (True,(dhash(pcert),pcert),None)
         
-    def addhash(self,_name,_certhash):
-        temp=self.hashdb.addhash(_name,_certhash)
-        if temp==True:
-            return (True,"success",isself)
-        else:
-            return (False,"error",isself)
-    
-    def deljusthash(self,_certhash):
-        temp=self.hashdb.delhash(_certhash)
-        if temp==True:
-            return (True,"success",isself)
-        else:
-            return (False,"error",isself)
-        
-    def delhash(self,_name,_certhash):
-        temp=self.hashdb.delhash(_certhash,_name)
-        if temp==True:
-            return (True,"success",isself)
-        else:
-            return (False,"error",isself)
-
-    def addname(self,_name):
-        temp=self.hashdb.addname(_name)
-        if temp==True:
-            return (True,"success",isself)
-        else:
-            return (False,"error",isself)
-
-    def delname(self,_name):
-        temp=self.hashdb.delname(_name)
-        if temp==True:
-            return (True,"success",isself)
-        else:
-            return (False,"error",isself)
-
-    def searchhash(self,_certhash):
-        temp=self.hashdb.certhash_as_name(_certhash)
-        if temp is None:
-            return(False, "error",isself)
-        else:
-            return (True,temp,isself)
-    
-    def listhashes(self,_name):
-        temp=self.hashdb.listcerts(_name)
-        if temp is None:
-            return(False, "error",isself)
-        else:
-            return (True,temp,isself)
-    
-    def listnamesl(self):
-        temp=self.hashdb.listnames()
-        if temp is None:
-            return(False, "error",isself)
-        else:
-            return (True,temp,isself)
-    
+  
     def unparsedlistnames(self,server_addr,dparam):
         server_addr=server_addr.split(":")
         if len(server_addr)==1:
@@ -149,6 +94,7 @@ class client_client(object):
         con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
         return self.do_request(con, "/listnames",dparam)
 
+    
     def listnames(self,server_addr,dparam):
         temp=self.unparsedlistnames(server_addr,dparam)
         if temp[0]==False:
@@ -164,7 +110,7 @@ class client_client(object):
             else:
                 temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
         return (temp[0],temp2,temp[2])
-
+    
     def getservice(self,client_addr,_service,dparam):
         client_addr=client_addr.split(":")
         if len(client_addr)==1:
@@ -194,16 +140,137 @@ class client_client(object):
         con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
         temp=self.do_request(con,  "/info",dparam)
         if temp[0]==True:
-            return temp[0],temp[1].split("/",2),temp[2]
+            return temp[0],temp[1].split("/",3),temp[2]
         else:
             return temp
+        
+    def priodirect(self,client_addr,dparam):
+        client_addr=client_addr.split(":")
+        if len(client_addr)==1:
+            return (False,"no port specified",isself)
+        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
+        temp=self.do_request(con,  "/prio",dparam)
+        return temp
+
+    def capabilities(self,client_addr,dparam):
+        client_addr=client_addr.split(":")
+        if len(client_addr)==1:
+            return (False,"no port specified",isself)
+        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
+        temp=self.do_request(con,  "/cap",dparam)
+        if temp[0]==True:
+            return temp[0],temp[1].split(",",3),temp[2]
+        else:
+            return temp
+        
+    #includes update priority
+    def check(self,server_addr,_name,_hash,dparam):
+        temp=self.get(server_addr,_name,_hash,dparam)
+        if temp[0]==False:
+            return temp
+        temp=self.priodirect(temp[1],dparam)
+        if temp[0]==False:
+            return temp
+        if self.hashdb.exist(_name,_hash)==True:
+            self.hashdb.changepriority(_name,_hash)
+        return temp
+    
+    #update db entry
+    def update(self,server_addr,_name,_hash,dparam):
+        temp=self.get(server_addr,_name,_hash,dparam)
+        if temp[0]==False or self.hashdb.exist(_name,_hash)==False:
+            return temp
+        temp=self.priodirect(temp[1],dparam)
+        if temp[0]==False or self.hashdb.changepriority(_name,_hash,temp[1])==False:
+            return temp
+        
+        temp=self.info(temp[1],dparam)
+        
+        if temp[0]==False:
+            return temp
+        _sp=temp[1].split(3)
+        if len(_sp)==3:
+            if self.hashdb.changetype(_name,_hash,_sp[0])==True:
+                return True,"update successful",None
+            else:
+                return False,temp[1],None
+        return False,temp[1],None
+                
+        
+    #local management
+    def addname(self,_name,dparam):
+        temp=self.hashdb.addname(_name)
+        if temp==True:
+            return (True,"success",isself)
+        else:
+            return (False,"error",isself)
+
+    def addhash(self,*args):
+        if len(args)==3:
+            _name,_certhash,dparam=args
+        else:
+            server_addr,_name,_certhash,dparam=args
+        
+        temp=self.hashdb.addhash(_name,_certhash)
+        if temp==True:
+            return (True,"success",isself)
+        else:
+            return (False,"error",isself)
+        
+    def deljusthash(self,_certhash,dparam):
+        temp=self.hashdb.delhash(_certhash)
+        if temp==True:
+            return (True,"success",isself)
+        else:
+            return (False,"error",isself)
+        
+    def delhash(self,_name,_certhash,dparam):
+        temp=self.hashdb.delhash(_certhash,_name)
+        if temp==True:
+            return (True,"success",isself)
+        else:
+            return (False,"error",isself)
+
+    def delname(self,_name,dparam):
+        temp=self.hashdb.delname(_name)
+        if temp==True:
+            return (True,"success",isself)
+        else:
+            return (False,"error",isself)
+
+    #search
+    def searchhash(self,_certhash,dparam):
+        temp=self.hashdb.certhash_as_name(_certhash)
+        if temp is None:
+            return(False, "error",isself)
+        else:
+            return (True,temp,isself)
+    
+    def listhashes(self,_name,dparam):
+        temp=self.hashdb.listcerts(_name)
+        if temp is None:
+            return(False, "error",isself)
+        else:
+            return (True,temp,isself)
+    
+    def listnamesl(self,dparam):
+        temp=self.hashdb.listnames()
+        if temp is None:
+            return(False, "error",isself)
+        else:
+            return (True,temp,isself)
+
+
+###server on client
     
 class client_server(object):
-    #name=""
-    #msg=""
-    info=""
+    capabilities="basic" #comma seperate
+    
+    info=None
+    scntype="client"
+    priority=None
     spmap={}
-    def __init__(self,_name,_msg):
+    def __init__(self,_name,_priority,_msg):
         #self.name=_name
         if len(_name)==0:
             logging.debug("Name empty")
@@ -213,10 +280,10 @@ class client_server(object):
         if len(_msg)==0:
             logging.debug("Message empty")
             _msg="<empty>"
-        self.info="{}{}&{}".format(success,_name,_msg)
-    def info(self,_addr):
-        #print(self,_addr)
-        return self.info
+        self.info="{}{}/{}&{}".format(success,self.scntype,_name,_msg)
+        self.capabilities="{}{}".format(success,self.capabilities)
+        self.priority="{}{}".format(success,_priority)
+    
     def get(self,_service,_addr):
         if _service not in self.spmap:
             return "{}service".format(error)
@@ -233,11 +300,20 @@ class client_server(object):
             self.spmap[_service]=_port
             return success
         return error
+
+    def info(self,_addr):
+        return self.info
+    
+    def cap(self,_addr):
+        return self.capabilities
+    
+    def prio(self,_addr):
+        return self.priority
     
 class client_handler(BaseHTTPRequestHandler):
     links=None
-    validactions=["info","get","register","listservices"]
-    clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listnamesl","unparsedlistnames","getservice","registerservice","listservices","info"]
+    validactions=["info","get","register","listservices","cap","prio"]
+    clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listnamesl","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect"]
     handle_localhost=False
     handle_remote=False
     cpwhash=None
@@ -462,6 +538,7 @@ class client_init(object):
             print("Name has some restricted characters")
             sys.exit(1)
         #if check_name
+
         
         if port is not None:
             port=int(port)
@@ -469,7 +546,8 @@ class client_init(object):
             port=int(_name[1])
         else:
             port=0
-        self.links["client_server"]=client_server(_name[0],_message)
+            
+        self.links["client_server"]=client_server(_name[0],kwargs["priority"],_message)
         client_handler.links=self.links
         self.links["server"]=http_client_server(("0.0.0.0",port),_cpath+"_cert")
         self.links["client"]=client_client(_name[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)
@@ -559,15 +637,15 @@ def signal_handler(_signal, frame):
 if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    d={}
-    d.setdefault("config",default_configdir)
-    d.setdefault("port",None)
-    d.setdefault("cpwhash",None)
-    d.setdefault("cpwfile",None)
-    d.setdefault("spwhash",None)
-    d.setdefault("spwfile",None)
-    d.setdefault("local",None)
-    d.setdefault("remote",None)
+    d={"config":default_configdir,
+       "port":None,
+       "cpwhash":None,
+       "cpwfile":None,
+       "spwhash":None,
+       "spwfile":None,
+       "priority":"20",
+       "local":None,
+       "remote":None}
     
     if len(sys.argv)>1:
         tparam=()

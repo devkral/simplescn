@@ -3,7 +3,7 @@
 import logging
 from OpenSSL import SSL,crypto
 import ssl
-#import socket
+import socket
 import os
 import platform
 import sqlite3
@@ -147,13 +147,33 @@ def check_hash(_hashstr):
     return True
   return False
 
-def check_name(_name):
+def check_name(_name, maxlength=64):
   if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
-     len(_name)<=64: #name shouldn't be too big
+     len(_name)<=maxlength: #name shouldn't be too big
     return True
   return False
 
-
+def rw_socket(sockr,sockw,buffersize):
+    while True:
+        if bool(sockr.getsockopt(socket.SO_TCP_CLOSE))==False and \
+           bool(sockr.getsockopt(socket.SO_TCP_CLOSING))==False:
+            sockw.close()
+            break
+        if bool(sockw.getsockopt(socket.SO_TCP_CLOSE))==False and \
+           bool(sockw.getsockopt(socket.SO_TCP_CLOSING))==False:
+            sockr.close()
+            break
+        
+        try:
+            sockw.sendall(sockr.read(buffersize))
+        except socket.timeout:
+            sockw.close()
+            break
+        except Exception as e:
+            logging.error(e)
+            break
+        
+        
 class certhash_db(object):
     db_path=None
     
@@ -165,7 +185,7 @@ class certhash_db(object):
             logging.error(e)
             return
         try:
-            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type INTEGER, priority INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
             con.commit()
         except Exception as e:
             con.rollback()
@@ -233,6 +253,9 @@ class certhash_db(object):
 
     @connecttodb
     def changetype(self,dbcon,_name,_certhash,_type):
+        if check_name(_type,10)==False:
+            logging.info("type contains invalid characters, or is too long")
+            return False
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
@@ -252,6 +275,17 @@ class certhash_db(object):
 
     @connecttodb
     def changepriority(self,dbcon,_name,_certhash,_priority):
+        
+        if type(_priority).__name__!="int" and _priority.isdecimal()==False:
+            logging.info("priority no integer")
+            return False
+        elif type(_priority).__name__!="int":
+            _priority=int(_priority)
+
+        if _priority<0 or _priority>100:
+            logging.info("priority too big (>100) or smaller 0")
+            return False
+        
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
@@ -260,10 +294,13 @@ class certhash_db(object):
         if check_hash(_certhash)==False:
             logging.info("hash contains invalid characters")
             return False
+        
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
         if cur.fetchone() is None:
             logging.info("hash does not exist")
             return False
+
+        
         cur.execute('''UPDATE certs SET priority=? WHERE name=? AND certhash=?) values(?,?,?);''', (_priority,_name,_certhash))
         
         dbcon.commit()
@@ -291,7 +328,7 @@ class certhash_db(object):
     @connecttodb
     def listcerts(self,dbcon,_name):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certhash,type FROM certs WHERE name=?;''',(_name,))
+        cur.execute('''SELECT certhash,type,priority FROM certs WHERE name=?;''',(_name,))
         temmp=cur.fetchall()
         if temmp is None:
             return None
@@ -304,7 +341,7 @@ class certhash_db(object):
     @connecttodb
     def listnames(self,dbcon):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash FROM certs;''')
+        cur.execute('''SELECT name,certhash,priority FROM certs;''')
         temmp=cur.fetchall()
         if temmp is None:
             return None
@@ -319,3 +356,15 @@ class certhash_db(object):
             return None
         else:
             return temp[0]
+    @connecttodb
+    def exist(self,dbcon,_name,_hash=None):
+        cur = dbcon.cursor()
+        if _hash is None:
+            cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name))
+        else:
+            cur.execute('''SELECT name FROM certs WHERE name=? AND certhash=?;''',(_name,_hash))
+        if cur.fetchone() is None:
+            return False
+        else:
+            return True
+        
