@@ -15,16 +15,18 @@ from os import path
 from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself,check_name,dhash_salt,gen_passwd_hash
 
 
-
-
+_cache_client="empty"
+with open("html/en/client.html","r") as r:
+    _cache_client=r.read()
 
 class client_client(object):
     name=None
     cert_hash=None
-    port=None
+    tunnels={}
     sslconts=None
     sslcontc=None
     hashdb=None
+    links=None
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -34,7 +36,7 @@ class client_client(object):
         self.sslcont=default_sslcont()
         self.links=_links
 
-    def do_request(self,con,requeststr,dparam):
+    def do_request(self,con,requeststr,dparam,usecache=False):
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         val=self.hashdb.certhash_as_name(dhash(pcert))
@@ -47,7 +49,9 @@ class client_client(object):
         if dparam["spwhash"] is not None:
             con.putheader("spwhash",dparam["spwhash"])
         #elif self.host+"/"+self.port in self.pwcache:
-            
+
+        if usecache==False:
+            con.putheader("Cache-Control", "no-cache")
         con.endheaders()
         
         resp=parse_response(con.getresponse())
@@ -72,9 +76,49 @@ class client_client(object):
         con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
         return self.do_request(con,"/get/{}/{}".format(_name,_hash),dparam)
     
-    def connect(self,server_addr,_name,_hash,dparam):
-        temp=self.get(server_addr,_name,_hash,dparam)
-        return temp
+    #create local service to connect
+    def connect(self,server_addr,_name,_hash,_servicename,dparam):
+        server_addr=server_addr.split(":")
+        if len(server_addr)==1:
+            server_addr=(server_addr[0],server_port)
+        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
+
+        con.connect()
+        pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+        val=self.hashdb.certhash_as_name(dhash(pcert))
+        #print(dparam)
+        if dparam["certname"] is not None and dparam["certname"]!=val:
+            raise(VALNameError)
+        con.putrequest("CONNECT", "/connect/{}/{}".fomat(_name,_hash))
+        #if pwhash is not None:
+        
+        if dparam["tpwhash"] is not None:
+            con.putheader("spwhash",dparam["tpwhash"])
+        #elif self.host+"/"+self.port in self.pwcache:
+
+        con.putheader("Cache-Control", "no-cache")
+        con.endheaders()
+        
+        resp=con.getresponse()
+        if resp.status!=client.OK:
+            con.close()
+            return False,str(resp.read(),"utf8"),val
+        sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock=self.links["hserver"].sslcont(sock)
+        sock.bind(("0.0.0.0",0))
+        self.links["server"].spmap[_servicename]=sock.getsockname()[1]
+        sock.listen(1)
+        del self.links["server"].spmap[_servicename]
+
+        redout=threading.Thread(target=rw_socket,args=(sockown,sockdest))
+        redout.daemon=True
+        redin=threading.Thread(target=rw_socket,args=(sockdest,sockown))
+        redin.daemon=True
+        redin.run()
+        redout.run()
+        
+        redin.join()
+        return True,"success",None
 
     def gethash(self,_addr):
         _addr=_addr.split(":")
@@ -92,7 +136,7 @@ class client_client(object):
         if len(server_addr)==1:
             server_addr=(server_addr[0],server_port)
         con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
-        return self.do_request(con, "/listnames",dparam)
+        return self.do_request(con, "/listnames",dparam,usecache=True)
 
     
     def listnames(self,server_addr,dparam):
@@ -204,18 +248,19 @@ class client_client(object):
             return (True,"success",isself)
         else:
             return (False,"error",isself)
-
+    
+    # connects to server and check 
     def addhash(self,*args):
         if len(args)==3:
             _name,_certhash,dparam=args
+            server_addr=None
         else:
             server_addr,_name,_certhash,dparam=args
+        temp=(self.hashdb.addhash(_name,_certhash),"addhash",isself)
         
-        temp=self.hashdb.addhash(_name,_certhash)
-        if temp==True:
-            return (True,"success",isself)
-        else:
-            return (False,"error",isself)
+        if temp[0]==True and server_addr is not None:
+            temp=self.update(server_addr,_name,_certhash)
+        return temp
         
     def deljusthash(self,_certhash,dparam):
         temp=self.hashdb.delhash(_certhash)
@@ -264,7 +309,8 @@ class client_client(object):
 ###server on client
     
 class client_server(object):
-    capabilities="basic" #comma seperate
+    capabilities=["basic",]
+    cap_cache=""
     
     info=None
     scntype="client"
@@ -281,7 +327,9 @@ class client_server(object):
             logging.debug("Message empty")
             _msg="<empty>"
         self.info="{}{}/{}&{}".format(success,self.scntype,_name,_msg)
-        self.capabilities="{}{}".format(success,self.capabilities)
+        self.cap_cache=success
+        for elem in self.capabilities:
+            self.cap_cache="{}{}".format(self.cap_cache,elem)
         self.priority="{}{}".format(success,_priority)
     
     def get(self,_service,_addr):
@@ -305,7 +353,7 @@ class client_server(object):
         return self.info
     
     def cap(self,_addr):
-        return self.capabilities
+        return self.cap_cache
     
     def prio(self,_addr):
         return self.priority

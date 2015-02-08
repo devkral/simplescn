@@ -14,8 +14,11 @@ from os import path
 from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket
 
 
+
+
 class server(object):
-    capabilities="basic"  #comma seperate
+    capabilities=["basic",]
+    cap_cache=""
     
     nhipmap=None
     nhlist_cache=""
@@ -34,8 +37,14 @@ class server(object):
         self.refreshthread.start()
         #self.name=_name
         self.info="{}{}/{}/{}".format(success,self.scntype,_name,_message)
-        self.capabilities="{}{}".format(success,self.capabilities)
+        self.cap_cache=success
+        for elem in self.capabilities:
+            self.cap_cache="{}{}".format(self.cap_cache,elem)
         self.priority="{}{}".format(success,_priority)
+
+        self._cache_server="empty"
+        with open("html/en/server.html","r") as r:
+            self._cache_server=r.read().format(name=_name,message=_message,num_nodes="{num_nodes}",serverhash="{serverhash}")
 
     def __del__(self):
         self.isactive=False
@@ -85,7 +94,7 @@ class server(object):
         return self.info
     
     def cap(self,_addr):
-        return self.capabilities
+        return self.cap_cache
     
     def prio(self,_addr):
         return self.priority
@@ -113,7 +122,7 @@ class server_handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type',"text/html")
         self.end_headers()
-        self.wfile.write(b"TODO")
+        self.wfile.write(bytes(self.links["server_server"]._cache_server.format(num_nodes=len(self.links["server_server"].nhipmap),serverhash="not implemented"),"utf8"))
 
     #check server password
     def check_spw(self):
@@ -151,6 +160,9 @@ class server_handler(BaseHTTPRequestHandler):
         if action=="index":
             self.index()
             return
+        
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
         _path=_path+[self.client_address,]
         if action not in self.validactions:
             self.send_error(400,"invalid actions")
@@ -206,7 +218,7 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         self.send_response(200)
-        self.send_header('Connection established')
+        #self.send_header('Connection established')
         #self.send_header(self.version_string())
         self.end_headers()
         redout=threading.Thread(target=rw_socket,args=(self.socket,sockd))
@@ -223,7 +235,6 @@ def inputw():
     input("Please enter passphrase:\n")
     
 class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
-    server_server=None
     sslcont=None
     #def __del__(self):
     #    self.crappyssl.close()

@@ -173,7 +173,20 @@ def rw_socket(sockr,sockw,buffersize):
             logging.error(e)
             break
         
-        
+#def con_socket(sockown,sockdest,buffersize,_servicename):
+#    redout=threading.Thread(target=rw_socket,args=(sockown,sockdest))
+#    redout.daemon=True
+#    redin=threading.Thread(target=rw_socket,args=(sockdest,sockown))
+#    redin.daemon=True
+#    redin.run()
+#    redout.run()
+#    redin.join()
+    
+                            
+
+                            
+
+
 class certhash_db(object):
     db_path=None
     
