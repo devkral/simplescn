@@ -112,6 +112,7 @@ class server_handler(BaseHTTPRequestHandler):
     spwhash=None
         
     #tunnel stuff
+    istunnel=False
     tpwhash=None
     tbsize=1500
     ttimeout=None
@@ -197,6 +198,9 @@ class server_handler(BaseHTTPRequestHandler):
                 self.wfile.write(bytes("success","utf8"))
 
     def do_CONNECT(self):
+        if self.istunnel==False:
+            self.send_error(400,"no tunnel/proxy")            
+            return
         if self.check_tpw()==False:
             self.send_error(407,"insufficient permissions - tunnel")            
             return
@@ -266,7 +270,8 @@ class server_init(object):
             op=open("r")
             server_handler.spwhash=gen_passwd_hash(op.readline())
             op.close()
-        
+        if kwargs["tunnel"] is not None:
+            server_handler.istunnel=True
         if kwargs["tpwhash"] is not None:
             server_handler.tpwhash=dhash_salt(kwargs["tpwhash"],server_handler.salt)
         elif kwargs["tpwfile"] is not None:
@@ -339,6 +344,7 @@ if __name__ == "__main__":
        "port":None,
        "spwhash":None,
        "spwfile":None,
+       "tunnel":None 
        "tpwhash":None,
        "tpwfile":None,
        "priority":"20",

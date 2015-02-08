@@ -22,7 +22,6 @@ with open("html/en/client.html","r") as r:
 class client_client(object):
     name=None
     cert_hash=None
-    tunnels={}
     sslconts=None
     sslcontc=None
     hashdb=None
@@ -36,22 +35,43 @@ class client_client(object):
         self.sslcont=default_sslcont()
         self.links=_links
 
-    def do_request(self,con,requeststr,dparam,usecache=False):
+    def do_request(self,_addr,requeststr,dparam,usecache=False):
+                
+        _addr=_addr.split(":")
+        if len(_addr)==1:
+            _addr=(_addr[0],server_port)
+
+        con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
+        
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         val=self.hashdb.certhash_as_name(dhash(pcert))
         #print(dparam)
         if dparam["certname"] is not None and dparam["certname"]!=val:
             raise(VALNameError)
-        con.putrequest("GET", requeststr)
-        #if pwhash is not None:
+
+
+        if dparam["tdestname"] is not None and dparam["tdesthash"] is not None:
+            
+            con.putrequest("CONNECT", "/{}/{}".format(dparam["tdestname"],dparam["tdesthash"]))
+            pheaders={}
+            if dparam["tpwhash"] is not None:
+                pheaders["tpwhash"]=dparam["tpwhash"]
+            #con.putheader("tdestname",dparam["tdestname"])
+            #con.putheader("tdesthash",dparam["tdesthash"])
+
+            if dparam["spwhash"] is not None:
+                pheaders["spwhash"]=dparam["spwhash"]
+            con.set_tunnel(requeststr,pheaders)
+        else:
+            con.putrequest("GET", requeststr)
         
-        if dparam["spwhash"] is not None:
-            con.putheader("spwhash",dparam["spwhash"])
-        #elif self.host+"/"+self.port in self.pwcache:
+            if dparam["spwhash"] is not None:
+                con.putheader("spwhash",dparam["spwhash"])
 
         if usecache==False:
             con.putheader("Cache-Control", "no-cache")
+        
         con.endheaders()
         
         resp=parse_response(con.getresponse())
@@ -76,50 +96,6 @@ class client_client(object):
         con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
         return self.do_request(con,"/get/{}/{}".format(_name,_hash),dparam)
     
-    #create local service to connect
-    def connect(self,server_addr,_name,_hash,_servicename,dparam):
-        server_addr=server_addr.split(":")
-        if len(server_addr)==1:
-            server_addr=(server_addr[0],server_port)
-        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
-
-        con.connect()
-        pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-        val=self.hashdb.certhash_as_name(dhash(pcert))
-        #print(dparam)
-        if dparam["certname"] is not None and dparam["certname"]!=val:
-            raise(VALNameError)
-        con.putrequest("CONNECT", "/connect/{}/{}".fomat(_name,_hash))
-        #if pwhash is not None:
-        
-        if dparam["tpwhash"] is not None:
-            con.putheader("spwhash",dparam["tpwhash"])
-        #elif self.host+"/"+self.port in self.pwcache:
-
-        con.putheader("Cache-Control", "no-cache")
-        con.endheaders()
-        
-        resp=con.getresponse()
-        if resp.status!=client.OK:
-            con.close()
-            return False,str(resp.read(),"utf8"),val
-        sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock=self.links["hserver"].sslcont(sock)
-        sock.bind(("0.0.0.0",0))
-        self.links["server"].spmap[_servicename]=sock.getsockname()[1]
-        sock.listen(1)
-        del self.links["server"].spmap[_servicename]
-
-        redout=threading.Thread(target=rw_socket,args=(sockown,sockdest))
-        redout.daemon=True
-        redin=threading.Thread(target=rw_socket,args=(sockdest,sockown))
-        redin.daemon=True
-        redin.run()
-        redout.run()
-        
-        redin.join()
-        return True,"success",None
-
     def gethash(self,_addr):
         _addr=_addr.split(":")
         if len(_addr)==1:
@@ -475,7 +451,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.wfile.write(self.icon)
             return
         pos_param=self.path.find("?")
-        dparam={"certname":None,"cpwhash":None,"spwhash":None}
+        dparam={"certname":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
         if pos_param!=-1:
             _cmdlist=self.path[1:pos_param].split("/")
             tparam=self.path[pos_param:].split("&")
@@ -619,7 +595,7 @@ class client_init(object):
             if unparsed[:5]=="hash/":
                 print(dhash(unparsed[6:]))
                 continue
-            dparam={"certname":None,"cpwhash":None,"spwhash":None}
+            dparam={"certname":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
             pos_param=unparsed.find("?")
             if pos_param!=-1:
                 parsed=unparsed[:pos_param].split("/")
