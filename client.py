@@ -356,12 +356,11 @@ class client_handler(BaseHTTPRequestHandler):
         
     def html(self,page,lang="en"):
         if self.webgui==False:
-            self.send_response(404,"no webgui")
+            self.send_error(404,"no webgui")
             return
         _ppath="html{}{}{}{}".format(os.sep,lang,os.sep,page)
         if os.path.exists(_ppath)==False:
-            self.send_response(404)
-            
+            self.send_error(404,"file not exist")
             return
         self.send_response(200)
         self.send_header('Content-type',"text/html")
@@ -472,7 +471,7 @@ class client_handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(self.statics["favicon.ico"])
             else:
-                self.send_response(404)
+                self.send_error(404)
             return
         
         pos_param=self.path.find("?")
@@ -500,9 +499,6 @@ class client_handler(BaseHTTPRequestHandler):
         if action!="do" and action in self.validactions:
             self.handle_server(_cmdlist) #,dparam)
             return
-        if self.webgui==False:
-            self.send_response(404,"no webgui")
-            return
 
 
         #client 
@@ -510,7 +506,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.html("client.html")
             return
         
-        elif action=="static" and len(_cmdlist)>=2:
+        elif self.webgui==True and action=="static" and len(_cmdlist)>=2:
             if _cmdlist[1] in self.statics:
                 self.send_response(200)
                 self.end_headers()

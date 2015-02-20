@@ -124,13 +124,12 @@ class server_handler(BaseHTTPRequestHandler):
         
     def html(self,page,lang="en"):
         if self.webgui==False:
-            self.send_response(404,"no webgui")
+            self.send_error(404,"no webgui")
             return
             
         _ppath="html{}{}{}{}".format(os.sep,lang,os.sep,page)
         if os.path.exists(_ppath)==False:
-            self.send_response(404)
-            
+            self.send_error(404,"file not exist")          
             return
         self.send_response(200)
         self.send_header('Content-type',"text/html")
@@ -163,11 +162,10 @@ class server_handler(BaseHTTPRequestHandler):
             #print(server_handler.statics)
             if "favicon.ico" in self.statics:
                 self.send_response(200)
-                #self.send_header('Content-type',"image/vnd.microsoft.icon")
                 self.end_headers()
                 self.wfile.write(self.statics["favicon.ico"])
             else:
-                self.send_response(404)
+                self.send_error(404)
             return
         
         if self.check_spw()==False:
@@ -185,7 +183,7 @@ class server_handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(self.statics[_path[1]])
             else:
-                self.send_response(404)
+                self.send_error(404)
             return
         
         self.send_header("Cache-Control", "no-cache")
