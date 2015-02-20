@@ -352,8 +352,12 @@ class client_handler(BaseHTTPRequestHandler):
     spwhash=None
     salt=None
     statics={}
+    webgui=False
         
     def html(self,page,lang="en"):
+        if self.webgui==False:
+            self.send_response(404,"no webgui")
+            return
         _ppath="html{}{}{}{}".format(os.sep,lang,os.sep,page)
         if os.path.exists(_ppath)==False:
             self.send_response(404)
@@ -496,9 +500,8 @@ class client_handler(BaseHTTPRequestHandler):
         if action!="do" and action in self.validactions:
             self.handle_server(_cmdlist) #,dparam)
             return
-        if self.handle_localhost==False and self.handle_remote==False:
-            self.send_error(404,"no interface")
-            #self.send_error(401,"no permission - client")
+        if self.webgui==False:
+            self.send_response(404,"no webgui")
             return
 
 
@@ -609,10 +612,15 @@ class client_init(object):
             print("Name has some restricted characters")
             sys.exit(1)
 
-        #load remaining static files
-        for elem in os.listdir("static"):
-            with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
-                client_handler.statics[elem]=_staticr.read()
+        
+        if kwargs["webgui"] is not None:
+            client_handler.webgui=True
+            #load static files
+            for elem in os.listdir("static"):
+                with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
+                    client_handler.statics[elem]=_staticr.read()
+        else:
+            client_handler.webgui=False
 
                 
         if port is not None:
@@ -723,6 +731,7 @@ if __name__ ==  "__main__":
        "spwhash":None,
        "spwfile":None,
        "priority":"20",
+       "webgui":None,
        "local":None,
        "remote":None}
     

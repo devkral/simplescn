@@ -118,10 +118,15 @@ class server_handler(BaseHTTPRequestHandler):
     tpwhash=None
     tbsize=1500
     ttimeout=None
+    webgui=True
     
     statics={}
         
     def html(self,page,lang="en"):
+        if self.webgui==False:
+            self.send_response(404,"no webgui")
+            return
+            
         _ppath="html{}{}{}{}".format(os.sep,lang,os.sep,page)
         if os.path.exists(_ppath)==False:
             self.send_response(404)
@@ -174,7 +179,7 @@ class server_handler(BaseHTTPRequestHandler):
         if action in ("","server","html","index"):
             self.html("server.html")
             return
-        elif action=="static" and len(_path)>=2:
+        elif self.webgui==True and action=="static" and len(_path)>=2:
             if _path[1] in self.statics:
                 self.send_response(200)
                 self.end_headers()
@@ -331,11 +336,14 @@ class server_init(object):
             print("Name has some restricted characters")
             
 
-        #load static files            
-        for elem in os.listdir("static"):
-            with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
-                server_handler.statics[elem]=_staticr.read()
-
+        if kwargs["webgui"] is not None:
+            server_handler.webgui=True
+            #load static files  
+            for elem in os.listdir("static"):
+                with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
+                    server_handler.statics[elem]=_staticr.read()
+        else:
+            server_handler.webgui=False
         
         if port is not None:
             port=int(port)
@@ -372,6 +380,7 @@ if __name__ == "__main__":
        "tunnel":None, 
        "tpwhash":None,
        "tpwfile":None,
+       "webgui":None,
        "priority":"20",
        "ttimeout":"300",
        "stimeout":"30"
