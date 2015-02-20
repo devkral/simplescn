@@ -287,6 +287,10 @@ class client_client(object):
 class client_server(object):
     capabilities=["basic",]
     cap_cache=""
+
+    
+    name=None
+    message=None
     
     info=None
     scntype="client"
@@ -302,6 +306,10 @@ class client_server(object):
         if len(_msg)==0:
             logging.debug("Message empty")
             _msg="<empty>"
+            
+        self.name=_name
+        self.message=_msg
+        #dynamic cache
         self.info="{}{}/{}&{}".format(success,self.scntype,_name,_msg)
         self.cap_cache=success
         for elem in self.capabilities:
@@ -343,14 +351,21 @@ class client_handler(BaseHTTPRequestHandler):
     cpwhash=None
     spwhash=None
     salt=None
-    icon=b""
-    
-    def index(self):
+    statics={}
+        
+    def html(self,page,lang="en"):
+        _ppath="html{}{}{}{}".format(os.sep,lang,os.sep,page)
+        if os.path.exists(_ppath)==False:
+            self.send_response(404)
+            
+            return
         self.send_response(200)
         self.send_header('Content-type',"text/html")
         self.end_headers()
-        self.wfile.write(b"TODO")
-
+        # every html file must contain {name},{message}
+        with open(_ppath,"r") as rob:
+            self.wfile.write(bytes(rob.read().format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
+        
     def check_cpw(self,dparam):
         if self.cpwhash is None:
             return True
@@ -374,10 +389,10 @@ class client_handler(BaseHTTPRequestHandler):
     def handle_client(self,_cmdlist,dparam):
         _cmdlist+=[dparam,]
         if self.handle_remote==False and not self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-            self.send_error(401,"insufficient permissions")
+            self.send_error(401,"no permission - client")
             return
         if self.check_cpw(dparam)==False:
-            self.send_error(401,"insufficient permissions")            
+            self.send_error(401,"no permission - client")
             return
         
         try:
@@ -417,7 +432,7 @@ class client_handler(BaseHTTPRequestHandler):
         _cmdlist+=[self.client_address,]
         
         if self.check_spw()==False:
-            self.send_error(401,"insufficient permissions")            
+            self.send_error(401,"no permission - server")            
             return
         try:
             func=type(self.links["client_server"]).__dict__[_cmdlist[0]]
@@ -448,29 +463,61 @@ class client_handler(BaseHTTPRequestHandler):
             
     def do_GET(self):
         if self.path=="/favicon.ico":
-            self.wfile.write(self.icon)
+            if "favicon.ico" in self.statics:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(self.statics["favicon.ico"])
+            else:
+                self.send_response(404)
             return
+        
         pos_param=self.path.find("?")
         dparam={"certname":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
         if pos_param!=-1:
             _cmdlist=self.path[1:pos_param].split("/")
-            tparam=self.path[pos_param:].split("&")
+            tparam=self.path[pos_param+1:].split("&")
             for elem in tparam:
                 elem=elem.split("=")
-                if len(elem)!=2:
+
+                if len(elem)==1 and elem[0]!="":
+                    dparam[elem[0]]=""
+                elif len(elem)==2:
+                    dparam[elem[0]]=elem[1]
+                else:
                     self.send_error(400,"invalid key/value pair\n{}".format(elem))
                     return
-                
-                
+                                
         else:
             _cmdlist=self.path[1:].split("/")
-        if _cmdlist[0]=="":
-            self.index()
-            return
-        if self.handle_localhost==True and _cmdlist[0]=="do" and _cmdlist[1] in self.clientactions:
-            self.handle_client(_cmdlist[1:],dparam) #remove do
-        elif _cmdlist[0]!="do" and _cmdlist[0] in self.validactions:
+
+
+        action=_cmdlist[0]
+
+        if action!="do" and action in self.validactions:
             self.handle_server(_cmdlist) #,dparam)
+            return
+        if self.handle_localhost==False and self.handle_remote==False:
+            self.send_error(404,"no interface")
+            #self.send_error(401,"no permission - client")
+            return
+
+
+        #client 
+        if action in ("","client","html","index"):
+            self.html("client.html")
+            return
+        
+        elif action=="static" and len(_cmdlist)>=2:
+            if _cmdlist[1] in self.statics:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(self.statics[_cmdlist[1]])
+            else:
+                self.send_response(404)
+            return
+        elif action=="do" and _cmdlist[1] in self.clientactions:
+            self.handle_client(_cmdlist[1:],dparam) #remove do
+        
         else:
             self.send_error(400,"invalid action")
             return
@@ -538,8 +585,6 @@ class client_init(object):
             client_handler.spwhash=gen_passwd_hash(op.readline())
             op.close()
         
-        with open("favicon.ico", 'rb') as faviconr:
-            client_handler.icon=faviconr.read()
         if check_certs(_cpath+"_cert")==False:
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
@@ -553,17 +598,23 @@ class client_init(object):
             _message=readinmes.read()
             if _message[-1] in "\n":
                 _message=_message[:-1]
+        #report missing file
         if None in [pub_cert,_name,_message]:
             raise(Exception("missing"))
+        
         _name=_name.split("/")
         if len(_name)>2 or check_name(_name[0])==False:
             print("Configuration error in {}".format(_cpath+"_name"))
             print("should be: <name>/<port>")
             print("Name has some restricted characters")
             sys.exit(1)
-        #if check_name
 
-        
+        #load remaining static files
+        for elem in os.listdir("static"):
+            with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
+                client_handler.statics[elem]=_staticr.read()
+
+                
         if port is not None:
             port=int(port)
         elif len(_name)>=2:
@@ -602,10 +653,14 @@ class client_init(object):
                 tparam=unparsed[pos_param+1:].split("&")
                 for elem in tparam:
                     elem=elem.split("=")
-                    if len(elem)!=2:
+                    if len(elem)==1 and elem[0]!="":
+                        dparam[elem[0]]=""
+                    elif len(elem)==2:
+                        dparam[elem[0]]=elem[1]
+                    else:
                         self.send_error(400,"invalid key/value pair\n{}".format(elem))
                         return
-                    dparam[elem[0]]=elem[1]
+                        
             else:
                 parsed=unparsed.split("/")
             parsed+=[dparam,]
@@ -673,7 +728,7 @@ if __name__ ==  "__main__":
     
     if len(sys.argv)>1:
         tparam=()
-        for elem in sys.argv:
+        for elem in sys.argv[1:]: #strip filename from arg list
             elem=elem.strip("-")
             if elem in ["help","h"]:
                 paramhelp()
@@ -682,10 +737,11 @@ if __name__ ==  "__main__":
                 tparam=elem.split("=")
                 if len(tparam)==1:
                     tparam=elem.split(":")
-                if  len(tparam)==1:
+                if len(tparam)==1:
+                    d[tparam[0]]=""
                     continue
                 d[tparam[0]]=tparam[1]
-            
+
     cm=client_init(**d)
         
     #client_handler.handle_localhost=True

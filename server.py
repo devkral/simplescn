@@ -11,7 +11,7 @@ import os
 import socket
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash
 
 
 
@@ -27,24 +27,26 @@ class server(object):
     scntype="server"
     info=None
     priority=None
+    name=None
+    serverhash=None
     
-    def __init__(self,_name,_priority,_message):
+    def __init__(self,_name,_serverhash,_priority,_message):
         self.nhipmap={}
         self.nhlist_cond=threading.Event()
         self.change_sem=threading.Semaphore(1)
         self.refreshthread=threading.Thread(target=self.refresh_nhlist)
         self.refreshthread.daemon=True
         self.refreshthread.start()
-        #self.name=_name
-        self.info="{}{}/{}/{}".format(success,self.scntype,_name,_message)
         self.cap_cache=success
+        #maybe change to dynamic cache
         for elem in self.capabilities:
             self.cap_cache="{}{}".format(self.cap_cache,elem)
         self.priority="{}{}".format(success,_priority)
-
-        self._cache_server="empty"
-        with open("html/en/server.html","r") as r:
-            self._cache_server=r.read().format(name=_name,message=_message,num_nodes="{num_nodes}",serverhash="{serverhash}")
+        self.serverhash=_serverhash
+        self.name=_name
+        self.message=_message
+        #maybe change to dynamic cache
+        self.info="{}{}/{}/{}".format(success,self.scntype,_name,_message)
 
     def __del__(self):
         self.isactive=False
@@ -117,13 +119,20 @@ class server_handler(BaseHTTPRequestHandler):
     tbsize=1500
     ttimeout=None
     
-    icon=b""
+    statics={}
         
-    def index(self):
+    def html(self,page,lang="en"):
+        _ppath="html{}{}{}{}".format(os.sep,lang,os.sep,page)
+        if os.path.exists(_ppath)==False:
+            self.send_response(404)
+            
+            return
         self.send_response(200)
         self.send_header('Content-type',"text/html")
         self.end_headers()
-        self.wfile.write(bytes(self.links["server_server"]._cache_server.format(num_nodes=len(self.links["server_server"].nhipmap),serverhash="not implemented"),"utf8"))
+        # every html file must contain {name}{num_nodes},{serverhash},{}
+        with open(_ppath,"r") as rob:
+            self.wfile.write(bytes(rob.read().format(name=self.links["server_server"].name,message=self.links["server_server"].message,num_nodes=len(self.links["server_server"].nhipmap),serverhash=self.links["server_server"].serverhash),"utf8"))
 
     #check server password
     def check_spw(self):
@@ -146,7 +155,14 @@ class server_handler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         if self.path=="/favicon.ico":
-            self.wfile.write(self.icon)
+            #print(server_handler.statics)
+            if "favicon.ico" in self.statics:
+                self.send_response(200)
+                #self.send_header('Content-type',"image/vnd.microsoft.icon")
+                self.end_headers()
+                self.wfile.write(self.statics["favicon.ico"])
+            else:
+                self.send_response(404)
             return
         
         if self.check_spw()==False:
@@ -154,12 +170,17 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         _path=self.path[1:].split("/")
-        if _path[0]=="":
-            self.index()
-            return
         action=_path[0]
-        if action=="index":
-            self.index()
+        if action in ("","server","html","index"):
+            self.html("server.html")
+            return
+        elif action=="static" and len(_path)>=2:
+            if _path[1] in self.statics:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(self.statics[_path[1]])
+            else:
+                self.send_response(404)
             return
         
         self.send_header("Cache-Control", "no-cache")
@@ -280,9 +301,8 @@ class server_init(object):
             op.close()
         server_handler.ttimeout=int(kwargs["ttimeout"])
         server_handler.stimeout=int(kwargs["stimeout"])
-        
-        with open("favicon.ico", 'rb') as faviconr:
-            server_handler.icon=faviconr.read()
+
+
         
         self.links={}
         _cpath="{}{}{}".format(self.config_path,os.sep,"server")
@@ -294,12 +314,13 @@ class server_init(object):
             logging.debug("Certificate generation complete")
         with open(_cpath+"_name", 'r') as readserver:
             _name=readserver.readline()
-            
+        with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
+            pub_cert=readinpubkey.read()
         with open(_cpath+"_message", 'r') as readservmessage:
             _message=readservmessage.read()
             if _message[-1] in "\n":
                 _message=_message[:-1]
-        if None in [_name,_message]:
+        if None in [pub_cert,_name,_message]:
             raise(Exception("missing"))
 
         
@@ -310,7 +331,11 @@ class server_init(object):
             print("Name has some restricted characters")
             
 
-        
+        #load static files            
+        for elem in os.listdir("static"):
+            with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
+                server_handler.statics[elem]=_staticr.read()
+
         
         if port is not None:
             port=int(port)
@@ -319,7 +344,7 @@ class server_init(object):
         else:
             _port=server_port
 
-        self.links["server_server"]=server(_name[0],kwargs["priority"],_message)
+        self.links["server_server"]=server(_name[0],dhash(pub_cert),kwargs["priority"],_message)
         server_handler.links=self.links
         
         self.links["hserver"]=http_server_server(("0.0.0.0",_port),_cpath+"_cert")
@@ -344,7 +369,7 @@ if __name__ == "__main__":
        "port":None,
        "spwhash":None,
        "spwfile":None,
-       "tunnel":None 
+       "tunnel":None, 
        "tpwhash":None,
        "tpwfile":None,
        "priority":"20",
@@ -354,7 +379,7 @@ if __name__ == "__main__":
 
     if len(sys.argv)>1:
         tparam=()
-        for elem in sys.argv:
+        for elem in sys.argv[1:]: #strip filename from arg list
             elem=elem.strip("-")
             if elem in ["help","h"]:
                 #paramhelp()
@@ -363,7 +388,8 @@ if __name__ == "__main__":
                 tparam=elem.split("=")
                 if len(tparam)==1:
                     tparam=elem.split(":")
-                if  len(tparam)==1:
+                if len(tparam)==1:
+                    d[tparam[0]]=""
                     continue
                 d[tparam[0]]=tparam[1]
                 
