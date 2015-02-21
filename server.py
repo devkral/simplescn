@@ -11,102 +11,106 @@ import os
 import socket
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash,commonscn
 
 
 
 
-class server(object):
+class server(commonscn):
     capabilities=["basic",]
-    cap_cache=""
-    
     nhipmap=None
-    nhlist_cache=""
+    nhipmap_cache=""
     refreshthread=None
     isactive=True
-    scntype="server"
-    info=None
-    priority=None
-    name=None
-    serverhash=None
+    scn_type="server"
     
-    def __init__(self,_name,_serverhash,_priority,_message):
+    def __init__(self,_name,_certhash,_priority,_message):
         self.nhipmap={}
-        self.nhlist_cond=threading.Event()
+        self.nhipmap_cond=threading.Event()
         self.change_sem=threading.Semaphore(1)
-        self.refreshthread=threading.Thread(target=self.refresh_nhlist)
+        self.refreshthread=threading.Thread(target=self.refresh_nhipmap)
         self.refreshthread.daemon=True
         self.refreshthread.start()
-        self.cap_cache=success
-        #maybe change to dynamic cache
-        for elem in self.capabilities:
-            self.cap_cache="{}{}".format(self.cap_cache,elem)
-        self.priority="{}{}".format(success,_priority)
-        self.serverhash=_serverhash
+
+        
+        if len(_name)==0:
+            logging.debug("Name empty")
+            _name="<noname>"
+        
+        #self.msg=_msg
+        if len(_message)==0:
+            logging.debug("Message empty")
+            _message="<empty>"
+        
+        self.priority=int(_priority)
+        self.cert_hash=_certhash
         self.name=_name
         self.message=_message
-        #maybe change to dynamic cache
-        self.info="{}{}/{}/{}".format(success,self.scntype,_name,_message)
+        self.update_cache()
 
     def __del__(self):
         self.isactive=False
-        self.nhlist_cond.set()
+        self.nhipmap_cond.set()
         try:
             self.refreshthread.join(4)
         except Exception as e:
             logging.error(e)
-
-    def refresh_nhlist(self):
+            
+            
+    def refresh_nhipmap(self):
         while self.isactive:
             self.change_sem.acquire()
             tnhlist=""
             for _name in self.nhipmap:
                 for _hash in self.nhipmap[_name]:
                     tnhlist="{}\n{}/{}".format(tnhlist,_name,_hash)
-            self.nhlist_cache=tnhlist[1:]
+            self.nhipmap_cache=tnhlist[1:]
             self.change_sem.release()
-            self.nhlist_cond.clear()
+            self.nhipmap_cond.clear()
             time.sleep(1)
-            self.nhlist_cond.wait()
+            self.nhipmap_cond.wait()
   
 
     def register(self,_name,_hash,_port,_addr):
         if check_name(_name)==False:
-            return "{}invalid name".format(error)
+            return "{}/invalid name".format(error)
         self.change_sem.acquire(False)
         self.nhipmap[_name]={_hash: (_addr[0],_port)}
         self.change_sem.release()
-        self.nhlist_cond.set()
-        return "{}registered".format(success)
+        self.nhipmap_cond.set()
+        return "{}/registered".format(success)
     
     
     def get(self,_name,_hash,_addr):
         if _name not in self.nhipmap:
-            return "{}name".format(error)
+            return "{}/name".format(error)
         if _hash not in self.nhipmap[_name]:
-            return "{}certhash".format(error)
-        return "{}{}:{}".format(success,*self.nhipmap[_name][_hash])
+            return "{}/certhash".format(error)
+        return "{}/{}:{}".format(success,*self.nhipmap[_name][_hash])
     
     def listnames(self,_addr):
         if len(self.nhlist_cache)==0:
-            return "{}empty".format(success)
-        return "{}{}".format(success,self.nhlist_cache)
+            return "{}/empty".format(success)
+        return "{}/{}".format(success,self.nhipmap_cache)
     
     def info(self,_addr):
-        return self.info
+        return self.cache["info"]
     
     def cap(self,_addr):
-        return self.cap_cache
+        return self.cache["cap"]
     
     def prio(self,_addr):
-        return self.priority
+        return self.cache["priority"]
+
+    def num_nodes(self,_addr):
+        return "{}/{}".format(success,len(self.nhipmap))
     
     
 class server_handler(BaseHTTPRequestHandler):
 
-    server_version = 'simple scn server 0.5'
+    #server_version = 'simple scn server 0.5'
     
-    validactions=["register","get","listnames","info","cap","prio"]
+    validactions=["register","get","listnames","info","cap","prio","num_nodes"]
     links=None
     salt=None
 
@@ -134,9 +138,9 @@ class server_handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type',"text/html")
         self.end_headers()
-        # every html file must contain {name}{num_nodes},{serverhash},{}
-        with open(_ppath,"r") as rob:
-            self.wfile.write(bytes(rob.read().format(name=self.links["server_server"].name,message=self.links["server_server"].message,num_nodes=len(self.links["server_server"].nhipmap),serverhash=self.links["server_server"].serverhash),"utf8"))
+        
+        with open(_ppath,"rb") as rob:
+            self.wfile.write(rob.read())
 
     #check server password
     def check_spw(self):
@@ -219,7 +223,7 @@ class server_handler(BaseHTTPRequestHandler):
             if len(respparse[1])>0:
                 self.wfile.write(bytes(respparse[1],"utf8"))
             else:
-                self.wfile.write(bytes("success","utf8"))
+                self.wfile.write(bytes(success,"utf8"))
 
     def do_CONNECT(self):
         if self.istunnel==False:
@@ -334,14 +338,6 @@ class server_init(object):
             print("Name has some restricted characters")
             
 
-        if kwargs["webgui"] is not None:
-            server_handler.webgui=True
-            #load static files  
-            for elem in os.listdir("static"):
-                with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
-                    server_handler.statics[elem]=_staticr.read()
-        else:
-            server_handler.webgui=False
         
         if port is not None:
             port=int(port)
@@ -399,7 +395,17 @@ if __name__ == "__main__":
                     d[tparam[0]]=""
                     continue
                 d[tparam[0]]=tparam[1]
-                
+
+    #should be gui agnostic so specify here
+    if d["webgui"] is not None:
+        server_handler.webgui=True
+        #load static files  
+        for elem in os.listdir("static"):
+            with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
+                server_handler.statics[elem]=_staticr.read()
+    else:
+        server_handler.webgui=False
+
     cm=server_init(**d)
     logging.debug("server started. Enter mainloop")
     cm.serve_forever_block()

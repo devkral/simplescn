@@ -12,12 +12,9 @@ import traceback
 import os
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself,check_name,dhash_salt,gen_passwd_hash
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn
 
 
-_cache_client="empty"
-with open("html/en/client.html","r") as r:
-    _cache_client=r.read()
 
 class client_client(object):
     name=None
@@ -160,7 +157,7 @@ class client_client(object):
         con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
         temp=self.do_request(con,  "/info",dparam)
         if temp[0]==True:
-            return temp[0],temp[1].split("/",3),temp[2]
+            return temp[0],temp[1].split("/",4),temp[2]
         else:
             return temp
         
@@ -221,9 +218,9 @@ class client_client(object):
     def addname(self,_name,dparam):
         temp=self.hashdb.addname(_name)
         if temp==True:
-            return (True,"success",isself)
+            return (True,success,isself)
         else:
-            return (False,"error",isself)
+            return (False,error,isself)
     
     # connects to server and check 
     def addhash(self,*args):
@@ -241,92 +238,79 @@ class client_client(object):
     def deljusthash(self,_certhash,dparam):
         temp=self.hashdb.delhash(_certhash)
         if temp==True:
-            return (True,"success",isself)
+            return (True,success,isself)
         else:
-            return (False,"error",isself)
+            return (False,error,isself)
         
     def delhash(self,_name,_certhash,dparam):
         temp=self.hashdb.delhash(_certhash,_name)
         if temp==True:
-            return (True,"success",isself)
+            return (True,success,isself)
         else:
-            return (False,"error",isself)
+            return (False,error,isself)
 
     def delname(self,_name,dparam):
         temp=self.hashdb.delname(_name)
         if temp==True:
-            return (True,"success",isself)
+            return (True,success,isself)
         else:
-            return (False,"error",isself)
+            return (False,error,isself)
 
     #search
     def searchhash(self,_certhash,dparam):
         temp=self.hashdb.certhash_as_name(_certhash)
         if temp is None:
-            return(False, "error",isself)
+            return(False, error,isself)
         else:
             return (True,temp,isself)
     
     def listhashes(self,_name,dparam):
         temp=self.hashdb.listcerts(_name)
         if temp is None:
-            return(False, "error",isself)
+            return(False, error,isself)
         else:
             return (True,temp,isself)
     
     def listnamesl(self,dparam):
         temp=self.hashdb.listnames()
         if temp is None:
-            return(False, "error",isself)
+            return(False, error,isself)
         else:
             return (True,temp,isself)
 
 
 ###server on client
     
-class client_server(object):
+class client_server(commonscn):
     capabilities=["basic",]
-    cap_cache=""
-
-    
-    name=None
-    message=None
-    
-    info=None
-    scntype="client"
-    priority=None
+    scn_type="client"
     spmap={}
-    def __init__(self,_name,_priority,_msg):
-        #self.name=_name
+    def __init__(self,_name,_priority,_message):
         if len(_name)==0:
             logging.debug("Name empty")
             _name="<noname>"
         
-        #self.msg=_msg
-        if len(_msg)==0:
+        if len(_message)==0:
             logging.debug("Message empty")
-            _msg="<empty>"
+            _message="<empty>"
             
         self.name=_name
-        self.message=_msg
-        #dynamic cache
-        self.info="{}{}/{}&{}".format(success,self.scntype,_name,_msg)
-        self.cap_cache=success
-        for elem in self.capabilities:
-            self.cap_cache="{}{}".format(self.cap_cache,elem)
-        self.priority="{}{}".format(success,_priority)
+        self.message=_message
+        self.priority=_priority
+        
+        self.update_cache()
     
     def get(self,_service,_addr):
         if _service not in self.spmap:
-            return "{}service".format(error)
-        return "{}{}".format(success,self.spmap[_service])
+            return "{}/service".format(error)
+        return "{}/{}".format(success,self.spmap[_service])
     def listservices(self,_addr):
         temp=""
         for _service in self.spmap:
             temp="{}\n{}".format(_service,temp)
         if len(temp)==0:
-            return "{}empty".format(success)
-        return success+temp
+            return "{}/empty".format(success)
+        return "{}/{}".format(success,temp)
     def register(self,_service,_port,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             self.spmap[_service]=_port
@@ -334,13 +318,13 @@ class client_server(object):
         return error
 
     def info(self,_addr):
-        return self.info
+        return self.cache["info"]
     
     def cap(self,_addr):
-        return self.cap_cache
+        return self.cache["cap"]
     
     def prio(self,_addr):
-        return self.priority
+        return self.cache["priority"]
     
 class client_handler(BaseHTTPRequestHandler):
     links=None
@@ -365,9 +349,9 @@ class client_handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type',"text/html")
         self.end_headers()
-        # every html file must contain {name},{message}
-        with open(_ppath,"r") as rob:
-            self.wfile.write(bytes(rob.read().format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
+        with open(_ppath,"rb") as rob:
+            self.wfile.write(rob.read())
+            #.format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
         
     def check_cpw(self,dparam):
         if self.cpwhash is None:
@@ -428,7 +412,7 @@ class client_handler(BaseHTTPRequestHandler):
                 else:
                     self.wfile.write(bytes(str(response[1]),"utf8"))
             else:
-                self.wfile.write(bytes("success","utf8"))
+                self.wfile.write(bytes(success,"utf8"))
 
     def handle_server(self,_cmdlist):
          # add address to _cmdlist
@@ -609,14 +593,6 @@ class client_init(object):
             sys.exit(1)
 
         
-        if kwargs["webgui"] is not None:
-            client_handler.webgui=True
-            #load static files
-            for elem in os.listdir("static"):
-                with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
-                    client_handler.statics[elem]=_staticr.read()
-        else:
-            client_handler.webgui=False
 
                 
         if port is not None:
@@ -746,7 +722,19 @@ if __name__ ==  "__main__":
                     d[tparam[0]]=""
                     continue
                 d[tparam[0]]=tparam[1]
+                
 
+    #should be gui agnostic so specify here
+    if d["webgui"] is not None:
+        client_handler.webgui=True
+        #load static files
+        for elem in os.listdir("static"):
+            with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
+                client_handler.statics[elem]=_staticr.read()
+        else:
+            client_handler.webgui=False
+
+                
     cm=client_init(**d)
         
     #client_handler.handle_localhost=True

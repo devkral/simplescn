@@ -15,8 +15,8 @@ key_size=4096
 server_port=4040
 #client_port=4041
 
-error="error/"
-success="success/"
+error="error"
+success="success"
 default_configdir="~/.simplescn/"
 
 
@@ -117,7 +117,24 @@ class isself(object):
         return "is calling object"
 
 
-
+class commonscn(object):
+    capabilities=[]
+    info=None
+    priority=None
+    name=None
+    cert_hash=None
+    scn_type="unknown"
+    
+    cache={"cap":"","info":"","priority":""}#,"hash":"","name":"","message":""
+    
+    def update_cache(self):
+        self.cache["cap"]="{}/{}".format(success,self.scn_type)
+        for elem in self.capabilities:
+            self.cache["cap"]="{}/{}".format(self.cache["cap"],elem)
+        
+        self.cache["info"]="{}/{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash,self.message)
+        self.cache["priority"]="{}/{}".format(success,self.priority)
+        
 
 def dhash(ob):
     if type(ob).__name__=="str":
@@ -182,10 +199,8 @@ def rw_socket(sockr,sockw,buffersize):
 #    redout.run()
 #    redin.join()
     
-                            
-
-                            
-
+                           
+                           
 
 class certhash_db(object):
     db_path=None
