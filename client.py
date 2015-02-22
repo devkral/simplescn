@@ -628,6 +628,10 @@ class client_init(object):
             if unparsed[:5]=="hash/":
                 print(dhash(unparsed[6:]))
                 continue
+            if unparsed[:4]=="help":
+                cmdhelp()
+                continue
+
             dparam={"certname":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
             pos_param=unparsed.find("?")
             if pos_param!=-1:
@@ -668,27 +672,46 @@ class client_init(object):
                 #print(e.printstacktrace())
     
         
-##
-def paramhelp():
-    print(\
-"""
-possible parameters:
-port: port
-blank: can command server without pw (localhost only), higher preference than pwhash
-(s/c)pwhash: sha256 hash of pw, higher preference than pwfile
-(s/c)pwfile: file with password (cleartext)
-s: protect input
-c: protect client control
-remote: lift limit localhost
+cmdanot={
+    "show": "general info about client",
+    "register": "<serverurl>: register ip on server",
+    "get": "<serverurl><name><hash>: retrieve ip from client from server"
 
-""")
-
+    }
+                
 def cmdhelp():
     print(\
 """
 ### cmd-commands ###
+""")
+    for elem in client_handler.clientactions:
+        if elem in cmdanot:
+            print("{}:{}".format(elem,cmdanot[elem]))
+        else:
+            print(elem)
 
-
+    print(\
+"""
+### cmd-parameters ###
+parameters annoted with <cmd>?<parameter1>=?&<parameter2>=?
+TODO
+""")
+    
+def paramhelp():
+    print(\
+"""
+### parameters ###
+config=<dir>: path to config dir
+port=<number>: Port
+(s/c)pwhash=<hash>: sha256 hash of pw, higher preference than pwfile
+(s/c)pwfile=<file>: file with password (cleartext)
+local: local reachable
+remote: remote reachable
+priority=<number>: set priority
+webgui: enables webgui
+cmd: opens cmd
+s: set password for contacting client
+c: set password for using client webcontrol
 """)
     
 def signal_handler(_signal, frame):
@@ -704,11 +727,11 @@ if __name__ ==  "__main__":
        "cpwfile":None,
        "spwhash":None,
        "spwfile":None,
+       "local":None,
+       "remote":None,
        "priority":"20",
        "webgui":None,
-       "cmd":None,
-       "local":None,
-       "remote":None}
+       "cmd":None}
     
     if len(sys.argv)>1:
         tparam=()

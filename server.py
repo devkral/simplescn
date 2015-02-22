@@ -362,7 +362,22 @@ class server_init(object):
 def signal_handler(_signal, frame):
     sys.exit(0)
 
+def paramhelp():
+    print(\
+"""
+### parameters ###
+config=<dir>: path to config dir
+port=<number>: Port
+spwhash=<hash>: sha256 hash of pw, higher preference than pwfile
+spwfile=<file>: file with password (cleartext)
+priority=<number>: set priority
+ttimeout: tunneltimeout
+stimeout: server timeout
+tunnel: enable tunnel
+webgui: enables webgui
+""")
 
+    
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
@@ -384,7 +399,7 @@ if __name__ == "__main__":
         for elem in sys.argv[1:]: #strip filename from arg list
             elem=elem.strip("-")
             if elem in ["help","h"]:
-                #paramhelp()
+                paramhelp()
                 sys.exit(0)
             else:
                 tparam=elem.split("=")
