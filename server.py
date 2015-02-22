@@ -190,8 +190,6 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         
-        self.send_header("Cache-Control", "no-cache")
-        self.end_headers()
         _path=_path+[self.client_address,]
         if action not in self.validactions:
             self.send_error(400,"invalid actions")
@@ -217,6 +215,7 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(400,"unknown")
         else:
             self.send_response(200)
+            self.send_header("Cache-Control", "no-cache")
             self.send_header('Content-type',"text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
@@ -403,6 +402,9 @@ if __name__ == "__main__":
         for elem in os.listdir("static"):
             with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
                 server_handler.statics[elem]=_staticr.read()
+                #against ssl failures
+                if len(server_handler.statics[elem])==0:
+                    server_handler.statics[elem]=b" "
     else:
         server_handler.webgui=False
 

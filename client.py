@@ -402,6 +402,7 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(400,"unknown")
         else:
             self.send_response(200)
+            self.send_header("Cache-Control", "no-cache")
             self.send_header('Content-type',"text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
@@ -440,6 +441,7 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(400,"unknown")
         else:
             self.send_response(200)
+            self.send_header("Cache-Control", "no-cache")
             self.send_header('Content-type',"text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
@@ -704,6 +706,7 @@ if __name__ ==  "__main__":
        "spwfile":None,
        "priority":"20",
        "webgui":None,
+       "cmd":None,
        "local":None,
        "remote":None}
     
@@ -726,19 +729,23 @@ if __name__ ==  "__main__":
 
     #should be gui agnostic so specify here
     if d["webgui"] is not None:
+        logging.debug("webgui enabled")
         client_handler.webgui=True
         #load static files
         for elem in os.listdir("static"):
             with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
                 client_handler.statics[elem]=_staticr.read()
-        else:
-            client_handler.webgui=False
+    else:
+        client_handler.webgui=False
 
                 
     cm=client_init(**d)
         
-    #client_handler.handle_localhost=True
-    logging.debug("start server")
-    cm.serve_forever_nonblock()
-    logging.debug("server started")
-    cm.cmd()
+    if d["cmd"] is not None:
+        logging.debug("start server")
+        cm.serve_forever_nonblock()
+        logging.debug("start console")
+        cm.cmd()
+    else:
+        logging.debug("start server")
+        cm.serve_forever_block()
