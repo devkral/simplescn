@@ -39,7 +39,6 @@ class client_client(object):
             _addr=(_addr[0],server_port)
 
         con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
-        
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         val=self.hashdb.certhash_as_name(dhash(pcert))
@@ -708,6 +707,7 @@ port=<number>: Port
 local: local reachable
 remote: remote reachable
 priority=<number>: set priority
+timeout=<number>: #########not implemented yet ###############
 webgui: enables webgui
 cmd: opens cmd
 s: set password for contacting client
@@ -717,7 +717,6 @@ c: set password for using client webcontrol
 def signal_handler(_signal, frame):
   sys.exit(0)
   
-#remoteactions=["register","","","listnames"]
 if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
@@ -730,6 +729,7 @@ if __name__ ==  "__main__":
        "local":None,
        "remote":None,
        "priority":"20",
+       "timeout":"300", # not implemented yet
        "webgui":None,
        "cmd":None}
     
