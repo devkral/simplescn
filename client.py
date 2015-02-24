@@ -79,18 +79,10 @@ class client_client(object):
                 ,str(self.links["server"].socket.getsockname()[1])),isself)
     
     def register(self,server_addr,dparam):
-        server_addr=server_addr.split(":")
-        if len(server_addr)==1:
-            server_addr=(server_addr[0],server_port)
-        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
-        return self.do_request(con,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dparam)
+        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dparam)
     
     def get(self,server_addr,_name,_hash,dparam):
-        server_addr=server_addr.split(":")
-        if len(server_addr)==1:
-            server_addr=(server_addr[0],server_port)
-        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
-        return self.do_request(con,"/get/{}/{}".format(_name,_hash),dparam)
+        return self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dparam)
     
     def gethash(self,_addr):
         _addr=_addr.split(":")
@@ -104,11 +96,7 @@ class client_client(object):
         
   
     def unparsedlistnames(self,server_addr,dparam):
-        server_addr=server_addr.split(":")
-        if len(server_addr)==1:
-            server_addr=(server_addr[0],server_port)
-        con=client.HTTPSConnection(server_addr[0],server_addr[1],context=self.sslcont)
-        return self.do_request(con, "/listnames",dparam,usecache=True)
+        return self.do_request(server_addr, "/listnames",dparam,usecache=True)
 
     
     def listnames(self,server_addr,dparam):
@@ -128,52 +116,39 @@ class client_client(object):
         return (temp[0],temp2,temp[2])
     
     def getservice(self,client_addr,_service,dparam):
-        client_addr=client_addr.split(":")
-        if len(client_addr)==1:
-            return (False,"no port specified",isself)
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        return self.do_request(con, "/get/{}".format(_service),dparam)
+        return self.do_request(client_addr, "/get/{}".format(_service),dparam)
 
     def registerservice(self,client_addr,_service,_port,dparam):
-        client_addr=client_addr.split(":")
-        if len(client_addr)==1:
-            return (False,"no port specified",isself)
-            #_sslcontext.verify_flag=ssl.VERIFY_DEFAULT
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        return self.do_request(con, "/register/{}/{}".format(_service,_port))
+        return self.do_request(client_addr, "/register/{}/{}".format(_service,_port))
 
     def listservices(self,client_addr,dparam):
-        client_addr=client_addr.split(":")
-        if len(client_addr)==1:
+        client_addr2=client_addr.split(":")
+        if len(client_addr2)==1:
             return (False,"no port specified",isself)
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        return self.do_request(con, "/listservices",dparam)
+        return self.do_request(client_addr, "/listservices",dparam)
     
-    def info(self,client_addr,dparam):
-        client_addr=client_addr.split(":")
+    def info(self,_addr,dparam):
+        client_addr=_addr.split(":")
         if len(client_addr)==1:
             return (False,"no port specified",isself)
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        temp=self.do_request(con,  "/info",dparam)
+        temp=self.do_request(_addr,  "/info",dparam)
         if temp[0]==True:
             return temp[0],temp[1].split("/",4),temp[2]
         else:
             return temp
         
-    def priodirect(self,client_addr,dparam):
-        client_addr=client_addr.split(":")
+    def priodirect(self,_addr,dparam):
+        client_addr=_addr.split(":")
         if len(client_addr)==1:
             return (False,"no port specified",isself)
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        temp=self.do_request(con,  "/prio",dparam)
+        temp=self.do_request(_addr,  "/prio",dparam)
         return temp
 
-    def capabilities(self,client_addr,dparam):
-        client_addr=client_addr.split(":")
+    def capabilities(self,_addr,dparam):
+        client_addr=_addr.split(":")
         if len(client_addr)==1:
             return (False,"no port specified",isself)
-        con=client.HTTPSConnection(client_addr[0],client_addr[1],context=self.sslcont)
-        temp=self.do_request(con,  "/cap",dparam)
+        temp=self.do_request(_addr,  "/cap",dparam)
         if temp[0]==True:
             return temp[0],temp[1].split(",",3),temp[2]
         else:

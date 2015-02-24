@@ -89,7 +89,7 @@ class server(commonscn):
         return "{}/{}:{}".format(success,*self.nhipmap[_name][_hash])
     
     def listnames(self,_addr):
-        if len(self.nhlist_cache)==0:
+        if len(self.nhipmap_cache)==0:
             return "{}/empty".format(success)
         return "{}/{}".format(success,self.nhipmap_cache)
     
