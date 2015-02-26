@@ -200,7 +200,10 @@ class server_handler(BaseHTTPRequestHandler):
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
                 #helps against ssl failing about empty string (EOF)
-                st=str(e)+"\n\n"+str(traceback.format_tb(e))
+                if "tb_frame" in e.__dict__:
+                    st=str(e)+"\n\n"+str(traceback.format_tb(e))
+                else:
+                    st=str(e)
                 if len(st)>0:
                     self.send_error(500,st)
                 else:

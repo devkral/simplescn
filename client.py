@@ -41,10 +41,13 @@ class client_client(object):
         con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-        val=self.hashdb.certhash_as_name(dhash(pcert))
-        #print(dparam)
-        if dparam["certname"] is not None and dparam["certname"]!=val:
-            raise(VALNameError)
+        if dhash(pcert)==self.cert_hash:
+            val=isself
+        else:
+            val=self.hashdb.certhash_as_name(dhash(pcert))
+            #print(dparam)
+            if dparam["certname"] is not None and dparam["certname"]!=val:
+                raise(VALNameError)
 
 
         if dparam["tdestname"] is not None and dparam["tdesthash"] is not None:
@@ -118,8 +121,18 @@ class client_client(object):
     def getservice(self,client_addr,_service,dparam):
         return self.do_request(client_addr, "/get/{}".format(_service),dparam)
 
-    def registerservice(self,client_addr,_service,_port,dparam):
-        return self.do_request(client_addr, "/register/{}/{}".format(_service,_port))
+    def registerservice(self,*args):
+        if len(args)==4:
+            client_addr,_servicename,_port,dparam=args
+        elif len(args)==3:
+            _servicename,_port,dparam=args
+            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        else:
+            raise(Exception)
+            #raise (VALError)
+        
+        
+        return self.do_request(client_addr, "/registerservice/{}/{}".format(_servicename,_port),dparam)
 
     def listservices(self,client_addr,dparam):
         client_addr2=client_addr.split(":")
@@ -285,10 +298,10 @@ class client_server(commonscn):
         if len(temp)==0:
             return "{}/empty".format(success)
         return "{}/{}".format(success,temp)
-    def register(self,_service,_port,_addr):
+    def registerservice(self,_service,_port,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             self.spmap[_service]=_port
-            return success
+            return success+"/" #TODO: make failsafe
         return error
 
     def info(self,_addr):
@@ -302,7 +315,7 @@ class client_server(commonscn):
     
 class client_handler(BaseHTTPRequestHandler):
     links=None
-    validactions=["info","get","register","listservices","cap","prio"]
+    validactions=["info","get","registerservice","listservices","cap","prio"]
     clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listnamesl","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect"]
     handle_localhost=False
     handle_remote=False
@@ -362,7 +375,10 @@ class client_handler(BaseHTTPRequestHandler):
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
                 #helps against ssl failing about empty string (EOF)
-                st=str(e)+"\n\n"+str(traceback.format_tb(e))
+                if "tb_frame" in e.__dict__:
+                    st=str(e)+"\n\n"+str(traceback.format_tb(e))
+                else:
+                    st=str(e)
                 if len(st)>0:
                     self.send_error(500,st)
                 else:
