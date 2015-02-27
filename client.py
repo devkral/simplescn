@@ -683,7 +683,8 @@ class client_init(object):
 cmdanot={
     "show": "general info about client",
     "register": "<serverurl>: register ip on server",
-    "get": "<serverurl><name><hash>: retrieve ip from client from server"
+    "registerservice": "[clientname:port/]<servicename>/<serviceport>: register service on client\n    (server accepts localhost only by default)",
+    "get": "<serverurl>/<name>/<hash>: retrieve ip from client from server"
 
     }
                 
