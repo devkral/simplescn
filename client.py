@@ -665,6 +665,12 @@ class client_init(object):
                     print("Error:\n{}".format(resp[1]))
                 else:
                     print("Success:\n{}".format(resp[1]))
+            
+            except KeyError as e:
+                print("Command does not exist?")
+                print(e)
+                print(parsed)
+                
             except Exception as e:
                 print("Error: ")
                 #print(url)
