@@ -122,17 +122,21 @@ class client_client(object):
         return self.do_request(client_addr, "/get/{}".format(_service),dparam)
 
     def registerservice(self,*args):
-        if len(args)==4:
-            client_addr,_servicename,_port,dparam=args
-        elif len(args)==3:
+        if len(args)==3:
             _servicename,_port,dparam=args
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        elif len(args)==4:
+            client_addr,_servicename,_port,dparam=args
+            if len(client_addr.split(":"))<2:
+                return (False,"address is missing port",isself)
         else:
-            raise(Exception)
+            return (False,("wrong amount arguments","{}".format(args)),isself)
             #raise (VALError)
         
-        
-        return self.do_request(client_addr, "/registerservice/{}/{}".format(_servicename,_port),dparam)
+        temp= self.do_request(client_addr, "/registerservice/{}/{}".format(_servicename,_port),dparam)
+        if len(args)==3 and temp[2] is not isself:
+            raise(VALNameError)
+        return temp
 
     def listservices(self,client_addr,dparam):
         client_addr2=client_addr.split(":")
@@ -301,7 +305,7 @@ class client_server(commonscn):
     def registerservice(self,_service,_port,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             self.spmap[_service]=_port
-            return success+"/" #TODO: make failsafe
+            return "{}/registered".format(success)
         return error
 
     def info(self,_addr):
@@ -374,11 +378,11 @@ class client_handler(BaseHTTPRequestHandler):
             response=func(self.links["client"],*_cmdlist[1:])
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-                #helps against ssl failing about empty string (EOF)
                 if "tb_frame" in e.__dict__:
                     st=str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
                     st=str(e)
+                #helps against ssl failing about empty string (EOF)
                 if len(st)>0:
                     self.send_error(500,st)
                 else:
@@ -386,7 +390,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         if response[0]==False:
             #helps against ssl failing about empty string (EOF)
-            if len(response[1])>0:
+            if len(response)>=1 and len(response[1])>0:
                 self.send_error(400,response[1])
             else:
                 self.send_error(400,"unknown")
@@ -396,7 +400,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_header('Content-type',"text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
-            if len(response[1])>0:
+            if len(response)>=1 and len(response[1])>0:
                 if type(response[1]) is [] or type(response[1]) is ():
                     for elem in response[1]:
                         self.wfile.write(bytes(elem+"\n","utf8"))
@@ -417,15 +421,23 @@ class client_handler(BaseHTTPRequestHandler):
             response=func(self.links["client_server"],*_cmdlist[1:])
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-                self.send_error(500,str(e))
+                if "tb_frame" in e.__dict__:
+                    st=str(e)+"\n\n"+str(traceback.format_tb(e))
+                else:
+                    st=str(e)
+                #helps against ssl failing about empty string (EOF)
+                if len(st)>0:
+                    self.send_error(500,st)
+                else:
+                    self.send_error(500,"unknown")
             else:
                 self.send_error(500,"server error")
             return
         
         respparse=response.split("/",1)
-        if respparse[0]=="error":
+        if respparse[0]==error:
             #helps against ssl failing about empty string (EOF)
-            if len(respparse[1])>0:
+            if len(respparse)>1 and len(respparse[1])>0:
                 self.send_error(400,respparse[1])
             else:
                 self.send_error(400,"unknown")
@@ -435,7 +447,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_header('Content-type',"text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
-            if len(respparse[1])>0:
+            if len(respparse)>1 and len(respparse[1])>0:
                 self.wfile.write(bytes(respparse[1],"utf8"))
             else:
                 self.wfile.write(bytes("success","utf8"))

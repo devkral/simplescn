@@ -199,20 +199,20 @@ class server_handler(BaseHTTPRequestHandler):
             response=func(self.links["server_server"],*_path[1:])
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-                #helps against ssl failing about empty string (EOF)
                 if "tb_frame" in e.__dict__:
                     st=str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
                     st=str(e)
+                #helps against ssl failing about empty string (EOF)
                 if len(st)>0:
                     self.send_error(500,st)
                 else:
                     self.send_error(500,"unknown")
             return
         respparse=response.split("/",1)
-        if respparse[0]=="error":
+        if respparse[0]==error:
             #helps against ssl failing about empty string (EOF)
-            if len(respparse[1])>0:
+            if len(respparse)>=1 and len(respparse[1])>0:
                 self.send_error(400,respparse[1])
             else:
                 self.send_error(400,"unknown")
@@ -222,7 +222,7 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_header('Content-type',"text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
-            if len(respparse[1])>0:
+            if len(respparse)>=1 and len(respparse[1])>0:
                 self.wfile.write(bytes(respparse[1],"utf8"))
             else:
                 self.wfile.write(bytes(success,"utf8"))
