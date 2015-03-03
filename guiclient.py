@@ -9,11 +9,66 @@ from gi.repository import Gtk,Gdk,Gio
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,dhash
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,dhash,sharedir
 
 
 class gtk_client_server(client.client_server):
-    pass
+    builder=None
+    clip=None
+    win=None
+    statusbar=None
+    nodeview=None
+    nodestore=None
+    
+    links=None
+    def __init__(self,_name,_priority,_message,_links):
+        client.client_server.__init__(self,_name,_priority,_message)
+        self.links=_links
+        self.builder=Gtk.Builder.new_from_file(sharedir+"gui/gtksimplescn.ui")
+        self.builder.connect_signals(self)
+        
+        self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        self.win=self.builder.get_object("mainwindow")
+        self.nodeview=self.builder.get_object("nodeview")
+        self.nodestore=self.builder.get_object("nodestore")
+        self.statusbar=self.builder.get_object("mainstatusbar")
+        
+        col0renderer=Gtk.CellRendererText()
+        col0 = Gtk.TreeViewColumn("Url", col0renderer, text=0)
+        col1renderer=Gtk.CellRendererText()
+        col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
+        col2renderer=Gtk.CellRendererText()
+        col2 = Gtk.TreeViewColumn("Type", col2renderer, text=2)
+        col3renderer=Gtk.CellRendererText()
+        col3 = Gtk.TreeViewColumn("Verified", col3renderer, text=3)
+        self.nodeview.append_column(col0)
+        self.nodeview.append_column(col1)
+        self.nodeview.append_column(col2)
+        self.nodeview.append_column(col3)
+        self.nodeview.get_selection().select_path(Gtk.TreePath.new_first())
+        
+    def internchat(self,_partner,_message=None):
+        pass
+
+    # 
+    def chat(self,_message):
+        pass
+
+    
+    def gtkchat(self,*args):
+        pass
+    def gtkadd_node(self,*args):
+        pass
+    def gtkdel_node(self,*args):
+        pass
+    def gtkmod_node(self,*args):
+        pass
+
+    def gtkclose(self,*args):
+        global run
+        run=False
+    
+    
 
 
 class gtk_client_init(client.client_init):
@@ -51,8 +106,6 @@ class gtk_client_init(client.client_init):
             print("Name has some restricted characters")
             sys.exit(1)
 
-        
-
                 
         if port is not None:
             port=int(port)
@@ -61,18 +114,11 @@ class gtk_client_init(client.client_init):
         else:
             port=0
             
-        self.links["client_server"]=gtk_client_server(_name[0],kwargs["priority"],_message)
+        self.links["client_server"]=gtk_client_server(_name[0],kwargs["priority"],_message,self.links)
         client.client_handler.links=self.links
+        client.client_handler.validactions+=["chat",]
         self.links["server"]=client.http_client_server(("0.0.0.0",port),_cpath+"_cert")
         self.links["client"]=client.client_client(_name[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)
-
-    def serve_forever_block(self):
-        self.links["server"].serve_forever()
-    def serve_forever_nonblock(self):
-        self.sthread = threading.Thread(target=self.serve_forever_block)
-        self.sthread.daemon = True
-        self.sthread.start()
-
 
 
 def paramhelp():
@@ -127,7 +173,7 @@ if __name__ ==  "__main__":
                 
     cm=gtk_client_init(**d)
     logging.debug("start server")
-    cm.serve_forever_noblock()
+    cm.serve_forever_nonblock()
     while run==True:
         Gtk.main_iteration_do(True)
   

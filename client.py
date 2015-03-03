@@ -12,7 +12,7 @@ import traceback
 import os
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn,sharedir
 
 
 
@@ -131,12 +131,28 @@ class client_client(object):
                 return (False,"address is missing port",isself)
         else:
             return (False,("wrong amount arguments","{}".format(args)),isself)
-            #raise (VALError)
         
         temp= self.do_request(client_addr, "/registerservice/{}/{}".format(_servicename,_port),dparam)
         if len(args)==3 and temp[2] is not isself:
             raise(VALNameError)
         return temp
+
+    def deleteservice(self,*args):
+        if len(args)==3:
+            _servicename,_port,dparam=args
+            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        elif len(args)==4:
+            client_addr,_servicename,_port,dparam=args
+            if len(client_addr.split(":"))<2:
+                return (False,"address is missing port",isself)
+        else:
+            return (False,("wrong amount arguments","{}".format(args)),isself)
+        
+        temp= self.do_request(client_addr, "/deleteservice/{}/{}".format(_servicename,_port),dparam)
+        if len(args)==3 and temp[2] is not isself:
+            raise(VALNameError)
+        return temp
+
 
     def listservices(self,client_addr,dparam):
         client_addr2=client_addr.split(":")
@@ -308,6 +324,13 @@ class client_server(commonscn):
             return "{}/registered".format(success)
         return error
 
+    def deleteservice(self,_service,_port,_addr):
+        if _addr[0] in ["localhost","127.0.0.1","::1"]:
+            if _service in self.spmap:
+                del self.spmap[_service]
+            return "{}/removed".format(success)
+        return error
+
     def info(self,_addr):
         return self.cache["info"]
     
@@ -319,8 +342,8 @@ class client_server(commonscn):
     
 class client_handler(BaseHTTPRequestHandler):
     links=None
-    validactions=["info","get","registerservice","listservices","cap","prio"]
-    clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listnamesl","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect"]
+    validactions=["info","get","registerservice","listservices","cap","prio","deleteservice"]
+    clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listnamesl","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice"]
     handle_localhost=False
     handle_remote=False
     cpwhash=None
@@ -333,7 +356,7 @@ class client_handler(BaseHTTPRequestHandler):
         if self.webgui==False:
             self.send_error(404,"no webgui")
             return
-        _ppath="html{}{}{}{}".format(os.sep,lang,os.sep,page)
+        _ppath="{}html{}{}{}{}".format(sharedir,os.sep,lang,os.sep,page)
         if os.path.exists(_ppath)==False:
             self.send_error(404,"file not exist")
             return
@@ -765,8 +788,8 @@ if __name__ ==  "__main__":
         logging.debug("webgui enabled")
         client_handler.webgui=True
         #load static files
-        for elem in os.listdir("static"):
-            with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
+        for elem in os.listdir("{}static".format(sharedir)):
+            with open("{}static{}{}".format(sharedir,os.sep,elem), 'rb') as _staticr:
                 client_handler.statics[elem]=_staticr.read()
     else:
         client_handler.webgui=False

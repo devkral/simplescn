@@ -11,7 +11,7 @@ import os
 import socket
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash,commonscn
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash,commonscn,sharedir
 
 
 
@@ -131,7 +131,7 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(404,"no webgui")
             return
             
-        _ppath="html{}{}{}{}".format(os.sep,lang,os.sep,page)
+        _ppath="{}html{}{}{}{}".format(sharedir,os.sep,lang,os.sep,page)
         if os.path.exists(_ppath)==False:
             self.send_error(404,"file not exist")          
             return
@@ -417,8 +417,8 @@ if __name__ == "__main__":
     if d["webgui"] is not None:
         server_handler.webgui=True
         #load static files  
-        for elem in os.listdir("static"):
-            with open("static{}{}".format(os.sep,elem), 'rb') as _staticr:
+        for elem in os.listdir("{}static".format(sharedir)):
+            with open("{}static{}{}".format(sharedir,os.sep,elem), 'rb') as _staticr:
                 server_handler.statics[elem]=_staticr.read()
                 #against ssl failures
                 if len(server_handler.statics[elem])==0:

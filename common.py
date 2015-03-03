@@ -14,6 +14,7 @@ from subprocess import Popen,PIPE
 key_size=4096
 server_port=4040
 #client_port=4041
+sharedir=""
 
 error="error"
 success="success"
