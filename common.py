@@ -115,7 +115,7 @@ class VALNameError(Exception):
 
 class isself(object):
     def __str__(*args):
-        return "is calling object"
+        return "is self"
 
 
 class commonscn(object):

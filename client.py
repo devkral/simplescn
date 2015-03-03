@@ -559,9 +559,7 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
         
     def __init__(self, _client_address,certfpath):
         HTTPServer.__init__(self, _client_address,client_handler)
-        self.sslcont=ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        self.sslcont.set_ciphers("HIGH")
-        self.sslcont.options=self.sslcont.options|ssl.OP_SINGLE_DH_USE|ssl.OP_NO_COMPRESSION
+        self.sslcont=self.sslcont=default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv")
         self.socket=self.sslcont.wrap_socket(self.socket)
         
