@@ -85,7 +85,14 @@ class client_client(object):
         return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dparam)
     
     def get(self,server_addr,_name,_hash,dparam):
-        return self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dparam)
+        temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dparam)
+        try:
+            temp=temp[0],int(temp[1]),temp[2]
+            if temp[1]<1:
+                return (False,"port <1",temp[1])
+        except ValueError:
+            return (False,"port not a number",temp[1])
+        return temp
     
     def gethash(self,_addr):
         _addr=_addr.split(":")
