@@ -12,7 +12,7 @@ import traceback
 import os
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn,sharedir
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,VALHashError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn,sharedir
 
 
 
@@ -43,6 +43,8 @@ class client_client(object):
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         if dhash(pcert)==self.cert_hash:
             val=isself
+        elif dparam["certhash"] is not None and dparam["certhash"]!=dhash(pcert):
+            raise(VALHashError)
         else:
             val=self.hashdb.certhash_as_name(dhash(pcert))
             #print(dparam)
@@ -78,8 +80,8 @@ class client_client(object):
         return resp[0],resp[1],val
 
     def show(self):
-        return (True,(self.name,self.cert_hash
-                ,str(self.links["server"].socket.getsockname()[1])),isself)
+        return (True,(self.name,self.cert_hash,
+                str(self.links["server"].socket.getsockname()[1])),isself)
     
     def register(self,server_addr,dparam):
         return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dparam)
@@ -87,8 +89,12 @@ class client_client(object):
     def get(self,server_addr,_name,_hash,dparam):
         temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dparam)
         try:
-            temp=temp[0],int(temp[1]),temp[2]
-            if temp[1]<1:
+            address,port=temp[1].rsplit(":",1)
+        except ValueError:
+            return (False,"splitting not possible",temp[1])
+        try:
+            temp=(temp[0],(address,int(port)),temp[2])
+            if temp[1][1]<1:
                 return (False,"port <1",temp[1])
         except ValueError:
             return (False,"port not a number",temp[1])
@@ -662,7 +668,7 @@ class client_init(object):
                 cmdhelp()
                 continue
 
-            dparam={"certname":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+            dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
             pos_param=unparsed.find("?")
             if pos_param!=-1:
                 parsed=unparsed[:pos_param].split("/")

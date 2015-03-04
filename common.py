@@ -113,6 +113,9 @@ def parse_response(response):
 class VALNameError(Exception):
     msg="Name doesn't match"
 
+class VALHashError(Exception):
+    msg="Hash doesn't match"
+    
 class isself(object):
     def __str__(*args):
         return "is self"

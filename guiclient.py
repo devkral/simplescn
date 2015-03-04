@@ -9,7 +9,7 @@ from gi.repository import Gtk,Gdk,Gio
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,dhash,sharedir
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,dhash,sharedir,VALNameError,VALHashError,isself
 
 
 class gtk_client_server(client.client_server):
@@ -34,9 +34,9 @@ class gtk_client_server(client.client_server):
         self.statusbar=self.builder.get_object("mainstatusbar")
         
         col0renderer=Gtk.CellRendererText()
-        col0 = Gtk.TreeViewColumn("Url", col0renderer, text=0)
+        col0 = Gtk.TreeViewColumn("Name", col0renderer, text=0)
         col1renderer=Gtk.CellRendererText()
-        col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
+        col1 = Gtk.TreeViewColumn("Hashes", col1renderer, text=1)
         col2renderer=Gtk.CellRendererText()
         col2 = Gtk.TreeViewColumn("Type", col2renderer, text=2)
         col3renderer=Gtk.CellRendererText()
@@ -47,6 +47,7 @@ class gtk_client_server(client.client_server):
         self.nodeview.append_column(col3)
         self.nodeview.get_selection().select_path(Gtk.TreePath.new_first())
         
+        
     def internchat(self,_partner,_message=None):
         pass
 
@@ -54,7 +55,57 @@ class gtk_client_server(client.client_server):
     def chat(self,_message):
         pass
 
+    def gtkupdate_clientinfo(self,*args):
+        _info=self.builder.get_object("clientinfo")
+        _info.set_text("Clientinfo: {}/{}/{}".format(*self.links["client"].show()[1]))
     
+    def gtkregister(self,*args):
+        _veristate=self.builder.get_object("veristate")
+        _server=self.builder.get_object("server").get_text()
+        dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+        try:
+            temp=self.links["client"].register(_server,dparam)
+        except VALHashError:
+            logging.info("invalid Hash")
+            _veristate.set_text("invalid")
+            return
+        except VALNameError:
+            logging.info("invalid Certname")
+            _veristate.set_text("invalid")
+            return
+        logging.info("registered")
+        
+        
+    def gtkgo(self,*args):
+        _veristate=self.builder.get_object("veristate")
+        _server=self.builder.get_object("server").get_text()
+        _name=self.builder.get_object("name").get_text()
+        _hash=self.builder.get_object("hash").get_text()
+        _client=self.builder.get_object("client")
+        dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+        try:
+            temp=self.links["client"].get(_server,_name,_hash,dparam)
+        except VALHashError:
+            logging.info("invalid Hash")
+            _veristate.set_text("invalid")
+            return
+        except VALNameError:
+            logging.info("invalid Certname")
+            _veristate.set_text("invalid")
+            return
+        except Exception as e:
+            logging.error(e)
+            return
+        if temp[0]==True and temp[2] is not None:
+            if temp is isself:
+                _veristate.set_text("own client")
+            else:
+                _veristate.set_text("Verified as:\n"+temp[2])
+        else:
+            _veristate.set_text("unverified")
+        if temp[0]==True:
+            _client.set_text("{}:{}".format(*temp[1]))
+        
     def gtkchat(self,*args):
         pass
     def gtkadd_node(self,*args):
@@ -119,6 +170,7 @@ class gtk_client_init(client.client_init):
         client.client_handler.validactions+=["chat",]
         self.links["server"]=client.http_client_server(("0.0.0.0",port),_cpath+"_cert")
         self.links["client"]=client.client_client(_name[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)
+        self.links["client_server"].gtkupdate_clientinfo()
 
 
 def paramhelp():
