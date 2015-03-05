@@ -100,7 +100,7 @@ class client_client(object):
             return (False,"port not a number",temp[1])
         return temp
     
-    def gethash(self,_addr):
+    def gethash(self,_addr,dparam):
         _addr=_addr.split(":")
         if len(_addr)==1:
             _addr=(_addr[0],server_port)

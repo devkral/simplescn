@@ -109,12 +109,13 @@ def parse_response(response):
     return (False,response.read().decode("utf8"))
 
 
-    
-class VALNameError(Exception):
-    msg="Name doesn't match"
+class VALError(Exception):
+    msg="validation failed"
+class VALNameError(VALError):
+    msg="Name does not match"
 
-class VALHashError(Exception):
-    msg="Hash doesn't match"
+class VALHashError(VALError):
+    msg="Hash does not match"
     
 class isself(object):
     def __str__(*args):
@@ -263,7 +264,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def addhash(self,dbcon,_name,_certhash,nodetype=1,priority=20):
+    def addhash(self,dbcon,_name,_certhash,nodetype="unknown",priority=20):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
@@ -278,7 +279,7 @@ class certhash_db(object):
             logging.info("hash already exists")
             return False
         
-        cur.execute('''INSERT INTO certs(name,certhash,type,priority) values(?,?,?);''', (_name,_certhash,nodetype,priority))
+        cur.execute('''INSERT INTO certs(name,certhash,type,priority) values(?,?,?,?);''', (_name,_certhash,nodetype,priority))
         
         dbcon.commit()
         return True
@@ -360,7 +361,7 @@ class certhash_db(object):
     @connecttodb
     def listcerts(self,dbcon,_name):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certhash,type,priority FROM certs WHERE name=?;''',(_name,))
+        cur.execute('''SELECT certhash,type,priority FROM certs WHERE name=?  ORDER BY priority ASC;''',(_name,))
         temmp=cur.fetchall()
         if temmp is None:
             return None
@@ -373,7 +374,7 @@ class certhash_db(object):
     @connecttodb
     def listnames(self,dbcon):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash,priority FROM certs;''')
+        cur.execute('''SELECT name,certhash,type,priority FROM certs ORDER BY priority ASC;''')
         temmp=cur.fetchall()
         if temmp is None:
             return None

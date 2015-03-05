@@ -9,7 +9,7 @@ from gi.repository import Gtk,Gdk,Gio
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,dhash,sharedir,VALNameError,VALHashError,isself
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,dhash,sharedir,VALError,isself
 
 
 class gtk_client_server(client.client_server):
@@ -19,6 +19,8 @@ class gtk_client_server(client.client_server):
     statusbar=None
     nodeview=None
     nodestore=None
+    param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+    param_server={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
     
     links=None
     def __init__(self,_name,_priority,_message,_links):
@@ -46,8 +48,10 @@ class gtk_client_server(client.client_server):
         self.nodeview.append_column(col2)
         self.nodeview.append_column(col3)
         self.nodeview.get_selection().select_path(Gtk.TreePath.new_first())
-        
-        
+
+    def init2(self):
+        self.gtkupdate_clientinfo()
+        self.gtkupdate_nodes()
     def internchat(self,_partner,_message=None):
         pass
 
@@ -61,36 +65,43 @@ class gtk_client_server(client.client_server):
     
     def gtkregister(self,*args):
         _veristate=self.builder.get_object("veristate")
-        _server=self.builder.get_object("server").get_text()
-        dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+        _server=self.builder.get_object("server").get_text().strip(" ").rstrip(" ")
+        if _server=="":
+            return
         try:
-            temp=self.links["client"].register(_server,dparam)
-        except VALHashError:
-            logging.info("invalid Hash")
+            temp=self.links["client"].register(_server,self.param_server)
+        except VALError as e:
+            logging.info(e)
             _veristate.set_text("invalid")
             return
-        except VALNameError:
-            logging.info("invalid Certname")
-            _veristate.set_text("invalid")
-            return
-        logging.info("registered")
+        if temp[0]==True and temp[2] is not None:
+            if temp is isself:
+                _veristate.set_text("Server is own client") # normally impossible
+            else:
+                _veristate.set_text("Server verified as:\n"+temp[2])
+        else:
+            _veristate.set_text("unverified")
+        if temp[0]==True:
+            logging.info("registered")
+        else:
+            logging.info("registration failed")
+        
         
         
     def gtkgo(self,*args):
         _veristate=self.builder.get_object("veristate")
-        _server=self.builder.get_object("server").get_text()
-        _name=self.builder.get_object("name").get_text()
-        _hash=self.builder.get_object("hash").get_text()
+        _server=self.builder.get_object("server").get_text().strip(" ").rstrip(" ")
+        _name=self.builder.get_object("name").get_text().strip(" ").rstrip(" ")
+        _hash=self.builder.get_object("hash").get_text().strip(" ").rstrip(" ")
         _client=self.builder.get_object("client")
-        dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
-        try:
-            temp=self.links["client"].get(_server,_name,_hash,dparam)
-        except VALHashError:
-            logging.info("invalid Hash")
-            _veristate.set_text("invalid")
+
+        if "" in [_server, _name, _hash]:
             return
-        except VALNameError:
-            logging.info("invalid Certname")
+        
+        try:
+            temp=self.links["client"].get(_server,_name,_hash,self.param_server)
+        except VALError as e:
+            logging.info(e)
             _veristate.set_text("invalid")
             return
         except Exception as e:
@@ -98,15 +109,34 @@ class gtk_client_server(client.client_server):
             return
         if temp[0]==True and temp[2] is not None:
             if temp is isself:
-                _veristate.set_text("own client")
+                _veristate.set_text("Server is own client") # normally impossible
             else:
-                _veristate.set_text("Verified as:\n"+temp[2])
+                _veristate.set_text("Server verified as:\n"+temp[2])
         else:
             _veristate.set_text("unverified")
         if temp[0]==True:
             _client.set_text("{}:{}".format(*temp[1]))
-        
+            self.param_client["certhash"]=_hash
+
+    def gtkinvalidate(self,*args):
+        self.param_client["certname"]=None
+        self.param_client["certhash"]=None
     def gtkchat(self,*args):
+        pass
+
+    def gtkupdate_nodes(self,*args):
+        _nodestore=self.builder.get_object("nodestore")
+        _localnames=self.links["client"].listnamesl(self.param_client)
+        if _localnames[0]==False:
+            return
+        _nodestore.clear()
+        for elem in _localnames[1]:
+#            print(elem)
+            if elem[2]==None:
+                _nodestore.append((elem[0],"","",""))
+            else:
+                _nodestore.append(("",str(elem[1]),elem[2],"local"))
+
         pass
     def gtkadd_node(self,*args):
         pass
@@ -115,11 +145,30 @@ class gtk_client_server(client.client_server):
     def gtkmod_node(self,*args):
         pass
 
+    def gtkshow_services(self,*args):
+        smw=self.builder.get_object("servicemw")
+        if smw.get_visible()==False:
+            smw.show_all()
+        else:
+            smw.hide()
+    def gtkhide_services(self,*args):
+        smw=self.builder.get_object("servicemw")
+        smw.hide()
+        
+    def gtkupdate_services(self,*args):
+        pass
+
+    def gtkadd_service(self,*args):
+        pass
+    def gtkdel_service(self,*args):
+        pass
+    def gtkmod_service(self,*args):
+        pass
+
+
     def gtkclose(self,*args):
         global run
         run=False
-    
-    
 
 
 class gtk_client_init(client.client_init):
@@ -170,7 +219,7 @@ class gtk_client_init(client.client_init):
         client.client_handler.validactions+=["chat",]
         self.links["server"]=client.http_client_server(("0.0.0.0",port),_cpath+"_cert")
         self.links["client"]=client.client_client(_name[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)
-        self.links["client_server"].gtkupdate_clientinfo()
+        self.links["client_server"].init2()
 
 
 def paramhelp():

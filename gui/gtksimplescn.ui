@@ -20,6 +20,7 @@
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">Simple scn</property>
     <property name="icon">icon.png</property>
+    <property name="has_resize_grip">True</property>
     <signal name="delete-event" handler="gtkclose" swapped="no"/>
     <child>
       <object class="GtkGrid" id="maingrid">
@@ -105,6 +106,7 @@
                   <object class="GtkEntry" id="client">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <signal name="changed" handler="gtkinvalidate" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -124,6 +126,8 @@
                 <property name="can_focus">True</property>
                 <property name="vexpand">True</property>
                 <property name="shadow_type">out</property>
+                <property name="min_content_width">500</property>
+                <property name="min_content_height">170</property>
                 <child>
                   <object class="GtkTreeView" id="nodeview">
                     <property name="visible">True</property>
@@ -131,7 +135,6 @@
                     <property name="hscroll_policy">natural</property>
                     <property name="vscroll_policy">natural</property>
                     <property name="model">nodestore</property>
-                    <property name="reorderable">True</property>
                     <property name="show_expanders">False</property>
                     <property name="enable_grid_lines">vertical</property>
                     <child internal-child="selection">
@@ -228,6 +231,7 @@
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
                         <property name="halign">end</property>
+                        <signal name="clicked" handler="gtkshow_services" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -271,6 +275,7 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
+                                <signal name="activate" handler="gtkadd_node" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
@@ -283,6 +288,7 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
+                                <signal name="activate" handler="gtkmod_node" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
@@ -295,6 +301,7 @@
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">True</property>
+                                <signal name="activate" handler="gtkdel_node" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="left_attach">0</property>
@@ -479,20 +486,31 @@
     </child>
   </object>
   <object class="GtkListStore" id="servicestore"/>
-  <object class="GtkApplicationWindow" id="servicemanagementw">
+  <object class="GtkApplicationWindow" id="servicemw">
+    <property name="name">serviceswindow</property>
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Manage Services</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="deletable">False</property>
+    <property name="attached_to">mainwindow</property>
+    <property name="has_resize_grip">True</property>
     <child>
-      <object class="GtkGrid" id="grid3">
+      <object class="GtkGrid" id="maingridservices">
+        <property name="name">maingrid</property>
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <child>
-          <object class="GtkGrid" id="grid5">
+          <object class="GtkGrid" id="buttonsubgridservices">
+            <property name="name">buttongrid</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="column_spacing">4</property>
             <property name="column_homogeneous">True</property>
             <child>
-              <object class="GtkButton" id="sbuttona">
+              <object class="GtkButton" id="servicesbuttona">
                 <property name="label" translatable="yes">add</property>
+                <property name="name">sbuttona</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -503,8 +521,9 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="sbuttonm">
+              <object class="GtkButton" id="servicesbuttonm">
                 <property name="label" translatable="yes">modify</property>
+                <property name="name">sbuttonm</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -515,14 +534,29 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="sbuttond">
+              <object class="GtkButton" id="servicesbuttond">
                 <property name="label" translatable="yes">delete</property>
+                <property name="name">sbuttond</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
               </object>
               <packing>
                 <property name="left_attach">2</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="closeb">
+                <property name="label" translatable="yes">close </property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="margin_left">5</property>
+                <signal name="clicked" handler="gtkhide_services" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">3</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -533,7 +567,8 @@
           </packing>
         </child>
         <child>
-          <object class="GtkSeparator" id="separator1">
+          <object class="GtkSeparator" id="servicessep">
+            <property name="name">seperator</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
           </object>
@@ -543,7 +578,8 @@
           </packing>
         </child>
         <child>
-          <object class="GtkScrolledWindow" id="scrolledwindow1">
+          <object class="GtkScrolledWindow" id="serviceswindow1">
+            <property name="name">servicesscrollwindow</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="hexpand">True</property>
@@ -551,11 +587,12 @@
             <property name="shadow_type">in</property>
             <child>
               <object class="GtkTreeView" id="serviceview">
+                <property name="name">serviceview</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="model">servicestore</property>
                 <child internal-child="selection">
-                  <object class="GtkTreeSelection" id="treeview-selection2"/>
+                  <object class="GtkTreeSelection" id="service_select"/>
                 </child>
               </object>
             </child>
