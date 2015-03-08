@@ -9,10 +9,11 @@ import logging
 import ssl
 import sys,signal,threading
 import traceback
+import socket
 import os
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,VALHashError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn,sharedir
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,VALHashError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn,sharedir,scnparse_url,AddressFail
 
 
 
@@ -32,11 +33,8 @@ class client_client(object):
         self.sslcont=default_sslcont()
         self.links=_links
 
-    def do_request(self,_addr,requeststr,dparam,usecache=False):
-                
-        _addr=_addr.split(":")
-        if len(_addr)==1:
-            _addr=(_addr[0],server_port)
+    def do_request(self,_addr,requeststr,dparam,usecache=False,forceport=False):
+        _addr=scnparse_url(_addr,force_port=forceport)
 
         con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
         con.connect()
@@ -63,12 +61,17 @@ class client_client(object):
 
             if dparam["spwhash"] is not None:
                 pheaders["spwhash"]=dparam["spwhash"]
+            if dparam["cpwhash"] is not None:
+                con.putheader("cpwhash",dparam["cpwhash"])
             con.set_tunnel(requeststr,pheaders)
         else:
             con.putrequest("GET", requeststr)
         
             if dparam["spwhash"] is not None:
                 con.putheader("spwhash",dparam["spwhash"])
+            if dparam["cpwhash"] is not None:
+                con.putheader("cpwhash",dparam["cpwhash"])
+
 
         if usecache==False:
             con.putheader("Cache-Control", "no-cache")
@@ -140,12 +143,10 @@ class client_client(object):
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         elif len(args)==4:
             client_addr,_servicename,_port,dparam=args
-            if len(client_addr.split(":"))<2:
-                return (False,"address is missing port",isself)
         else:
             return (False,("wrong amount arguments","{}".format(args)),isself)
         
-        temp= self.do_request(client_addr, "/registerservice/{}/{}".format(_servicename,_port),dparam)
+        temp= self.do_request(client_addr, "/registerservice/{}/{}".format(_servicename,_port),dparam,forceport=True)
         if len(args)==3 and temp[2] is not isself:
             raise(VALNameError)
         return temp
@@ -156,45 +157,31 @@ class client_client(object):
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         elif len(args)==4:
             client_addr,_servicename,_port,dparam=args
-            if len(client_addr.split(":"))<2:
-                return (False,"address is missing port",isself)
         else:
             return (False,("wrong amount arguments","{}".format(args)),isself)
         
-        temp= self.do_request(client_addr, "/deleteservice/{}/{}".format(_servicename,_port),dparam)
+        temp= self.do_request(client_addr, "/deleteservice/{}/{}".format(_servicename,_port),dparam,forceport=True)
         if len(args)==3 and temp[2] is not isself:
             raise(VALNameError)
         return temp
 
 
     def listservices(self,client_addr,dparam):
-        client_addr2=client_addr.split(":")
-        if len(client_addr2)==1:
-            return (False,"no port specified",isself)
-        return self.do_request(client_addr, "/listservices",dparam)
+        return self.do_request(client_addr, "/listservices",dparam,forceport=True)
     
     def info(self,_addr,dparam):
-        client_addr=_addr.split(":")
-        if len(client_addr)==1:
-            return (False,"no port specified",isself)
-        temp=self.do_request(_addr,  "/info",dparam)
+        temp=self.do_request(_addr,  "/info",dparam,forceport=True)
         if temp[0]==True:
             return temp[0],temp[1].split("/",4),temp[2]
         else:
             return temp
         
     def priodirect(self,_addr,dparam):
-        client_addr=_addr.split(":")
-        if len(client_addr)==1:
-            return (False,"no port specified",isself)
-        temp=self.do_request(_addr,  "/prio",dparam)
+        temp=self.do_request(_addr,  "/prio",dparam,forceport=True)
         return temp
 
     def capabilities(self,_addr,dparam):
-        client_addr=_addr.split(":")
-        if len(client_addr)==1:
-            return (False,"no port specified",isself)
-        temp=self.do_request(_addr,  "/cap",dparam)
+        temp=self.do_request(_addr,  "/cap",dparam,forceport=True)
         if temp[0]==True:
             return temp[0],temp[1].split(",",3),temp[2]
         else:
@@ -412,6 +399,8 @@ class client_handler(BaseHTTPRequestHandler):
         try:
             func=type(self.links["client"]).__dict__[_cmdlist[0]]
             response=func(self.links["client"],*_cmdlist[1:])
+        except AddressFail as e:
+            self.send_error(500,e.msg)
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
                 if "tb_frame" in e.__dict__:
@@ -562,7 +551,9 @@ class client_handler(BaseHTTPRequestHandler):
             
         
 class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
-        
+    #address_family = socket.AF_INET6
+    sslcont=None
+    
     def __init__(self, _client_address,certfpath):
         HTTPServer.__init__(self, _client_address,client_handler)
         self.sslcont=self.sslcont=default_sslcont()
@@ -642,7 +633,7 @@ class client_init(object):
             
         self.links["client_server"]=client_server(_name[0],kwargs["priority"],_message)
         client_handler.links=self.links
-        self.links["server"]=http_client_server(("0.0.0.0",port),_cpath+"_cert")
+        self.links["server"]=http_client_server(("",port),_cpath+"_cert")
         self.links["client"]=client_client(_name[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)
 
     def serve_forever_block(self):
@@ -699,7 +690,10 @@ class client_init(object):
                     print("Error:\n{}".format(resp[1]))
                 else:
                     print("Success:\n{}".format(resp[1]))
-            
+            except AddressFail as e:
+                print("Address error")
+                print(e.msg)
+                
             except KeyError as e:
                 print("Command does not exist?")
                 print(e)

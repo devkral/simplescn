@@ -8,6 +8,7 @@ import os
 import platform
 import sqlite3
 import hashlib
+import re
 from http import client
 
 from subprocess import Popen,PIPE
@@ -20,6 +21,32 @@ error="error"
 success="success"
 default_configdir="~/.simplescn/"
 
+
+
+###### signaling  ######
+
+class AddressFail(Exception):
+    msg="\"<address>:<port>\"\n\"[<address>]:<port>\""
+class EnforcedPortFail(AddressFail):
+    msg="address is lacking\":<port>\"\n"+AddressFail.msg
+
+class VALError(Exception):
+    msg="validation failed"
+class VALNameError(VALError):
+    msg="Name does not match"
+
+class VALHashError(VALError):
+    msg="Hash does not match"
+    
+class isself(object):
+    def __str__(*args):
+        return "is self"
+
+
+
+
+
+##### init ######
 
 def generate_certs(_path):
     genproc=None
@@ -80,6 +107,11 @@ def init_config_folder(_dir, prefix):
         e.close()
 
 
+
+
+##### etc ######
+
+        
 #work around crappy python ssl implementation
 #which doesn't allow reads from strings
 def workaround_ssl(text_cert):
@@ -109,17 +141,17 @@ def parse_response(response):
     return (False,response.read().decode("utf8"))
 
 
-class VALError(Exception):
-    msg="validation failed"
-class VALNameError(VALError):
-    msg="Name does not match"
 
-class VALHashError(VALError):
-    msg="Hash does not match"
-    
-class isself(object):
-    def __str__(*args):
-        return "is self"
+re_parse_url=re.compile("\[?(.*)\]?:([0-9]+)")
+def scnparse_url(url,force_port=False):
+    _urlre=re.match(re_parse_url,url)
+    if _urlre is not None:
+        return _urlre.groups()
+    elif force_port==False:
+        return (url,server_port)
+    raise(EnforcedPortFail)
+
+
 
 
 class commonscn(object):

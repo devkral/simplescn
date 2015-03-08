@@ -270,6 +270,8 @@ def inputw():
     
 class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     sslcont=None
+    address_family = socket.AF_INET6
+    
     #def __del__(self):
     #    self.crappyssl.close()
   
@@ -351,7 +353,7 @@ class server_init(object):
         self.links["server_server"]=server(_name[0],dhash(pub_cert),kwargs["priority"],_message)
         server_handler.links=self.links
         
-        self.links["hserver"]=http_server_server(("0.0.0.0",_port),_cpath+"_cert")
+        self.links["hserver"]=http_server_server(("",_port),_cpath+"_cert")
 
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
