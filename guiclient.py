@@ -52,7 +52,7 @@ class gtk_client(object):
         #"localhost:<port>"
 
     #replaced by client
-    def do_request(self,_addr,requeststr,dparam,usecache=False):
+    def do_request(self,_addr,requeststr,dparam,usecache=False,forceport=False):
         pass
     def init2(self):
         self.gtkupdate_clientinfo()
