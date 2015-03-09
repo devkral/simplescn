@@ -50,10 +50,15 @@ class gtk_client(object):
             self.gtktogglelock()
         if clientpw is not None:
             self.builder.get_object("clientpw").set_text(clientpw)
+        self.gtkupdate_clientinfo()
 
     def do_request(self,requeststr):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
-        return client.client_client.__dict__["do_request"](self,clienturl,requeststr,self.param_client,usecache=False,forceport=False)
+        try:
+            return client.client_client.__dict__["do_request"](self,clienturl,requeststr,self.param_client,usecache=False,forceport=False)
+        except Exception as e:
+            logging.error(e)
+            return (False, e,"isself")
     
     def do_requestdo(self,*requeststrs):
         temp="/do"
@@ -76,11 +81,19 @@ class gtk_client(object):
 
     def gtkupdate_clientinfo(self,*args):
         _info=self.builder.get_object("clientinfo")
+        gtklock=self.builder.get_object("lockclientcheck")
         temp=self.do_requestdo("show")
         if temp[0]==True:
-            _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1].split("/",3)))
+            if len(temp[1].split("\n"))>2:
+                _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1].split("\n",2)))
+            else:
+                gtklock.set_active(False)
+                self.gtktogglelock()
+                logging.error(temp[1])
         else:
-            pass
+            gtklock.set_active(False)
+            self.gtktogglelock()
+            logging.error(temp[1])
                            
     
     def gtkregister(self,*args):
@@ -96,7 +109,7 @@ class gtk_client(object):
             _veristate.set_text("invalid")
             return
         if temp[0]==True and temp[2] is not None:
-            if temp is isself:
+            if temp == "isself":
                 _veristate.set_text("Server is own client") # normally impossible
             else:
                 _veristate.set_text("Server verified as:\n"+temp[2])
@@ -105,6 +118,7 @@ class gtk_client(object):
         if temp[0]==True:
             logging.info("registered")
         else:
+            print(temp[1])
             logging.info("registration failed")
         
     def gtkupdate_clienturl(self,*args):
@@ -121,6 +135,7 @@ class gtk_client(object):
         else:
             self.builder.get_object("clienturl").set_sensitive(True)
             self.builder.get_object("clientpw").set_sensitive(True)
+            self.builder.get_object("clientinfoexpander").set_expanded(True)
         
     def gtkgo(self,*args):
         _veristate=self.builder.get_object("veristate")

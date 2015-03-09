@@ -35,7 +35,6 @@ class client_client(object):
 
     def do_request(self,_addr,requeststr,dparam,usecache=False,forceport=False):
         _addr=scnparse_url(_addr,force_port=forceport)
-
         con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
@@ -47,6 +46,8 @@ class client_client(object):
             val=self.hashdb.certhash_as_name(dhash(pcert))
             #print(dparam)
             if dparam["certname"] is not None and dparam["certname"]!=val:
+                raise(VALNameError)
+            if val=="isself":
                 raise(VALNameError)
 
         if dparam["tdestname"] is not None and dparam["tdesthash"] is not None:
@@ -80,16 +81,12 @@ class client_client(object):
         resp=parse_response(con.getresponse())
         
         if dparam["nohashdb"] is not None:
-            if resp[0]==True:
-                temp=resp[1].rsplit("/",1)
-                return (resp[0],temp[0],temp[1])
-            else:
-                return (resp[0],resp[1],dhash(pcert))
+            return (resp[0],resp[1],dhash(pcert))
             
         con.close()
         return resp[0],resp[1],val
 
-    def show(self):
+    def show(self,dparam):
         return (True,(self.name,self.cert_hash,
                 str(self.links["server"].socket.getsockname()[1])),isself)
     
@@ -443,11 +440,12 @@ class client_handler(BaseHTTPRequestHandler):
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
             if len(response)>=1 and len(response[1])>0:
-                if type(response[1]) is [] or type(response[1]) is ():
+                if type(response[1]).__name__ in ["tuple","list"]:
                     for elem in response[1]:
                         self.wfile.write(bytes(elem+"\n","utf8"))
                 else:
-                    self.wfile.write(bytes(str(response[1]),"utf8"))
+                    #isself should be protected
+                    self.wfile.write(bytes("{}/{}".format(response[1],response[2]),"utf8"))
             else:
                 self.wfile.write(bytes(success,"utf8"))
 
@@ -505,7 +503,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         
         pos_param=self.path.find("?")
-        dparam={"certname":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
+        dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
         if pos_param!=-1:
             _cmdlist=self.path[1:pos_param].split("/")
             tparam=self.path[pos_param+1:].split("&")
