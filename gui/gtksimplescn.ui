@@ -137,7 +137,9 @@
                 <child>
                   <object class="GtkEntry" id="nameaddentry">
                     <property name="can_focus">True</property>
-                    <property name="secondary_icon_pixbuf">icon.png</property>
+                    <property name="secondary_icon_name">document-new</property>
+                    <property name="primary_icon_activatable">False</property>
+                    <property name="primary_icon_sensitive">False</property>
                     <property name="placeholder_text" translatable="yes">&lt;name&gt;</property>
                     <signal name="activate" handler="gtkadd_nameconfirm" swapped="no"/>
                     <signal name="editing-done" handler="gtkadd_nameconfirm" swapped="no"/>
