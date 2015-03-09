@@ -282,7 +282,7 @@ class gtk_client_init(client.client_init):
         if kwargs["server"] is not None:
             client.client_init(self,**kwargs)
             _client="localhost:".format(self.links["server"].socket.getsockname()[1])
-            self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
+            self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=self.links["client_client"].cert_hash)
         else:
             self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
 
