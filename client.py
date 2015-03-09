@@ -81,7 +81,11 @@ class client_client(object):
         resp=parse_response(con.getresponse())
         
         if dparam["nohashdb"] is not None:
-            return (resp[0],resp[1],dhash(pcert))
+            temp=resp[1].rsplit("/",1)
+            if len(temp)==2:
+                return (resp[0],temp[0],temp[1])
+            else:
+                return (resp[0],resp[1],dhash(pcert))
             
         con.close()
         return resp[0],resp[1],val
@@ -442,7 +446,8 @@ class client_handler(BaseHTTPRequestHandler):
             if len(response)>=1 and len(response[1])>0:
                 if type(response[1]).__name__ in ["tuple","list"]:
                     for elem in response[1]:
-                        self.wfile.write(bytes(elem+"\n","utf8"))
+                        self.wfile.write(bytes("{}\n".format(elem),"utf8"))
+                    self.wfile.write(bytes("/{}".format(response[2]),"utf8"))
                 else:
                     #isself should be protected
                     self.wfile.write(bytes("{}/{}".format(response[1],response[2]),"utf8"))
@@ -659,8 +664,8 @@ class client_init(object):
         self.sthread.start()
 
     def cmd(self):
-        
-        print(*self.links["client"].show()[1],sep="/")
+        dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
+        print(*self.links["client"].show(dparam)[1],sep="/")
         while True:
             inp=input("Enter command, seperate by \"/\"\nEnter parameters by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n")
             if inp=="":

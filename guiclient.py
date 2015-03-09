@@ -3,7 +3,7 @@ import logging
 import signal
 import sys
 import os
-import threading
+import traceback#threading,
 from os import path
 from gi.repository import Gtk,Gdk,Gio
 
@@ -57,7 +57,12 @@ class gtk_client(object):
         try:
             return client.client_client.__dict__["do_request"](self,clienturl,requeststr,self.param_client,usecache=False,forceport=False)
         except Exception as e:
-            logging.error(e)
+            if "tb_frame" in e.__dict__:
+                st=str(e)+"\n\n"+str(traceback.format_tb(e))
+            else:
+                st=str(e)
+
+            logging.error(st)
             return (False, e,"isself")
     
     def do_requestdo(self,*requeststrs):
@@ -148,7 +153,7 @@ class gtk_client(object):
             return
         
         try:
-            temp=self.do_requestdo(_server,_name,_hash,self.param_server)
+            temp=self.do_requestdo("get",_server,_name,_hash)
         except VALError as e:
             logging.info(e)
             _veristate.set_text("invalid")
@@ -164,7 +169,7 @@ class gtk_client(object):
         else:
             _veristate.set_text("unverified")
         if temp[0]==True:
-            _node.set_text("{}:{}".format(*temp[1]))
+            _node.set_text("{}:{}".format(*temp[1].split("\n")))
             self.param_client["certhash"]=_hash
 
     def gtkchat(self,*args):

@@ -40,7 +40,7 @@ class VALHashError(VALError):
     
 class isself(object):
     def __str__(*args):
-        return "is self"
+        return "isself"
 
 
 
