@@ -43,12 +43,11 @@ class client_client(object):
             val=isself
         elif dparam["certhash"] is not None and dparam["certhash"]!=dhash(pcert):
             raise(VALHashError)
-        else:
+        elif dparam["nohashdb"] is None:
             val=self.hashdb.certhash_as_name(dhash(pcert))
             #print(dparam)
             if dparam["certname"] is not None and dparam["certname"]!=val:
                 raise(VALNameError)
-
 
         if dparam["tdestname"] is not None and dparam["tdesthash"] is not None:
             
@@ -79,6 +78,14 @@ class client_client(object):
         con.endheaders()
         
         resp=parse_response(con.getresponse())
+        
+        if dparam["nohashdb"] is not None:
+            if resp[0]==True:
+                temp=resp[1].rsplit("/",1)
+                return (resp[0],temp[0],temp[1])
+            else:
+                return (resp[0],resp[1],dhash(pcert))
+            
         con.close()
         return resp[0],resp[1],val
 
@@ -278,13 +285,21 @@ class client_client(object):
         else:
             return (True,temp,isself)
     
-    def listnamesl(self,dparam):
-        temp=self.hashdb.listnames()
+    def listcertnames(self,dparam):
+        temp=self.hashdb.listcertnames()
         if temp is None:
             return(False, error,isself)
         else:
             return (True,temp,isself)
 
+    def listall(self,dparam):
+        temp=self.hashdb.listall()
+        if temp is None:
+            return(False, error,isself)
+        else:
+            return (True,temp,isself)
+
+        
 
 ###server on client
     
@@ -341,9 +356,11 @@ class client_server(commonscn):
         return self.cache["priority"]
     
 class client_handler(BaseHTTPRequestHandler):
+    server_version = 'simple scn client 0.5'
+    
     links=None
-    validactions=["info","get","registerservice","listservices","cap","prio","deleteservice"]
-    clientactions=["register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listnamesl","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice"]
+    validactions={"info","get","registerservice","listservices","cap","prio","deleteservice"}
+    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listcertnames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice"}
     handle_localhost=False
     handle_remote=False
     cpwhash=None
@@ -488,7 +505,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         
         pos_param=self.path.find("?")
-        dparam={"certname":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+        dparam={"certname":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
         if pos_param!=-1:
             _cmdlist=self.path[1:pos_param].split("/")
             tparam=self.path[pos_param+1:].split("&")
@@ -659,7 +676,7 @@ class client_init(object):
                 cmdhelp()
                 continue
 
-            dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+            dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
             pos_param=unparsed.find("?")
             if pos_param!=-1:
                 parsed=unparsed[:pos_param].split("/")
@@ -754,22 +771,24 @@ c: set password for using client webcontrol
     
 def signal_handler(_signal, frame):
   sys.exit(0)
+
+client_args={"config":default_configdir,
+             "port":None,
+             "cpwhash":None,
+             "cpwfile":None,
+             "spwhash":None,
+             "spwfile":None,
+             "local":None,
+             "remote":None,
+             "priority":"20",
+             "timeout":"300", # not implemented yet
+             "webgui":None,
+             "cmd":None}
   
 if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    d={"config":default_configdir,
-       "port":None,
-       "cpwhash":None,
-       "cpwfile":None,
-       "spwhash":None,
-       "spwfile":None,
-       "local":None,
-       "remote":None,
-       "priority":"20",
-       "timeout":"300", # not implemented yet
-       "webgui":None,
-       "cmd":None}
+
     
     if len(sys.argv)>1:
         tparam=()
@@ -783,13 +802,13 @@ if __name__ ==  "__main__":
                 if len(tparam)==1:
                     tparam=elem.split(":")
                 if len(tparam)==1:
-                    d[tparam[0]]=""
+                    client_args[tparam[0]]=""
                     continue
-                d[tparam[0]]=tparam[1]
+                client_args[tparam[0]]=tparam[1]
                 
 
     #should be gui agnostic so specify here
-    if d["webgui"] is not None:
+    if client_args["webgui"] is not None:
         logging.debug("webgui enabled")
         client_handler.webgui=True
         #load static files
@@ -800,9 +819,9 @@ if __name__ ==  "__main__":
         client_handler.webgui=False
 
                 
-    cm=client_init(**d)
+    cm=client_init(**client_args)
         
-    if d["cmd"] is not None:
+    if client_args["cmd"] is not None:
         logging.debug("start server")
         cm.serve_forever_nonblock()
         logging.debug("start console")

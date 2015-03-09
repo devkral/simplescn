@@ -394,17 +394,20 @@ class certhash_db(object):
     def listcerts(self,dbcon,_name):
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash,type,priority FROM certs WHERE name=?  ORDER BY priority ASC;''',(_name,))
-        temmp=cur.fetchall()
-        if temmp is None:
-            return None
-        temp=[]
-        for elem in temmp:
-            temp+=[elem[0],]
-        return temp
+        return cur.fetchall()
     
 
     @connecttodb
-    def listnames(self,dbcon):
+    def listcertnames(self,dbcon):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT name FROM certs ORDER BY name ASC;''')
+        temmp=cur.fetchall()
+        if temmp is None:
+            return None
+        return temmp
+    
+    @connecttodb
+    def listall(self,dbcon):
         cur = dbcon.cursor()
         cur.execute('''SELECT name,certhash,type,priority FROM certs ORDER BY priority ASC;''')
         temmp=cur.fetchall()

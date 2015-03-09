@@ -9,7 +9,7 @@ from gi.repository import Gtk,Gdk,Gio
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,dhash,sharedir,VALError,isself
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,VALError,isself,default_sslcont
 
 
 class gtk_client(object):
@@ -17,43 +17,51 @@ class gtk_client(object):
     clip=None
     win=None
     statusbar=None
-    nodeview=None
-    nodestore=None
-    param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
-    param_server={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+    nameview=None
+    namestore=None
+    param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
+    param_server={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
 
     cert_hash=None
+    #start_url_hash=(None,None)
 
-    def __init__(self,client="[::1]:<port>",clientpw=None,certhash=None):
+    def __init__(self,client=None,clientpw=None,certhash=None):
+        self.sslcont=default_sslcont()
         self.cert_hash=certhash
-        self.__dict__["do_request"]=client.client_client.__dict__["do_request"]
+        #self.clienturl=client # other lock method
+        self.cert_hash_backup=certhash
         self.builder=Gtk.Builder.new_from_file(sharedir+"gui/gtksimplescn.ui")
         self.builder.connect_signals(self)
         
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.win=self.builder.get_object("mainwindow")
-        self.nodeview=self.builder.get_object("nodeview")
-        self.nodestore=self.builder.get_object("nodestore")
+        self.nameview=self.builder.get_object("nameview")
+        self.namestore=self.builder.get_object("namestore")
         self.statusbar=self.builder.get_object("mainstatusbar")
         
         col0renderer=Gtk.CellRendererText()
         col0 = Gtk.TreeViewColumn("Name", col0renderer, text=0)
-        col1renderer=Gtk.CellRendererText()
-        col1 = Gtk.TreeViewColumn("Hashes", col1renderer, text=1)
-        col2renderer=Gtk.CellRendererText()
-        col2 = Gtk.TreeViewColumn("Type", col2renderer, text=2)
-        col3renderer=Gtk.CellRendererText()
-        col3 = Gtk.TreeViewColumn("Verified", col3renderer, text=3)
-        self.nodeview.append_column(col0)
-        self.nodeview.append_column(col1)
-        self.nodeview.append_column(col2)
-        self.nodeview.append_column(col3)
-        self.nodeview.get_selection().select_path(Gtk.TreePath.new_first())
-        #"localhost:<port>"
+        self.nameview.append_column(col0)
+        self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
+        if client is not None:
+            self.builder.get_object("clienturl").set_text(client)
+            if len(client.rsplit(":",1))>1:
+                self.builder.get_object("lockclientcheck").set_active(True)
+            self.gtktogglelock()
+        if clientpw is not None:
+            self.builder.get_object("clientpw").set_text(clientpw)
 
-    #replaced by client
-    def do_request(self,_addr,requeststr,dparam,usecache=False,forceport=False):
-        pass
+    def do_request(self,requeststr):
+        clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
+        return client.client_client.__dict__["do_request"](self,clienturl,requeststr,self.param_client,usecache=False,forceport=False)
+    
+    def do_requestdo(self,*requeststrs):
+        temp="/do"
+        for elem in requeststrs:
+            temp="{}/{}".format(temp,elem)
+        return self.do_request(temp)
+        
+    
     def init2(self):
         self.gtkupdate_clientinfo()
         self.gtkupdate_nodes()
@@ -68,15 +76,21 @@ class gtk_client(object):
 
     def gtkupdate_clientinfo(self,*args):
         _info=self.builder.get_object("clientinfo")
-        _info.set_text("Clientinfo: {}/{}/{}".format(*self.show()[1]))
+        temp=self.do_requestdo("show")
+        if temp[0]==True:
+            _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1].split("/",3)))
+        else:
+            pass
+                           
     
     def gtkregister(self,*args):
         _veristate=self.builder.get_object("veristate")
-        _server=self.builder.get_object("server").get_text().strip(" ").rstrip(" ")
+        _server=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
         if _server=="":
             return
+
         try:
-            temp=self.register(_server,self.param_server)
+            temp=self.do_requestdo("register",_server)
         except VALError as e:
             logging.info(e)
             _veristate.set_text("invalid")
@@ -93,20 +107,33 @@ class gtk_client(object):
         else:
             logging.info("registration failed")
         
+    def gtkupdate_clienturl(self,*args):
+        _client=self.builder.get_object("clienturl").get_text().strip(" ").rstrip(" ")
+        if _client=="":
+            return
         
+    def gtktogglelock(self,*args):
+        gtklock=self.builder.get_object("lockclientcheck")
+        if gtklock.get_active()==True:
+            self.builder.get_object("clienturl").set_sensitive(False)
+            self.builder.get_object("clientpw").set_sensitive(False)
+            self.builder.get_object("clientinfoexpander").set_expanded(False)
+        else:
+            self.builder.get_object("clienturl").set_sensitive(True)
+            self.builder.get_object("clientpw").set_sensitive(True)
         
     def gtkgo(self,*args):
         _veristate=self.builder.get_object("veristate")
-        _server=self.builder.get_object("server").get_text().strip(" ").rstrip(" ")
+        _server=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
         _name=self.builder.get_object("name").get_text().strip(" ").rstrip(" ")
         _hash=self.builder.get_object("hash").get_text().strip(" ").rstrip(" ")
-        _client=self.builder.get_object("client")
+        _node=self.builder.get_object("nodeurl")
 
         if "" in [_server, _name, _hash]:
             return
         
         try:
-            temp=self.get(_server,_name,_hash,self.param_server)
+            temp=self.do_requestdo(_server,_name,_hash,self.param_server)
         except VALError as e:
             logging.info(e)
             _veristate.set_text("invalid")
@@ -122,31 +149,46 @@ class gtk_client(object):
         else:
             _veristate.set_text("unverified")
         if temp[0]==True:
-            _client.set_text("{}:{}".format(*temp[1]))
+            _node.set_text("{}:{}".format(*temp[1]))
             self.param_client["certhash"]=_hash
 
-    def gtkinvalidate(self,*args):
-        self.param_client["certname"]=None
-        self.param_client["certhash"]=None
     def gtkchat(self,*args):
         pass
 
-    def gtkupdate_nodes(self,*args):
-        _nodestore=self.builder.get_object("nodestore")
-        _localnames=self.listnamesl(self.param_client)
+            
+    def gtkinvalidate(self,*args):
+        self.param_client["certname"]=None
+        self.param_client["certhash"]=None
+
+    def gtkupdate_names(self,*args):
+        _localnames=self.do_requestdo("listnamecerts")
         if _localnames[0]==False:
             return
-        _nodestore.clear()
-        for elem in _localnames[1]:
-#            print(elem)
-            if elem[2]==None:
-                _nodestore.append((elem[0],"","",""))
-            else:
-                _nodestore.append(("",str(elem[1]),elem[2],"local"))
+        self.namestore.clear()
+        for elem in _localnames[1].split("/"):
+            self.namestore.append((elem,))
 
-        pass
+    def gtkadd_name(self,*args):
+        _tgan=self.builder.get_object("nameaddentry")
+        _tgan.set_text("")
+        _tgan.show()
+    
+    def gtkadd_nameconfirm(self,*args):
+        _tgan=self.builder.get_object("nameaddentry")
+        _tname=_tgan.get_text()
+        if _tname=="":
+            _tgan.hide()
+            _tgan.set_text("")
+            return
+        _tcname=self.do_requestdo("addname",_tname)
+        if _tcname[0]==True:
+            _tgan.hide()
+            _tgan.set_text("")
+            
     def gtkadd_node(self,*args):
         pass
+        
+
     def gtkdel_node(self,*args):
         pass
     def gtkmod_node(self,*args):
@@ -194,6 +236,8 @@ class gtk_client_init(client.client_init):
 
         with open(_cpath+"_name", 'r') as readclient:
             _name=readclient.readline()
+            if _name[-1]=="\n":
+                _name=_name[:-1]
         #report missing file
         if None in [_name,]:
             raise(Exception("missing"))
@@ -209,17 +253,18 @@ class gtk_client_init(client.client_init):
             _client=kwargs["client"]
             if len(kwargs["client"].rsplit(":",1))==1:
                 if len(_name)>=2:
-                   _client=kwargs["client"]+":"+_name[1]
+                   _client="{}:{}".format(kwargs["client"],_name[1])
         else:
-            _client="localhost:<port>"
+            _client=None
+            if len(_name)>=2:
+                _client="localhost:{}".format(_name[1])
 
-        
         if kwargs["server"] is not None:
             client.client_init(self,**kwargs)
             _client="localhost:".format(self.links["server"].socket.getsockname()[1])
-            gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
+            self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
         else:
-            gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
+            self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
 
 
 def paramhelp():
@@ -227,7 +272,6 @@ def paramhelp():
 """
 ### parameters ###
 config=<dir>: path to config dir
-priority=<number>: set priority (disfunct here set directly)
 timeout=<number>: #########not implemented yet ###############
 server: shall start own server
 port=<number>: Port in connection with server
@@ -247,14 +291,17 @@ def signal_handler(*args):
 if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    d={"config":default_configdir,
-       "port":None,
-       "priority":"20",
-       "timeout":"300", # not implemented yet
-       "server":None,
-       "client":None,
-       "clientpw":None,
-       "cmd":None}
+    d=client.client_args.copy()
+    d.update({"config":default_configdir,
+              "port":None,
+              "local": "true", #set true could also be ""
+              "priority":"20",
+              "timeout":"300", # not implemented yet
+              "server":None,
+              "client":None,
+              "clientpw":None,
+              "certhash":None,
+              "cmd":None})
     
     if len(sys.argv)>1:
         tparam=()
@@ -275,11 +322,15 @@ if __name__ ==  "__main__":
 
     client.client_handler.webgui=False
 
-                
+    
+    #logging.debug("start client")
     cm=gtk_client_init(**d)
+    logging.debug("client started")
     if d["server"] is not None:
         logging.debug("start server")
         cm.serve_forever_nonblock()
+        
+    logging.debug("enter mainloop")
     while run==True:
         Gtk.main_iteration_do(True)
   

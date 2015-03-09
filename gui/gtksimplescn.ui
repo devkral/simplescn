@@ -70,14 +70,23 @@
       </object>
     </child>
   </object>
+  <object class="GtkListStore" id="namestore">
+    <columns>
+      <!-- column-name name -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
   <object class="GtkApplicationWindow" id="mainwindow">
+    <property name="visible">True</property>
     <property name="can_focus">False</property>
+    <signal name="delete-event" handler="gtkclose" swapped="no"/>
     <child>
       <object class="GtkGrid" id="maingrid1">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <child>
           <object class="GtkSeparator" id="separator1">
+            <property name="height_request">9</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
           </object>
@@ -136,6 +145,19 @@ on server</property>
                     <property name="top_attach">0</property>
                   </packing>
                 </child>
+                <child>
+                  <object class="GtkEntry" id="nameaddentry">
+                    <property name="can_focus">True</property>
+                    <property name="secondary_icon_pixbuf">icon.png</property>
+                    <property name="placeholder_text" translatable="yes">&lt;name&gt;</property>
+                    <signal name="activate" handler="gtkadd_nameconfirm" swapped="no"/>
+                    <signal name="editing-done" handler="gtkadd_nameconfirm" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">2</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -147,12 +169,12 @@ on server</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <child>
-                  <object class="GtkLabel" id="clientl">
+                  <object class="GtkLabel" id="Nodel">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="halign">end</property>
                     <property name="margin_right">3</property>
-                    <property name="label" translatable="yes">Client:</property>
+                    <property name="label" translatable="yes">Node:</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
@@ -160,7 +182,7 @@ on server</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkEntry" id="client">
+                  <object class="GtkEntry" id="nodeurl">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <signal name="changed" handler="gtkinvalidate" swapped="no"/>
@@ -255,12 +277,12 @@ on server</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <child>
-                          <object class="GtkButton" id="addnode">
+                          <object class="GtkButton" id="addnodenameb">
                             <property name="label" translatable="yes">add</property>
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">True</property>
-                            <signal name="activate" handler="gtkadd_node" swapped="no"/>
+                            <signal name="clicked" handler="gtkadd_name" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -268,12 +290,12 @@ on server</property>
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="modifynode">
+                          <object class="GtkButton" id="modifynodeb">
                             <property name="label" translatable="yes">modify</property>
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">True</property>
-                            <signal name="activate" handler="gtkmod_node" swapped="no"/>
+                            <signal name="clicked" handler="gtkmod_node" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -286,7 +308,7 @@ on server</property>
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">True</property>
-                            <signal name="activate" handler="gtkdel_node" swapped="no"/>
+                            <signal name="clicked" handler="gtkdel_node" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left_attach">0</property>
@@ -398,10 +420,11 @@ on server</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkEntry" id="server">
+              <object class="GtkEntry" id="serverurl">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="valign">start</property>
+                <property name="placeholder_text" translatable="yes">&lt;address&gt;:&lt;port&gt;</property>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -468,6 +491,9 @@ on server</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="valign">start</property>
+                <property name="margin_right">10</property>
+                <property name="label_fill">True</property>
+                <property name="resize_toplevel">True</property>
                 <child>
                   <object class="GtkEntry" id="passwordserver">
                     <property name="visible">True</property>
@@ -495,7 +521,7 @@ on server</property>
           </packing>
         </child>
         <child>
-          <object class="GtkExpander" id="expander2">
+          <object class="GtkExpander" id="clientinfoexpander">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="expanded">True</property>
@@ -517,9 +543,10 @@ on server</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkEntry" id="entry1">
+                  <object class="GtkEntry" id="clienturl">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="placeholder_text" translatable="yes">&lt;address&gt;:&lt;port&gt;</property>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
@@ -538,7 +565,7 @@ on server</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkEntry" id="passwordclient">
+                  <object class="GtkEntry" id="clientpw">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="placeholder_text" translatable="yes">&lt;empty&gt;</property>
@@ -549,13 +576,14 @@ on server</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkCheckButton" id="lockclientb">
+                  <object class="GtkCheckButton" id="lockclientcheck">
                     <property name="label" translatable="yes">Lock</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
                     <property name="xalign">0</property>
                     <property name="draw_indicator">True</property>
+                    <signal name="clicked" handler="gtktogglelock" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">4</property>
@@ -595,12 +623,6 @@ on server</property>
       </object>
     </child>
   </object>
-  <object class="GtkListStore" id="namestore">
-    <columns>
-      <!-- column-name name -->
-      <column type="gchararray"/>
-    </columns>
-  </object>
   <object class="GtkListStore" id="servicestore">
     <columns>
       <!-- column-name name -->
@@ -613,8 +635,10 @@ on server</property>
     <property name="name">serviceswindow</property>
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">Manage Services</property>
+    <property name="modal">True</property>
     <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
+    <property name="type_hint">dialog</property>
     <property name="deletable">False</property>
     <property name="has_resize_grip">True</property>
     <child>

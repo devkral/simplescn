@@ -108,9 +108,9 @@ class server(commonscn):
     
 class server_handler(BaseHTTPRequestHandler):
 
-    #server_version = 'simple scn server 0.5'
+    server_version = 'simple scn server 0.5'
     
-    validactions=["register","get","listnames","info","cap","prio","num_nodes"]
+    validactions={"register","get","listnames","info","cap","prio","num_nodes"}
     links=None
     salt=None
 
@@ -382,22 +382,21 @@ tunnel: enable tunnel
 webgui: enables webgui
 """)
 
+server_args={"config":default_configdir,
+             "port":None,
+             "spwhash":None,
+             "spwfile":None,
+             "tunnel":None, 
+             "tpwhash":None,
+             "tpwfile":None,
+             "webgui":None,
+             "priority":"20",
+             "ttimeout":"300",
+             "stimeout":"30"}
     
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    d={"config":default_configdir,
-       "port":None,
-       "spwhash":None,
-       "spwfile":None,
-       "tunnel":None, 
-       "tpwhash":None,
-       "tpwfile":None,
-       "webgui":None,
-       "priority":"20",
-       "ttimeout":"300",
-       "stimeout":"30"
-   }
 
     if len(sys.argv)>1:
         tparam=()
@@ -411,12 +410,12 @@ if __name__ == "__main__":
                 if len(tparam)==1:
                     tparam=elem.split(":")
                 if len(tparam)==1:
-                    d[tparam[0]]=""
+                    server_args[tparam[0]]=""
                     continue
-                d[tparam[0]]=tparam[1]
+                server_args[tparam[0]]=tparam[1]
 
     #should be gui agnostic so specify here
-    if d["webgui"] is not None:
+    if server_args["webgui"] is not None:
         server_handler.webgui=True
         #load static files  
         for elem in os.listdir("{}static".format(sharedir)):
@@ -428,6 +427,6 @@ if __name__ == "__main__":
     else:
         server_handler.webgui=False
 
-    cm=server_init(**d)
+    cm=server_init(**server_args)
     logging.debug("server started. Enter mainloop")
     cm.serve_forever_block()
