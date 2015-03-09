@@ -309,7 +309,9 @@ if __name__ ==  "__main__":
     d=client.client_args.copy()
     d.update({"config":default_configdir,
               "port":None,
-              "local": "true", #set true could also be ""
+              #set local to true (because elsewise program doesn't work with "server" set
+              # "true" could also be ""
+              "local": "true",
               "priority":"20",
               "timeout":"300", # not implemented yet
               "server":None,
