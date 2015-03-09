@@ -40,7 +40,7 @@ class gtk_client(object):
         self.statusbar=self.builder.get_object("mainstatusbar")
         
         col0renderer=Gtk.CellRendererText()
-        col0 = Gtk.TreeViewColumn("Name", col0renderer, text=0)
+        col0 = Gtk.TreeViewColumn("CertName", col0renderer, text=0)
         self.nameview.append_column(col0)
         self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
         if client is not None:
