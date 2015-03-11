@@ -46,13 +46,24 @@ class gtk_client(object):
         self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
 
 
-        serviceview=self.builder.get_object("serviceview")
+        servicelview=self.builder.get_object("localserviceview")
         servicelcol0renderer=Gtk.CellRendererText()
         servicelcol0 = Gtk.TreeViewColumn("Name", servicelcol0renderer, text=0)
-        serviceview.append_column(servicelcol0)
+        servicelview.append_column(servicelcol0)
         servicelcol1renderer=Gtk.CellRendererText()
         servicelcol1 = Gtk.TreeViewColumn("Port", servicelcol1renderer, text=1)
-        serviceview.append_column(servicelcol1)
+        servicelview.append_column(servicelcol1)
+        servicelview.get_selection().select_path(Gtk.TreePath.new_first())
+
+
+        servicenodeview=self.builder.get_object("nodeserviceview")
+        servicenodecol0renderer=Gtk.CellRendererText()
+        servicenodecol0 = Gtk.TreeViewColumn("Name", servicenodecol0renderer, text=0)
+        servicenodeview.append_column(servicenodecol0)
+        servicenodecol1renderer=Gtk.CellRendererText()
+        servicenodecol1 = Gtk.TreeViewColumn("Port", servicenodecol1renderer, text=1)
+        servicenodeview.append_column(servicenodecol1)
+        servicenodeview.get_selection().select_path(Gtk.TreePath.new_first())
         
         if client is not None:
             self.builder.get_object("clienturl").set_text(client)
@@ -351,19 +362,77 @@ class gtk_client(object):
     def gtkmod_node(self,*args):
         pass
 
-    def gtkshow_services(self,*args):
+    def gtkshow_nodes(self,*args):
+        smw=self.builder.get_object("nodelistw")
+        if smw.get_visible()==False:
+            smw.show()
+            self.gtkupdate_nodes()
+        else:
+            smw.hide()
+
+    def gtkhide_nodes(self,*args):
+        smw=self.builder.get_object("nodelistw")
+        smw.hide()
+        
+    def gtkupdate_nodes(self,*args):
+        nodestore=self.builder.get_object("nodestore")
+        _serverurl=self.builder.get_object("serverurl").get_text()
+        _servertitel=self.builder.get_object("servertitelname")
+        _servertitel.set_text("")
+        _nodes=self.do_requestdo("listnames",_serverurl)
+        if _nodes[0]==False:
+            return
+        _temp=_serverurl
+        if self.param_server["certname"] is not None:
+            _temp="{} ({})".format(_temp,self.param_node["certname"])
+        _servertitel.set_text(_temp)
+        nodestore.clear()
+        for elem in _nodes[1]:
+            nodestore.append((elem[0],elem[2],elem[3],elem[1]))
+        
+        
+    def gtkshow_nodeservices(self,*args):
+        smw=self.builder.get_object("nodeservicesw")
+        if smw.get_visible()==False:
+            smw.show()
+            self.gtkupdate_nodeservices()
+        else:
+            smw.hide()
+
+    def gtkhide_nodeservices(self,*args):
+        smw=self.builder.get_object("nodeservicesw")
+        smw.hide()
+        
+    def gtkupdate_nodeservices(self,*args):
+        servicestore=self.builder.get_object("nodeservicestore")
+        _nodeurl=self.builder.get_object("nodeurl").get_text()
+        _nodetitel=self.builder.get_object("nodetitelname")
+        _nodetitel.set_text("")
+        _temp=_nodeurl
+        if self.param_node["certname"] is not None:
+            _temp="{} ({})".format(_temp,self.param_node["certname"])
+        _nodetitel.set_text(_temp)
+        _nodeservices=self.do_requestdo("listservices",_nodeurl)
+        if _nodeservices[0]==False:
+            return
+        servicestore.clear()
+        for elem in _nodeservices[1]:
+            servicestore.append((elem[0],elem[1]))
+        
+    def gtkshow_localservices(self,*args):
         smw=self.builder.get_object("servicemw")
         if smw.get_visible()==False:
             smw.show()
-            self.gtkupdate_servicesl()
+            self.gtkupdate_localservices()
         else:
             smw.hide()
-    def gtkhide_services(self,*args):
+
+    def gtkhide_localservices(self,*args):
         smw=self.builder.get_object("servicemw")
         smw.hide()
         
-    def gtkupdate_servicesl(self,*args):
-        servicestore=self.builder.get_object("servicestore")
+    def gtkupdate_localservices(self,*args):
+        servicestore=self.builder.get_object("localservicestore")
         _localservices=self.do_requestdo("listservices")
         if _localservices[0]==False:
             return
@@ -383,10 +452,11 @@ class gtk_client(object):
         _tgan2.set_text("")
 
     def gtkadd_service_confirm(self,*args):
-        servicestore=self.builder.get_object("servicestore")
+        servicestore=self.builder.get_object("localservicestore")
         _tgrid=self.builder.get_object("newservice")
         _tgan=self.builder.get_object("newservicenameentry")
         _tgan2=self.builder.get_object("newserviceportentry")
+        _tgan.set_editable(True)
         _tname=_tgan.get_text()
         _tport=_tgan2.get_text()
         if _tname=="":
@@ -403,11 +473,24 @@ class gtk_client(object):
             _tgan2.set_text("")
             servicestore.append((_tname,_tport))
         
+    def gtkmod_service(self,*args):
+        servicestore=self.builder.get_object("servicestore")
+        _tgrid=self.builder.get_object("newservice")
+        _tgrid.show()
+        _tgan=self.builder.get_object("newservicenameentry")
+        _tgan2=self.builder.get_object("newserviceportentry")
+        _view=self.builder.get_object("localserviceview")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            print(temp)
+            return
+        print(temp[0][temp[1]]) #[1]
+        #_tgan.set_editable(False)
+        #get selection
+        #_tgan=""
+
     def gtkdel_service(self,*args):
         pass
-    def gtkmod_service(self,*args):
-        pass
-
 
     def gtkclose(self,*args):
         global run

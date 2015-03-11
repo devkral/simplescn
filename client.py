@@ -457,6 +457,7 @@ class client_handler(BaseHTTPRequestHandler):
             response=func(self.links["client"],*_cmdlist[1:])
         except AddressFail as e:
             self.send_error(500,e.msg)
+            return
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
                 if "tb_frame" in e.__dict__:
@@ -475,6 +476,7 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(400,response[1])
             else:
                 self.send_error(400,"unknown")
+            return
         else:
             self.send_response(200)
             self.send_header("Cache-Control", "no-cache")
