@@ -678,6 +678,11 @@
       </object>
     </child>
   </object>
+  <object class="GtkImage" id="refreshbpic1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="icon_name">view-refresh</property>
+  </object>
   <object class="GtkImage" id="refreshbpic2">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -852,6 +857,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="gtkadd_service" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -894,6 +900,19 @@
                 <signal name="clicked" handler="gtkhide_services" swapped="no"/>
               </object>
               <packing>
+                <property name="left_attach">4</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="refreshserviceslb">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="image">refreshbpic1</property>
+                <signal name="clicked" handler="gtkupdate_servicesl" swapped="no"/>
+              </object>
+              <packing>
                 <property name="left_attach">3</property>
                 <property name="top_attach">0</property>
               </packing>
@@ -901,7 +920,7 @@
           </object>
           <packing>
             <property name="left_attach">0</property>
-            <property name="top_attach">2</property>
+            <property name="top_attach">4</property>
           </packing>
         </child>
         <child>
@@ -912,7 +931,7 @@
           </object>
           <packing>
             <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
+            <property name="top_attach">3</property>
           </packing>
         </child>
         <child>
@@ -938,6 +957,55 @@
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkSeparator" id="servicesep2">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkGrid" id="newservice">
+            <property name="can_focus">False</property>
+            <child>
+              <object class="GtkEntry" id="newservicenameentry">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="hexpand">True</property>
+                <property name="secondary_icon_name">document-new</property>
+                <property name="placeholder_text" translatable="yes">&lt;new servicename&gt;</property>
+                <signal name="activate" handler="gtkadd_service_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry" id="newserviceportentry">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="margin_left">10</property>
+                <property name="margin_right">5</property>
+                <property name="width_chars">6</property>
+                <property name="max_width_chars">6</property>
+                <property name="placeholder_text" translatable="yes">&lt;port&gt;</property>
+                <signal name="activate" handler="gtkadd_service_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">2</property>
           </packing>
         </child>
       </object>

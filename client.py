@@ -150,18 +150,19 @@ class client_client(object):
         if temp[0]==False:
             return temp
         temp2=[]
-        for line in temp[1].split("\n"):
-            _split=line.split("/")
-            if len(_split)!=2:
-                logging.debug("invalid element:\n{}".format(line))
-                continue
-            if _split[0]=="isself":
-                logging.debug("invalid name:\n{}".format(line))
-                continue
-            if _split[1]==self.cert_hash:
-                temp2+=[(_split[0],_split[1],isself),]
-            else:
-                temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
+        if temp[1]!="empty":
+            for line in temp[1].split("\n"):
+                _split=line.split("/")
+                if len(_split)!=2:
+                    logging.debug("invalid element:\n{}".format(line))
+                    continue
+                if _split[0]=="isself":
+                    logging.debug("invalid name:\n{}".format(line))
+                    continue
+                if _split[1]==self.cert_hash:
+                    temp2+=[(_split[0],_split[1],isself),]
+                else:
+                    temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
         return (temp[0],temp2,temp[2])
     
     def getservice(self,client_addr,_service,dparam):
@@ -196,8 +197,22 @@ class client_client(object):
         return temp
 
 
-    def listservices(self,client_addr,dparam):
-        return self.do_request(client_addr, "/listservices",dparam,forceport=True)
+    def listservices(self,*args):
+        if len(args)==1:
+            dparam=args[0]
+            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        elif len(args)==2:
+            client_addr,dparam=args
+        else:
+            return (False,("wrong amount arguments","{}".format(args)),isself)
+        temp=self.do_request(client_addr, "/listservices",dparam,forceport=True)
+        if temp[0]==False:
+            return temp
+        temp2=[]
+        if temp[1]!="empty":
+            for elem in temp[1].split("\n"):
+                temp2+=[elem.rsplit("&",1),]
+        return (temp[0],temp2,temp[2])
     
     def info(self,_addr,dparam):
         temp=self.do_request(_addr,  "/info",dparam,forceport=True)
@@ -353,10 +368,10 @@ class client_server(commonscn):
     def listservices(self,_addr):
         temp=""
         for _service in self.spmap:
-            temp="{}\n{}".format(_service,temp)
+            temp="{}\n{}&{}".format(temp,_service,self.spmap[_service])
         if len(temp)==0:
             return "{}/empty".format(success)
-        return "{}/{}".format(success,temp)
+        return "{}/{}".format(success,temp[1:])
     def registerservice(self,_service,_port,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             self.spmap[_service]=_port
@@ -473,9 +488,9 @@ class client_handler(BaseHTTPRequestHandler):
                         nestsum=""
                         for nestlistelem in listelem:
                             if nestlistelem is None:
-                                nestsum="{}&%".format(nestsum)
+                                nestsum="{}/%".format(nestsum)
                             else:
-                                nestsum="{}&{}".format(nestsum,listelem)
+                                nestsum="{}/{}".format(nestsum,listelem)
                         sumelem="{}\n{}".format(sumelem,nestsum)
                     elif listelem is None:
                         sumelem="{}\n%".format(sumelem)

@@ -44,6 +44,16 @@ class gtk_client(object):
         col0 = Gtk.TreeViewColumn("Name", col0renderer, text=0)
         self.nameview.append_column(col0)
         self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
+
+
+        serviceview=self.builder.get_object("serviceview")
+        servicelcol0renderer=Gtk.CellRendererText()
+        servicelcol0 = Gtk.TreeViewColumn("Name", servicelcol0renderer, text=0)
+        serviceview.append_column(servicelcol0)
+        servicelcol1renderer=Gtk.CellRendererText()
+        servicelcol1 = Gtk.TreeViewColumn("Port", servicelcol1renderer, text=1)
+        serviceview.append_column(servicelcol1)
+        
         if client is not None:
             self.builder.get_object("clienturl").set_text(client)
             if len(client.rsplit(":",1))>1:
@@ -63,7 +73,7 @@ class gtk_client(object):
         self.gtkupdate_clientinfo()
         self.gtkupdate_certnames()
         
-    def do_request(self,requeststr):
+    def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
         params="?"
         for elem in ["certhash","certname"]:
@@ -87,15 +97,28 @@ class gtk_client(object):
             return (False, e,isself)
         if temp[0]==False:
             return temp
-        temp1=temp[1].split("\n")
+        if parse==-1:
+            rest=[]
+            temp1=temp[1].split("\n")
+        elif parse==0:
+            rest=[temp[1]]
+            temp1=[]
+        else:
+            temp1=temp[1].split("\n",parse)
+            if len(temp1)>2:
+                rest=[temp1[-1],]
+                temp1=temp1[:-1]
+            else:
+                return (False,"arglength",isself)
         _finish1=[]
+        #TODO: empty,[] causes artifact
         for elem in temp1:
             if elem=="%":
                 _finish1+=[None,]
                 continue
                 
             _temp2=[]
-            for elem2 in elem.split("&"):
+            for elem2 in elem.split("/"):
                 if elem2=="%":
                     _temp2+=[None,]
                 else:
@@ -108,20 +131,20 @@ class gtk_client(object):
                 _temp2=_temp2[1:]
             _finish1+=[_temp2,]
         
+        _finish1+=rest
         #remove array if just one element
         if len(_finish1)==1:
             _finish1=_finish1[0]
         #remove trailing "" element
         elif _finish1[0]=="":
             _finish1=_finish1[1:]
-        
         return (temp[0],_finish1,temp[2])
         
-    def do_requestdo(self,*requeststrs):
+    def do_requestdo(self,*requeststrs,parse=-1):
         temp="/do"
         for elem in requeststrs:
             temp="{}/{}".format(temp,elem)
-        return self.do_request(temp)
+        return self.do_request(temp,parse)
 
     def do_requestdirect(self,*requeststrs):
         _treqstr=""
@@ -331,18 +354,55 @@ class gtk_client(object):
     def gtkshow_services(self,*args):
         smw=self.builder.get_object("servicemw")
         if smw.get_visible()==False:
-            smw.show_all()
+            smw.show()
+            self.gtkupdate_servicesl()
         else:
             smw.hide()
     def gtkhide_services(self,*args):
         smw=self.builder.get_object("servicemw")
         smw.hide()
         
-    def gtkupdate_services(self,*args):
-        pass
+    def gtkupdate_servicesl(self,*args):
+        servicestore=self.builder.get_object("servicestore")
+        _localservices=self.do_requestdo("listservices")
+        if _localservices[0]==False:
+            return
+        servicestore.clear()
+        for elem in _localservices[1]:
+            servicestore.append((elem[0],elem[1]))
 
     def gtkadd_service(self,*args):
-        pass
+        _tgrid=self.builder.get_object("newservice")
+        if _tgrid.get_visible()==True:
+            self.gtkadd_service_confirm()
+            return
+        _tgrid.show()
+        _tgan=self.builder.get_object("newservicenameentry")
+        _tgan.set_text("")
+        _tgan2=self.builder.get_object("newserviceportentry")
+        _tgan2.set_text("")
+
+    def gtkadd_service_confirm(self,*args):
+        servicestore=self.builder.get_object("servicestore")
+        _tgrid=self.builder.get_object("newservice")
+        _tgan=self.builder.get_object("newservicenameentry")
+        _tgan2=self.builder.get_object("newserviceportentry")
+        _tname=_tgan.get_text()
+        _tport=_tgan2.get_text()
+        if _tname=="":
+            _tgrid.hide()
+            _tgan.set_text("")
+            _tgan2.set_text("")
+            return
+        if _tport=="":
+            return
+        _tcname=self.do_requestdo("registerservice",_tname,_tport)
+        if _tcname[0]==True:
+            _tgrid.hide()
+            _tgan.set_text("")
+            _tgan2.set_text("")
+            servicestore.append((_tname,_tport))
+        
     def gtkdel_service(self,*args):
         pass
     def gtkmod_service(self,*args):
