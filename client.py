@@ -24,6 +24,7 @@ class client_client(object):
     sslcontc=None
     hashdb=None
     links=None
+    isself=isself
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -79,16 +80,24 @@ class client_client(object):
         con.endheaders()
         
         resp=parse_response(con.getresponse())
+
+        con.close()
         
         if dparam["nohashdb"] is not None:
-            temp=resp[1].rsplit("/",1)
+            #here the order is changed so use split instead of rsplit
+            temp=resp[1].split("/",1)
             if len(temp)==2:
-                return (resp[0],temp[0],temp[1])
+                if temp[0]=="isself":
+                    val=isself
+                else:
+                    #val is in different order
+                    val=temp[0]
+                #reorder message part to middle
+                return (resp[0],temp[1],val)
             else:
                 return (resp[0],resp[1],dhash(pcert))
-            
-        con.close()
-        return resp[0],resp[1],val
+        else:    
+            return resp[0],resp[1],val
 
     def show(self,dparam):
         return (True,(self.name,self.cert_hash,
@@ -121,7 +130,17 @@ class client_client(object):
         con.close()
         return (True,(dhash(pcert),pcert),None)
         
-  
+
+    def ask(self,server_addr,dparam):
+        _ha=self.gethash(server_addr,dparam)
+        #will never happen but anyway
+        if _ha[0]==False:
+            return _ha
+        temp=self.hashdb.certhash_as_name(_ha[1][0])
+        return (True,(_ha[1][0],temp),isself)
+
+
+        
     def unparsedlistnames(self,server_addr,dparam):
         return self.do_request(server_addr, "/listnames",dparam,usecache=True)
 
@@ -135,6 +154,9 @@ class client_client(object):
             _split=line.split("/")
             if len(_split)!=2:
                 logging.debug("invalid element:\n{}".format(line))
+                continue
+            if _split[0]=="isself":
+                logging.debug("invalid name:\n{}".format(line))
                 continue
             if _split[1]==self.cert_hash:
                 temp2+=[(_split[0],_split[1],isself),]
@@ -206,6 +228,7 @@ class client_client(object):
         if self.hashdb.exist(_name,_hash)==True:
             self.hashdb.changepriority(_name,_hash)
         return temp
+
     
     #update db entry
     def update(self,server_addr,_name,_hash,dparam):
@@ -361,7 +384,7 @@ class client_handler(BaseHTTPRequestHandler):
     
     links=None
     validactions={"info","get","registerservice","listservices","cap","prio","deleteservice"}
-    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listcertnames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice"}
+    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listcertnames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice","ask"}
     handle_localhost=False
     handle_remote=False
     cpwhash=None
@@ -442,17 +465,29 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.send_header('Content-type',"text")
             self.end_headers()
-            #helps against ssl failing about empty string (EOF)
-            if len(response)>=1 and len(response[1])>0:
-                if type(response[1]).__name__ in ["tuple","list"]:
-                    for elem in response[1]:
-                        self.wfile.write(bytes("{}\n".format(elem),"utf8"))
-                    self.wfile.write(bytes("/{}".format(response[2]),"utf8"))
-                else:
-                    #isself should be protected
-                    self.wfile.write(bytes("{}/{}".format(response[1],response[2]),"utf8"))
+            #have beginning trailing "" for indicating list
+            if type(response[1]).__name__ in ["tuple","list"]:
+                sumelem=""
+                for listelem in response[1]:
+                    if type(listelem).__name__ in ["tuple","list"]:
+                        nestsum=""
+                        for nestlistelem in listelem:
+                            if nestlistelem is None:
+                                nestsum="{}&%".format(nestsum)
+                            else:
+                                nestsum="{}&{}".format(nestsum,listelem)
+                        sumelem="{}\n{}".format(sumelem,nestsum)
+                    elif listelem is None:
+                        sumelem="{}\n%".format(sumelem)
+                    else:
+                        sumelem="{}\n{}".format(sumelem,listelem)
+                #here switch certname before content
+                self.wfile.write(bytes("{}/{}".format(response[2].__str__(),sumelem),"utf8"))
+            elif response[1] is None:
+                self.wfile.write(bytes("{}/%".format(response[2].__str__())))
             else:
-                self.wfile.write(bytes(success,"utf8"))
+                #here switch certname before content
+                self.wfile.write(bytes("{}/{}".format(response[2].__str__(),response[1]),"utf8"))
 
     def handle_server(self,_cmdlist):
          # add address to _cmdlist
@@ -507,8 +542,8 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         
-        pos_param=self.path.find("?")
         dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
+        pos_param=self.path.find("?")
         if pos_param!=-1:
             _cmdlist=self.path[1:pos_param].split("/")
             tparam=self.path[pos_param+1:].split("&")

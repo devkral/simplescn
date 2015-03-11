@@ -29,6 +29,9 @@ class AddressFail(Exception):
     msg="\"<address>:<port>\"\n\"[<address>]:<port>\""
 class EnforcedPortFail(AddressFail):
     msg="address is lacking\":<port>\"\n"+AddressFail.msg
+class AddressEmptyFail(AddressFail):
+    msg="address is empty\n"+AddressFail.msg
+
 
 class VALError(Exception):
     msg="validation failed"
@@ -39,9 +42,10 @@ class VALHashError(VALError):
     msg="Hash does not match"
     
 class isself(object):
-    def __str__(*args):
+    def __str__(*args): #does this exist?
         return "isself"
-
+    def __repr__(*args): #this exist but why doesn't it work
+        return "isself"
 
 
 
@@ -144,6 +148,10 @@ def parse_response(response):
 
 re_parse_url=re.compile("\[?(.*)\]?:([0-9]+)")
 def scnparse_url(url,force_port=False):
+    if type(url).__name__!='str':
+        raise(AddressFail)
+    if url=="":
+        raise(AddressEmptyFail)
     _urlre=re.match(re_parse_url,url)
     if _urlre is not None:
         return _urlre.groups()
@@ -202,8 +210,12 @@ def check_hash(_hashstr):
   return False
 
 def check_name(_name, maxlength=64):
+    #ensure no bad characters
+    #name shouldn't be too big
+    #name shouldn't be isself as it is used
   if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
-     len(_name)<=maxlength: #name shouldn't be too big
+     len(_name)<=maxlength and \
+     _name!="isself":
     return True
   return False
 
@@ -340,12 +352,17 @@ class certhash_db(object):
 
     @connecttodb
     def changepriority(self,dbcon,_name,_certhash,_priority):
-        
-        if type(_priority).__name__!="int" and _priority.isdecimal()==False:
-            logging.info("priority no integer")
+
+        #convert str to int and fail if either no integer in string format
+        # or datatype is something else except int
+        if type(_priority).__name__=="str" and _priority.isdecimal()==False:
+            logging.info("priority is no integer")
             return False
-        elif type(_priority).__name__!="int":
+        elif type(_priority).__name__=="str":
             _priority=int(_priority)
+        elif type(_priority).__name__!="int":
+            logging.info("priority has unsupported datatype")
+            return False
 
         if _priority<0 or _priority>100:
             logging.info("priority too big (>100) or smaller 0")
@@ -393,23 +410,23 @@ class certhash_db(object):
     @connecttodb
     def listcerts(self,dbcon,_name):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certhash,type,priority FROM certs WHERE name=?  ORDER BY priority ASC;''',(_name,))
+        cur.execute('''SELECT certhash,type,priority FROM certs WHERE name=?  ORDER BY priority DESC;''',(_name,))
         return cur.fetchall()
     
 
     @connecttodb
     def listcertnames(self,dbcon):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name FROM certs ORDER BY name ASC;''')
+        cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
         temmp=cur.fetchall()
         if temmp is None:
             return None
-        return temmp
+        return [elem[0] for elem in temmp]
     
     @connecttodb
     def listall(self,dbcon):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash,type,priority FROM certs ORDER BY priority ASC;''')
+        cur.execute('''SELECT name,certhash,type,priority FROM certs ORDER BY priority DESC;''')
         temmp=cur.fetchall()
         if temmp is None:
             return None

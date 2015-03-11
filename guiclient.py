@@ -9,7 +9,7 @@ from gi.repository import Gtk,Gdk,Gio
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,VALError,isself,default_sslcont
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,VALError,isself,default_sslcont,dhash,AddressFail
 
 
 class gtk_client(object):
@@ -21,6 +21,7 @@ class gtk_client(object):
     namestore=None
     param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
     param_server={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
+    param_node={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
 
     cert_hash=None
     #start_url_hash=(None,None)
@@ -48,14 +49,34 @@ class gtk_client(object):
             if len(client.rsplit(":",1))>1:
                 self.builder.get_object("lockclientcheck").set_active(True)
             self.gtktogglelock()
+        if certhash is not None:
+            self.builder.get_object("clienturl").set_sensitive(False)
+            self.builder.get_object("clientpw").set_sensitive(False)
+            self.builder.get_object("lockclientcheck").set_sensitive(False)
+            self.builder.get_object("useclient").set_sensitive(False)
+            self.builder.get_object("useclient").set_active(True)
+            self.builder.get_object("clientinfoexpander").set_expanded(False)
+
         if clientpw is not None:
             self.builder.get_object("clientpw").set_text(clientpw)
+            self.gtkupdate_clientpw()
         self.gtkupdate_clientinfo()
-
+        self.gtkupdate_certnames()
+        
     def do_request(self,requeststr):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
+        params="?"
+        for elem in ["certhash","certname"]:
+            if self.param_node[elem] is not None:
+                params="{}&{}".format(params,self.param_node[elem])
+
+        if params[-1] in ["?","&"]:
+            params=params[:-1]
         try:
-            return client.client_client.__dict__["do_request"](self,clienturl,requeststr,self.param_client,usecache=False,forceport=False)
+            temp=client.client_client.__dict__["do_request"](self,clienturl,requeststr+params,self.param_client,usecache=False,forceport=False)
+        except AddressFail:
+            
+            return (False, "",isself)
         except Exception as e:
             if "tb_frame" in e.__dict__:
                 st=str(e)+"\n\n"+str(traceback.format_tb(e))
@@ -63,20 +84,95 @@ class gtk_client(object):
                 st=str(e)
 
             logging.error(st)
-            return (False, e,"isself")
-    
+            return (False, e,isself)
+        if temp[0]==False:
+            return temp
+        temp1=temp[1].split("\n")
+        _finish1=[]
+        for elem in temp1:
+            if elem=="%":
+                _finish1+=[None,]
+                continue
+                
+            _temp2=[]
+            for elem2 in elem.split("&"):
+                if elem2=="%":
+                    _temp2+=[None,]
+                else:
+                    _temp2+=[elem2,]
+            #remove array if just one element
+            if len(_temp2)==1:
+                _temp2=_temp2[0]
+            #remove trailing "" element
+            elif _temp2[0]=="":
+                _temp2=_temp2[1:]
+            _finish1+=[_temp2,]
+        
+        #remove array if just one element
+        if len(_finish1)==1:
+            _finish1=_finish1[0]
+        #remove trailing "" element
+        elif _finish1[0]=="":
+            _finish1=_finish1[1:]
+        
+        return (temp[0],_finish1,temp[2])
+        
     def do_requestdo(self,*requeststrs):
         temp="/do"
         for elem in requeststrs:
             temp="{}/{}".format(temp,elem)
         return self.do_request(temp)
-        
-    
-    def init2(self):
-        self.gtkupdate_clientinfo()
-        self.gtkupdate_nodes()
 
+    def do_requestdirect(self,*requeststrs):
+        _treqstr=""
+        for elem in requeststrs:
+            _treqstr="{}/{}".format(_treqstr,elem)
+        serverurl=self.builder.get_object("serverurl").get_text().strip().rstrip()
+        try:
+            return client.client_client.__dict__["do_request"](self,serverurl,_treqstr,self.param_node,usecache=False,forceport=False)
+        except Exception as e:
+            if "tb_frame" in e.__dict__:
+                st=str(e)+"\n\n"+str(traceback.format_tb(e))
+            else:
+                st=str(e)
+
+            logging.error(st)
+            return (False, e,isself)
+
+    def gethash_intern(self,_addr):
+        try:
+            return client.client_client.gethash(self,_addr,{})
+        except Exception as e:
+            return (False,e,isself)
+
+
+    def updatehash_client(self,*args):
+        #self.param_client["certhash"]=None
+        clienturl=self.builder.get_object("clienturl").get_text()
+        result=self.gethash_intern(clienturl)
+        if result[0]==True:
+            self.param_client["certhash"]=result[1][0]
     
+    def updatehash_server(self,*args):
+        #
+        _veristate=self.builder.get_object("veristates")
+        serverurl=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
+        if serverurl=="":
+            return
+        result=self.do_requestdo("ask",serverurl)
+        if result[0]==True:
+            if result[1][1] is None:
+                self.param_server["name"]=None
+                self.param_server["certhash"]=result[1][0]
+            elif result[1][1] is isself:
+                self.param_server["name"]=None
+                self.param_server["certhash"]=result[1][0]
+                _veristate.set_text("Server is own client") # normally impossible
+            else:
+                self.param_server["certhash"]=None
+                self.param_server["name"]=result[1][1]
+                _veristate.set_text("Server verified as:\n"+result[1][1])
+        
     def internchat(self,_partner,_message=None):
         pass
 
@@ -86,23 +182,34 @@ class gtk_client(object):
 
     def gtkupdate_clientinfo(self,*args):
         _info=self.builder.get_object("clientinfo")
-        gtklock=self.builder.get_object("lockclientcheck")
+        #gtklock=self.builder.get_object("lockclientcheck")
         temp=self.do_requestdo("show")
         if temp[0]==True:
-            if len(temp[1].split("\n"))>2:
-                _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1].split("\n",2)))
+            if not temp[2] is isself:
+               logging.error("third arg is not isself\n{}".format(temp[2]))
+               return
+               
+            if len(temp[1])>2:
+                _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1]))
+                
             else:
-                gtklock.set_active(False)
-                self.gtktogglelock()
-                logging.error(temp[1])
+                self.builder.get_object("clientinfoexpander").set_expanded(True)
+                logging.error("len args does not match\n{}".format(temp[1]))
         else:
-            gtklock.set_active(False)
-            self.gtktogglelock()
-            logging.error(temp[1])
+            self.builder.get_object("clientinfoexpander").set_expanded(True)
+            logging.error("other error\n{}".format(temp[1]))
                            
-    
+    def gtkupdate_clientpw(self,*args):
+        self.param_client["cpwhash"]=dhash(self.builder.get_object("clientpw").get_text())
+
+    def gtkupdate_serverpw(self,*args):
+        self.param_client["spwhash"]=dhash(self.builder.get_object("serverpw").get_text())
+        self.param_server["spwhash"]=dhash(self.builder.get_object("serverpw").get_text())
+        
+
+        
     def gtkregister(self,*args):
-        _veristate=self.builder.get_object("veristate")
+        _veristate=self.builder.get_object("veristates")
         _server=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
         if _server=="":
             return
@@ -114,7 +221,7 @@ class gtk_client(object):
             _veristate.set_text("invalid")
             return
         if temp[0]==True and temp[2] is not None:
-            if temp == "isself":
+            if temp is isself:
                 _veristate.set_text("Server is own client") # normally impossible
             else:
                 _veristate.set_text("Server verified as:\n"+temp[2])
@@ -123,15 +230,13 @@ class gtk_client(object):
         if temp[0]==True:
             logging.info("registered")
         else:
-            print(temp[1])
             logging.info("registration failed")
         
-    def gtkupdate_clienturl(self,*args):
-        _client=self.builder.get_object("clienturl").get_text().strip(" ").rstrip(" ")
-        if _client=="":
-            return
+    
         
     def gtktogglelock(self,*args):
+        if self.cert_hash is not None:
+            return
         gtklock=self.builder.get_object("lockclientcheck")
         if gtklock.get_active()==True:
             self.builder.get_object("clienturl").set_sensitive(False)
@@ -142,18 +247,28 @@ class gtk_client(object):
             self.builder.get_object("clientpw").set_sensitive(True)
             self.builder.get_object("clientinfoexpander").set_expanded(True)
         
-    def gtkgo(self,*args):
-        _veristate=self.builder.get_object("veristate")
-        _server=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
-        _name=self.builder.get_object("name").get_text().strip(" ").rstrip(" ")
-        _hash=self.builder.get_object("hash").get_text().strip(" ").rstrip(" ")
-        _node=self.builder.get_object("nodeurl")
-
-        if "" in [_server, _name, _hash]:
+    def gtkget(self,*args):
+        _veristate=self.builder.get_object("veristates")
+        _servero=self.builder.get_object("serverurl")
+        _server=_servero.get_text().strip(" ").rstrip(" ")
+        if _server=="":
             return
-        
+        _nameo=self.builder.get_object("name")
+        _name=_nameo.get_text().strip(" ").rstrip(" ")
+        if _name=="":
+            return
+        _hasho=self.builder.get_object("hash")
+        _hash=_hasho.get_text().strip(" ").rstrip(" ")
+        if _hash=="":
+            return
+
+        _nodeo=self.builder.get_object("nodeurl")
+
         try:
-            temp=self.do_requestdo("get",_server,_name,_hash)
+            if self.builder.get_object("useclient").get_active()==True:
+                temp=self.do_requestdo("get",_server,_name,_hash)
+            else:
+                temp=self.do_requestdirect("get",_name,_hash)
         except VALError as e:
             logging.info(e)
             _veristate.set_text("invalid")
@@ -169,23 +284,22 @@ class gtk_client(object):
         else:
             _veristate.set_text("unverified")
         if temp[0]==True:
-            _node.set_text("{}:{}".format(*temp[1].split("\n")))
-            self.param_client["certhash"]=_hash
+            _nodeo.set_text("{}:{}".format(*temp[1]))
+            self.param_node["certhash"]=_hash
 
     def gtkchat(self,*args):
         pass
+        
+    def gtknode_invalidate(self,*args):
+        self.param_node["certname"]=None
+        self.param_node["certhash"]=None
 
-            
-    def gtkinvalidate(self,*args):
-        self.param_client["certname"]=None
-        self.param_client["certhash"]=None
-
-    def gtkupdate_names(self,*args):
-        _localnames=self.do_requestdo("listnamecerts")
+    def gtkupdate_certnames(self,*args):
+        _localnames=self.do_requestdo("listcertnames")
         if _localnames[0]==False:
             return
         self.namestore.clear()
-        for elem in _localnames[1].split("/"):
+        for elem in _localnames[1]:
             self.namestore.append((elem,))
 
     def gtkadd_name(self,*args):
@@ -280,10 +394,22 @@ class gtk_client_init(client.client_init):
                 _client="localhost:{}".format(_name[1])
 
         if kwargs["server"] is not None:
-            client.client_init(self,**kwargs)
-            _client="localhost:".format(self.links["server"].socket.getsockname()[1])
-            self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=self.links["client_client"].cert_hash)
+            if kwargs["cpwhash"] is None and \
+               kwargs["cpwfile"] is None:
+                pw=""
+                for elem in os.urandom(20):
+                    pw+=str(int(elem)%10)
+                kwargs["cpwhash"]=dhash(pw)
+                
+            client.client_init.__init__(self,**kwargs)
+            
+            _client="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+            logging.debug("start server")
+            self.serve_forever_nonblock()
+            logging.debug("start gtkclient")
+            self.links["gtkclient"]=gtk_client(client=_client,clientpw=pw,certhash=self.links["client"].cert_hash)
         else:
+            logging.debug("start gtkclient")
             self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
 
 
@@ -346,12 +472,7 @@ if __name__ ==  "__main__":
 
     
     #logging.debug("start client")
-    cm=gtk_client_init(**d)
-    logging.debug("client started")
-    if d["server"] is not None:
-        logging.debug("start server")
-        cm.serve_forever_nonblock()
-        
+    cm=gtk_client_init(**d)        
     logging.debug("enter mainloop")
     while run==True:
         Gtk.main_iteration_do(True)
