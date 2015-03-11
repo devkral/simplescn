@@ -43,7 +43,7 @@ class gtk_client(object):
         col0renderer=Gtk.CellRendererText()
         col0 = Gtk.TreeViewColumn("Name", col0renderer, text=0)
         self.nameview.append_column(col0)
-        self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
+        #self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
 
 
         servicelview=self.builder.get_object("localserviceview")
@@ -53,7 +53,7 @@ class gtk_client(object):
         servicelcol1renderer=Gtk.CellRendererText()
         servicelcol1 = Gtk.TreeViewColumn("Port", servicelcol1renderer, text=1)
         servicelview.append_column(servicelcol1)
-        servicelview.get_selection().select_path(Gtk.TreePath.new_first())
+        #servicelview.get_selection().select_path(Gtk.TreePath.new_first())
 
 
         servicenodeview=self.builder.get_object("nodeserviceview")
@@ -63,7 +63,23 @@ class gtk_client(object):
         servicenodecol1renderer=Gtk.CellRendererText()
         servicenodecol1 = Gtk.TreeViewColumn("Port", servicenodecol1renderer, text=1)
         servicenodeview.append_column(servicenodecol1)
-        servicenodeview.get_selection().select_path(Gtk.TreePath.new_first())
+        #servicenodeview.get_selection().select_path(Gtk.TreePath.new_first())
+
+
+        nodeview=self.builder.get_object("nodeview")
+        nodecol0renderer=Gtk.CellRendererText()
+        nodecol0 = Gtk.TreeViewColumn("Name", nodecol0renderer, text=0)
+        nodeview.append_column(nodecol0)
+        nodecol1renderer=Gtk.CellRendererText()
+        nodecol1 = Gtk.TreeViewColumn("Type", nodecol1renderer, text=1)
+        nodeview.append_column(nodecol1)
+        nodecol2renderer=Gtk.CellRendererText()
+        nodecol2 = Gtk.TreeViewColumn("Priority", nodecol2renderer, text=2)
+        nodeview.append_column(nodecol2)
+        
+        nodecol3renderer=Gtk.CellRendererText()
+        nodecol3 = Gtk.TreeViewColumn("Hash", nodecol3renderer, text=3)
+        nodeview.append_column(nodecol3)
         
         if client is not None:
             self.builder.get_object("clienturl").set_text(client)

@@ -166,7 +166,7 @@ class client_client(object):
         return (temp[0],temp2,temp[2])
     
     def getservice(self,client_addr,_service,dparam):
-        return self.do_request(client_addr, "/get/{}".format(_service),dparam)
+        return self.do_request(client_addr, "/getservice/{}".format(_service),dparam)
 
     def registerservice(self,*args):
         if len(args)==3:
@@ -361,7 +361,7 @@ class client_server(commonscn):
         
         self.update_cache()
     
-    def get(self,_service,_addr):
+    def getservice(self,_service,_addr):
         if _service not in self.spmap:
             return "{}/service".format(error)
         return "{}/{}".format(success,self.spmap[_service])
@@ -398,7 +398,7 @@ class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
     
     links=None
-    validactions={"info","get","registerservice","listservices","cap","prio","deleteservice"}
+    validactions={"info","getservice","registerservice","listservices","cap","prio","deleteservice"}
     clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listcertnames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice","ask"}
     handle_localhost=False
     handle_remote=False
