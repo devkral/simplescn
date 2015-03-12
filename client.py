@@ -225,6 +225,18 @@ class client_client(object):
         temp=self.do_request(_addr,  "/prio",dparam,forceport=True)
         return temp
 
+    def setpriority(self,_priority,dparam):
+        if type(_priority).__name__=="str" and _priority.isdecimal()==False:
+            return (False,"no integer",isself)
+        elif type(_priority).__name__=="str":
+            _priority=int(_priority)
+        elif type(_priority).__name__!="int":
+            return (False,"unsupported datatype",isself)
+        if _priority<0 or _priority>100:
+            return (False,"out of range",isself)
+        self.priority=_priority
+        return (True,"changed",isself)
+
     def capabilities(self,_addr,dparam):
         temp=self.do_request(_addr,  "/cap",dparam,forceport=True)
         if temp[0]==True:
@@ -400,7 +412,7 @@ class client_handler(BaseHTTPRequestHandler):
     
     links=None
     validactions={"info","getservice","registerservice","listservices","cap","prio","deleteservice"}
-    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice","ask"}
+    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","setpriority","deleteservice","ask"}
     handle_localhost=False
     handle_remote=False
     cpwhash=None

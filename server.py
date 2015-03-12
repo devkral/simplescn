@@ -292,6 +292,7 @@ class server_init(object):
         self.config_path=path.expanduser(kwargs["config"])
         if self.config_path[-1]==os.sep:
             self.config_path=self.config_path[:-1]
+        _spath="{}{}{}".format(self.config_path,os.sep,"server")
         port=kwargs["port"]
         init_config_folder(self.config_path,"server")
         
@@ -316,18 +317,17 @@ class server_init(object):
 
         
         self.links={}
-        _cpath="{}{}{}".format(self.config_path,os.sep,"server")
         _message=None
         _name=None
-        if check_certs(_cpath+"_cert")==False:
+        if check_certs(_spath+"_cert")==False:
             logging.debug("Certificate(s) not found. Generate new...")
-            generate_certs(self.config_path+"server_cert")
+            generate_certs(_spath+"_cert")
             logging.debug("Certificate generation complete")
-        with open(_cpath+"_name", 'r') as readserver:
+        with open(_spath+"_name", 'r') as readserver:
             _name=readserver.readline()
-        with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
+        with open(_spath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert=readinpubkey.read()
-        with open(_cpath+"_message", 'r') as readservmessage:
+        with open(_spath+"_message", 'r') as readservmessage:
             _message=readservmessage.read()
             if _message[-1] in "\n":
                 _message=_message[:-1]
@@ -337,7 +337,7 @@ class server_init(object):
         
         _name=_name.split("/")
         if len(_name)>2 or check_name(_name[0])==False:
-            print("Configuration error in {}".format(_cpath+"_name"))
+            print("Configuration error in {}".format(_spath+"_name"))
             print("should be: <name>/<port>")
             print("Name has some restricted characters")
             
@@ -353,7 +353,7 @@ class server_init(object):
         self.links["server_server"]=server(_name[0],dhash(pub_cert),kwargs["priority"],_message)
         server_handler.links=self.links
         
-        self.links["hserver"]=http_server_server(("",_port),_cpath+"_cert")
+        self.links["hserver"]=http_server_server(("",_port),_spath+"_cert")
 
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()

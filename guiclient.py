@@ -367,22 +367,28 @@ class gtk_client(object):
 
     def gtkadd_name(self,*args):
         _tgan=self.builder.get_object("nameaddentry")
+        _tbut=self.builder.get_object("addnodenameb")
+        _tbut.hide()
         _tgan.set_text("")
         _tgan.show()
     
     def gtkadd_nameconfirm(self,*args):
         _tgan=self.builder.get_object("nameaddentry")
         _store=self.builder.get_object("namestore")
-        _tname=_tgan.get_text()
+        _tbut=self.builder.get_object("addnodenameb")
+        _tname=_tgan.get_text().strip(" ")
         if _tname=="":
             _tgan.hide()
             _tgan.set_text("")
+            _tbut.show()
             return
         _tcname=self.do_requestdo("addname",_tname)
         if _tcname[0]==True:
             _tgan.hide()
             _tgan.set_text("")
+            _tbut.show()
             _store.append((_tname,))
+            
 
     def gtkdel_name(self,*args):
         _view=self.builder.get_object("localserviceview")
@@ -441,6 +447,18 @@ class gtk_client(object):
             if elem[1]!="default":
                 nodestore.append((elem[0],elem[2],elem[3],elem[1]))
 
+    def gtkadd_localnode(self,*args):
+        _oname=self.builder.get_object("hashaddnameentry")
+        _ohash=self.builder.get_object("hashaddentry")
+        _nameview=self.builder.get_object("nameview")
+        _tname=_nameview.get_selection().get_selected()
+        if _tname[1] is None:
+            _oname.set_text("")
+        else:
+            _oname.set_text(_tname[0][_tname[1]][0])
+        _ohash.set_text("")
+        self.gtkshow_addhash()
+
     def gtkdelete_localnode(self,*args):
         _view=self.builder.get_object("nodeview")
         temp=_view.get_selection().get_selected()
@@ -496,12 +514,18 @@ class gtk_client(object):
         _nameview=self.builder.get_object("nameview")
         _tnode=_view.get_selection().get_selected()
         _tname=_nameview.get_selection().get_selected()
+        
         if _tnode[1] is None:
             return
         if _tname[1] is None:
             return
-        self.do_requestdo("addhash",_tname[0][_tname[1]][0],_tnode[0][_tnode[1]][2])
-        _tnode[0][_tnode[1]][1]=_tname[0][_tname[1]][0]
+
+        _oname=self.builder.get_object("hashaddnameentry")
+        _ohash=self.builder.get_object("hashaddentry")
+        _oname.set_text(_tname[0][_tname[1]][0])
+        _ohash.set_text(_tname[0][_tname[1]][2])
+        self.gtkshow_addhash()
+                        
         
 
     def gtkdel_node(self,*args):
@@ -522,6 +546,7 @@ class gtk_client(object):
             return
         _name.set_text(temp[0][temp[1]][0])
         _hash.set_text(temp[0][temp[1]][2])
+        self.gtkget()
 
     def gtkcopy_node(self,*args):
         _view=self.builder.get_object("nodelistview")
@@ -529,6 +554,46 @@ class gtk_client(object):
         if temp[1] is None:
             return
         self.clip.set_text(temp[0][temp[1]][2], -1)
+
+########## addhash ###############
+    def gtkshow_addhash(self,*args):
+        smw=self.builder.get_object("addhashw")
+        if smw.get_visible()==False:
+            smw.show()
+        else:
+            smw.hide()
+
+    def gtkhide_addhash(self,*args):
+        smw=self.builder.get_object("addhashw")
+        smw.hide()
+
+    def gtkconfirm_addhash_intern(self,_hide):
+        smw=self.builder.get_object("addhashw")
+        _oname=self.builder.get_object("hashaddnameentry")
+        _ohash=self.builder.get_object("hashaddentry")
+        localnodestore=self.builder.get_object("localnodestore")
+        _name=_oname.get_text().strip(" ").rstrip(" ")
+        _hash=_ohash.get_text().strip(" ").rstrip(" ")
+        
+        if _name=="":
+            return
+        if _hash=="":
+            return
+        temp2=self.do_requestdo("addhash",_name,_hash)
+        if temp2[0]==True:
+            localnodestore.append((_name,"unknown","unknown",_hash))
+            if _hide==True:
+                smw.hide()
+        
+    def gtkconfirm_addhash(self,*args):
+        self.gtkconfirm_addhash_intern(False)
+        
+        
+        
+    def gtkconfirmclose_addhash(self,*args):
+        self.gtkconfirm_addhash_intern(True)
+
+
 
 ########## nodeservices ##########
                 
