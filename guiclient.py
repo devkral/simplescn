@@ -46,7 +46,7 @@ class gtk_client(object):
         #self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
 
 
-        servicelview=self.builder.get_object("localserviceview")
+        servicelview=self.builder.get_object("nodeserviceview")
         servicelcol0renderer=Gtk.CellRendererText()
         servicelcol0 = Gtk.TreeViewColumn("Name", servicelcol0renderer, text=0)
         servicelview.append_column(servicelcol0)
@@ -64,8 +64,19 @@ class gtk_client(object):
         servicenodecol1 = Gtk.TreeViewColumn("Port", servicenodecol1renderer, text=1)
         servicenodeview.append_column(servicenodecol1)
         #servicenodeview.get_selection().select_path(Gtk.TreePath.new_first())
-
-
+        nodelistview=self.builder.get_object("nodelistview")
+        nodelistcol0renderer=Gtk.CellRendererText()
+        nodelistcol0 = Gtk.TreeViewColumn("Name", nodelistcol0renderer, text=0)
+        nodelistview.append_column(nodelistcol0)
+        
+        nodelistcol1renderer=Gtk.CellRendererText()
+        nodelistcol1 = Gtk.TreeViewColumn("Verified", nodelistcol1renderer, text=1)
+        nodelistview.append_column(nodelistcol1)
+        
+        nodelistcol2renderer=Gtk.CellRendererText()
+        nodelistcol2 = Gtk.TreeViewColumn("Hash", nodelistcol2renderer, text=2)
+        nodelistview.append_column(nodelistcol2)
+        
         nodeview=self.builder.get_object("nodeview")
         nodecol0renderer=Gtk.CellRendererText()
         nodecol0 = Gtk.TreeViewColumn("Name", nodecol0renderer, text=0)
@@ -102,13 +113,13 @@ class gtk_client(object):
         
     def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
-        params="?"
+        params=""
         for elem in ["certhash","certname"]:
             if self.param_node[elem] is not None:
                 params="{}&{}".format(params,self.param_node[elem])
 
-        if params[-1] in ["?","&"]:
-            params=params[:-1]
+        if len(params)>0 and params[0] in ["?","&"]:
+            params="?"+params[1:]
         try:
             temp=client.client_client.__dict__["do_request"](self,clienturl,requeststr+params,self.param_client,usecache=False,forceport=False)
         except AddressFail:
@@ -378,20 +389,54 @@ class gtk_client(object):
     def gtkmod_node(self,*args):
         pass
 
-    def gtkshow_nodes(self,*args):
-        smw=self.builder.get_object("nodelistw")
+    def gtkshow_localnodes(self,*args):
+        smw=self.builder.get_object("nodemw")
         if smw.get_visible()==False:
             smw.show()
-            self.gtkupdate_nodes()
+            self.gtkupdate_localnodes()
         else:
             smw.hide()
 
-    def gtkhide_nodes(self,*args):
+    def gtkhide_localnodes(self,*args):
+        smw=self.builder.get_object("nodemw")
+        smw.hide()
+        
+    def gtkupdate_localnodes(self,*args):
+        nodestore=self.builder.get_object("localnodestore")
+        _serverurl=self.builder.get_object("serverurl").get_text()
+        _servertitel=self.builder.get_object("servertitelname")
+        _servertitel.set_text("")
+        _nodes=self.do_requestdo("listall") #,_serverurl)
+        if _nodes[0]==False:
+            return
+        _temp=_serverurl
+        if self.param_server["certname"] is not None:
+            _temp="{} ({})".format(_temp,self.param_node["certname"])
+        _servertitel.set_text(_temp)
+        #print(_nodes)
+        nodestore.clear()
+        for elem in _nodes[1]:
+            if elem[1]!="default":
+                nodestore.append((elem[0],elem[2],elem[3],elem[1]))
+
+    def gtkshow_remotenodes(self,*args):
+        serverurl=self.builder.get_object("serverurl")
+        if serverurl.get_text().strip(" ")=="":
+            return
+
+        smw=self.builder.get_object("nodelistw")
+        if smw.get_visible()==False:
+            smw.show()
+            self.gtkupdate_remotenodes()
+        else:
+            smw.hide()
+
+    def gtkhide_remotenodes(self,*args):
         smw=self.builder.get_object("nodelistw")
         smw.hide()
         
-    def gtkupdate_nodes(self,*args):
-        nodestore=self.builder.get_object("nodestore")
+    def gtkupdate_remotenodes(self,*args):
+        rnodestore=self.builder.get_object("remotenodestore")
         _serverurl=self.builder.get_object("serverurl").get_text()
         _servertitel=self.builder.get_object("servertitelname")
         _servertitel.set_text("")
@@ -402,12 +447,19 @@ class gtk_client(object):
         if self.param_server["certname"] is not None:
             _temp="{} ({})".format(_temp,self.param_node["certname"])
         _servertitel.set_text(_temp)
-        nodestore.clear()
+        rnodestore.clear()
         for elem in _nodes[1]:
-            nodestore.append((elem[0],elem[2],elem[3],elem[1]))
-        
+            if elem[2]==None:
+                rnodestore.append((elem[0],"",elem[1]))
+            elif elem[2] is isself or elem[2]=="isself":
+                rnodestore.append((elem[0],"Is own client",elem[1]))
+            else:
+                rnodestore.append((elem[0],elem[2],elem[1]))
         
     def gtkshow_nodeservices(self,*args):
+        nodeurl=self.builder.get_object("nodeurl")
+        if nodeurl.get_text().strip(" ")=="":
+            return
         smw=self.builder.get_object("nodeservicesw")
         if smw.get_visible()==False:
             smw.show()
@@ -436,6 +488,10 @@ class gtk_client(object):
             servicestore.append((elem[0],elem[1]))
         
     def gtkshow_localservices(self,*args):
+        clienturl=self.builder.get_object("clienturl")
+        if clienturl.get_text().strip(" ")=="":
+            return
+
         smw=self.builder.get_object("servicemw")
         if smw.get_visible()==False:
             smw.show()

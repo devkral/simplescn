@@ -160,7 +160,7 @@ class client_client(object):
                     logging.debug("invalid name:\n{}".format(line))
                     continue
                 if _split[1]==self.cert_hash:
-                    temp2+=[(_split[0],_split[1],isself),]
+                    temp2+=[(_split[0],_split[1],isself),] 
                 else:
                     temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
         return (temp[0],temp2,temp[2])
@@ -372,6 +372,7 @@ class client_server(commonscn):
         if len(temp)==0:
             return "{}/empty".format(success)
         return "{}/{}".format(success,temp[1:])
+    
     def registerservice(self,_service,_port,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             self.spmap[_service]=_port
@@ -491,13 +492,18 @@ class client_handler(BaseHTTPRequestHandler):
                         for nestlistelem in listelem:
                             if nestlistelem is None:
                                 nestsum="{}/%".format(nestsum)
+                            elif nestlistelem is isself:
+                                nestsum="{}/isself".format(nestsum)
                             else:
-                                nestsum="{}/{}".format(nestsum,listelem)
+                                nestsum="{}/{}".format(nestsum,nestlistelem)
                         sumelem="{}\n{}".format(sumelem,nestsum)
+                    elif listelem is isself:
+                        sumelem="{}\nisself".format(sumelem)
                     elif listelem is None:
                         sumelem="{}\n%".format(sumelem)
                     else:
                         sumelem="{}\n{}".format(sumelem,listelem)
+                        
                 #here switch certname before content
                 self.wfile.write(bytes("{}/{}".format(response[2].__str__(),sumelem),"utf8"))
             elif response[1] is None:
