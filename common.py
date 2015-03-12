@@ -415,7 +415,7 @@ class certhash_db(object):
     
 
     @connecttodb
-    def listcertnames(self,dbcon):
+    def listnodenames(self,dbcon):
         cur = dbcon.cursor()
         cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
         temmp=cur.fetchall()

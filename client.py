@@ -183,15 +183,15 @@ class client_client(object):
         return temp
 
     def deleteservice(self,*args):
-        if len(args)==3:
-            _servicename,_port,dparam=args
+        if len(args)==2:
+            _servicename,dparam=args
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==4:
-            client_addr,_servicename,_port,dparam=args
+        elif len(args)==3:
+            client_addr,_servicename,dparam=args
         else:
             return (False,("wrong amount arguments","{}".format(args)),isself)
         
-        temp= self.do_request(client_addr, "/deleteservice/{}/{}".format(_servicename,_port),dparam,forceport=True)
+        temp= self.do_request(client_addr, "/deleteservice/{}".format(_servicename),dparam,forceport=True)
         if len(args)==3 and temp[2] is not isself:
             raise(VALNameError)
         return temp
@@ -324,8 +324,8 @@ class client_client(object):
         else:
             return (True,temp,isself)
     
-    def listcertnames(self,dparam):
-        temp=self.hashdb.listcertnames()
+    def listnodenames(self,dparam):
+        temp=self.hashdb.listnodenames()
         if temp is None:
             return(False, error,isself)
         else:
@@ -379,7 +379,7 @@ class client_server(commonscn):
             return "{}/registered".format(success)
         return error
 
-    def deleteservice(self,_service,_port,_addr):
+    def deleteservice(self,_service,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             if _service in self.spmap:
                 del self.spmap[_service]
@@ -400,7 +400,7 @@ class client_handler(BaseHTTPRequestHandler):
     
     links=None
     validactions={"info","getservice","registerservice","listservices","cap","prio","deleteservice"}
-    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","listnames","listcertnames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice","ask"}
+    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","deleteservice","ask"}
     handle_localhost=False
     handle_remote=False
     cpwhash=None
@@ -474,7 +474,7 @@ class client_handler(BaseHTTPRequestHandler):
         if response[0]==False:
             #helps against ssl failing about empty string (EOF)
             if len(response)>=1 and len(response[1])>0:
-                self.send_error(400,response[1])
+                self.send_error(400,str(response[1]))
             else:
                 self.send_error(400,"unknown")
             return

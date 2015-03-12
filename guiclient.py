@@ -46,7 +46,7 @@ class gtk_client(object):
         #self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
 
 
-        servicelview=self.builder.get_object("nodeserviceview")
+        servicelview=self.builder.get_object("localserviceview")
         servicelcol0renderer=Gtk.CellRendererText()
         servicelcol0 = Gtk.TreeViewColumn("Name", servicelcol0renderer, text=0)
         servicelview.append_column(servicelcol0)
@@ -64,6 +64,7 @@ class gtk_client(object):
         servicenodecol1 = Gtk.TreeViewColumn("Port", servicenodecol1renderer, text=1)
         servicenodeview.append_column(servicenodecol1)
         #servicenodeview.get_selection().select_path(Gtk.TreePath.new_first())
+        ### nodes remote ###
         nodelistview=self.builder.get_object("nodelistview")
         nodelistcol0renderer=Gtk.CellRendererText()
         nodelistcol0 = Gtk.TreeViewColumn("Name", nodelistcol0renderer, text=0)
@@ -76,7 +77,8 @@ class gtk_client(object):
         nodelistcol2renderer=Gtk.CellRendererText()
         nodelistcol2 = Gtk.TreeViewColumn("Hash", nodelistcol2renderer, text=2)
         nodelistview.append_column(nodelistcol2)
-        
+
+        #### nodes local ####
         nodeview=self.builder.get_object("nodeview")
         nodecol0renderer=Gtk.CellRendererText()
         nodecol0 = Gtk.TreeViewColumn("Name", nodecol0renderer, text=0)
@@ -109,7 +111,7 @@ class gtk_client(object):
             self.builder.get_object("clientpw").set_text(clientpw)
             self.gtkupdate_clientpw()
         self.gtkupdate_clientinfo()
-        self.gtkupdate_certnames()
+        self.gtkupdate_nodenames()
         
     def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
@@ -287,7 +289,7 @@ class gtk_client(object):
             else:
                 _veristate.set_text("Server verified as:\n"+temp[2])
         else:
-            _veristate.set_text("unverified")
+            _veristate.set_text("<unverified>")
         if temp[0]==True:
             logging.info("registered")
         else:
@@ -355,8 +357,8 @@ class gtk_client(object):
         self.param_node["certname"]=None
         self.param_node["certhash"]=None
 
-    def gtkupdate_certnames(self,*args):
-        _localnames=self.do_requestdo("listcertnames")
+    def gtkupdate_nodenames(self,*args):
+        _localnames=self.do_requestdo("listnodenames")
         if _localnames[0]==False:
             return
         self.namestore.clear()
@@ -370,6 +372,7 @@ class gtk_client(object):
     
     def gtkadd_nameconfirm(self,*args):
         _tgan=self.builder.get_object("nameaddentry")
+        _store=self.builder.get_object("namestore")
         _tname=_tgan.get_text()
         if _tname=="":
             _tgan.hide()
@@ -379,16 +382,35 @@ class gtk_client(object):
         if _tcname[0]==True:
             _tgan.hide()
             _tgan.set_text("")
-            
-    def gtkadd_node(self,*args):
-        pass
+            _store.append((_tname,))
+
+    def gtkdel_name(self,*args):
+        _view=self.builder.get_object("localserviceview")
+        _text=self.builder.get_object("delnamel")
+        _dialog=self.builder.get_object("deleteconfirmname")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            return
+        _text.set_text(temp[0][temp[1]][0])
+        _dialog.show()
+
         
+    def gtkdel_nameconfirm(self,*args):
+        _dialog=self.builder.get_object("deleteconfirmname")
+        _dialog.hide()
+        _view=self.builder.get_object("localserviceview")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            return
+        self.do_requestdo("deletename",temp[0][temp[1]][0])
+        self.gtkupdate_nodenames()
+        
+    def gtkdel_namecancel(self,*args):
+        _dialog=self.builder.get_object("deleteconfirmname")
+        _dialog.hide()
 
-    def gtkdel_node(self,*args):
-        pass
-    def gtkmod_node(self,*args):
-        pass
-
+    
+########### local nodes #############
     def gtkshow_localnodes(self,*args):
         smw=self.builder.get_object("nodemw")
         if smw.get_visible()==False:
@@ -419,6 +441,19 @@ class gtk_client(object):
             if elem[1]!="default":
                 nodestore.append((elem[0],elem[2],elem[3],elem[1]))
 
+    def gtkdelete_localnode(self,*args):
+        _view=self.builder.get_object("nodeview")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            return
+        tem2=self.do_requestdo("delhash",temp[0][temp[1]][0],temp[0][temp[1]][3])
+        if tem2[0]==False:
+            return
+        self.gtkupdate_localnodes()
+        
+        
+#############  remote nodes ####################
+                
     def gtkshow_remotenodes(self,*args):
         serverurl=self.builder.get_object("serverurl")
         if serverurl.get_text().strip(" ")=="":
@@ -450,12 +485,53 @@ class gtk_client(object):
         rnodestore.clear()
         for elem in _nodes[1]:
             if elem[2]==None:
-                rnodestore.append((elem[0],"",elem[1]))
+                rnodestore.append((elem[0],"Unverified",elem[1]))
             elif elem[2] is isself or elem[2]=="isself":
                 rnodestore.append((elem[0],"Is own client",elem[1]))
             else:
                 rnodestore.append((elem[0],elem[2],elem[1]))
+
+    def gtkadd_node(self,*args):
+        _view=self.builder.get_object("nodelistview")
+        _nameview=self.builder.get_object("nameview")
+        _tnode=_view.get_selection().get_selected()
+        _tname=_nameview.get_selection().get_selected()
+        if _tnode[1] is None:
+            return
+        if _tname[1] is None:
+            return
+        self.do_requestdo("addhash",_tname[0][_tname[1]][0],_tnode[0][_tnode[1]][2])
+        _tnode[0][_tnode[1]][1]=_tname[0][_tname[1]][0]
         
+
+    def gtkdel_node(self,*args):
+        _view=self.builder.get_object("nodelistview")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            return
+
+        self.do_requestdo("delhash",temp[0][temp[1]][1],temp[0][temp[1]][2])
+        temp[0][temp[1]][1]="<unverified>"
+        
+    def gtksel_node(self,*args):
+        _view=self.builder.get_object("nodelistview")
+        _name=self.builder.get_object("name")
+        _hash=self.builder.get_object("hash")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            return
+        _name.set_text(temp[0][temp[1]][0])
+        _hash.set_text(temp[0][temp[1]][2])
+
+    def gtkcopy_node(self,*args):
+        _view=self.builder.get_object("nodelistview")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            return
+        self.clip.set_text(temp[0][temp[1]][2], -1)
+
+########## nodeservices ##########
+                
     def gtkshow_nodeservices(self,*args):
         nodeurl=self.builder.get_object("nodeurl")
         if nodeurl.get_text().strip(" ")=="":
@@ -483,9 +559,25 @@ class gtk_client(object):
         _nodeservices=self.do_requestdo("listservices",_nodeurl)
         if _nodeservices[0]==False:
             return
+        
         servicestore.clear()
         for elem in _nodeservices[1]:
             servicestore.append((elem[0],elem[1]))
+
+    def gtkupdate_nodeservicepanel(self,*args):
+        _panel=self.builder.get_object("serviceaddr")
+        _url=self.builder.get_object("nodeurl").get_text().rsplit(":",1)[0]
+        _view=self.builder.get_object("nodeserviceview")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            return
+        _panel.set_text("{}:{}".format(_url,temp[0][temp[1]][1]))
+        #self.do_requestdo("deleteservice",)
+
+        
+    def gtkcopy_nodeservicepanel(self,*args):
+        _panel=self.builder.get_object("serviceaddr")
+        self.clip.set_text(_panel.get_text(),-1)
         
     def gtkshow_localservices(self,*args):
         clienturl=self.builder.get_object("clienturl")
@@ -522,13 +614,13 @@ class gtk_client(object):
         _tgan.set_text("")
         _tgan2=self.builder.get_object("newserviceportentry")
         _tgan2.set_text("")
+        _tgan.set_editable(True)
 
     def gtkadd_service_confirm(self,*args):
         servicestore=self.builder.get_object("localservicestore")
         _tgrid=self.builder.get_object("newservice")
         _tgan=self.builder.get_object("newservicenameentry")
         _tgan2=self.builder.get_object("newserviceportentry")
-        _tgan.set_editable(True)
         _tname=_tgan.get_text()
         _tport=_tgan2.get_text()
         if _tname=="":
@@ -543,10 +635,15 @@ class gtk_client(object):
             _tgrid.hide()
             _tgan.set_text("")
             _tgan2.set_text("")
-            servicestore.append((_tname,_tport))
+            if _tgan.get_editable()==False:
+                self.gtkupdate_localservices(self)
+                #n=servicestore.iter_n_children()
+                #servicestore.remove(servicestore.iter_nth_child(None,n-1))
+            else:
+                servicestore.append((_tname,_tport))
         
     def gtkmod_service(self,*args):
-        servicestore=self.builder.get_object("servicestore")
+        #servicestore=self.builder.get_object("servicestore")
         _tgrid=self.builder.get_object("newservice")
         _tgrid.show()
         _tgan=self.builder.get_object("newservicenameentry")
@@ -554,15 +651,22 @@ class gtk_client(object):
         _view=self.builder.get_object("localserviceview")
         temp=_view.get_selection().get_selected()
         if temp[1] is None:
-            print(temp)
             return
-        print(temp[0][temp[1]]) #[1]
-        #_tgan.set_editable(False)
+        _tgan.set_text(temp[0][temp[1]][0])
+        _tgan2.set_text(temp[0][temp[1]][1])
+        #_tgan.set_active(False)
+        _tgan.set_editable(False)
         #get selection
         #_tgan=""
 
     def gtkdel_service(self,*args):
-        pass
+        _view=self.builder.get_object("localserviceview")
+        temp=_view.get_selection().get_selected()
+        if temp[1] is None:
+            return
+        self.do_requestdo("deleteservice",temp[0][temp[1]][0])
+        
+        self.gtkupdate_localservices()
 
     def gtkclose(self,*args):
         global run
