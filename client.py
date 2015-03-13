@@ -259,19 +259,24 @@ class client_client(object):
             return temp[0],temp[1].split(",",3),temp[2]
         else:
             return temp
-        
-    #includes update priority
-    def check(self,server_addr,_name,_hash,dparam):
-        temp=self.get(server_addr,_name,_hash,dparam)
-        if temp[0]==False:
-            return temp
-        temp=self.priodirect(temp[1],dparam)
+
+    """#obsolete
+    def check_direct(self,_addr,_name,_hash,dparam):
+        temp=self.priodirect(_addr,dparam)
         if temp[0]==False:
             return temp
         if self.hashdb.exist(_name,_hash)==True:
             self.hashdb.changepriority(_name,_hash)
         return temp
+    #obsolete
+    #just update priority
+    def check(self,server_addr,_name,_hash,dparam):
+        temp=self.get(server_addr,_name,_hash,dparam)
+        if temp[0]==False:
+            return temp
+        return self.check_direct(temp[1],_name,_hash,dparam)"""
 
+    #update db entry direct
     def update_direct(self,_addr,_name,_hash,dparam):
         temp=self.priodirect(_addr,dparam)
         if temp[0]==False or self.hashdb.changepriority(_name,_hash,temp[1])==False:
@@ -430,10 +435,10 @@ class client_server(commonscn):
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
-    
+    #,"check" obsolete
     links=None
     validactions={"info","getservice","registerservice","listservices","cap","prio","delservice"}
-    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","delname","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","update_direct","priodirect","setpriority","delservice","ask"}
+    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","delname","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","update","update_direct","priodirect","setpriority","delservice","ask"}
     handle_localhost=False
     handle_remote=False
     cpwhash=None

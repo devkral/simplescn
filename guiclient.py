@@ -128,7 +128,7 @@ class gtk_client(logging.NullHandler):
         try:
             temp=client.client_client.__dict__["do_request"](self,clienturl,requeststr+params,self.param_client,usecache=False,forceport=False)
         except AddressFail:
-            
+            #logging.error(requeststr)
             return (False, "",isself)
         except Exception as e:
             if "tb_frame" in e.__dict__:
@@ -523,9 +523,9 @@ class gtk_client(logging.NullHandler):
         showhash=self.builder.get_object("showhash")
         showport=self.builder.get_object("showport")
         messagebuf=self.builder.get_object("messagebuf")
-        #showname.set_text("")
-        #showhash.set_text("")
-        #showport.set_text("")
+        showname.set_text("")
+        showhash.set_text("")
+        showport.set_text("")
         
         if self.nicanchange==False:
             stype=self.builder.get_object("showtype")
@@ -533,8 +533,10 @@ class gtk_client(logging.NullHandler):
             spriority=self.builder.get_object("showpriority")
             _dpriority=self.builder.get_object("modpriority")
         else:
-            _dtype=self.builder.get_object("showtype")
-            stype=self.builder.get_object("modtype")
+            #_dtype=self.builder.get_object("showtype")
+            #stype=self.builder.get_object("modtype")
+            stype=self.builder.get_object("showtype")
+            _dtype=self.builder.get_object("modtype")
             _dpriority=self.builder.get_object("showpriority")
             spriority=self.builder.get_object("modpriority")
         
@@ -560,8 +562,8 @@ class gtk_client(logging.NullHandler):
 
         if self.nifetch=="clienturl":
             prio=self.do_requestdo("priodirect")
-        elif self.nifetch=="serverurl" and len(scnparse_url(url))==1:
-            url+=server_port
+        elif self.nifetch=="serverurl":
+            url="{}:{}".format(*scnparse_url(url))
             prio=self.do_requestdo("priodirect",url)
         else:
             prio=self.do_requestdo("priodirect",url)
@@ -570,8 +572,9 @@ class gtk_client(logging.NullHandler):
             
         if self.nifetch=="clienturl":
             info=self.do_requestdo("info",parse=4)
-        elif self.nifetch=="serverurl" and len(scnparse_url(url))==1:
-            url+=server_port
+        elif self.nifetch=="serverurl":
+            url="{}:{}".format(*scnparse_url(url))
+                
             info=self.do_requestdo("info",url,parse=4)
         else:
             info=self.do_requestdo("info",url,parse=4)
@@ -690,13 +693,16 @@ class gtk_client(logging.NullHandler):
         
         if _tnode[1] is None:
             return
-        if _tname[1] is None:
-            return
+        #if _tname[1] is None:
+        #    return
 
         _oname=self.builder.get_object("hashaddnameentry")
         _ohash=self.builder.get_object("hashaddentry")
-        _oname.set_text(_tname[0][_tname[1]][0])
-        _ohash.set_text(_tname[0][_tname[1]][2])
+        if _tname[1] is None:
+            _oname.set_text("")
+        else:
+            _oname.set_text(_tname[0][_tname[1]][0])
+        _ohash.set_text(_tnode[0][_tnode[1]][2])
         self.gtkshow_addhash()
                         
         
