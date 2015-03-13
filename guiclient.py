@@ -973,7 +973,7 @@ class gtk_client_init(client.client_init):
             self.serve_forever_nonblock()
             logging.debug("start gtkclient")
             self.links["gtkclient"]=gtk_client(client=_client,clientpw=pw,certhash=self.links["client"].cert_hash)
-            logging.getLogger().addHandler(self.links["gtkclient"])
+            #logging.getLogger().addHandler(self.links["gtkclient"])
         else:
             logging.debug("start gtkclient")
             self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
