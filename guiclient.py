@@ -309,10 +309,29 @@ class gtk_client(logging.NullHandler):
         else:
             _veristate.set_text("<unverified>")
         if temp[0]==True:
-            logging.info("registered")
+            logging.debug("registered")
         else:
             logging.info("registration failed")
         
+    def gtkadd_serverhash(self,*args):
+        _server=self.builder.get_object("serverurl").get_text().strip().rstrip()
+        _view=self.builder.get_object("nameview")
+        _se=_view.get_selection().get_selected()
+        if _se[1] is None:
+            return
+        _name=_se[0][_se[1]][0]
+        if _server=="":
+            return
+
+        _hash=self.do_requestdo("gethash",_server)
+        
+        if _hash[0]==False:
+            return
+        _t=self.do_requestdo("addhash",_name,_hash[1][0])
+        if _t[0]==True:
+            logging.debug("serverhash added")
+        else:
+            logging.info(str(*_t[:1]))
     
         
     def gtktogglelock(self,*args):
