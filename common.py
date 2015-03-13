@@ -180,6 +180,7 @@ class commonscn(object):
         self.cache["info"]="{}/{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash,self.message)
         self.cache["sinfo"]="{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash)
         self.cache["priority"]="{}/{}".format(success,self.priority)
+
     def update_priority(self):
         self.cache["priority"]="{}/{}".format(success,self.priority)
     
