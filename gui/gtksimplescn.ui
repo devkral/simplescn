@@ -1226,6 +1226,7 @@
                 <property name="valign">start</property>
                 <property name="label" translatable="yes">&lt;type&gt;</property>
                 <property name="selectable">True</property>
+                <property name="track_visited_links">False</property>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -1279,6 +1280,8 @@
                 <property name="can_focus">False</property>
                 <property name="valign">start</property>
                 <property name="label" translatable="yes">&lt;priority&gt;</property>
+                <property name="selectable">True</property>
+                <property name="track_visited_links">False</property>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -1426,8 +1429,8 @@
             <property name="wrap">True</property>
             <property name="wrap_mode">char</property>
             <property name="selectable">True</property>
-            <property name="width_chars">20</property>
-            <property name="max_width_chars">20</property>
+            <property name="width_chars">21</property>
+            <property name="max_width_chars">21</property>
             <property name="track_visited_links">False</property>
           </object>
           <packing>
