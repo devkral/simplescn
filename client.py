@@ -182,7 +182,7 @@ class client_client(object):
             raise(VALNameError)
         return temp
 
-    def deleteservice(self,*args):
+    def delservice(self,*args):
         if len(args)==2:
             _servicename,dparam=args
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
@@ -191,7 +191,7 @@ class client_client(object):
         else:
             return (False,("wrong amount arguments","{}".format(args)),isself)
         
-        temp= self.do_request(client_addr, "/deleteservice/{}".format(_servicename),dparam,forceport=True)
+        temp= self.do_request(client_addr, "/delservice/{}".format(_servicename),dparam,forceport=True)
         if len(args)==3 and temp[2] is not isself:
             raise(VALNameError)
         return temp
@@ -214,14 +214,29 @@ class client_client(object):
                 temp2+=[elem.rsplit("&",1),]
         return (temp[0],temp2,temp[2])
     
-    def info(self,_addr,dparam):
+    def info(self,*args): # _addr,dparam):
+        if len(args)==1:
+            dparam=args[0]
+            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        elif len(args)==2:
+            _addr,dparam=args
+        else:
+            return (False,("wrong amount arguments","{}".format(args)),isself)
+            
         temp=self.do_request(_addr,  "/info",dparam,forceport=True)
         if temp[0]==True:
             return temp[0],temp[1].split("/",4),temp[2]
         else:
             return temp
         
-    def priodirect(self,_addr,dparam):
+    def priodirect(self,*args):
+        if len(args)==1:
+            dparam=args[0]
+            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        elif len(args)==2:
+            _addr,dparam=args
+        else:
+            return (False,("wrong amount arguments","{}".format(args)),isself)
         temp=self.do_request(_addr,  "/prio",dparam,forceport=True)
         return temp
 
@@ -234,7 +249,8 @@ class client_client(object):
             return (False,"unsupported datatype",isself)
         if _priority<0 or _priority>100:
             return (False,"out of range",isself)
-        self.priority=_priority
+        self.links["server"].priority=_priority
+        self.links["server"].update_priority()
         return (True,"changed",isself)
 
     def capabilities(self,_addr,dparam):
@@ -256,27 +272,31 @@ class client_client(object):
             self.hashdb.changepriority(_name,_hash)
         return temp
 
+    def update_direct(self,_addr,_name,_hash,dparam):
+        temp=self.priodirect(_addr,dparam)
+        if temp[0]==False or self.hashdb.changepriority(_name,_hash,temp[1])==False:
+            return temp
+        
+        temp=self.info(_addr,dparam)
+        
+        if temp[0]==False:
+            return temp
+        _sp=temp[1].split(3)
+        if len(_sp)==4:
+            if self.hashdb.changetype(_name,_hash,_sp[0])==True:
+                return (True,"update successful",None)
+            else:
+                return (False,_sp,None)
+        else:
+            return (False,temp[1],None)
     
     #update db entry
     def update(self,server_addr,_name,_hash,dparam):
         temp=self.get(server_addr,_name,_hash,dparam)
         if temp[0]==False or self.hashdb.exist(_name,_hash)==False:
             return temp
-        temp=self.priodirect(temp[1],dparam)
-        if temp[0]==False or self.hashdb.changepriority(_name,_hash,temp[1])==False:
-            return temp
+        return self.update_direct(temp[1],_name,_hash,dparam)
         
-        temp=self.info(temp[1],dparam)
-        
-        if temp[0]==False:
-            return temp
-        _sp=temp[1].split(3)
-        if len(_sp)==3:
-            if self.hashdb.changetype(_name,_hash,_sp[0])==True:
-                return True,"update successful",None
-            else:
-                return False,temp[1],None
-        return False,temp[1],None
                 
         
     #local management
@@ -346,7 +366,7 @@ class client_client(object):
     def listall(self,dparam):
         temp=self.hashdb.listall()
         if temp is None:
-            return(False, error,isself)
+            return (False, error,isself)
         else:
             return (True,temp,isself)
 
@@ -358,7 +378,7 @@ class client_server(commonscn):
     capabilities=["basic",]
     scn_type="client"
     spmap={}
-    def __init__(self,_name,_priority,_message):
+    def __init__(self,_name,_priority,_cert_hash,_message):
         if len(_name)==0:
             logging.debug("Name empty")
             _name="<noname>"
@@ -370,6 +390,7 @@ class client_server(commonscn):
         self.name=_name
         self.message=_message
         self.priority=_priority
+        self.cert_hash=_cert_hash
         
         self.update_cache()
     
@@ -391,7 +412,7 @@ class client_server(commonscn):
             return "{}/registered".format(success)
         return error
 
-    def deleteservice(self,_service,_addr):
+    def delservice(self,_service,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             if _service in self.spmap:
                 del self.spmap[_service]
@@ -411,8 +432,8 @@ class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
     
     links=None
-    validactions={"info","getservice","registerservice","listservices","cap","prio","deleteservice"}
-    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","priodirect","setpriority","deleteservice","ask"}
+    validactions={"info","getservice","registerservice","listservices","cap","prio","delservice"}
+    clientactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","delname","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","update","update_direct","priodirect","setpriority","delservice","ask"}
     handle_localhost=False
     handle_remote=False
     cpwhash=None
@@ -720,8 +741,9 @@ class client_init(object):
             port=int(_name[1])
         else:
             port=0
-            
-        self.links["client_server"]=client_server(_name[0],kwargs["priority"],_message)
+
+        print(kwargs["priority"])
+        self.links["client_server"]=client_server(_name[0],kwargs["priority"],dhash(pub_cert),_message)
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
         self.links["client"]=client_client(_name[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)

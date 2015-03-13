@@ -270,7 +270,7 @@ def inputw():
     
 class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     sslcont=None
-    address_family = socket.AF_INET6
+    #address_family = socket.AF_INET6
     
     #def __del__(self):
     #    self.crappyssl.close()

@@ -3,16 +3,18 @@ import logging
 import signal
 import sys
 import os
+import time,threading
 import traceback#threading,
 from os import path
 from gi.repository import Gtk,Gdk,Gio
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,VALError,isself,default_sslcont,dhash,AddressFail
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,VALError,isself,default_sslcont,dhash,AddressFail,scnparse_url,server_port
 
+messageid=0
 
-class gtk_client(object):
+class gtk_client(logging.NullHandler):
     builder=None
     clip=None
     win=None
@@ -27,6 +29,7 @@ class gtk_client(object):
     #start_url_hash=(None,None)
 
     def __init__(self,client=None,clientpw=None,certhash=None):
+        logging.Handler.__init__(self)
         self.sslcont=default_sslcont()
         self.cert_hash=certhash
         #self.clienturl=client # other lock method
@@ -202,6 +205,25 @@ class gtk_client(object):
             logging.error(st)
             return (False, e,isself)
 
+    def pushint(self):
+        time.sleep(5)
+        #self.messagecount-=1
+        self.statusbar.pop(self.messageid)
+
+    def pushmanage(self,*args):
+          #self.messagecount+=1
+          #if self.messagecount>1:
+          self.sb=threading.Thread(target=self.pushint)
+          self.sb.daemon = True
+          self.sb.start()
+
+    #def handle(self,record):
+    #self.statusbar.push(self.messageid,record)
+    ###logging handling
+    def emit(self, record):
+        self.statusbar.push(messageid, record.message)
+        self.pushmanage()
+
     def gethash_intern(self,_addr):
         try:
             return client.client_client.gethash(self,_addr,{})
@@ -277,12 +299,8 @@ class gtk_client(object):
         if _server=="":
             return
 
-        try:
-            temp=self.do_requestdo("register",_server)
-        except VALError as e:
-            logging.info(e)
-            _veristate.set_text("invalid")
-            return
+        temp=self.do_requestdo("register",_server)
+        
         if temp[0]==True and temp[2] is not None:
             if temp is isself:
                 _veristate.set_text("Server is own client") # normally impossible
@@ -311,7 +329,7 @@ class gtk_client(object):
             self.builder.get_object("clientinfoexpander").set_expanded(True)
         
     def gtkget(self,*args):
-        _veristate=self.builder.get_object("veristates")
+        #_veristate=self.builder.get_object("veristates")
         _servero=self.builder.get_object("serverurl")
         _server=_servero.get_text().strip(" ").rstrip(" ")
         if _server=="":
@@ -327,28 +345,28 @@ class gtk_client(object):
 
         _nodeo=self.builder.get_object("nodeurl")
 
-        try:
-            if self.builder.get_object("useclient").get_active()==True:
-                temp=self.do_requestdo("get",_server,_name,_hash)
-            else:
-                temp=self.do_requestdirect("get",_name,_hash)
-        except VALError as e:
-            logging.info(e)
-            _veristate.set_text("invalid")
-            return
-        except Exception as e:
-            logging.error(e)
-            return
-        if temp[0]==True and temp[2] is not None:
-            if temp is isself:
-                _veristate.set_text("Server is own client") # normally impossible
-            else:
-                _veristate.set_text("Server verified as:\n"+temp[2])
+        
+        if self.builder.get_object("useclient").get_active()==True:
+            temp=self.do_requestdo("get",_server,_name,_hash)
         else:
-            _veristate.set_text("unverified")
+            temp=self.do_requestdirect("get",_name,_hash)
+        
+        temp2=self.do_requestdo("update",_server,_name,_hash)
+        if temp2[0]==False:
+            logging.error("update failed")
+            logging.error(str(*temp2[1]))
+        
+        #if temp[0]==True and temp[2] is not None:
+            #if temp is isself:
+                #_veristate.set_text("Server is own client") # normally impossible
+            #else:
+                #_veristate.set_text("Server verified as:\n"+temp[2])
+        #else:
+            #_veristate.set_text("unverified")
         if temp[0]==True:
             _nodeo.set_text("{}:{}".format(*temp[1]))
             self.param_node["certhash"]=_hash
+        
 
     def gtkchat(self,*args):
         pass
@@ -357,6 +375,10 @@ class gtk_client(object):
         self.param_node["certname"]=None
         self.param_node["certhash"]=None
 
+
+        
+
+########### names #####################
     def gtkupdate_nodenames(self,*args):
         _localnames=self.do_requestdo("listnodenames")
         if _localnames[0]==False:
@@ -391,7 +413,7 @@ class gtk_client(object):
             
 
     def gtkdel_name(self,*args):
-        _view=self.builder.get_object("localserviceview")
+        _view=self.builder.get_object("nameview")
         _text=self.builder.get_object("delnamel")
         _dialog=self.builder.get_object("deleteconfirmname")
         temp=_view.get_selection().get_selected()
@@ -404,18 +426,169 @@ class gtk_client(object):
     def gtkdel_nameconfirm(self,*args):
         _dialog=self.builder.get_object("deleteconfirmname")
         _dialog.hide()
-        _view=self.builder.get_object("localserviceview")
+        _view=self.builder.get_object("nameview")
         temp=_view.get_selection().get_selected()
         if temp[1] is None:
             return
-        self.do_requestdo("deletename",temp[0][temp[1]][0])
+        self.do_requestdo("delname",temp[0][temp[1]][0])
         self.gtkupdate_nodenames()
         
     def gtkdel_namecancel(self,*args):
         _dialog=self.builder.get_object("deleteconfirmname")
         _dialog.hide()
 
-    
+########### nodeinfo ##################
+    nifetch=""
+    nicanchange=False
+    def gtkhide_nodeinfo(self,*args):
+        win=self.builder.get_object("nodeinfow")
+        win.hide()
+
+        
+    def gtkshow_nodeinfo_client(self,*args):
+        url=self.builder.get_object("clienturl")
+        if url.get_text().strip(" ")=="":
+            return
+        win=self.builder.get_object("nodeinfow")
+        serverexp=self.builder.get_object("serverexp")
+        updateb=self.builder.get_object("updateinfob")
+        if win.get_visible()==True:
+            win.hide()
+            return
+        serverexp.hide()
+        updateb.show()
+        self.nicanchange=True
+        self.nifetch="clienturl"
+        win.show()
+        
+        self.gtkrefresh_nodeinfo()
+            
+    def gtkshow_nodeinfo_server(self,*args):
+        url=self.builder.get_object("serverurl")
+        if url.get_text().strip(" ")=="":
+            return
+        win=self.builder.get_object("nodeinfow")
+        serverexp=self.builder.get_object("serverexp")
+        updateb=self.builder.get_object("updateinfob")
+        if win.get_visible()==True:
+            win.hide()
+            return
+        serverexp.hide()
+        updateb.hide()
+        self.nicanchange=False
+        self.nifetch="serverurl"
+        win.show()
+        
+        self.gtkrefresh_nodeinfo()
+            
+    def gtkshow_nodeinfo_node(self,*args):
+        url=self.builder.get_object("nodeurl")
+        if url.get_text().strip(" ")=="":
+            return
+        win=self.builder.get_object("nodeinfow")
+        serverexp=self.builder.get_object("serverexp")
+        updateb=self.builder.get_object("updateinfob")
+        if win.get_visible()==True:
+            win.hide()
+            return
+        serverexp.show()
+        updateb.hide()
+        self.nicanchange=False
+        self.nifetch="nodeurl"
+        win.show()
+        
+        self.gtkrefresh_nodeinfo()
+
+    # this actually changes variables in contrast to other update methods of this class
+    def gtkupdate_nodeinfo(self,*args):
+        if self.nifetch=="nodeurl":
+            return
+        #ownclientinfo=self.builder.get_object("ownclientinfo")
+        #urlo=self.builder.get_object(self.nifetch)
+        #showname=self.builder.get_object("showname")
+        #showhash=self.builder.get_object("showhash")
+        #modtype=self.builder.get_object("modtype")
+        _modpriority=self.builder.get_object("modpriority").get_text().strip().rstrip()
+        #updateb=self.builder.get_object("updateinfob")
+        if _modpriority!="":
+            self.do_requestdo("setpriority",_modpriority)
+        
+        
+
+    # this is safe, equally to other update methods of this class
+    def gtkrefresh_nodeinfo(self,*args):
+        #ownclientinfo=self.builder.get_object("ownclientinfo")
+        urlo=self.builder.get_object(self.nifetch)
+        showname=self.builder.get_object("showname")
+        showhash=self.builder.get_object("showhash")
+        showport=self.builder.get_object("showport")
+        messagebuf=self.builder.get_object("messagebuf")
+        #showname.set_text("")
+        #showhash.set_text("")
+        #showport.set_text("")
+        
+        if self.nicanchange==False:
+            stype=self.builder.get_object("showtype")
+            _dtype=self.builder.get_object("modtype")
+            spriority=self.builder.get_object("showpriority")
+            _dpriority=self.builder.get_object("modpriority")
+        else:
+            _dtype=self.builder.get_object("showtype")
+            stype=self.builder.get_object("modtype")
+            _dpriority=self.builder.get_object("showpriority")
+            spriority=self.builder.get_object("modpriority")
+        
+        spriority.show()
+        _dpriority.hide()
+        stype.show()
+        _dtype.hide()
+        spriority.set_text("")
+        stype.set_text("")
+        #updateb=self.builder.get_object("updateinfob")
+        #serverexp=self.builder.get_object("serverexp")
+        
+        url=urlo.get_text().strip(" ")
+        if url=="":
+            return
+        u=scnparse_url(url)
+        if len(u)>=2:
+            showport.set_text(str(u[1]))
+        elif self.nifetch=="serverurl":
+            showport.set_text(str(server_port))
+        else:
+            showport.set_text("")
+
+        if self.nifetch=="clienturl":
+            prio=self.do_requestdo("priodirect")
+        elif self.nifetch=="serverurl" and len(scnparse_url(url))==1:
+            url+=server_port
+            prio=self.do_requestdo("priodirect",url)
+        else:
+            prio=self.do_requestdo("priodirect",url)
+        if prio[0]==True:
+            spriority.set_text(str(prio[1]))
+            
+        if self.nifetch=="clienturl":
+            info=self.do_requestdo("info",parse=4)
+        elif self.nifetch=="serverurl" and len(scnparse_url(url))==1:
+            url+=server_port
+            info=self.do_requestdo("info",url,parse=4)
+        else:
+            info=self.do_requestdo("info",url,parse=4)
+        if info[0]==True and len(info[1])>=4:
+            stype.set_text(info[1][0])
+            showname.set_text(info[1][1])
+            showhash.set_text(info[1][2])
+            messagebuf.set_text(info[1][3])
+            if self.nifetch=="serverurl":
+                self.do_requestdo("update_direct",url,info[1][1],info[1][2])
+            if self.nifetch=="nodeurl":
+                _serverurl=self.builder.get_object("serverurl").get_text().strip().rstrip()
+                if _serverurl!="":
+                    self.do_requestdo("update",_serverurl,info[1][1],info[1][2])
+                    
+        
+            
 ########### local nodes #############
     def gtkshow_localnodes(self,*args):
         smw=self.builder.get_object("nodemw")
@@ -538,6 +711,7 @@ class gtk_client(object):
         temp[0][temp[1]][1]="<unverified>"
         
     def gtksel_node(self,*args):
+        win=self.builder.get_object("nodelistw")
         _view=self.builder.get_object("nodelistview")
         _name=self.builder.get_object("name")
         _hash=self.builder.get_object("hash")
@@ -546,6 +720,7 @@ class gtk_client(object):
             return
         _name.set_text(temp[0][temp[1]][0])
         _hash.set_text(temp[0][temp[1]][2])
+        win.hide()
         self.gtkget()
 
     def gtkcopy_node(self,*args):
@@ -729,7 +904,7 @@ class gtk_client(object):
         temp=_view.get_selection().get_selected()
         if temp[1] is None:
             return
-        self.do_requestdo("deleteservice",temp[0][temp[1]][0])
+        self.do_requestdo("delservice",temp[0][temp[1]][0])
         
         self.gtkupdate_localservices()
 
@@ -792,6 +967,7 @@ class gtk_client_init(client.client_init):
             self.serve_forever_nonblock()
             logging.debug("start gtkclient")
             self.links["gtkclient"]=gtk_client(client=_client,clientpw=pw,certhash=self.links["client"].cert_hash)
+            logging.getLogger().addHandler(self.links["gtkclient"])
         else:
             logging.debug("start gtkclient")
             self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
@@ -856,9 +1032,9 @@ if __name__ ==  "__main__":
 
     
     #logging.debug("start client")
-    cm=gtk_client_init(**d)        
+    cm=gtk_client_init(**d)
+    #logging.debug("add logging handler")
     logging.debug("enter mainloop")
     while run==True:
         Gtk.main_iteration_do(True)
-  
     sys.exit(0)
