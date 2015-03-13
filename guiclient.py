@@ -331,7 +331,7 @@ class gtk_client(logging.NullHandler):
         if _t[0]==True:
             logging.debug("serverhash added")
         else:
-            logging.info(str(*_t[:1]))
+            logging.info(_t[1])
     
         
     def gtktogglelock(self,*args):
@@ -373,7 +373,7 @@ class gtk_client(logging.NullHandler):
         temp2=self.do_requestdo("check",_server,_name,_hash)
         if temp2[0]==False:
             logging.error("udpate failed")
-            logging.error(str(*temp2[1]))
+            logging.error(temp2[1])
         
         #if temp[0]==True and temp[2] is not None:
             #if temp is isself:
