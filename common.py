@@ -210,7 +210,8 @@ def gen_passwd_hash(passwd,salt):
 
 
 def check_hash(_hashstr):
-  if all(c in "0123456789abcdefABCDEF" for c in _hashstr):
+  if all(c in "0123456789abcdefABCDEF" for c in _hashstr) and \
+     len(_hashstr)==64:
     return True
   return False
 
