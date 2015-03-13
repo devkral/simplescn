@@ -95,6 +95,9 @@ class server(commonscn):
     
     def info(self,_addr):
         return self.cache["info"]
+
+    def sinfo(self,_addr):
+        return self.cache["sinfo"]
     
     def cap(self,_addr):
         return self.cache["cap"]
@@ -110,7 +113,7 @@ class server_handler(BaseHTTPRequestHandler):
 
     server_version = 'simple scn server 0.5'
     
-    validactions={"register","get","listnames","info","cap","prio","num_nodes"}
+    validactions={"register","get","listnames","info","sinfo","cap","prio","num_nodes"}
     links=None
     salt=None
 

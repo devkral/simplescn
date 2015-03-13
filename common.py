@@ -170,7 +170,7 @@ class commonscn(object):
     cert_hash=None
     scn_type="unknown"
     
-    cache={"cap":"","info":"","priority":""}#,"hash":"","name":"","message":""
+    cache={"cap":"","info":"","sinfo":"","priority":""}#,"hash":"","name":"","message":""
     
     def update_cache(self):
         self.cache["cap"]="{}/{}".format(success,self.scn_type)
@@ -178,6 +178,7 @@ class commonscn(object):
             self.cache["cap"]="{}/{}".format(self.cache["cap"],elem)
         
         self.cache["info"]="{}/{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash,self.message)
+        self.cache["sinfo"]="{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash)
         self.cache["priority"]="{}/{}".format(success,self.priority)
     def update_priority(self):
         self.cache["priority"]="{}/{}".format(success,self.priority)

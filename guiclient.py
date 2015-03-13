@@ -351,9 +351,9 @@ class gtk_client(logging.NullHandler):
         else:
             temp=self.do_requestdirect("get",_name,_hash)
         
-        temp2=self.do_requestdo("update",_server,_name,_hash)
+        temp2=self.do_requestdo("check",_server,_name,_hash)
         if temp2[0]==False:
-            logging.error("update failed")
+            logging.error("udpate failed")
             logging.error(str(*temp2[1]))
         
         #if temp[0]==True and temp[2] is not None:
@@ -578,6 +578,7 @@ class gtk_client(logging.NullHandler):
             info=self.do_requestdo("info",url,parse=4)
         else:
             info=self.do_requestdo("info",url,parse=4)
+        
         if info[0]==True and len(info[1])>=4:
             stype.set_text(info[1][0])
             showname.set_text(info[1][1])
@@ -588,7 +589,7 @@ class gtk_client(logging.NullHandler):
             if self.nifetch=="nodeurl":
                 _serverurl=self.builder.get_object("serverurl").get_text().strip().rstrip()
                 if _serverurl!="":
-                    self.do_requestdo("update",_serverurl,info[1][1],info[1][2])
+                    self.do_requestdo("check",_serverurl,info[1][1],info[1][2])
                     
         
             
