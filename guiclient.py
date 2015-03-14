@@ -439,6 +439,8 @@ class gtk_client(logging.NullHandler):
         _dialog=self.builder.get_object("deleteconfirmname")
         temp=_view.get_selection().get_selected()
         if temp[1] is None:
+            self.statusbar.push(messageid,"nameview not selected")
+            self.pushmanage()
             return
         _text.set_text(temp[0][temp[1]][0])
         _dialog.show()
@@ -450,6 +452,8 @@ class gtk_client(logging.NullHandler):
         _view=self.builder.get_object("nameview")
         temp=_view.get_selection().get_selected()
         if temp[1] is None:
+            self.statusbar.push(messageid,"name not selected")
+            self.pushmanage()
             return
         self.do_requestdo("delname",temp[0][temp[1]][0])
         self.gtkupdate_nodenames()
@@ -665,6 +669,8 @@ class gtk_client(logging.NullHandler):
             return
         tem2=self.do_requestdo("delhash",temp[0][temp[1]][0],temp[0][temp[1]][3])
         if tem2[0]==False:
+            self.statusbar.push(messageid,"localnode not selected")
+            self.pushmanage()
             return
         self.gtkupdate_localnodes()
         
@@ -672,6 +678,8 @@ class gtk_client(logging.NullHandler):
         _nodeview=self.builder.get_object("nodeview")
         _t=_nodeview.get_selection().get_selected()
         if _t[1] is None:
+            self.statusbar.push(messageid,"localnode not selected")
+            self.pushmanage()
             return
         
         self.clip.set_text(_t[0][_t[1]][3], -1)
