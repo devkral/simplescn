@@ -169,20 +169,20 @@ class commonscn(object):
     name=None
     cert_hash=None
     scn_type="unknown"
+    #validactions=[]
     
-    cache={"cap":"","info":"","sinfo":"","priority":""}#,"hash":"","name":"","message":""
+    cache={"cap":"","info":"","prioty":""}#,"hash":"","name":"","message":""
     
     def update_cache(self):
         self.cache["cap"]="{}/{}".format(success,self.scn_type)
         for elem in self.capabilities:
             self.cache["cap"]="{}/{}".format(self.cache["cap"],elem)
-        
-        self.cache["info"]="{}/{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash,self.message)
-        self.cache["sinfo"]="{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash)
-        self.cache["priority"]="{}/{}".format(success,self.priority)
+        self.cache["info"]="{}/{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash,self.message) # be careful hash is included but can be faked if tls connection is MITM attacked
+        #=priority+tpe
+        self.cache["prioty"]="{}/{}/{}".format(success,self.priority,self.scn_type)
 
-    def update_priority(self):
-        self.cache["priority"]="{}/{}".format(success,self.priority)
+    def update_prioty(self):
+        self.cache["prioty"]="{}/{}/{}".format(success,self.priority,self.scn_type)
     
         
 
@@ -220,6 +220,16 @@ def check_name(_name, maxlength=64):
     #name shouldn't be too big
     #name shouldn't be isself as it is used
   if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
+     len(_name)<=maxlength and \
+     _name!="isself":
+    return True
+  return False
+
+def check_typename(_name, maxlength=10):
+    #ensure no bad characters
+    #name shouldn't be too big
+    #name shouldn't be isself as it is used
+  if _name.isalpha()==True and \
      len(_name)<=maxlength and \
      _name!="isself":
     return True
@@ -310,6 +320,22 @@ class certhash_db(object):
             logging.info("name doesn't exists")
             return False
         cur.execute('''DELETE FROM certs WHERE name=?;''', (_name,))
+        dbcon.commit()
+        return True
+    
+    @connecttodb
+    def updatename(self,dbcon,_name,_newname):
+        cur = dbcon.cursor()
+        cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
+        if cur.fetchone() is None:
+            logging.info("name doesn't exists")
+            return False
+        
+        cur.execute('SELECT name FROM certs WHERE name=?;',(_newname,))
+        if cur.fetchone() is not None:
+            logging.info("newname does exists")
+            return False
+        cur.execute('''UPDATE certs SET name=? WHERE name=?;''', (_newname,_name,))
         dbcon.commit()
         return True
 

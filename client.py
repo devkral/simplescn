@@ -25,6 +25,7 @@ class client_client(object):
     hashdb=None
     links=None
     isself=isself
+    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","delname","updatename","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","check_direct","prioty_direct","prioty","setpriority","delservice","ask"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -222,14 +223,21 @@ class client_client(object):
             _addr,dparam=args
         else:
             return (False,("wrong amount arguments","{}".format(args)),isself)
+        _hash=self.gethash(_addr,dparam)
+        if _hash[0]==False:
+            return (False,"hash retrieval failed",isself)
+        _tinfo=self.do_request(_addr,  "/info",dparam,forceport=True)
+        if _tinfo[0]==True:
+            _tinfolist=_tinfo[1].split("/",3)
+            if _tinfolist[2]!=_hash[1]:
+                (False,"hash missmatch",isself)
+            return (True,_tinfolist,_tinfo[2])
             
-        temp=self.do_request(_addr,  "/info",dparam,forceport=True)
-        if temp[0]==True:
-            return temp[0],temp[1].split("/",3),temp[2]
         else:
-            return temp
+            return _tinfo
 
-    def sinfo(self,*args): # _addr,dparam):
+            
+    def prioty_direct(self,*args):
         if len(args)==1:
             dparam=args[0]
             _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
@@ -237,26 +245,21 @@ class client_client(object):
             _addr,dparam=args
         else:
             return (False,("wrong amount arguments","{}".format(args)),isself)
-            
-        temp=self.do_request(_addr,  "/sinfo",dparam,forceport=True)
-        if temp[0]==True:
-            return temp[0],temp[1].split("/",2),temp[2]
-        else:
-            return temp
-
-        
-    def priodirect(self,*args):
-        if len(args)==1:
-            dparam=args[0]
-            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            _addr,dparam=args
-        else:
-            return (False,("wrong amount arguments","{}".format(args)),isself)
-        temp=self.do_request(_addr,  "/prio",dparam,forceport=True)
+        temp=self.do_request(_addr,  "/prioty",dparam,forceport=True)
         return temp
 
-    def setpriority(self,_priority,dparam):
+    def prioty(self,server_addr,_name,_hash,dparam):
+        temp=self.get(server_addr,_name,_hash,dparam)
+        if temp[0]==False:
+            return temp
+        return self.prioty_direct(temp[1])
+
+
+    def setpriority(self,*args):
+        if len(args)==2:
+            _priority,dparam=args
+        else:
+            return (False,("wrong amount arguments","{}".format(args)),isself)
         if type(_priority).__name__=="str" and _priority.isdecimal()==False:
             return (False,"no integer",isself)
         elif type(_priority).__name__=="str":
@@ -265,9 +268,10 @@ class client_client(object):
             return (False,"unsupported datatype",isself)
         if _priority<0 or _priority>100:
             return (False,"out of range",isself)
+        
         self.links["server"].priority=_priority
-        self.links["server"].update_priority()
-        return (True,"changed",isself)
+        self.links["server"].update_prioty()
+        return (True,"priority",isself)
 
     def capabilities(self,_addr,dparam):
         temp=self.do_request(_addr,  "/cap",dparam,forceport=True)
@@ -278,11 +282,12 @@ class client_client(object):
 
     #check if _addr is reachable and update priority
     def check_direct(self,_addr,_name,_hash,dparam):
-        temp=self.priodirect(_addr,dparam)
+        temp=self.prioty_direct(_addr,dparam)
         if temp[0]==False:
             return temp
         if self.hashdb.exist(_name,_hash)==True:
-            self.hashdb.changepriority(_name,_hash)
+            self.hashdb.changepriority(_name,_hash,temp[1][0])
+            self.hashdb.changetype(_name,_hash,temp[1][1])
         return temp
 
     
@@ -293,35 +298,6 @@ class client_client(object):
             return temp
         return self.check_direct(temp[1],_name,_hash,dparam)
 
-    #update db entry direct
-    def update_direct(self,_addr,_name,_hash,dparam):
-        if self.hashdb.exist(_name,_hash)==False:
-            return (False,"not exist",isself)
-        temp=self.check_direct(_addr,_name,_hash,dparam)
-        if temp[0]==False:
-            return temp
-        
-        temp=self.sinfo(_addr,dparam)
-        
-        if temp[0]==False:
-            return temp
-        _sp=temp[1].split(3)
-        if len(_sp)>=3:
-            if self.hashdb.changetype(_name,_hash,_sp[0])==True:
-                return (True,"update successful",None)
-            else:
-                return (False,_sp,None)
-        else:
-            return (False,temp[1],None)
-    
-    #update db entry
-    def update(self,server_addr,_name,_hash,dparam):
-        if self.hashdb.exist(_name,_hash)==False:
-            return (False,"not exist",isself)
-        temp=self.get(server_addr,_name,_hash,dparam)
-        if temp[0]==False:
-            return temp
-        return self.update_direct(temp[1],_name,_hash,dparam)
         
                 
         
@@ -332,14 +308,30 @@ class client_client(object):
             return (True,success,isself)
         else:
             return (False,error,isself)
-    
+
+    def delname(self,_name,dparam):
+        temp=self.hashdb.delname(_name)
+        if temp==True:
+            return (True,success,isself)
+        else:
+            return (False,error,isself)
+
+    def updatename(self,_name,_newname,dparam):
+        temp=self.hashdb.updatename(_name,_newname)
+        if temp==True:
+            return (True,success,isself)
+        else:
+            return (False,error,isself)
+
     # connects to server and check 
     def addhash(self,*args):
         if len(args)==3:
             _name,_certhash,dparam=args
             server_addr=None
-        else:
+        elif len(args)==4:
             server_addr,_name,_certhash,dparam=args
+        else:
+            return (False,("wrong amount arguments","{}".format(args)),isself)
         temp=(self.hashdb.addhash(_name,_certhash),"addhash",isself)
         
         if temp[0]==True and server_addr is not None:
@@ -355,13 +347,6 @@ class client_client(object):
         
     def delhash(self,_name,_certhash,dparam):
         temp=self.hashdb.delhash(_certhash,_name)
-        if temp==True:
-            return (True,success,isself)
-        else:
-            return (False,error,isself)
-
-    def delname(self,_name,dparam):
-        temp=self.hashdb.delname(_name)
         if temp==True:
             return (True,success,isself)
         else:
@@ -404,6 +389,7 @@ class client_server(commonscn):
     capabilities=["basic",]
     scn_type="client"
     spmap={}
+    validactions={"info","getservice","registerservice","listservices","cap","prioty","delservice"}
     def __init__(self,_name,_priority,_cert_hash,_message):
         if len(_name)==0:
             logging.debug("Name empty")
@@ -448,22 +434,17 @@ class client_server(commonscn):
     def info(self,_addr):
         return self.cache["info"]
 
-    #info without message as this could have bad (size) consequences
-    def sinfo(self,_addr):
-        return self.cache["sinfo"]
     
     def cap(self,_addr):
         return self.cache["cap"]
     
-    def prio(self,_addr):
-        return self.cache["priority"]
+    def prioty(self,_addr):
+        return self.cache["prioty"]
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
     #, obsolete
     links=None
-    validactions={"info","sinfo","getservice","registerservice","listservices","cap","prio","delservice"}
-    clientactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","delname","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","sinfo","update","update_direct","priodirect","setpriority","delservice","ask"}
     handle_localhost=False
     handle_remote=False
     cpwhash=None
@@ -508,6 +489,9 @@ class client_handler(BaseHTTPRequestHandler):
         return False
     
     def handle_client(self,_cmdlist,dparam):
+        if _cmdlist[0] not in self.links["client"].validactions:
+            self.send_error(400,"invalid action - client")
+            return
         _cmdlist+=[dparam,]
         if self.handle_remote==False and not self.client_address[0] in ["localhost","127.0.0.1","::1"]:
             self.send_error(401,"no permission - client")
@@ -576,6 +560,10 @@ class client_handler(BaseHTTPRequestHandler):
                 self.wfile.write(bytes("{}/{}".format(response[2].__str__(),response[1]),"utf8"))
 
     def handle_server(self,_cmdlist):
+        if _cmdlist[0] not in self.links["client_server"].validactions:
+            self.send_error(400,"invalid action - server")
+            return
+        
          # add address to _cmdlist
         _cmdlist+=[self.client_address,]
         
@@ -650,17 +638,22 @@ class client_handler(BaseHTTPRequestHandler):
 
         action=_cmdlist[0]
 
-        if action!="do" and action in self.validactions:
-            self.handle_server(_cmdlist) #,dparam)
+        if action=="do":
+            self.handle_client(_cmdlist[1:],dparam) #remove do
+            return
+        elif action in self.links["client_server"].validactions:
+            self.handle_server(_cmdlist)
             return
 
-
+        if self.webgui==False:
+            self.send_response(400,"no webgui")
+            return
         #client 
         if action in ("","client","html","index"):
             self.html("client.html")
             return
         
-        elif self.webgui==True and action=="static" and len(_cmdlist)>=2:
+        elif action=="static" and len(_cmdlist)>=2:
             if _cmdlist[1] in self.statics:
                 self.send_response(200)
                 self.end_headers()
@@ -668,12 +661,7 @@ class client_handler(BaseHTTPRequestHandler):
             else:
                 self.send_response(404)
             return
-        elif action=="do" and _cmdlist[1] in self.clientactions:
-            self.handle_client(_cmdlist[1:],dparam) #remove do
-        
-        else:
-            self.send_error(400,"invalid action")
-            return
+        self.send_response(400,"invalid action")
      
 
     """def do_POST(self):

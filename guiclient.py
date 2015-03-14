@@ -527,14 +527,14 @@ class gtk_client(logging.NullHandler):
         #showname=self.builder.get_object("showname")
         #showhash=self.builder.get_object("showhash")
         #modtype=self.builder.get_object("modtype")
-        _modpriority=self.builder.get_object("modpriority").get_text().strip().rstrip()
+        _priority=self.builder.get_object("modpriority").get_text().strip().rstrip()
         #updateb=self.builder.get_object("updateinfob")
-        if _modpriority!="":
-            self.do_requestdo("setpriority",_modpriority)
+        if _priority!="":
+            self.do_requestdo("setpriority",_priority)
         
         
 
-    # this is safe, equally to other update methods of this class
+    # this is safe, nearly equal to other update methods of this class
     def gtkrefresh_nodeinfo(self,*args):
         #ownclientinfo=self.builder.get_object("ownclientinfo")
         urlo=self.builder.get_object(self.nifetch)
@@ -580,14 +580,14 @@ class gtk_client(logging.NullHandler):
             showport.set_text("")
 
         if self.nifetch=="clienturl":
-            prio=self.do_requestdo("priodirect")
+            prio=self.do_requestdo("prioty_direct")
         elif self.nifetch=="serverurl":
             url="{}:{}".format(*scnparse_url(url))
-            prio=self.do_requestdo("priodirect",url)
+            prio=self.do_requestdo("prioty_direct",url)
         else:
-            prio=self.do_requestdo("priodirect",url)
+            prio=self.do_requestdo("prioty_direct",url)
         if prio[0]==True:
-            spriority.set_text(str(prio[1]))
+            spriority.set_text(str(prio[1][0]))
             
         if self.nifetch=="clienturl":
             info=self.do_requestdo("info",parse=4)
@@ -604,7 +604,7 @@ class gtk_client(logging.NullHandler):
             showhash.set_text(info[1][2])
             messagebuf.set_text(info[1][3])
             if self.nifetch=="serverurl":
-                self.do_requestdo("update_direct",url,info[1][1],info[1][2])
+                self.do_requestdo("check_direct",url,info[1][1],info[1][2])
             if self.nifetch=="nodeurl":
                 _serverurl=self.builder.get_object("serverurl").get_text().strip().rstrip()
                 if _serverurl!="":

@@ -23,6 +23,8 @@ class server(commonscn):
     refreshthread=None
     isactive=True
     scn_type="server"
+
+    validactions={"register","get","listnames","info","cap","prioty","num_nodes"}
     
     def __init__(self,_name,_certhash,_priority,_message):
         self.nhipmap={}
@@ -95,15 +97,12 @@ class server(commonscn):
     
     def info(self,_addr):
         return self.cache["info"]
-
-    def sinfo(self,_addr):
-        return self.cache["sinfo"]
     
     def cap(self,_addr):
         return self.cache["cap"]
     
-    def prio(self,_addr):
-        return self.cache["priority"]
+    def prioty(self,_addr):
+        return self.cache["prioty"]
 
     def num_nodes(self,_addr):
         return "{}/{}".format(success,len(self.nhipmap))
@@ -113,7 +112,7 @@ class server_handler(BaseHTTPRequestHandler):
 
     server_version = 'simple scn server 0.5'
     
-    validactions={"register","get","listnames","info","sinfo","cap","prio","num_nodes"}
+    
     links=None
     salt=None
 
@@ -194,8 +193,8 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         _path=_path+[self.client_address,]
-        if action not in self.validactions:
-            self.send_error(400,"invalid actions")
+        if action not in self.links["server_server"].validactions:
+            self.send_error(400,"invalid action")
             return
         try:
             func=type(self.links["server_server"]).__dict__[action]
