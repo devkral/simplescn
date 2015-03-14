@@ -76,7 +76,12 @@
     <property name="can_focus">False</property>
     <property name="icon_name">document-save</property>
   </object>
-  <object class="GtkImage" id="image1">
+  <object class="GtkImage" id="copyhaimg2">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="icon_name">edit-copy</property>
+  </object>
+  <object class="GtkImage" id="copyhashimg2">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="icon_name">edit-copy</property>
@@ -935,6 +940,8 @@
           <object class="GtkEntry" id="hashaddentry">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <signal name="changed" handler="gtkverify_addhash" swapped="no"/>
+            <signal name="preedit-changed" handler="gtkverify_addhash" swapped="no"/>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -1528,7 +1535,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="image">image1</property>
+                <property name="image">copyhaimg2</property>
                 <property name="image_position">right</property>
                 <property name="always_show_image">True</property>
                 <signal name="clicked" handler="gtkcopy_node" swapped="no"/>
@@ -1716,7 +1723,7 @@
                 <signal name="clicked" handler="gtkhide_localnodes" swapped="no"/>
               </object>
               <packing>
-                <property name="left_attach">2</property>
+                <property name="left_attach">3</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -1729,7 +1736,7 @@
                 <signal name="clicked" handler="gtkadd_localnode" swapped="no"/>
               </object>
               <packing>
-                <property name="left_attach">0</property>
+                <property name="left_attach">1</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -1742,7 +1749,23 @@
                 <signal name="clicked" handler="gtkdelete_localnode" swapped="no"/>
               </object>
               <packing>
-                <property name="left_attach">1</property>
+                <property name="left_attach">2</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="copyhashb1">
+                <property name="label" translatable="yes">Copy Hash</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="image">copyhashimg2</property>
+                <property name="image_position">right</property>
+                <property name="always_show_image">True</property>
+                <signal name="clicked" handler="gtksel_localnode" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>

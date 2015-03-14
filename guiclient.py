@@ -6,11 +6,13 @@ import os
 import time,threading
 import traceback#threading,
 from os import path
-from gi.repository import Gtk,Gdk,Gio
+from gi.repository import Gtk,Gdk
+#,Gio
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,VALError,isself,default_sslcont,dhash,AddressFail,scnparse_url,server_port
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,isself,default_sslcont,dhash,AddressFail,scnparse_url,server_port,check_hash
+#VALError
 
 messageid=0
 
@@ -652,6 +654,7 @@ class gtk_client(logging.NullHandler):
             _oname.set_text("")
         else:
             _oname.set_text(_tname[0][_tname[1]][0])
+        
         _ohash.set_text("")
         self.gtkshow_addhash()
 
@@ -665,6 +668,14 @@ class gtk_client(logging.NullHandler):
             return
         self.gtkupdate_localnodes()
         
+    def gtksel_localnode(self,*args):
+        _nodeview=self.builder.get_object("nodeview")
+        _t=_nodeview.get_selection().get_selected()
+        if _t[1] is None:
+            return
+        
+        self.clip.set_text(_t[0][_t[1]][3], -1)
+        #self.gtkshow_addhash()
         
 #############  remote nodes ####################
                 
@@ -767,6 +778,20 @@ class gtk_client(logging.NullHandler):
     def gtkhide_addhash(self,*args):
         smw=self.builder.get_object("addhashw")
         smw.hide()
+        
+    def gtkverify_addhash(self,*args):
+        hae=self.builder.get_object("hashaddentry")
+        if check_hash(hae.get_text())==True:
+            hae.override_background_color(Gtk.StateFlags.NORMAL,Gdk.RGBA(0,0,1,1))
+            #hae.override_background_color(Gtk.StateFlags.ACTIVE,Gdk.RGBA(0,0,1,1))
+            
+            #hae.override_color(Gtk.StateFlags.NORMAL|Gtk.StateFlags.ACTIVE,Gdk.RGBA(0,0,1,1))
+        else:
+            hae.override_background_color(Gtk.StateFlags.NORMAL,Gdk.RGBA(1,0,0,1))
+            
+            #hae.override_background_color(Gtk.StateFlags.ACTIVE,Gdk.RGBA(1,0,0,1))
+            #hae.override_color(Gtk.StateFlags.NORMAL|Gtk.StateFlags.ACTIVE,Gdk.RGBA(1,0,0,1))
+         
 
     def gtkconfirm_addhash_intern(self,_hide):
         smw=self.builder.get_object("addhashw")
