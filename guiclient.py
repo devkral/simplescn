@@ -16,7 +16,7 @@ from common import default_configdir,init_config_folder,check_name,check_certs,g
 
 messageid=0
 
-class gtk_client(logging.NullHandler):
+class gtk_client(logging.NullHandler,Gtk.Application):
     builder=None
     clip=None
     win=None
@@ -36,7 +36,9 @@ class gtk_client(logging.NullHandler):
         self.cert_hash=certhash
         #self.clienturl=client # other lock method
         self.cert_hash_backup=certhash
-        self.builder=Gtk.Builder.new_from_file(sharedir+"gui/gtksimplescn.ui")
+        self.builder=Gtk.Builder()
+        self.builder.set_application(self)
+        self.builder.add_from_file(sharedir+"gui/gtkclientgui.ui")
         self.builder.connect_signals(self)
         
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
