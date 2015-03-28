@@ -243,6 +243,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
     def updatehash_server(self,*args):
         #
         _veristate=self.builder.get_object("veristates")
+        _listnodesb=self.builder.get_object("listnodesb")
         serverurl=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
         if serverurl=="":
             return
@@ -259,8 +260,10 @@ class gtk_client(logging.NullHandler,Gtk.Application):
                 self.param_server["certhash"]=None
                 self.param_server["name"]=result[1][1]
                 _veristate.set_text("Server verified as:\n"+result[1][1])
+            _listnodesb.set_visible(True)
         else:
             _veristate.set_text("Server does not exist")
+            _listnodesb.set_visible(False)
         
     def internchat(self,_partner,_message=None):
         pass
@@ -367,7 +370,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             return
 
         _nodeo=self.builder.get_object("nodeurl")
-
+        _listnodesb=self.builder.get_object("listnodesb")
         
         temp=self.do_requestdo("get",_server,_name,_hash)
         
@@ -386,7 +389,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         if temp[0]==True:
             _nodeo.set_text("{}:{}".format(*temp[1]))
             self.param_node["certhash"]=_hash
-        
+        _listnodesb.set_visible(False)
 
     def gtkchat(self,*args):
         pass

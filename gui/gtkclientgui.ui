@@ -550,9 +550,8 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="listnodes">
+              <object class="GtkButton" id="listnodesb">
                 <property name="label" translatable="yes">List Nodes</property>
-                <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="halign">start</property>
@@ -618,6 +617,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="placeholder_text" translatable="yes">&lt;empty&gt;</property>
+                    <signal name="activate" handler="updatehash_server" swapped="no"/>
                     <signal name="changed" handler="gtkupdate_serverpw" swapped="no"/>
                   </object>
                 </child>
