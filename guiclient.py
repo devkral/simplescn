@@ -110,8 +110,6 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             self.builder.get_object("clienturl").set_sensitive(False)
             self.builder.get_object("clientpw").set_sensitive(False)
             self.builder.get_object("lockclientcheck").set_sensitive(False)
-            self.builder.get_object("useclient").set_sensitive(False)
-            self.builder.get_object("useclient").set_active(True)
             self.builder.get_object("clientinfoexpander").set_expanded(False)
 
         if clientpw is not None:
@@ -261,6 +259,8 @@ class gtk_client(logging.NullHandler,Gtk.Application):
                 self.param_server["certhash"]=None
                 self.param_server["name"]=result[1][1]
                 _veristate.set_text("Server verified as:\n"+result[1][1])
+        else:
+            _veristate.set_text("Server does not exist")
         
     def internchat(self,_partner,_message=None):
         pass
@@ -281,9 +281,9 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             #if len(temp[1])>2:
             #    _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1]))
                 
-            else:
-                self.builder.get_object("clientinfoexpander").set_expanded(True)
-                logging.error("len args does not match\n{}".format(temp[1]))
+            #else:
+            #    self.builder.get_object("clientinfoexpander").set_expanded(True)
+            #    logging.error("len args does not match\n{}".format(temp[1]))
         else:
             self.builder.get_object("clientinfoexpander").set_expanded(True)
             logging.error("other error\n{}".format(temp[1]))
@@ -369,10 +369,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         _nodeo=self.builder.get_object("nodeurl")
 
         
-        if self.builder.get_object("useclient").get_active()==True:
-            temp=self.do_requestdo("get",_server,_name,_hash)
-        else:
-            temp=self.do_requestdirect("get",_name,_hash)
+        temp=self.do_requestdo("get",_server,_name,_hash)
         
         temp2=self.do_requestdo("check",_server,_name,_hash)
         if temp2[0]==False:
@@ -762,12 +759,14 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         _view=self.builder.get_object("nodelistview")
         _name=self.builder.get_object("name")
         _hash=self.builder.get_object("hash")
+        _nodeexpander=self.builder.get_object("nodeexpander")
         temp=_view.get_selection().get_selected()
         if temp[1] is None:
             return
         _name.set_text(temp[0][temp[1]][0])
         _hash.set_text(temp[0][temp[1]][2])
         win.hide()
+        _nodeexpander.set_expanded(True)
         self.gtkget()
 
     def gtkcopy_node(self,*args):
@@ -817,7 +816,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             return
         temp2=self.do_requestdo("addhash",_name,_hash)
         if temp2[0]==True:
-            localnodestore.append((_name,"unknown","unknown",_hash))
+            localnodestore.append((_name,"unknown","20",_hash))
             if _hide==True:
                 smw.hide()
         
@@ -1016,7 +1015,7 @@ class gtk_client_init(client.client_init):
             if len(_name)>=2:
                 _client="localhost:{}".format(_name[1])
 
-        if kwargs["server"] is not None:
+        if kwargs["noserver"] is None:
             if kwargs["cpwhash"] is None and \
                kwargs["cpwfile"] is None:
                 pw=""
@@ -1069,7 +1068,7 @@ if __name__ ==  "__main__":
               "local": "true",
               "priority":"20",
               "timeout":"300", # not implemented yet
-              "server":None,
+              "noserver":None,
               "client":None,
               "clientpw":None,
               "certhash":None,
