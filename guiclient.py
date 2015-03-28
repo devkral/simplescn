@@ -270,7 +270,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         pass
 
     def gtkupdate_clientinfo(self,*args):
-        _info=self.builder.get_object("clientinfo")
+        #_info=self.builder.get_object("clientinfo")
         #gtklock=self.builder.get_object("lockclientcheck")
         temp=self.do_requestdo("show")
         if temp[0]==True:
@@ -278,8 +278,8 @@ class gtk_client(logging.NullHandler,Gtk.Application):
                logging.error("third arg is not isself\n{}".format(temp[2]))
                return
                
-            if len(temp[1])>2:
-                _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1]))
+            #if len(temp[1])>2:
+            #    _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1]))
                 
             else:
                 self.builder.get_object("clientinfoexpander").set_expanded(True)
@@ -916,6 +916,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         _tgan2=self.builder.get_object("newserviceportentry")
         _tgan2.set_text("")
         _tgan.set_editable(True)
+        _tgan.grab_focus()
 
     def gtkadd_service_confirm(self,*args):
         servicestore=self.builder.get_object("localservicestore")
@@ -930,6 +931,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             _tgan2.set_text("")
             return
         if _tport=="":
+            _tgan2.grab_focus()
             return
         _tcname=self.do_requestdo("registerservice",_tname,_tport)
         if _tcname[0]==True:
@@ -957,6 +959,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         _tgan2.set_text(temp[0][temp[1]][1])
         #_tgan.set_active(False)
         _tgan.set_editable(False)
+        _tgan2.grab_focus()
         #get selection
         #_tgan=""
 
