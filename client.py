@@ -24,7 +24,7 @@ class client_client(object):
     sslcontc=None
     hashdb=None
     links=None
-    isself=isself
+    #isself=isself
     validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","delname","updatename","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","check_direct","prioty_direct","prioty","setpriority","delservice","ask"}
     #pwcache={}
     
@@ -125,16 +125,19 @@ class client_client(object):
         _addr=_addr.split(":")
         if len(_addr)==1:
             _addr=(_addr[0],server_port)
-        con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
-        con.connect()
-        pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-        con.close()
-        return (True,(dhash(pcert),pcert),None)
-        
+        try:
+            con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
+            con.connect()
+            pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            con.close()
+            return (True,(dhash(pcert),pcert),None)
+        except ssl.SSLError:
+            return (False,"server speaks no tsl 1.2",None)
+        except Exception:
+            return (False,"server does not exist",None)
 
     def ask(self,server_addr,dparam):
         _ha=self.gethash(server_addr,dparam)
-        #will never happen but anyway
         if _ha[0]==False:
             return _ha
         temp=self.hashdb.certhash_as_name(_ha[1][0])

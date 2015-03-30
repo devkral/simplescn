@@ -29,9 +29,11 @@ class gtk_client(logging.NullHandler,Gtk.Application):
 
     cert_hash=None
     #start_url_hash=(None,None)
-
+    _old_serverurl=""
+    
     def __init__(self,client=None,clientpw=None,certhash=None):
         logging.Handler.__init__(self)
+        Gtk.Application.__init__(self)
         self.sslcont=default_sslcont()
         self.cert_hash=certhash
         #self.clienturl=client # other lock method
@@ -115,7 +117,6 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         if clientpw is not None:
             self.builder.get_object("clientpw").set_text(clientpw)
             self.gtkupdate_clientpw()
-        self.gtkupdate_clientinfo()
         self.gtkupdate_nodenames()
         
     def do_request(self,requeststr, parse=-1):
@@ -239,16 +240,28 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         result=self.gethash_intern(clienturl)
         if result[0]==True:
             self.param_client["certhash"]=result[1][0]
-    
+
+    def gtkupdate_clientpw(self,*args):
+        self.param_client["cpwhash"]=dhash(self.builder.get_object("clientpw").get_text())
+
     def updatehash_server(self,*args):
         #
         _veristate=self.builder.get_object("veristates")
         _listnodesb=self.builder.get_object("listnodesb")
+        _registerb=self.builder.get_object("registerb")
+        _serverexpander=self.builder.get_object("exppwserver")
         serverurl=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
         if serverurl=="":
+            _registerb.set_visible(False)
             return
+        if self._old_serverurl==serverurl:
+            return
+        self._old_serverurl=serverurl
         result=self.do_requestdo("ask",serverurl)
         if result[0]==True:
+            _serverexpander.set_expanded(False)
+            _registerb.set_sensitive(True)
+            _registerb.set_visible(True)
             if result[1][1] is None:
                 self.param_server["name"]=None
                 self.param_server["certhash"]=result[1][0]
@@ -262,6 +275,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
                 _veristate.set_text("Server verified as:\n"+result[1][1])
             _listnodesb.set_visible(True)
         else:
+            _registerb.set_visible(False)
             _veristate.set_text("Server does not exist")
             _listnodesb.set_visible(False)
         
@@ -272,37 +286,17 @@ class gtk_client(logging.NullHandler,Gtk.Application):
     def chat(self,_message):
         pass
 
-    def gtkupdate_clientinfo(self,*args):
-        #_info=self.builder.get_object("clientinfo")
-        #gtklock=self.builder.get_object("lockclientcheck")
-        temp=self.do_requestdo("show")
-        if temp[0]==True:
-            if not temp[2] is isself:
-               logging.error("third arg is not isself\n{}".format(temp[2]))
-               return
-               
-            #if len(temp[1])>2:
-            #    _info.set_text("Clientinfo: {}/{}/{}".format(*temp[1]))
-                
-            #else:
-            #    self.builder.get_object("clientinfoexpander").set_expanded(True)
-            #    logging.error("len args does not match\n{}".format(temp[1]))
-        else:
-            self.builder.get_object("clientinfoexpander").set_expanded(True)
-            logging.error("other error\n{}".format(temp[1]))
-                           
-    def gtkupdate_clientpw(self,*args):
-        self.param_client["cpwhash"]=dhash(self.builder.get_object("clientpw").get_text())
 
     def gtkupdate_serverpw(self,*args):
         self.param_client["spwhash"]=dhash(self.builder.get_object("serverpw").get_text())
         self.param_server["spwhash"]=dhash(self.builder.get_object("serverpw").get_text())
-        
+        self.updatehash_server()
 
         
     def gtkregister(self,*args):
         _veristate=self.builder.get_object("veristates")
         _server=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
+        _registerb=self.builder.get_object("registerb")
         if _server=="":
             return
 
@@ -316,7 +310,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         else:
             _veristate.set_text("<unverified>")
         if temp[0]==True:
-            logging.debug("registered")
+            _registerb.set_sensitive(False)
         else:
             logging.info("registration failed")
         
@@ -412,26 +406,22 @@ class gtk_client(logging.NullHandler,Gtk.Application):
 
     def gtkadd_name(self,*args):
         _tgan=self.builder.get_object("nameaddentry")
-        _tbut=self.builder.get_object("addnodenameb")
-        _tbut.hide()
         _tgan.set_text("")
         _tgan.show()
+        _tgan.grab_focus()
     
     def gtkadd_nameconfirm(self,*args):
         _tgan=self.builder.get_object("nameaddentry")
         _store=self.builder.get_object("namestore")
-        _tbut=self.builder.get_object("addnodenameb")
         _tname=_tgan.get_text().strip(" ")
         if _tname=="":
             _tgan.hide()
             _tgan.set_text("")
-            _tbut.show()
             return
         _tcname=self.do_requestdo("addname",_tname)
         if _tcname[0]==True:
             _tgan.hide()
             _tgan.set_text("")
-            _tbut.show()
             _store.append((_tname,))
             
 
@@ -762,14 +752,12 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         _view=self.builder.get_object("nodelistview")
         _name=self.builder.get_object("name")
         _hash=self.builder.get_object("hash")
-        _nodeexpander=self.builder.get_object("nodeexpander")
         temp=_view.get_selection().get_selected()
         if temp[1] is None:
             return
         _name.set_text(temp[0][temp[1]][0])
         _hash.set_text(temp[0][temp[1]][2])
         win.hide()
-        _nodeexpander.set_expanded(True)
         self.gtkget()
 
     def gtkcopy_node(self,*args):
@@ -805,7 +793,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             #hae.override_color(Gtk.StateFlags.NORMAL|Gtk.StateFlags.ACTIVE,Gdk.RGBA(1,0,0,1))
          
 
-    def gtkconfirm_addhash_intern(self,_hide):
+    def gtkconfirm_addhash(self,*args):
         smw=self.builder.get_object("addhashw")
         _oname=self.builder.get_object("hashaddnameentry")
         _ohash=self.builder.get_object("hashaddentry")
@@ -820,16 +808,8 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         temp2=self.do_requestdo("addhash",_name,_hash)
         if temp2[0]==True:
             localnodestore.append((_name,"unknown","20",_hash))
-            if _hide==True:
-                smw.hide()
+            smw.hide()
         
-    def gtkconfirm_addhash(self,*args):
-        self.gtkconfirm_addhash_intern(False)
-        
-        
-        
-    def gtkconfirmclose_addhash(self,*args):
-        self.gtkconfirm_addhash_intern(True)
 
 
 
