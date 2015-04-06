@@ -132,7 +132,7 @@ class client_client(object):
             con.close()
             return (True,(dhash(pcert),pcert),None)
         except ssl.SSLError:
-            return (False,"server speaks no tsl 1.2",None)
+            return (False,"server speaks no tls 1.2",None)
         except Exception:
             return (False,"server does not exist",None)
 
@@ -288,6 +288,7 @@ class client_client(object):
         temp=self.prioty_direct(_addr,dparam)
         if temp[0]==False:
             return temp
+        
         if self.hashdb.exist(_name,_hash)==True:
             self.hashdb.changepriority(_name,_hash,temp[1][0])
             self.hashdb.changetype(_name,_hash,temp[1][1])

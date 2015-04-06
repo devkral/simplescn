@@ -355,7 +355,7 @@
                           <object class="GtkLabel" id="Nodel">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <property name="halign">end</property>
+                            <property name="halign">start</property>
                             <property name="margin_right">5</property>
                             <property name="label" translatable="yes">Node:</property>
                           </object>
@@ -368,6 +368,7 @@
                           <object class="GtkEntry" id="nodeurl">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
+                            <property name="halign">start</property>
                             <signal name="changed" handler="gtknode_invalidate" swapped="no"/>
                           </object>
                           <packing>
@@ -391,6 +392,7 @@
                   <object class="GtkLabel" id="ability">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="halign">start</property>
                     <property name="label" translatable="yes">&lt;empty&gt;</property>
                     <property name="wrap">True</property>
                     <property name="width_chars">15</property>
@@ -439,6 +441,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="valign">start</property>
+                <property name="hexpand">True</property>
                 <property name="buffer">serverurlbuf</property>
                 <property name="placeholder_text" translatable="yes">&lt;address&gt;:&lt;port&gt;</property>
                 <signal name="activate" handler="updatehash_server" swapped="no"/>
@@ -537,17 +540,21 @@
                     <property name="width_request">70</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="halign">start</property>
+                    <property name="valign">start</property>
                     <property name="label" translatable="yes">Clienturl:</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
                     <property name="top_attach">0</property>
+                    <property name="height">2</property>
                   </packing>
                 </child>
                 <child>
                   <object class="GtkEntry" id="clienturl">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="valign">start</property>
                     <property name="placeholder_text" translatable="yes">&lt;address&gt;:&lt;port&gt;</property>
                     <signal name="activate" handler="updatehash_client" swapped="no"/>
                     <signal name="leave-notify-event" handler="updatehash_client" swapped="no"/>
@@ -555,6 +562,7 @@
                   <packing>
                     <property name="left_attach">1</property>
                     <property name="top_attach">0</property>
+                    <property name="height">2</property>
                   </packing>
                 </child>
                 <child>
@@ -579,6 +587,30 @@
                   <packing>
                     <property name="left_attach">3</property>
                     <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="label1">
+                    <property name="can_focus">False</property>
+                    <property name="no_show_all">True</property>
+                    <property name="halign">end</property>
+                    <property name="label" translatable="yes">Hash:</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">2</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkEntry" id="clienthash">
+                    <property name="can_focus">True</property>
+                    <property name="no_show_all">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="placeholder_text" translatable="yes">&lt;empty&gt;</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">3</property>
+                    <property name="top_attach">1</property>
                   </packing>
                 </child>
               </object>
@@ -639,70 +671,7 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkMenuItem" id="menuitem7">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_Server</property>
-                <property name="use_underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="menu2">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <child>
-                      <object class="GtkMenuItem" id="imagemenuitem1">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Register</property>
-                        <signal name="activate" handler="gtkregister" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="imagemenuitem2">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">List Nodes</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="gtkshow_remotenodes" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="imagemenuitem3">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Add Serverhash</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="gtkadd_serverhash" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkCheckMenuItem" id="serverproxy">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Use Server as Proxy</property>
-                        <property name="use_underline">True</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="separatormenuitem1">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="imagemenuitem5">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Info</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="gtkshow_nodeinfo_server" swapped="no"/>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="menuitem8">
+              <object class="GtkMenuItem" id="clientmenu">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">_Client</property>
@@ -762,12 +731,12 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkCheckMenuItem" id="lockclientcheck">
+                      <object class="GtkCheckMenuItem" id="uselocalclient">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Lock Client</property>
-                        <property name="use_underline">True</property>
-                        <signal name="toggled" handler="gtktogglelock" swapped="no"/>
+                        <property name="label" translatable="yes">Use Local Client</property>
+                        <property name="active">True</property>
+                        <signal name="toggled" handler="gtktogglelocal" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -799,10 +768,74 @@
               </object>
             </child>
             <child>
-              <object class="GtkMenuItem" id="menuitem9">
+              <object class="GtkMenuItem" id="servermenu">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_Node</property>
+                <property name="label" translatable="yes">_Server</property>
+                <property name="use_underline">True</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="menu2">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <child>
+                      <object class="GtkMenuItem" id="imagemenuitem1">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Register</property>
+                        <signal name="activate" handler="gtkregister" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="imagemenuitem2">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">List Nodes</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="gtkshow_remotenodes" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="imagemenuitem3">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Add Serverhash</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="gtkadd_serverhash" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkCheckMenuItem" id="serverproxy">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Use Server as Proxy</property>
+                        <property name="use_underline">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="separatormenuitem1">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="imagemenuitem5">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Info</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="gtkshow_nodeinfo_server" swapped="no"/>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="nodesmenu">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">_Nodes</property>
                 <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="menu6">
@@ -837,6 +870,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="image">image1</property>
+                        <property name="use_stock">False</property>
                       </object>
                     </child>
                     <child>
@@ -855,6 +889,7 @@
             <child>
               <object class="GtkMenuItem" id="nodeactions">
                 <property name="visible">True</property>
+                <property name="sensitive">False</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">Node Actions</property>
                 <property name="use_underline">True</property>

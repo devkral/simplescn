@@ -105,15 +105,9 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         
         if client is not None:
             self.builder.get_object("clienturl").set_text(client)
-            if len(client.rsplit(":",1))>1:
-                self.builder.get_object("lockclientcheck").set_active(True)
-            self.gtktogglelock()
-        if certhash is not None:
-            self.builder.get_object("clienturl").set_sensitive(False)
-            self.builder.get_object("clientpw").set_sensitive(False)
-            self.builder.get_object("lockclientcheck").set_sensitive(False)
-            self.builder.get_object("clientinfoexpander").set_expanded(False)
-
+            self.builder.get_object("clientinfoexpander").set_visible(False)
+            self.builder.get_object("uselocalclient").set_active(True)
+        
         if clientpw is not None:
             self.builder.get_object("clientpw").set_text(clientpw)
             self.gtkupdate_clientpw()
@@ -335,18 +329,14 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             logging.info(_t[1])
     
         
-    def gtktogglelock(self,*args):
-        if self.cert_hash is not None:
-            return
-        gtklock=self.builder.get_object("lockclientcheck")
-        if gtklock.get_active()==True:
-            self.builder.get_object("clienturl").set_sensitive(False)
-            self.builder.get_object("clientpw").set_sensitive(False)
-            self.builder.get_object("clientinfoexpander").set_expanded(False)
+    def gtktogglelocal(self,*args):
+        uselocalclient=self.builder.get_object("uselocalclient")
+        ciexpander=self.builder.get_object("clientinfoexpander")
+        if uselocalclient.get_active()==True:
+            ciexpander.set_visible(False)
         else:
-            self.builder.get_object("clienturl").set_sensitive(True)
-            self.builder.get_object("clientpw").set_sensitive(True)
-            self.builder.get_object("clientinfoexpander").set_expanded(True)
+            ciexpander.set_visible(True)
+            ciexpander.set_expanded(True)
         
     def gtkget(self,*args):
         #_veristate=self.builder.get_object("veristates")

@@ -160,7 +160,103 @@ def scnparse_url(url,force_port=False):
     raise(EnforcedPortFail)
 
 
+class configmanager_handler(object):
+    submodule=None
+    configmanager=None
+    defaults=None
+    def __init__(self,_configmanager,_submodule_name, defaults):
+        self.configmanager=_configmanager
+        self.submodule=_submodule_name
+        self.update(defaults)
+        
+    @self.configmanager.dbaccess
+    def update(self,dbcon,_defaults):
+        self.defaults=_defaults
+        cur = dbcon.cursor()
+        
+        cur.execute('''CREATE TABLE IF NOT EXISTS ?(name TEXT, val TEXT,PRIMARY KEY(name));''',(self.submodule,))
+        
+        cur.execute('''SELECT name FROM ?;''',self.submodule)
+        _in_db=cur.fetchall()
+        for elem in _defaults:
+            cur.execute('''INSERT OR NOTHING INTO ?(name,val) values (?,?);''',(self.submodule,elem,_defaults[elem]))
+        if _in_db==None:
+            return True
+        for elem in _in_db:
+            if elem[0] not in _defaults:
+                cur.execute('''DELETE FROM ? WHERE name=?;''',(self.submodule,elem[0]))
+        return True
+        
+    @self.configmanager.dbaccess
+    def set(self,dbcon,name,value):
+        dbcon.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,value,name))
+        return True
+    
+    @self.configmanager.dbaccess
+    def set_default(self,dbcon,name):
+        dbcon.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,self.defaults[name],name))
+        return True
+        
+    @self.configmanager.dbaccess
+    def get(self,dbcon,value):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,)
+        return cur.fetchone())
+    
+    #@self.configmanager.dbaccess
+    def get_default(self,name):
+        return self.defaults[name]
+    
+class configmanager(object):
+    dbpath=None
+    dbcon=None
+    lock=None
+    def __init__(self,_dbpath):
+        self.dbpath=_dbpath
+        self.lock=threading.BoundedSemaphore(1)
+        self.dbcon=sqlite3.connect(self.db_path)
+        
+    def __del__(self):
+        self.dbcon.close()
+    
+    def dbaccess(func):
+        def funcwrap(self,*args,**kwargs):
+            self.lock.aquire()
+            temp=None
+            try:
+                temp=func(self,self.dbcon,*args,**kwargs)
+            except Exception as e:
+                logging.error(e)
+            self.lock.release()
+            return temp
+        return funcwrap
+    
+    
+    def reload(self):
+        self.lock.aquire()
+        self.dbcon.close()
+        self.dbcon=sqlite3.connect(self.db_path)
+        self.lock.release()
+        
+    @dbaccess
+    def drop(self,submodule):
+        cur = self.dbcon.cursor()
+        cur.execute('''DROP TABLE ?;''',submodule)
+        return True
+        
+    def gethandler(self,submodule):
+        return configmanager_handler(self,submodule)
+    
 
+class pluginmanager(object):
+    pluginpath=None
+    configmanager=None
+    
+    def __init__(self,_path,_configmanager):
+        self.pluginpath=_path
+        self.configmanager=_configmanager
+        
+    
 
 class commonscn(object):
     capabilities=[]
@@ -169,6 +265,7 @@ class commonscn(object):
     name=None
     cert_hash=None
     scn_type="unknown"
+    pluginmanager=None
     #validactions=[]
     
     cache={"cap":"","info":"","prioty":""}#,"hash":"","name":"","message":""
