@@ -147,7 +147,7 @@ def parse_response(response):
 
 
 
-re_parse_url=re.compile("\[?(.*)\]?:([0-9]+)")
+re_parse_url=re.compile("\\[?(.*)\\]?:([0-9]+)")
 def scnparse_url(url,force_port=False):
     if type(url).__name__!='str':
         raise(AddressFail)
@@ -373,30 +373,30 @@ def gen_passwd_hash(passwd,salt):
 
 
 def check_hash(_hashstr):
-  if all(c in "0123456789abcdefABCDEF" for c in _hashstr) and \
-     len(_hashstr)==64:
-    return True
-  return False
+    if all(c in "0123456789abcdefABCDEF" for c in _hashstr) and \
+        len(_hashstr)==64:
+        return True
+    return False
 
 def check_name(_name, maxlength=64):
     #ensure no bad characters
     #name shouldn't be too big
     #name shouldn't be isself as it is used
-  if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
-     len(_name)<=maxlength and \
-     _name!="isself":
-    return True
-  return False
+    if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
+        len(_name)<=maxlength and \
+        _name!="isself":
+        return True
+    return False
 
 def check_typename(_name, maxlength=10):
     #ensure no bad characters
     #name shouldn't be too big
     #name shouldn't be isself as it is used
-  if _name.isalpha()==True and \
-     len(_name)<=maxlength and \
-     _name!="isself":
-    return True
-  return False
+    if _name.isalpha()==True and \
+        len(_name)<=maxlength and \
+        _name!="isself":
+        return True
+    return False
 
 def rw_socket(sockr,sockw,buffersize):
     while True:
