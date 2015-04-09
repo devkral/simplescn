@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import importlib
 import logging
 from OpenSSL import SSL,crypto
 import ssl
@@ -159,54 +160,6 @@ def scnparse_url(url,force_port=False):
         return (url,server_port)
     raise(EnforcedPortFail)
 
-
-class configmanager_handler(object):
-    submodule=None
-    configmanager=None
-    defaults=None
-    def __init__(self,_configmanager,_submodule_name, defaults):
-        self.configmanager=_configmanager
-        self.submodule=_submodule_name
-        self.update(defaults)
-        
-    @self.configmanager.dbaccess
-    def update(self,dbcon,_defaults):
-        self.defaults=_defaults
-        cur = dbcon.cursor()
-        
-        cur.execute('''CREATE TABLE IF NOT EXISTS ?(name TEXT, val TEXT,PRIMARY KEY(name));''',(self.submodule,))
-        
-        cur.execute('''SELECT name FROM ?;''',self.submodule)
-        _in_db=cur.fetchall()
-        for elem in _defaults:
-            cur.execute('''INSERT OR NOTHING INTO ?(name,val) values (?,?);''',(self.submodule,elem,_defaults[elem]))
-        if _in_db==None:
-            return True
-        for elem in _in_db:
-            if elem[0] not in _defaults:
-                cur.execute('''DELETE FROM ? WHERE name=?;''',(self.submodule,elem[0]))
-        return True
-        
-    @self.configmanager.dbaccess
-    def set(self,dbcon,name,value):
-        dbcon.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,value,name))
-        return True
-    
-    @self.configmanager.dbaccess
-    def set_default(self,dbcon,name):
-        dbcon.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,self.defaults[name],name))
-        return True
-        
-    @self.configmanager.dbaccess
-    def get(self,dbcon,value):
-        cur = dbcon.cursor()
-        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,)
-        return cur.fetchone())
-    
-    #@self.configmanager.dbaccess
-    def get_default(self,name):
-        return self.defaults[name]
-    
 class configmanager(object):
     dbpath=None
     dbcon=None
@@ -244,18 +197,115 @@ class configmanager(object):
         cur.execute('''DROP TABLE ?;''',submodule)
         return True
         
-    def gethandler(self,submodule):
-        return configmanager_handler(self,submodule)
+    @dbaccess
+    def list_submodules(self,submodule):
+        cur = self.dbcon.cursor()
+        cur.execute('''.tables;''')
+        return [elem[0] for elem in cur.fetchall()]
+        
+    def gethandler(self,submodule,defaults):
+        return configmanager_handler(self,submodule,defaults)
     
+    def gethandler_plugin(self,submodule,defaults):
+        defaults["state"]="false"
+        return configmanager_handler(self,submodule,defaults)
+
+
+class configmanager_handler(object):
+    submodule=None
+    configmanager=None
+    defaults=None
+    def __init__(self,_configmanager,_submodule_name, defaults):
+        self.configmanager=_configmanager
+        self.submodule=_submodule_name
+        self.update(defaults)
+        
+    
+    def dbaccess(func):
+        def funcwrap(self,*args,**kwargs):
+            self.configmanager.dbaccess(self,*args,**kwargs)
+        return funcwrap
+        
+    @dbaccess
+    def update(self,dbcon,_defaults):
+        self.defaults=_defaults
+        cur = dbcon.cursor()
+        
+        cur.execute('''CREATE TABLE IF NOT EXISTS ?(name TEXT, val TEXT,PRIMARY KEY(name));''',(self.submodule,))
+        
+        cur.execute('''SELECT name FROM ?;''',self.submodule)
+        _in_db=cur.fetchall()
+        for elem in _defaults:
+            cur.execute('''INSERT OR NOTHING INTO ?(name,val) values (?,?);''',(self.submodule,elem,_defaults[elem]))
+        if _in_db==None:
+            return True
+        for elem in _in_db:
+            if elem[0] not in _defaults:
+                cur.execute('''DELETE FROM ? WHERE name=?;''',(self.submodule,elem[0]))
+        return True
+        
+    @dbaccess
+    def set(self,dbcon,name,value):
+        dbcon.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,value,name))
+        return True
+    
+    @dbaccess
+    def set_default(self,dbcon,name):
+        dbcon.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,self.defaults[name],name))
+        return True
+        
+    @dbaccess
+    def get(self,dbcon,value):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
+        return cur.fetchone()
+    
+    #@self.configmanager.dbaccess
+    def get_default(self,name):
+        return self.defaults[name]
+
 
 class pluginmanager(object):
-    pluginpath=None
-    configmanager=None
+    pluginpathes=None
+    pathes=None
+    pluginloader=None
+    config_plugins=None
+    interfaces=["main",]
     
-    def __init__(self,_path,_configmanager):
-        self.pluginpath=_path
-        self.configmanager=_configmanager
+    def __init__(self,pathes,_config_plugins):
+        #if _path[-1]==os.sep:
+        #    self.pluginpath=_path
+        #else:
+        #    self.pluginpath=_path+os.sep
+        self.pathes=pathes.copy()
+        #self.pathes=self.pluginpathes+sys.path
+        self.config_plugins=_config_plugins
+        #self.config_self=_config_self
         
+    
+    def clean_plugins(self):
+        for plugin in self.config_plugins.list_submodules():
+            if os.exist(self.pluginpath+plugin)==False:
+                self.config_plugins.drop(plugin)
+    
+    def init_plugins(self,links):
+        for plugin in self.config_plugins.list_submodules():
+            self.__dict__["p_{}".format(plugin)] = \
+                importlib.machinery.PathFinder.find_spec(plugin,self.pathes)
+            if self.__dict__["p_{}".format(plugin)] is not None:
+                #init sys pathes
+                self.__dict__["p_{}".format(plugin)].submodule_search_locations = \
+                    sys.path
+                #replace by loaded module
+                self.__dict__["p_{}".format(plugin)]=self.__dict__["p_{}".\
+                    format(plugin)].loader.load_module()
+                
+                #load interfaces
+                for elem in self.interfaces:
+                    try:
+                        self.__dict__["p_{}".format(plugin)].__dict__[elem](links,self.config_plugins.get_handler(plugin,self.__dict__["p_{}".format(plugin)].defaults))
+                    except Exception as e:
+                        pass
     
 
 class commonscn(object):
@@ -266,6 +316,14 @@ class commonscn(object):
     cert_hash=None
     scn_type="unknown"
     pluginmanager=None
+    configmanager=None
+    #values replaced by init_config by actual config handlers
+    config={
+    "main":[],
+    "web":[],
+    "gui":[],
+    "cmd":[]} 
+    
     #validactions=[]
     
     cache={"cap":"","info":"","prioty":""}#,"hash":"","name":"","message":""
@@ -281,6 +339,14 @@ class commonscn(object):
     def update_prioty(self):
         self.cache["prioty"]="{}/{}/{}".format(success,self.priority,self.scn_type)
     
+    def clean_config(self):
+        for cf in self.configmanager.list_submodules():
+            if cf not in self.config:
+                self.configmanager.drop(cf)
+    
+    def init_config(self):
+        for cf in self.config:
+            self.config[cf]=self.configmanager.gethandler(cf,self.config[cf])
         
 
 def dhash(ob):
