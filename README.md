@@ -6,6 +6,13 @@ Features:
 * passwordprotection
 * entirely controllable by webbrowser
 
+Dependencies:
+* python-openssl (python3 version)
+* python-gobject (python3 version)
+* gtk3
+* python3
+
+
 This is a rewrite of scn.
 It got too complex because of unnecessary features (channels and nodes), too much lowlevel work (an own protocol), focus on gui and a client and serverside account management.
 

@@ -12,7 +12,7 @@ import hashlib
 import re
 from http import client
 
-from subprocess import Popen,PIPE
+#from subprocess import Popen,PIPE
 key_size=4096
 server_port=4040
 #client_port=4041
@@ -53,19 +53,41 @@ class isself(object):
 
 ##### init ######
 
+#cert_name.emailAddress=""
+#cert_name.localityName=""
 def generate_certs(_path):
-    genproc=None
-    _passphrase=input("(optional) Enter passphrase for encrypting key:\n")
+    _key= crypto.PKey()
+    _key.generate_key(crypto.TYPE_RSA,key_size)
+    _passphrase="" #input("(optional) Enter passphrase for encrypting key:\n")
+    cert = crypto.X509()
+    cert_name = cert.get_issuer()
+    cert_name.countryName="IA"
+    cert_name.stateOrProvinceName="simple-scn"
+    cert_name.organizationName="secure communication nodes"
+    cert_name.commonName="secure communication nodes"
+    cert.set_issuer(cert_name)
+    cert.set_serial_number(0)
+    cert.set_version(0)
+    cert.set_pubkey(_key)
+    cert.gmtime_adj_notBefore(0)
+    cert.gmtime_adj_notAfter(0)
+    #cert.add_extensions([
+    #crypto.X509Extension("basicConstraints", True,
+    #                    "CA:TRUE, pathlen:0"),
+    #crypto.X509Extension("keyUsage", True,
+    #                    "keyCertSign, cRLSign"),
+    #crypto.X509Extension("subjectKeyIdentifier", False, "hash",
+    #                    subject=cert_name)])
+    cert.sign(_key, "sha512")
     if _passphrase=="":
-        genproc=Popen(["openssl", "req", "-x509", "-nodes", "-newkey", "rsa:"+str(key_size), "-keyout",_path+".priv", "-out",_path+".pub"],stdin=PIPE,stdout=PIPE, stderr=PIPE,universal_newlines=True)
-        _answer=genproc.communicate("IA\n\n\n\nscn.nodes\n\nsecure communication nodes\n")
+        privkey=crypto.dump_privatekey(crypto.FILETYPE_PEM,_key)
     else:
-        genproc=Popen(["openssl", "req", "-x509", "-aes256", "-newkey", "rsa:"+str(key_size),"-keyout",_path+".priv", "-out",_path+".pub"], stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
-        _answer=genproc.communicate(_passphrase.strip("\n")+"\n"+_passphrase.strip("\n")+"\nIA\n\n\n\nscn.nodes\n\nsecure communication nodes\n")
-
-    #logging.debug(_answer[0])
-    if _answer[1]!="":
-        logging.debug(_answer[1])
+        privkey=crypto.dump_privatekey(crypto.FILETYPE_PEM,_key,"CAMELLIA256",_passphrase)
+    pubkey=crypto.dump_certificate(crypto.FILETYPE_PEM,cert)
+    with open(_path+".priv", 'wb') as writeout:
+        writeout.write(privkey)
+    with open(_path+".pub", 'wb') as writeout:
+        writeout.write(pubkey)
 
 def check_certs(_path):
     if os.path.exists(_path+".priv")==False or os.path.exists(_path+".pub")==False:

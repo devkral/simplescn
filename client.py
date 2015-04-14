@@ -689,7 +689,7 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
     
     def __init__(self, _client_address,certfpath):
         HTTPServer.__init__(self, _client_address,client_handler)
-        self.sslcont=self.sslcont=default_sslcont()
+        self.sslcont=default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv")
         self.socket=self.sslcont.wrap_socket(self.socket)
         
