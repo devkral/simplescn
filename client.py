@@ -44,7 +44,7 @@ class client_client(object):
             val=isself
         elif dparam["certhash"] is not None and dparam["certhash"]!=dhash(pcert):
             raise(VALHashError)
-        elif dparam["nohashdb"] is None:
+        else:
             val=self.hashdb.certhash_as_name(dhash(pcert))
             #print(dparam)
             if dparam["certname"] is not None and dparam["certname"]!=val:
@@ -83,8 +83,8 @@ class client_client(object):
         resp=parse_response(con.getresponse())
 
         con.close()
-        
-        if dparam["nohashdb"] is not None:
+        resp[0],resp[1],val,dhash(pcert)
+        """if dparam["nohashdb"] is not None:
             #here the order is changed so use split instead of rsplit
             temp=resp[1].split("/",1)
             if len(temp)==2:
@@ -98,11 +98,11 @@ class client_client(object):
             else:
                 return (resp[0],resp[1],dhash(pcert))
         else:    
-            return resp[0],resp[1],val
+            return resp[0],resp[1],val"""
 
     def show(self,dparam):
         return (True,(self.name,self.cert_hash,
-                str(self.links["server"].socket.getsockname()[1])),isself)
+                str(self.links["server"].socket.getsockname()[1])),isself,self.cert_hash)
     
     def register(self,server_addr,dparam):
         return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dparam)
@@ -130,18 +130,18 @@ class client_client(object):
             con.connect()
             pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             con.close()
-            return (True,(dhash(pcert),pcert),None)
+            return (True,(dhash(pcert),pcert),isself,self.cert_hash)
         except ssl.SSLError:
-            return (False,"server speaks no tls 1.2",None)
+            return (False,"server speaks no tls 1.2")
         except Exception:
-            return (False,"server does not exist",None)
+            return (False,"server does not exist")
 
     def ask(self,server_addr,dparam):
         _ha=self.gethash(server_addr,dparam)
         if _ha[0]==False:
             return _ha
         temp=self.hashdb.certhash_as_name(_ha[1][0])
-        return (True,(_ha[1][0],temp),isself)
+        return (True,(_ha[1][0]),isself,self.cert_hash)
 
 
         
@@ -167,7 +167,7 @@ class client_client(object):
                     temp2+=[(_split[0],_split[1],isself),] 
                 else:
                     temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
-        return (temp[0],temp2,temp[2])
+        return (temp[0],temp2,temp[2],temp[3])
     
     def getservice(self,client_addr,_service,dparam):
         return self.do_request(client_addr, "/getservice/{}".format(_service),dparam)
@@ -179,7 +179,7 @@ class client_client(object):
         elif len(args)==4:
             client_addr,_servicename,_port,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)),isself)
+            return (False,("wrong amount arguments","{}".format(args)))
         
         temp= self.do_request(client_addr, "/registerservice/{}/{}".format(_servicename,_port),dparam,forceport=True)
         if len(args)==3 and temp[2] is not isself:
@@ -193,7 +193,7 @@ class client_client(object):
         elif len(args)==3:
             client_addr,_servicename,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)),isself)
+            return (False,("wrong amount arguments","{}".format(args)))
         
         temp= self.do_request(client_addr, "/delservice/{}".format(_servicename),dparam,forceport=True)
         if len(args)==3 and temp[2] is not isself:
@@ -208,7 +208,7 @@ class client_client(object):
         elif len(args)==2:
             client_addr,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)),isself)
+            return (False,("wrong amount arguments","{}".format(args)))
         temp=self.do_request(client_addr, "/listservices",dparam,forceport=True)
         if temp[0]==False:
             return temp
@@ -216,7 +216,7 @@ class client_client(object):
         if temp[1]!="empty":
             for elem in temp[1].split("\n"):
                 temp2+=[elem.rsplit("&",1),]
-        return (temp[0],temp2,temp[2])
+        return (temp[0],temp2,temp[2],temp[3])
     
     def info(self,*args): # _addr,dparam):
         if len(args)==1:
@@ -225,16 +225,11 @@ class client_client(object):
         elif len(args)==2:
             _addr,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)),isself)
-        _hash=self.gethash(_addr,dparam)
-        if _hash[0]==False:
-            return (False,"hash retrieval failed",isself)
+            return (False,("wrong amount arguments","{}".format(args)))
         _tinfo=self.do_request(_addr,  "/info",dparam,forceport=True)
         if _tinfo[0]==True:
-            _tinfolist=_tinfo[1].split("/",3)
-            if _tinfolist[2]!=_hash[1]:
-                (False,"hash missmatch",isself)
-            return (True,_tinfolist,_tinfo[2])
+            _tinfolist=_tinfo[1].split("/",2)
+            return (True,_tinfolist,_tinfo[2],_tinfo[3])
             
         else:
             return _tinfo
@@ -262,24 +257,24 @@ class client_client(object):
         if len(args)==2:
             _priority,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)),isself)
+            return (False,("wrong amount arguments","{}".format(args)))
         if type(_priority).__name__=="str" and _priority.isdecimal()==False:
-            return (False,"no integer",isself)
+            return (False,"no integer")
         elif type(_priority).__name__=="str":
             _priority=int(_priority)
         elif type(_priority).__name__!="int":
-            return (False,"unsupported datatype",isself)
+            return (False,"unsupported datatype")
         if _priority<0 or _priority>100:
-            return (False,"out of range",isself)
+            return (False,"out of range")
         
         self.links["server"].priority=_priority
         self.links["server"].update_prioty()
-        return (True,"priority",isself)
+        return (True,"priority",isself,self.cert_hash)
 
     def capabilities(self,_addr,dparam):
         temp=self.do_request(_addr,  "/cap",dparam,forceport=True)
         if temp[0]==True:
-            return temp[0],temp[1].split(",",3),temp[2]
+            return temp[0],temp[1].split(",",3),temp[2],temp[3]
         else:
             return temp
 
@@ -309,23 +304,23 @@ class client_client(object):
     def addname(self,_name,dparam):
         temp=self.hashdb.addname(_name)
         if temp==True:
-            return (True,success,isself)
+            return (True,success,isself,self.cert_hash)
         else:
-            return (False,error,isself)
+            return (False,error)
 
     def delname(self,_name,dparam):
         temp=self.hashdb.delname(_name)
         if temp==True:
-            return (True,success,isself)
+            return (True,success,isself,self.cert_hash)
         else:
-            return (False,error,isself)
+            return (False,error)
 
     def updatename(self,_name,_newname,dparam):
         temp=self.hashdb.updatename(_name,_newname)
         if temp==True:
-            return (True,success,isself)
+            return (True,success,isself,self.cert_hash)
         else:
-            return (False,error,isself)
+            return (False,error)
 
     # connects to server and check 
     def addhash(self,*args):
@@ -335,8 +330,8 @@ class client_client(object):
         elif len(args)==4:
             server_addr,_name,_certhash,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)),isself)
-        temp=(self.hashdb.addhash(_name,_certhash),"addhash",isself)
+            return (False,("wrong amount arguments","{}".format(args)))
+        temp=(self.hashdb.addhash(_name,_certhash),"addhash",isself,self.cert_hash)
         
         if temp[0]==True and server_addr is not None:
             temp=self.update(server_addr,_name,_certhash)
@@ -345,45 +340,45 @@ class client_client(object):
     def deljusthash(self,_certhash,dparam):
         temp=self.hashdb.delhash(_certhash)
         if temp==True:
-            return (True,success,isself)
+            return (True,success,isself,self.cert_hash)
         else:
-            return (False,error,isself)
+            return (False,error)
         
     def delhash(self,_name,_certhash,dparam):
         temp=self.hashdb.delhash(_certhash,_name)
         if temp==True:
-            return (True,success,isself)
+            return (True,success,isself,self.cert_hash)
         else:
-            return (False,error,isself)
+            return (False,error)
 
     #search
     def searchhash(self,_certhash,dparam):
         temp=self.hashdb.certhash_as_name(_certhash)
         if temp is None:
-            return(False, error,isself)
+            return(False, error)
         else:
-            return (True,temp,isself)
+            return (True,temp,isself,self.cert_hash)
     
     def listhashes(self,_name,dparam):
         temp=self.hashdb.listcerts(_name)
         if temp is None:
-            return(False, error,isself)
+            return(False, error)
         else:
-            return (True,temp,isself)
+            return (True,temp,isself,self.cert_hash)
     
     def listnodenames(self,dparam):
         temp=self.hashdb.listnodenames()
         if temp is None:
-            return(False, error,isself)
+            return(False, error)
         else:
-            return (True,temp,isself)
+            return (True,temp,isself,self.cert_hash)
 
     def listall(self,dparam):
         temp=self.hashdb.listall()
         if temp is None:
-            return (False, error,isself)
+            return (False, error)
         else:
-            return (True,temp,isself)
+            return (True,temp,isself,self.cert_hash)
 
         
 
@@ -665,7 +660,29 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_response(404)
             return
         self.send_response(400,"invalid action")
-     
+    
+    def do_PUT(self):
+        pos_param=self.path.find("?")
+        if pos_param!=-1:
+            _cmdlist=self.path[1:pos_param].split("/")
+            tparam=self.path[pos_param+1:].split("&")
+            for elem in tparam:
+                elem=elem.split("=")
+
+                if len(elem)==1 and elem[0]!="":
+                    dparam[elem[0]]=""
+                elif len(elem)==2:
+                    dparam[elem[0]]=elem[1]
+                else:
+                    self.send_error(400,"invalid key/value pair\n{}".format(elem))
+                    return
+                                
+        else:
+            _cmdlist=self.path[1:].split("/")
+        action=_cmdlist[0]
+        if action=="do":
+            self.handle_client(_cmdlist[1:],dparam) #remove do
+    
 
     def do_POST(self):
         plugin,action=self.path[1:].split("/",1)
@@ -762,14 +779,6 @@ class client_init(object):
             port=0
 
         self.links["client_server"]=client_server(_name[0],kwargs["priority"],dhash(pub_cert),_message)
-        self.links["client_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
-        plugconf=configmanager(self.config_path+os.sep+"plugins.config")
-        if kwargs["noplugins"] is None:
-            self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
-            if kwargs["webgui"] is not None:
-                self.links["client_server"].pluginmanager.interfaces+=["web",]
-            if kwargs["cmd"] is not None:
-                self.links["client_server"].pluginmanager.interfaces+=["cmd",]
             
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
@@ -913,6 +922,7 @@ if __name__ ==  "__main__":
     signal.signal(signal.SIGINT, signal_handler)
 
     
+    conf=configmanager(self.config_path+os.sep+"main.config")
     if len(sys.argv)>1:
         tparam=()
         for elem in sys.argv[1:]: #strip filename from arg list
@@ -928,7 +938,7 @@ if __name__ ==  "__main__":
                     client_args[tparam[0]]=""
                     continue
                 client_args[tparam[0]]=tparam[1]
-                
+    
 
     #should be gui agnostic so specify here
     if client_args["webgui"] is not None:
@@ -940,9 +950,18 @@ if __name__ ==  "__main__":
                 client_handler.statics[elem]=_staticr.read()
     else:
         client_handler.webgui=False
-
-                
+    
     cm=client_init(**client_args)
+    
+    cm.links["client_server"].configmanager=conf
+    if kwargs["noplugins"] is None:
+        plugconf=configmanager(self.config_path+os.sep+"plugins.config")
+        self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
+        if kwargs["webgui"] is not None:
+            cm.links["client_server"].pluginmanager.interfaces+=["web",]
+        if kwargs["cmd"] is not None:
+            cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
+        cm.links["client_server"].pluginmanager.init_plugins(cm.links)
         
     if client_args["cmd"] is not None:
         logging.debug("start server")

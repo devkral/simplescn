@@ -126,7 +126,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             temp=client.client_client.__dict__["do_request"](self,clienturl,requeststr+params,self.param_client,usecache=False,forceport=False)
         except AddressFail:
             #logging.error(requeststr)
-            return (False, "",isself)
+            return (False, "address failed")
         except Exception as e:
             if "tb_frame" in e.__dict__:
                 st=str(e)+"\n\n"+str(traceback.format_tb(e))
@@ -134,7 +134,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
                 st=str(e)
 
             logging.error(st)
-            return (False, e,isself)
+            return (False, e)
         if temp[0]==False:
             return temp
         if parse==-1:
@@ -149,7 +149,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
                 rest=[temp1[-1],]
                 temp1=temp1[:-1]
             else:
-                return (False,"arglength",isself)
+                return (False,"arglength")
         _finish1=[]
         #TODO: empty,[] causes artifact
         for elem in temp1:
@@ -178,7 +178,8 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         #remove trailing "" element
         elif _finish1[0]=="":
             _finish1=_finish1[1:]
-        return (temp[0],_finish1,temp[2])
+        #temp[0]==True
+        return (temp[0],_finish1,temp[2],temp[3])
         
     def do_requestdo(self,*requeststrs,parse=-1):
         temp="/do"
@@ -225,7 +226,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         try:
             return client.client_client.gethash(self,_addr,{})
         except Exception as e:
-            return (False,e,isself)
+            return (False,e)
 
 
     def updatehash_client(self,*args):
@@ -1033,6 +1034,7 @@ def signal_handler(*args):
 if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
+    
     d=client.client_args.copy()
     d.update({"config":default_configdir,
               "port":None,
@@ -1042,6 +1044,7 @@ if __name__ ==  "__main__":
               "priority":"20",
               "timeout":"300", # not implemented yet
               "noserver":None,
+              "noplugins":None,
               "client":None,
               "clientpw":None,
               "certhash":None,
@@ -1065,10 +1068,20 @@ if __name__ ==  "__main__":
                 
 
     client.client_handler.webgui=False
-
+    
     
     #logging.debug("start client")
     cm=gtk_client_init(**d)
+    
+        
+    if kwargs["noplugins"] is None:
+        plugconf=configmanager(**d["config"]+os.sep+"plugins.config")
+        self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
+        if kwargs["webgui"] is not None:
+            cm.links["client_server"].pluginmanager.interfaces+=["web",]
+        cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
+        cm.links["client_server"].pluginmanager.interfaces+=["gui",]
+        cm.links["client_server"].pluginmanager.init_plugins(cm.links)
     #logging.debug("add logging handler")
     logging.debug("enter mainloop")
     while run==True:

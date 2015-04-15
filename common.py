@@ -368,7 +368,7 @@ class commonscn(object):
         self.cache["cap"]="{}/{}".format(success,self.scn_type)
         for elem in self.capabilities:
             self.cache["cap"]="{}/{}".format(self.cache["cap"],elem)
-        self.cache["info"]="{}/{}/{}/{}/{}".format(success,self.scn_type,self.name,self.cert_hash,self.message) # be careful hash is included but can be faked if tls connection is MITM attacked
+        self.cache["info"]="{}/{}/{}/{}".format(success,self.scn_type,self.name,self.message) # be careful hash is included but can be faked if tls connection is MITM attacked
         #=priority+tpe
         self.cache["prioty"]="{}/{}/{}".format(success,self.priority,self.scn_type)
 
