@@ -10,6 +10,7 @@ import platform
 import sqlite3
 import hashlib
 import re
+import threading
 from http import client
 
 #from subprocess import Popen,PIPE
@@ -189,7 +190,7 @@ class configmanager(object):
     def __init__(self,_dbpath):
         self.dbpath=_dbpath
         self.lock=threading.BoundedSemaphore(1)
-        self.dbcon=sqlite3.connect(self.db_path)
+        self.dbcon=sqlite3.connect(self.dbpath)
         
     def __del__(self):
         self.dbcon.close()
@@ -231,7 +232,12 @@ class configmanager(object):
     def gethandler_plugin(self,submodule,defaults):
         defaults["state"]="false"
         return configmanager_handler(self,submodule,defaults)
-
+    
+    @dbaccess
+    def get(self,dbcon,_submodule,value):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT val FROM ? WHERE name=?;''',(_submodule,_name))
+        return cur.fetchone()
 
 class configmanager_handler(object):
     submodule=None
@@ -279,7 +285,7 @@ class configmanager_handler(object):
     @dbaccess
     def get(self,dbcon,value):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
+        cur.execute('''SELECT val FROM ? WHERE name=?;''',(self.submodule,_name))
         return cur.fetchone()
     
     #@self.configmanager.dbaccess
@@ -292,7 +298,8 @@ class pluginmanager(object):
     pathes=None
     pluginloader=None
     config_plugins=None
-    interfaces=["main",]
+    redirect_addr=""
+    interfaces=["main"]
     
     def __init__(self,pathes,_config_plugins):
         #if _path[-1]==os.sep:
@@ -312,6 +319,8 @@ class pluginmanager(object):
     
     def init_plugins(self,links):
         for plugin in self.config_plugins.list_submodules():
+            if self.config_plugins.get(plugin,"state")=="false":
+                continue
             self.__dict__["p_{}".format(plugin)] = \
                 importlib.machinery.PathFinder.find_spec(plugin,self.pathes)
             if self.__dict__["p_{}".format(plugin)] is not None:
@@ -328,7 +337,12 @@ class pluginmanager(object):
                         self.__dict__["p_{}".format(plugin)].__dict__[elem](links,self.config_plugins.get_handler(plugin,self.__dict__["p_{}".format(plugin)].defaults))
                     except Exception as e:
                         pass
-    
+
+    def register_remote(self,_addr):
+        self.redirect_addr=_addr
+
+    def delete_remote(self):
+        self.redirect_addr=""
 
 class commonscn(object):
     capabilities=[]

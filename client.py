@@ -13,7 +13,7 @@ import socket
 import os
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,VALHashError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn,sharedir,scnparse_url,AddressFail
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,VALHashError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn,sharedir,scnparse_url,AddressFail,pluginmanager,configmanager
 
 
 
@@ -35,7 +35,7 @@ class client_client(object):
         self.sslcont=default_sslcont()
         self.links=_links
 
-    def do_request(self,_addr,requeststr,dparam,usecache=False,forceport=False):
+    def do_request(self,_addr,requeststr,dparam,usecache=False,forceport=False,requesttype="GET"):
         _addr=scnparse_url(_addr,force_port=forceport)
         con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
         con.connect()
@@ -67,7 +67,7 @@ class client_client(object):
                 con.putheader("cpwhash",dparam["cpwhash"])
             con.set_tunnel(requeststr,pheaders)
         else:
-            con.putrequest("GET", requeststr)
+            con.putrequest(requesttype, requeststr)
         
             if dparam["spwhash"] is not None:
                 con.putheader("spwhash",dparam["spwhash"])
@@ -656,7 +656,6 @@ class client_handler(BaseHTTPRequestHandler):
         if action in ("","client","html","index"):
             self.html("client.html")
             return
-        
         elif action=="static" and len(_cmdlist)>=2:
             if _cmdlist[1] in self.statics:
                 self.send_response(200)
@@ -668,20 +667,18 @@ class client_handler(BaseHTTPRequestHandler):
         self.send_response(400,"invalid action")
      
 
-    """def do_POST(self):
-        _cmdlist=???.split("&")
-        if _cmdlist[0]=="":
-            self.index()
+    def do_POST(self):
+        plugin,action=self.path[1:].split("/",1)
+        if self.links["client_server"].pluginmanager.redirect_addr=="":
+            try:
+                self.links["client_server"].pluginmanager.__dict__["p_{}".format(plugin)](action)
+            except Exception as e:
+                logging.error(e)
             return
-        _cmdlist=_cmdlist+[self.client_address,]
-        if self.handle_localhost==True and _cmdlist[0]=="do" and _cmdlist[1] in self.clientactions:
-            self.handle_client(_cmdlist[1:]) #remove do
-        elif _cmdlist[0]!="do" and _cmdlist[0] in self.validactions:
-            self.handle_server(_cmdlist)
-        else:
-            self.send_error(400,"invalid action")
-            return"""
-            
+        elif  self.links["client_server"].pluginmanager.redirect_addr!="":
+            self.links["client_client"].do_request(self.links["client_server"].pluginmanager.redirect_addr,self.path,requesttype="POST")
+            return
+        
         
 class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
     #address_family = socket.AF_INET6
@@ -765,6 +762,15 @@ class client_init(object):
             port=0
 
         self.links["client_server"]=client_server(_name[0],kwargs["priority"],dhash(pub_cert),_message)
+        self.links["client_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
+        plugconf=configmanager(self.config_path+os.sep+"plugins.config")
+        if kwargs["noplugins"] is None:
+            self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
+            if kwargs["webgui"] is not None:
+                self.links["client_server"].pluginmanager.interfaces+=["web",]
+            if kwargs["cmd"] is not None:
+                self.links["client_server"].pluginmanager.interfaces+=["cmd",]
+            
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
         self.links["client"]=client_client(_name[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)
@@ -890,6 +896,7 @@ def signal_handler(_signal, frame):
 
 client_args={"config":default_configdir,
              "port":None,
+             "noplugins":None,
              "cpwhash":None,
              "cpwfile":None,
              "spwhash":None,

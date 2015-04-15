@@ -11,7 +11,7 @@ import os
 import socket
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash,commonscn,sharedir
+from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash,commonscn,sharedir,pluginmanager,configmanager
 
 
 
@@ -22,6 +22,7 @@ class server(commonscn):
     nhipmap_cache=""
     refreshthread=None
     isactive=True
+    links=None
     scn_type="server"
 
     validactions={"register","get","listnames","info","cap","prioty","num_nodes"}
@@ -33,7 +34,6 @@ class server(commonscn):
         self.refreshthread=threading.Thread(target=self.refresh_nhipmap)
         self.refreshthread.daemon=True
         self.refreshthread.start()
-
         
         if len(_name)==0:
             logging.debug("Name empty")
@@ -265,7 +265,13 @@ class server_handler(BaseHTTPRequestHandler):
         redout.run()
         redin.join()
         
-        
+    def do_POST(self):
+        plugin,action=self.path[1:].split("/",1)
+        try:
+            self.links["server_server"].pluginmanager.__dict__["p_{}".format(plugin)](action)
+        except Exception as e:
+            logging.error(e)
+            return
         
 def inputw():
     input("Please enter passphrase:\n")
@@ -353,6 +359,12 @@ class server_init(object):
             _port=server_port
 
         self.links["server_server"]=server(_name[0],dhash(pub_cert),kwargs["priority"],_message)
+        self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
+        plugconf=configmanager(self.config_path+os.sep+"plugins.config")
+        if kwargs["noplugins"] is None:
+            self.links["server_server"].pluginmanager=pluginmanager(sys.path,plugconf)
+            #self.links["server_server"].pluginmanager.interfaces+=["server"]
+            
         server_handler.links=self.links
         
         self.links["hserver"]=http_server_server(("",_port),_spath+"_cert")
@@ -392,6 +404,7 @@ server_args={"config":default_configdir,
              "tpwhash":None,
              "tpwfile":None,
              "webgui":None,
+             "noplugins":None,
              "priority":"20",
              "ttimeout":"300",
              "stimeout":"30"}
