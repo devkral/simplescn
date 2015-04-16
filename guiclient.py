@@ -27,6 +27,11 @@ class gtk_client(logging.NullHandler,Gtk.Application):
     param_server={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
     param_node={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
 
+    server={}
+    friends={}
+    recent={}
+    hashes={}
+
     cert_hash=None
     #start_url_hash=(None,None)
     _old_serverurl=""
@@ -111,7 +116,22 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         if clientpw is not None:
             self.builder.get_object("clientpw").set_text(clientpw)
             self.gtkupdate_clientpw()
-        self.gtkupdate_nodenames()
+        self.init_storage()
+
+    def init_storage(self):
+        _storage=self.do_requestdo("listall")
+        if _storage[0]==False:
+            return
+        for elem in _storage[1]:
+            if elem[2]=="server":
+                if elem[0] not in self.server:
+                    self.server[elem[0]]=[]
+                self.hashes[elem[1]]=("server",elem[0])
+            elif elem[2]!="unknown":
+                if elem[0] not in self.friends:
+                    self.friends[elem[0]]=[]
+                    self.hashes[elem[1]]=("friends",elem[0])
+
         
     def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
@@ -201,7 +221,7 @@ class gtk_client(logging.NullHandler,Gtk.Application):
                 st=str(e)
 
             logging.error(st)
-            return (False, e,isself)
+            return (False, e)
 
     def pushint(self):
         time.sleep(5)
@@ -227,7 +247,6 @@ class gtk_client(logging.NullHandler,Gtk.Application):
             return client.client_client.gethash(self,_addr,{})
         except Exception as e:
             return (False,e)
-
 
     def updatehash_client(self,*args):
         #self.param_client["certhash"]=None
@@ -387,12 +406,10 @@ class gtk_client(logging.NullHandler,Gtk.Application):
         
 
 ########### names #####################
+                
     def gtkupdate_nodenames(self,*args):
-        _localnames=self.do_requestdo("listnodenames")
-        if _localnames[0]==False:
-            return
         self.namestore.clear()
-        for elem in _localnames[1]:
+        for elem in self.friends:
             self.namestore.append((elem,))
 
     def gtkadd_name(self,*args):

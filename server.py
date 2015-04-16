@@ -20,34 +20,38 @@ class server(commonscn):
     capabilities=["basic",]
     nhipmap=None
     nhipmap_cache=""
+    nhipmap_len=0
+    sleep_time=1
     refreshthread=None
     isactive=True
     links=None
+    expire_time=100
     scn_type="server"
 
     validactions={"register","get","listnames","info","cap","prioty","num_nodes"}
     
-    def __init__(self,_name,_certhash,_priority,_message):
+    def __init__(self,d):
+        self.expire_time=int(d["expire"])*60 #in minutes        
         self.nhipmap={}
         self.nhipmap_cond=threading.Event()
-        self.change_sem=threading.Semaphore(1)
+        self.changeip_sem=threading.Semaphore(1)
         self.refreshthread=threading.Thread(target=self.refresh_nhipmap)
         self.refreshthread.daemon=True
         self.refreshthread.start()
         
-        if len(_name)==0:
+        if d["name"] is None or len(d["name"])==0:
             logging.debug("Name empty")
-            _name="<noname>"
+            d["name"]="<noname>"
         
         #self.msg=_msg
-        if len(_message)==0:
+        if d["message"] is None or len(d["message"])==0:
             logging.debug("Message empty")
-            _message="<empty>"
+            d["message"]="<empty>"
         
-        self.priority=int(_priority)
-        self.cert_hash=_certhash
-        self.name=_name
-        self.message=_message
+        self.priority=int(d["priority"])
+        self.cert_hash=d["certhash"]
+        self.name=d["name"]
+        self.message=d["message"]
         self.update_cache()
 
     def __del__(self):
@@ -61,24 +65,29 @@ class server(commonscn):
             
     def refresh_nhipmap(self):
         while self.isactive:
-            self.change_sem.acquire()
+            self.changeip_sem.acquire()
+            self.nhipmap_len=len(self.nhipmap)
+            etime=int(time.time())-self.expire_time
             tnhlist=""
             for _name in self.nhipmap:
                 for _hash in self.nhipmap[_name]:
-                    tnhlist="{}\n{}/{}".format(tnhlist,_name,_hash)
+                    if self.nhipmap[_name][_hash][2]<e_time:
+                        del self.nhipmap[_name][_hash]
+                    else:
+                        tnhlist="{}\n{}/{}".format(tnhlist,_name,_hash)
             self.nhipmap_cache=tnhlist[1:]
-            self.change_sem.release()
+            self.changeip_sem.release()
             self.nhipmap_cond.clear()
-            time.sleep(1)
+            time.sleep(self.sleep_time)
             self.nhipmap_cond.wait()
   
 
     def register(self,_name,_hash,_port,_addr):
         if check_name(_name)==False:
             return "{}/invalid name".format(error)
-        self.change_sem.acquire(False)
-        self.nhipmap[_name]={_hash: (_addr[0],_port)}
-        self.change_sem.release()
+        self.changeip_sem.acquire(False)
+        self.nhipmap[_name]={_hash: (_addr[0],_port,int(time.time()))}
+        self.changeip_sem.release()
         self.nhipmap_cond.set()
         return "{}/registered".format(success)
     
@@ -88,7 +97,7 @@ class server(commonscn):
             return "{}/name".format(error)
         if _hash not in self.nhipmap[_name]:
             return "{}/certhash".format(error)
-        return "{}/{}:{}".format(success,*self.nhipmap[_name][_hash])
+        return "{}/{}:{}".format(success,*self.nhipmap[_name][_hash][:2])
     
     def listnames(self,_addr):
         if len(self.nhipmap_cache)==0:
@@ -105,7 +114,7 @@ class server(commonscn):
         return self.cache["prioty"]
 
     def num_nodes(self,_addr):
-        return "{}/{}".format(success,len(self.nhipmap))
+        return "{}/{}".format(success,self.nhipmap_len)
     
     
 class server_handler(BaseHTTPRequestHandler):
@@ -322,7 +331,6 @@ class server_init(object):
         server_handler.ttimeout=int(kwargs["ttimeout"])
         server_handler.stimeout=int(kwargs["stimeout"])
 
-
         
         self.links={}
         _message=None
@@ -357,9 +365,12 @@ class server_init(object):
             _port=int(_name[1])
         else:
             _port=server_port
-
-        self.links["server_server"]=server(_name[0],dhash(pub_cert),kwargs["priority"],_message)
-        self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
+        serverd={"name":_name[0],"certhash":dhash(pub_cert),
+                "priority":kwargs["priority"],"message":_message,
+                "expire":kwargs["expire"]}
+        
+        self.links["server_server"]=server(serverd) 
+        #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
         plugconf=configmanager(self.config_path+os.sep+"plugins.config")
         if kwargs["noplugins"] is None:
             self.links["server_server"].pluginmanager=pluginmanager(sys.path,plugconf)
@@ -392,6 +403,7 @@ spwfile=<file>: file with password (cleartext)
 priority=<number>: set priority
 ttimeout: tunneltimeout
 stimeout: server timeout
+expire: time until client entry expires
 tunnel: enable tunnel
 webgui: enables webgui
 """)
@@ -406,6 +418,7 @@ server_args={"config":default_configdir,
              "webgui":None,
              "noplugins":None,
              "priority":"20",
+             "expire":"30",
              "ttimeout":"300",
              "stimeout":"30"}
     
