@@ -478,7 +478,7 @@ class certhash_db(object):
             return
         try:
             con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, certreferenceid INTEGER AUTO INCREMENT, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
-            con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
+            con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, reftype TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
             con.commit()
         except Exception as e:
             con.rollback()
@@ -671,22 +671,30 @@ class certhash_db(object):
         return temmp
     
     @connecttodb
-    def addreference(self,dbcon,_referenceid,_reference):
+    def addreference(self,dbcon,_referenceid,_reference,_reftype):
         cur = dbcon.cursor()
-        cur.execute('''INSERT INTO certreferences(certreferenceid,certreference) values(?,?);''', (_referenceid,_reference))
-        temmp=cur.fetchall()
-        if temmp is None:
-            return None
-        return temmp
-    @connecttodb
+        cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,reftype) values(?,?,?);''', (_referenceid,_reference, _reftype))
+        dbcon.commit()
+        return True
     
+    @connecttodb
+    def delreference(self,dbcon,_referenceid):
+        cur = dbcon.cursor()
+        cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=?;',(_certreferenceid,))
+        if cur.fetchone() is None:
+            logging.info("certreference doesn't exists")
+            return False
+        cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (_referenceid,))
+        dbcon.commit()
+        return True
+
+
+    @connecttodb
     def getreferences(self,dbcon,_referenceid):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreference FROM certreferences WHERE certreferenceid=?;''',(_referenceid))
-        temmp=cur.fetchall()
-        if temmp is None:
-            return None
-        return temmp
+        cur.execute('''SELECT certreference,reftype FROM certreferences WHERE certreferenceid=?;''',(_referenceid))
+        return cur.fetchall()
+    
     
     @connecttodb
     def certhash_as_name(self,dbcon,_certhash):
