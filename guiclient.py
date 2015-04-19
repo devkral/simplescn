@@ -11,121 +11,69 @@ from gi.repository import Gtk,Gdk
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,isself,default_sslcont,dhash,AddressFail,scnparse_url,server_port,check_hash
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,isself,default_sslcont,dhash,AddressFail,scnparse_url,server_port,check_hash,configmanager
 #VALError
 
 messageid=0
 
-class gtk_client(logging.NullHandler,Gtk.Application):
+class gtkclientNode(logging.NullHandler):
+    pass
+
+class gtkclient_main(logging.NullHandler,Gtk.Application):
     builder=None
     clip=None
     win=None
     statusbar=None
-    nameview=None
-    namestore=None
+    localview=None
+    localstore=None
+    recentview=None
+    recentstore=None
     param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
     param_server={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
     param_node={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
 
-    server={}
-    friends={}
-    recent={}
-    hashes={}
 
     cert_hash=None
     #start_url_hash=(None,None)
     _old_serverurl=""
     
-    def __init__(self,client=None,clientpw=None,certhash=None):
+    def __init__(self,_links):
+        self.links=_links
         logging.Handler.__init__(self)
         Gtk.Application.__init__(self)
         self.sslcont=default_sslcont()
-        self.cert_hash=certhash
-        #self.clienturl=client # other lock method
-        self.cert_hash_backup=certhash
         self.builder=Gtk.Builder()
         self.builder.set_application(self)
-        self.builder.add_from_file(sharedir+"gui/gtkclientgui.ui")
+        self.builder.add_from_file(sharedir+"gui/gtkclientmain.ui")
         self.builder.connect_signals(self)
         
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        self.win=self.builder.get_object("mainwindow")
-        self.nameview=self.builder.get_object("nameview")
-        self.namestore=self.builder.get_object("namestore")
+        self.win=self.builder.get_object("mainwin")
+        self.localview=self.builder.get_object("localview")
+        self.localstore=self.builder.get_object("localstore")
+        self.recentview=self.builder.get_object("recentview")
+        self.recentstore=self.builder.get_object("recentstore")
         self.statusbar=self.builder.get_object("mainstatusbar")
         
         col0renderer=Gtk.CellRendererText()
-        col0 = Gtk.TreeViewColumn("Name", col0renderer, text=0)
-        self.nameview.append_column(col0)
-        #self.nameview.get_selection().select_path(Gtk.TreePath.new_first())
-
-
-        servicelview=self.builder.get_object("localserviceview")
-        servicelcol0renderer=Gtk.CellRendererText()
-        servicelcol0 = Gtk.TreeViewColumn("Name", servicelcol0renderer, text=0)
-        servicelview.append_column(servicelcol0)
-        servicelcol1renderer=Gtk.CellRendererText()
-        servicelcol1 = Gtk.TreeViewColumn("Port", servicelcol1renderer, text=1)
-        servicelview.append_column(servicelcol1)
-        #servicelview.get_selection().select_path(Gtk.TreePath.new_first())
-
-
-        servicenodeview=self.builder.get_object("nodeserviceview")
-        servicenodecol0renderer=Gtk.CellRendererText()
-        servicenodecol0 = Gtk.TreeViewColumn("Name", servicenodecol0renderer, text=0)
-        servicenodeview.append_column(servicenodecol0)
-        servicenodecol1renderer=Gtk.CellRendererText()
-        servicenodecol1 = Gtk.TreeViewColumn("Port", servicenodecol1renderer, text=1)
-        servicenodeview.append_column(servicenodecol1)
-        #servicenodeview.get_selection().select_path(Gtk.TreePath.new_first())
-        ### nodes remote ###
-        nodelistview=self.builder.get_object("nodelistview")
-        nodelistcol0renderer=Gtk.CellRendererText()
-        nodelistcol0 = Gtk.TreeViewColumn("Name", nodelistcol0renderer, text=0)
-        nodelistview.append_column(nodelistcol0)
+        col0 = Gtk.TreeViewColumn("Category", col0renderer, text=0)
+        self.localview.append_column(col0)
+        col1renderer=Gtk.CellRendererText()
+        col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
+        self.localview.append_column(col1)
         
-        nodelistcol1renderer=Gtk.CellRendererText()
-        nodelistcol1 = Gtk.TreeViewColumn("Verified", nodelistcol1renderer, text=1)
-        nodelistview.append_column(nodelistcol1)
+        recentcolrenderer=Gtk.CellRendererText()
+        recentcol = Gtk.TreeViewColumn("Recent", recentcolrenderer, text=0)
+        self.recentview.append_column(recentcol)
         
-        nodelistcol2renderer=Gtk.CellRendererText()
-        nodelistcol2 = Gtk.TreeViewColumn("Hash", nodelistcol2renderer, text=2)
-        nodelistview.append_column(nodelistcol2)
-
-        #### nodes local ####
-        nodeview=self.builder.get_object("nodeview")
-        nodecol0renderer=Gtk.CellRendererText()
-        nodecol0 = Gtk.TreeViewColumn("Name", nodecol0renderer, text=0)
-        nodeview.append_column(nodecol0)
-        nodecol1renderer=Gtk.CellRendererText()
-        nodecol1 = Gtk.TreeViewColumn("Type", nodecol1renderer, text=1)
-        nodeview.append_column(nodecol1)
-        nodecol2renderer=Gtk.CellRendererText()
-        nodecol2 = Gtk.TreeViewColumn("Priority", nodecol2renderer, text=2)
-        nodeview.append_column(nodecol2)
-        
-        nodecol3renderer=Gtk.CellRendererText()
-        nodecol3 = Gtk.TreeViewColumn("Hash", nodecol3renderer, text=3)
-        nodeview.append_column(nodecol3)
-        
-        if client is not None:
-            self.builder.get_object("clienturl").set_text(client)
-            self.builder.get_object("clientinfoexpander").set_visible(False)
-            self.builder.get_object("uselocalclient").set_active(True)
-        
-        if clientpw is not None:
-            self.builder.get_object("clientpw").set_text(clientpw)
-            self.gtkupdate_clientpw()
-        self.init_storage()
+        # self.init_storage()
 
     def init_storage(self):
-        _storage=self.do_requestdo("listall")
+        _storage=self.do_requestdo("listnametypes")
         if _storage[0]==False:
             return
         for elem in _storage[1]:
-            if elem[2]=="server":
-                if elem[0] not in self.server:
-                    self.server[elem[0]]=[]
+            if elem[1]=="server":
                 self.hashes[elem[1]]=("server",elem[0])
             elif elem[2]!="unknown":
                 if elem[0] not in self.friends:
@@ -1020,11 +968,11 @@ class gtk_client_init(client.client_init):
             logging.debug("start server")
             self.serve_forever_nonblock()
             logging.debug("start gtkclient")
-            self.links["gtkclient"]=gtk_client(client=_client,clientpw=pw,certhash=self.links["client"].cert_hash)
+            self.links["gtkclient"]=gtkclient_main(self.links)
             #logging.getLogger().addHandler(self.links["gtkclient"])
         else:
             logging.debug("start gtkclient")
-            self.links["gtkclient"]=gtk_client(client=_client,clientpw=kwargs["clientpw"],certhash=kwargs["certhash"])
+            self.links["gtkclient"]=gtkclient_main(self.links)
 
 
 def paramhelp():
@@ -1052,8 +1000,8 @@ if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
     
-    d=client.client_args.copy()
-    d.update({"config":default_configdir,
+    client_args=client.client_args.copy()
+    client_args.update({"config":default_configdir,
               "port":None,
               #set local to true (because elsewise program doesn't work with "server" set
               # "true" could also be ""
@@ -1079,22 +1027,22 @@ if __name__ ==  "__main__":
                 if len(tparam)==1:
                     tparam=elem.split(":")
                 if len(tparam)==1:
-                    d[tparam[0]]=""
+                    client_args[tparam[0]]=""
                     continue
-                d[tparam[0]]=tparam[1]
+                client_args[tparam[0]]=tparam[1]
                 
 
     client.client_handler.webgui=False
     
     
     #logging.debug("start client")
-    cm=gtk_client_init(**d)
+    cm=gtk_client_init(**client_args)
     
-        
-    if kwargs["noplugins"] is None:
-        plugconf=configmanager(**d["config"]+os.sep+"plugins.config")
+    
+    if client_args["noplugins"] is None:
+        plugconf=configmanager(client_args["config"]+os.sep+"plugins.config")
         self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
-        if kwargs["webgui"] is not None:
+        if client_args["webgui"] is not None:
             cm.links["client_server"].pluginmanager.interfaces+=["web",]
         cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
         cm.links["client_server"].pluginmanager.interfaces+=["gui",]

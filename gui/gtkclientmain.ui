@@ -2,14 +2,41 @@
 <!-- Generated with glade 3.18.3 -->
 <interface>
   <requires lib="gtk+" version="3.12"/>
-  <object class="GtkApplicationWindow" id="applicationwindow1">
+  <object class="GtkListStore" id="localrow">
+    <columns>
+      <!-- column-name name -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
+  <object class="GtkTreeStore" id="localstore">
+    <columns>
+      <!-- column-name category -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
+  <object class="GtkListStore" id="recentstore"/>
+  <object class="GtkListStore" id="serverlist">
+    <columns>
+      <!-- column-name servers -->
+      <column type="gchararray"/>
+      <!-- column-name isname -->
+      <column type="gboolean"/>
+    </columns>
+  </object>
+  <object class="GtkApplicationWindow" id="mainwin">
     <property name="can_focus">False</property>
+    <property name="icon">icon.png</property>
     <child>
-      <object class="GtkGrid" id="grid1">
+      <object class="GtkGrid" id="mainwinmaingrid">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
+        <property name="margin_left">5</property>
+        <property name="margin_right">5</property>
+        <property name="margin_bottom">1</property>
+        <property name="hexpand">True</property>
+        <property name="row_spacing">2</property>
         <child>
-          <object class="GtkStatusbar" id="statusbar1">
+          <object class="GtkStatusbar" id="mainstatusbar">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_left">10</property>
@@ -18,6 +45,7 @@
             <property name="margin_end">10</property>
             <property name="margin_top">6</property>
             <property name="margin_bottom">6</property>
+            <property name="hexpand">True</property>
             <property name="orientation">vertical</property>
             <property name="spacing">2</property>
           </object>
@@ -37,18 +65,29 @@
           </packing>
         </child>
         <child>
-          <object class="GtkGrid" id="grid2">
+          <object class="GtkGrid" id="listsgrid">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="vexpand">True</property>
+            <property name="column_spacing">5</property>
             <child>
               <object class="GtkScrolledWindow" id="scrolledwindow1">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
                 <property name="shadow_type">in</property>
                 <property name="min_content_width">182</property>
                 <property name="min_content_height">27</property>
                 <child>
-                  <placeholder/>
+                  <object class="GtkTreeView" id="localview">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="model">localstore</property>
+                    <child internal-child="selection">
+                      <object class="GtkTreeSelection" id="treeview-selection1"/>
+                    </child>
+                  </object>
                 </child>
               </object>
               <packing>
@@ -57,14 +96,21 @@
               </packing>
             </child>
             <child>
-              <object class="GtkScrolledWindow" id="scrolledwindow2">
+              <object class="GtkScrolledWindow" id="recentwindow">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="shadow_type">in</property>
                 <property name="min_content_width">104</property>
                 <property name="min_content_height">91</property>
                 <child>
-                  <placeholder/>
+                  <object class="GtkTreeView" id="recentview">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="model">recentstore</property>
+                    <child internal-child="selection">
+                      <object class="GtkTreeSelection" id="treeview-selection2"/>
+                    </child>
+                  </object>
                 </child>
               </object>
               <packing>
@@ -82,19 +128,10 @@
           <object class="GtkGrid" id="grid3">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">start</property>
+            <property name="column_spacing">3</property>
             <child>
-              <object class="GtkSeparator" id="separator2">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="orientation">vertical</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="label1">
+              <object class="GtkLabel" id="labels1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">Server:</property>
@@ -105,17 +142,16 @@
               </packing>
             </child>
             <child>
-              <object class="GtkComboBox" id="combobox2">
+              <object class="GtkComboBox" id="servercombo">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="can_default">True</property>
-                <property name="model">liststore3</property>
-                <property name="tearoff_title" translatable="yes">trest</property>
+                <property name="model">serverlist</property>
                 <property name="has_entry">True</property>
                 <property name="popup_fixed_width">False</property>
                 <property name="active_id">1</property>
                 <child internal-child="entry">
-                  <object class="GtkEntry" id="combobox-entry">
+                  <object class="GtkEntry" id="servercomboentry">
                     <property name="can_focus">True</property>
                   </object>
                 </child>
@@ -126,14 +162,15 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="button1">
+              <object class="GtkButton" id="getservernodelist">
                 <property name="label" translatable="yes">get</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="halign">start</property>
               </object>
               <packing>
-                <property name="left_attach">3</property>
+                <property name="left_attach">2</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -144,14 +181,14 @@
           </packing>
         </child>
         <child>
-          <object class="GtkMenuBar" id="menubar1">
+          <object class="GtkMenuBar" id="mainmenubar">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
               <object class="GtkMenuItem" id="menuitem1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_Datei</property>
+                <property name="label" translatable="yes">_Node</property>
                 <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="menu1">
@@ -216,7 +253,7 @@
               <object class="GtkMenuItem" id="menuitem2">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_Bearbeiten</property>
+                <property name="label" translatable="yes">_Server</property>
                 <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="menu2">
@@ -302,65 +339,7 @@
       </object>
     </child>
   </object>
-  <object class="GtkApplicationWindow" id="applicationwindow2">
-    <property name="can_focus">False</property>
-    <property name="type_hint">dialog</property>
-    <child>
-      <object class="GtkGrid" id="grid4">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <child>
-          <object class="GtkViewport" id="viewport1">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="margin_bottom">6</property>
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <child>
-              <placeholder/>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">0</property>
-            <property name="width">2</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkButton" id="getbbb">
-            <property name="label" translatable="yes">get</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">True</property>
-          </object>
-          <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkEntry" id="entry1">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="hexpand">True</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-  </object>
-  <object class="GtkListStore" id="liststore1"/>
-  <object class="GtkListStore" id="liststore2"/>
-  <object class="GtkListStore" id="liststore3"/>
-  <object class="GtkTreeStore" id="treestore1">
-    <columns>
-      <!-- column-name name -->
-      <column type="gchararray"/>
-      <!-- column-name GObject1 -->
-      <column type="GObject"/>
-    </columns>
+  <object class="GtkEntryCompletion" id="servercompletion">
+    <property name="model">serverlist</property>
   </object>
 </interface>

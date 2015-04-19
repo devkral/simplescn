@@ -954,12 +954,12 @@ if __name__ ==  "__main__":
     cm=client_init(**client_args)
     
     cm.links["client_server"].configmanager=conf
-    if kwargs["noplugins"] is None:
+    if client_args["noplugins"] is None:
         plugconf=configmanager(self.config_path+os.sep+"plugins.config")
         self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
-        if kwargs["webgui"] is not None:
+        if client_args["webgui"] is not None:
             cm.links["client_server"].pluginmanager.interfaces+=["web",]
-        if kwargs["cmd"] is not None:
+        if client_args["cmd"] is not None:
             cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
         cm.links["client_server"].pluginmanager.init_plugins(cm.links)
         

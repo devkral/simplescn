@@ -477,7 +477,8 @@ class certhash_db(object):
             logging.error(e)
             return
         try:
-            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, certreferenceid INTEGER AUTO INCREMENT, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+            con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
             con.commit()
         except Exception as e:
             con.rollback()
@@ -641,7 +642,7 @@ class certhash_db(object):
     @connecttodb
     def listcerts(self,dbcon,_name):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certhash,type,priority FROM certs WHERE name=?  ORDER BY priority DESC;''',(_name,))
+        cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=?  ORDER BY priority DESC;''',(_name,))
         return cur.fetchall()
     
 
@@ -655,9 +656,33 @@ class certhash_db(object):
         return [elem[0] for elem in temmp]
     
     @connecttodb
-    def listall(self,dbcon):
+    def listnodenametypes(self,dbcon):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash,type,priority FROM certs ORDER BY priority DESC;''')
+        cur.execute('''SELECT DISTINCT name,type FROM certs ORDER BY name ASC;''')
+        return cur.fetchall()
+    
+    @connecttodb
+    def listnodeall(self,dbcon):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority DESC;''')
+        temmp=cur.fetchall()
+        if temmp is None:
+            return None
+        return temmp
+    
+    @connecttodb
+    def addreference(self,dbcon,_referenceid,_reference):
+        cur = dbcon.cursor()
+        cur.execute('''INSERT INTO certreferences(certreferenceid,certreference) values(?,?);''', (_referenceid,_reference))
+        temmp=cur.fetchall()
+        if temmp is None:
+            return None
+        return temmp
+    @connecttodb
+    
+    def getreferences(self,dbcon,_referenceid):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT certreference FROM certreferences WHERE certreferenceid=?;''',(_referenceid))
         temmp=cur.fetchall()
         if temmp is None:
             return None
@@ -672,6 +697,7 @@ class certhash_db(object):
             return None
         else:
             return temp[0]
+    
     @connecttodb
     def exist(self,dbcon,_name,_hash=None):
         cur = dbcon.cursor()
