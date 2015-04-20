@@ -197,7 +197,7 @@ class configmanager(object):
     
     def dbaccess(func):
         def funcwrap(self,*args,**kwargs):
-            self.lock.aquire()
+            self.lock.acquire()
             temp=None
             try:
                 temp=func(self,self.dbcon,*args,**kwargs)
@@ -209,7 +209,7 @@ class configmanager(object):
     
     
     def reload(self):
-        self.lock.aquire()
+        self.lock.acquire()
         self.dbcon.close()
         self.dbcon=sqlite3.connect(self.db_path)
         self.lock.release()
@@ -224,7 +224,10 @@ class configmanager(object):
     def list_submodules(self,submodule):
         cur = self.dbcon.cursor()
         cur.execute('''.tables;''')
-        return [elem[0] for elem in cur.fetchall()]
+        tempp=cur.fetchall()
+        if tempp is None:
+            return None
+        return [elem[0] for elem in tempp]
         
     def gethandler(self,submodule,defaults):
         return configmanager_handler(self,submodule,defaults)
@@ -313,12 +316,18 @@ class pluginmanager(object):
         
     
     def clean_plugins(self):
-        for plugin in self.config_plugins.list_submodules():
+        temp=self.config_plugins.list_submodules()
+        if temp is None:
+            return None
+        for plugin in temp:
             if os.exist(self.pluginpath+plugin)==False:
                 self.config_plugins.drop(plugin)
     
     def init_plugins(self,links):
-        for plugin in self.config_plugins.list_submodules():
+        temp=self.config_plugins.list_submodules()
+        if temp is None:
+            return None
+        for plugin in temp:
             if self.config_plugins.get(plugin,"state")=="false":
                 continue
             self.__dict__["p_{}".format(plugin)] = \

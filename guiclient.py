@@ -11,7 +11,8 @@ from gi.repository import Gtk,Gdk
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,isself,default_sslcont,dhash,AddressFail,scnparse_url,server_port,check_hash,configmanager
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,isself,default_sslcont,dhash,AddressFail,\
+scnparse_url,server_port,check_hash,configmanager,pluginmanager
 #VALError
 
 messageid=0
@@ -1031,17 +1032,21 @@ if __name__ ==  "__main__":
                     continue
                 client_args[tparam[0]]=tparam[1]
                 
-
+    
     client.client_handler.webgui=False
     
-    
+    config_path=path.expanduser(client_args["config"])
+    if config_path[-1]==os.sep:
+        config_path=config_path[:-1]
+        
+        
     #logging.debug("start client")
     cm=gtk_client_init(**client_args)
     
     
     if client_args["noplugins"] is None:
-        plugconf=configmanager(client_args["config"]+os.sep+"plugins.config")
-        self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
+        plugconf=configmanager(config_path+os.sep+"plugins.config")
+        cm.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
         if client_args["webgui"] is not None:
             cm.links["client_server"].pluginmanager.interfaces+=["web",]
         cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
