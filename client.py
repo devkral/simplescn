@@ -24,6 +24,7 @@ class client_client(object):
     sslcontc=None
     hashdb=None
     links=None
+    pwcallmethod=input
     #isself=isself
     validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","delname","updatename","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","check_direct","prioty_direct","prioty","setpriority","delservice","ask"}
     #pwcache={}
@@ -79,11 +80,19 @@ class client_client(object):
             con.putheader("Cache-Control", "no-cache")
         
         con.endheaders()
-        
-        resp=parse_response(con.getresponse())
-
-        con.close()
-        resp[0],resp[1],val,dhash(pcert)
+        r=con.getresponse()
+        if r.status in [401,406,407]:
+            if r.status in [401,]:
+                dparam["spwhash"]=dhash(self.pwcallmethod("Please enter password for server"),r.read())
+            if r.status in [406,]:
+                dparam["cpwhash"]=dhash(self.pwcallmethod("Please enter password for client"),r.read())
+            if r.status in [407,]:
+                dparam["tpwhash"]=dhash(self.pwcallmethod("Please enter password for proxy"),r.read())
+            return self.do_request(_addr, requeststr, dparam, usecache, forceport, requesttype)
+        else:
+            resp=parse_response(r)
+            con.close()
+            return resp[0],resp[1],val,dhash(pcert)
         """if dparam["nohashdb"] is not None:
             #here the order is changed so use split instead of rsplit
             temp=resp[1].split("/",1)
@@ -442,7 +451,7 @@ class client_server(commonscn):
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
-    #, obsolete
+    #
     links=None
     handle_localhost=False
     handle_remote=False
@@ -493,10 +502,10 @@ class client_handler(BaseHTTPRequestHandler):
             return
         _cmdlist+=[dparam,]
         if self.handle_remote==False and not self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-            self.send_error(401,"no permission - client")
+            self.send_error(403,"no permission - client")
             return
         if self.check_cpw(dparam)==False:
-            self.send_error(401,"no permission - client")
+            self.send_error(406,self.salt) #"no permission - client")
             return
         
         try:
@@ -567,7 +576,7 @@ class client_handler(BaseHTTPRequestHandler):
         _cmdlist+=[self.client_address,]
         
         if self.check_spw()==False:
-            self.send_error(401,"no permission - server")            
+            self.send_error(401,self.salt)            
             return
         try:
             func=type(self.links["client_server"]).__dict__[_cmdlist[0]]
@@ -711,35 +720,46 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
 
 class client_init(object):
     config_path=None
+    config=None
     links={}
     
-    def __init__(self,**kwargs):
-        self.config_path=path.expanduser(kwargs["config"])
+    def __init__(self,confm,_config):
+        self.config_path=_config.get("config")
         if self.config_path[-1]==os.sep:
             self.config_path=self.config_path[:-1]
         _cpath="{}{}{}".format(self.config_path,os.sep,"client")
         init_config_folder(self.config_path,"client")
+        self.config=_config
+        
+        if _config.geti("webgui")!=False:
+            logging.debug("webgui enabled")
+            client_handler.webgui=True
+            #load static files
+            for elem in os.listdir("{}static".format(sharedir)):
+                with open("{}static{}{}".format(sharedir,os.sep,elem), 'rb') as _staticr:
+                    client_handler.statics[elem]=_staticr.read()
+        else:
+            client_handler.webgui=False
         
         client_handler.salt=os.urandom(4)
-        port=kwargs["port"]
-        if kwargs["local"] is not None:
+        if _config.geti("local")!=False:
             client_handler.handle_localhost=True
-        elif kwargs["cpwhash"] is not None:
-            if kwargs["remote"] is not None:
-                client_handler.handle_remote=True       
+        elif _config.geti("cpwhash")!=False:
+            if _config.geti("remote")!=False:
+                client_handler.handle_remote=True
             client_handler.handle_localhost=True
-            client_handler.cpwhash=dhash_salt(kwargs["cpwhash"],client_handler.salt)
-        elif kwargs["cpwfile"] is not None:
-            if kwargs["remote"] is not None:
+            client_handler.cpwhash=dhash_salt(_config.get("cpwhash"),client_handler.salt)
+        elif _config.geti("cpwfile")!=False:
+            if _config.geti("remote")!=False:
                 client_handler.handle_remote=True
             client_handler.handle_localhost=True
             op=open("r")
             client_handler.cpwhash=gen_passwd_hash(op.readline())
             op.close()
             
-        if kwargs["spwhash"] is not None:
-            client_handler.spwhash=dhash_salt(kwargs["spwhash"],client_handler.salt)
-        elif kwargs["spwfile"] is not None:
+        if _config.get("spwhash")!="False":
+            client_handler.spwhash=dhash_salt(_config.get("spwhash"),client_handler.salt)
+        elif _config.get("spwfile")!="False":
             op=open("r")
             client_handler.spwhash=gen_passwd_hash(op.readline())
             op.close()
@@ -771,14 +791,23 @@ class client_init(object):
         
 
                 
-        if port is not None:
+        if _config.get("port")!="False":
             port=int(port)
         elif len(_name)>=2:
             port=int(_name[1])
         else:
             port=0
 
-        self.links["client_server"]=client_server(_name[0],kwargs["priority"],dhash(pub_cert),_message)
+        self.links["client_server"]=client_server(_name[0],_config.get("priority"),dhash(pub_cert),_message)
+        self.links["client_server"].configmanager=confm
+        if _conf.geti("noplugins")==False:
+            plugconf=configmanager(self.config_path+os.sep+"plugins.config")
+            self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
+            if _config.geti("webgui")!=False:
+                cm.links["client_server"].pluginmanager.interfaces+=["web",]
+            if _config.geti("cmd")!=False:
+                cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
+        cm.links["client_server"].pluginmanager.init_plugins(cm.links)
             
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
@@ -903,9 +932,10 @@ c: set password for using client webcontrol
 def signal_handler(_signal, frame):
   sys.exit(0)
 
-client_args={"config":default_configdir,
-             "port":None,
-             "noplugins":None,
+
+#specified seperately because of chicken egg problem
+#"config":default_configdir
+default_client_args={"noplugins":None,
              "cpwhash":None,
              "cpwfile":None,
              "spwhash":None,
@@ -916,13 +946,15 @@ client_args={"config":default_configdir,
              "timeout":"300", # not implemented yet
              "webgui":None,
              "cmd":None}
-  
+             
+client_args={"config":default_configdir,
+             "port":None}
+
 if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-
     
-    conf=configmanager(self.config_path+os.sep+"main.config")
+    
     if len(sys.argv)>1:
         tparam=()
         for elem in sys.argv[1:]: #strip filename from arg list
@@ -939,31 +971,25 @@ if __name__ ==  "__main__":
                     continue
                 client_args[tparam[0]]=tparam[1]
     
+    configpath=client_args["config"]
+    
+    configpath=path.expanduser(configpath)
+    if configpath[-1]==os.sep:
+        configpath=configpath[:-1]
+    client_args["config"]=configpath
+    #if configpath[:-1]==os.sep:
+    #    configpath=configpath[:-1]
+    
+    confm=configmanager(configpath+os.sep+"clientmain.config")
+    conf=confm.gethandler("main",default_client_args,client_args)
 
-    #should be gui agnostic so specify here
-    if client_args["webgui"] is not None:
-        logging.debug("webgui enabled")
-        client_handler.webgui=True
-        #load static files
-        for elem in os.listdir("{}static".format(sharedir)):
-            with open("{}static{}{}".format(sharedir,os.sep,elem), 'rb') as _staticr:
-                client_handler.statics[elem]=_staticr.read()
-    else:
-        client_handler.webgui=False
     
-    cm=client_init(**client_args)
+    cm=client_init(confm,conf) #confm,default_client_args,client_args)
     
-    cm.links["client_server"].configmanager=conf
-    if client_args["noplugins"] is None:
-        plugconf=configmanager(self.config_path+os.sep+"plugins.config")
-        self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
-        if client_args["webgui"] is not None:
-            cm.links["client_server"].pluginmanager.interfaces+=["web",]
-        if client_args["cmd"] is not None:
-            cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
-        cm.links["client_server"].pluginmanager.init_plugins(cm.links)
+    
+    
         
-    if client_args["cmd"] is not None:
+    if cm.config["main"].get("cmd")!="False":
         logging.debug("start server")
         cm.serve_forever_nonblock()
         logging.debug("start console")

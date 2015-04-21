@@ -223,46 +223,57 @@ class configmanager(object):
     @dbaccess
     def list_submodules(self,submodule):
         cur = self.dbcon.cursor()
-        cur.execute('''.tables;''')
+        #cur.execute('''.tables''')
+        #sqlite specific
+        cur.execute('''SELECT name FROM sqlite_master WHERE type = "table"''')
         tempp=cur.fetchall()
         if tempp is None:
             return None
         return [elem[0] for elem in tempp]
         
-    def gethandler(self,submodule,defaults):
-        return configmanager_handler(self,submodule,defaults)
+    def gethandler(self,submodule,defaults,overlays={}):
+        return configmanager_handler(self,submodule,defaults,overlays)
     
-    def gethandler_plugin(self,submodule,defaults):
+    def gethandler_plugin(self,submodule,defaults,overlays={}):
         defaults["state"]="false"
-        return configmanager_handler(self,submodule,defaults)
+        return configmanager_handler(self,submodule,defaults,overlays)
     
     @dbaccess
-    def get(self,dbcon,_submodule,value):
+    def get(self,dbcon,_submodule,_name):
         cur = dbcon.cursor()
         cur.execute('''SELECT val FROM ? WHERE name=?;''',(_submodule,_name))
         return cur.fetchone()
+    
 
 class configmanager_handler(object):
     submodule=None
     configmanager=None
     defaults=None
-    def __init__(self,_configmanager,_submodule_name, defaults):
+    overlays=None
+    def __init__(self,_configmanager,_submodule_name, defaults,_overlays):
         self.configmanager=_configmanager
         self.submodule=_submodule_name
-        self.update(defaults)
-        
+        self.update(defaults,_overlays)
     
     def dbaccess(func):
         def funcwrap(self,*args,**kwargs):
-            self.configmanager.dbaccess(self,*args,**kwargs)
+            self.configmanager.lock.acquire()
+            temp=None
+            try:
+                temp=func(self,self.configmanager.dbcon,*args,**kwargs)
+            except Exception as e:
+                logging.error(e)
+                raise(e)
+            self.configmanager.lock.release()
+            return temp
         return funcwrap
         
     @dbaccess
-    def update(self,dbcon,_defaults):
+    def update(self,dbcon,_defaults,_overlays={}):
         self.defaults=_defaults
+        self.overlays=_overlays
         cur = dbcon.cursor()
-        
-        cur.execute('''CREATE TABLE IF NOT EXISTS ?(name TEXT, val TEXT,PRIMARY KEY(name));''',(self.submodule,))
+        cur.execute('''CREATE TABLE IF NOT EXISTS  ?(name TEXT, val TEXT,PRIMARY KEY(name));''',(self.submodule,))
         
         cur.execute('''SELECT name FROM ?;''',self.submodule)
         _in_db=cur.fetchall()
@@ -277,7 +288,18 @@ class configmanager_handler(object):
         
     @dbaccess
     def set(self,dbcon,name,value):
-        dbcon.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,value,name))
+        if value is None:
+            value="False"
+        """if isinstance(value, bool)==True:
+            if value==True:
+                value="true"
+            else:
+                value="false" """
+        if name in self.overlays:
+            self.overlays[name]=value
+        cur = dbcon.cursor()
+        cur.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,str(value),name))
+        cur.commit()
         return True
     
     @dbaccess
@@ -286,10 +308,25 @@ class configmanager_handler(object):
         return True
         
     @dbaccess
-    def get(self,dbcon,value):
+    def get(self,dbcon,name):
+        if name in self.overlays:
+            if self.overlays[name] is None:
+                return "False"
+            else:
+                return self.overlays[name]
         cur = dbcon.cursor()
-        cur.execute('''SELECT val FROM ? WHERE name=?;''',(self.submodule,_name))
+        cur.execute('''SELECT val FROM ? WHERE name=?;''',(self.submodule,name))
         return cur.fetchone()
+    
+    def geti(self,name):
+        temp=self.get(name)
+        if temp in ["","False"]:
+            return False
+        return True
+    
+        
+    def __getitem__(self,_name):
+        self.get(_name)
     
     #@self.configmanager.dbaccess
     def get_default(self,name):
@@ -328,7 +365,7 @@ class pluginmanager(object):
         if temp is None:
             return None
         for plugin in temp:
-            if self.config_plugins.get(plugin,"state")=="false":
+            if self.config_plugins.get(plugin,"state")=="False":
                 continue
             self.__dict__["p_{}".format(plugin)] = \
                 importlib.machinery.PathFinder.find_spec(plugin,self.pathes)
@@ -343,7 +380,7 @@ class pluginmanager(object):
                 #load interfaces
                 for elem in self.interfaces:
                     try:
-                        self.__dict__["p_{}".format(plugin)].__dict__[elem](links,self.config_plugins.get_handler(plugin,self.__dict__["p_{}".format(plugin)].defaults))
+                        self.__dict__["p_{}".format(plugin)].__dict__[elem](links,self.config_plugins.gethandler_plugin(plugin,self.__dict__["p_{}".format(plugin)].defaults))
                     except Exception as e:
                         pass
 

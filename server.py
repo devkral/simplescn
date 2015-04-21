@@ -184,7 +184,7 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         if self.check_spw()==False:
-            self.send_error(401,"insufficient permissions – server")            
+            self.send_error(401,self.salt)
             return
         
         _path=self.path[1:].split("/")
@@ -240,10 +240,10 @@ class server_handler(BaseHTTPRequestHandler):
 
     def do_CONNECT(self):
         if self.istunnel==False:
-            self.send_error(400,"no tunnel/proxy")            
+            self.send_error(400,"no tunnel/proxy")
             return
         if self.check_tpw()==False:
-            self.send_error(407,"insufficient permissions - tunnel")            
+            self.send_error(407,self.salt)
             return
         port_i=self.path.find(":")
         if port_i>=0:
