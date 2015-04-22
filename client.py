@@ -720,14 +720,13 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
 
 class client_init(object):
     config_root=None
-    plugins=None
     plugins_config=None
     links={}
     
-    def __init__(self,confm):
+    def __init__(self,confm,pluginpathes):
         self.links["config"]=confm
         self.config_root=confm.get("config")
-        self.plugins="{}".format(self.config_root)
+        self.plugins_config="{}{}config{}plugins".format(self.config_root,os.sep,os.sep)
         
         self.config_path=confm.get("config")
         if self.config_path[-1]==os.sep:
@@ -805,13 +804,12 @@ class client_init(object):
         self.links["client_server"]=client_server(_name[0],confm.get("priority"),dhash(pub_cert),_message)
         self.links["client_server"].configmanager=confm
         if confm.getb("noplugins")==False:
-            plugconf=configmanager(self.config_path+os.sep+"plugins.config")
-            self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
+            self.links["client_server"].pluginmanager=pluginmanager(pluginpathes,self.plugins_config)
             if confm.getb("webgui")!=False:
-                cm.links["client_server"].pluginmanager.interfaces+=["web",]
+                self.links["client_server"].pluginmanager.interfaces+=["web",]
             if confm.getb("cmd")!=False:
-                cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
-        cm.links["client_server"].pluginmanager.init_plugins(cm.links)
+                self.links["client_server"].pluginmanager.interfaces+=["cmd",]
+            self.links["client_server"].pluginmanager.init_plugins()
             
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
@@ -994,7 +992,7 @@ if __name__ ==  "__main__":
     confm.update(default_client_args,client_args)
 
     
-    cm=client_init(confm) #confm,default_client_args,client_args)
+    cm=client_init(confm,pluginpathes) #confm,default_client_args,client_args)
     
     
     

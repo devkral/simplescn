@@ -198,10 +198,16 @@ class configmanager(object):
         self.dbcon.commit()
         
     def __del__(self):
-        self.dbcon.close()
+        if self.dbcon is not None:
+            self.dbcon.close()
+        #else:
+        #    raise(self.dbpath)
+        
     
     def dbaccess(func):
         def funcwrap(self,*args,**kwargs):
+            if self.dbcon is None:
+                raise(Exception("self.path"))
             self.lock.acquire()
             temp=None
             try:
@@ -272,8 +278,11 @@ class configmanager(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT val FROM main WHERE name=?;''',(name,))
         temp=cur.fetchone()
-        print(temp)
-        return temp
+        if temp is None:
+            return None
+        if temp[0] is None:
+            return "False"
+        return temp[0]
     
     def getb(self,name):
         temp=self.get(name)
@@ -299,7 +308,7 @@ class pluginmanager(object):
     interfaces=["main"]
     
     def __init__(self,_pathes_plugins,_path_plugins_config,pluginenv=sys.path,resources={}):
-        self.pluginenv=_path_plugins.copy()
+        self.pluginenv=pluginenv.copy()
         self.pathes_plugins=_pathes_plugins
         self.path_plugins_config=_path_plugins_config
         self.pluginenv=pluginenv
@@ -309,7 +318,7 @@ class pluginmanager(object):
         temp={}
         for path in self.pathes_plugins:
             if os.path.isdir(path)==True:
-                for plugin in os.listdir(self.path_plugins):
+                for plugin in os.listdir(path):
                     temp[plugin]=path
             
         return temp
@@ -383,7 +392,6 @@ def dhash(ob):
     
 #gen hash for server, gen hash for transmitting
 def dhash_salt(ob,salt):
-    print("ob:{}, salt:{}".format(ob,salt))
     if type(ob).__name__=="str":
         ha=hashlib.sha256(bytes(ob,"utf8"))
     elif None in [ob,salt]:
