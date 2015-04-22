@@ -5,7 +5,7 @@ import logging
 from OpenSSL import SSL,crypto
 import ssl
 import socket
-import os
+import os,sys
 import platform
 import sqlite3
 import hashlib
@@ -43,6 +43,7 @@ class VALNameError(VALError):
 class VALHashError(VALError):
     msg="Hash does not match"
     
+
 class isself(object):
     def __str__(*args): #does this exist?
         return "isself"
@@ -191,6 +192,10 @@ class configmanager(object):
         self.dbpath=_dbpath
         self.lock=threading.BoundedSemaphore(1)
         self.dbcon=sqlite3.connect(self.dbpath)
+        cur = self.dbcon.cursor()
+        cur.execute('''CREATE TABLE IF NOT EXISTS main(name TEXT, val TEXT,PRIMARY KEY(name));''')
+        cur.execute('''INSERT OR IGNORE INTO main(name,val) values ("state","false");''')
+        self.dbcon.commit()
         
     def __del__(self):
         self.dbcon.close()
@@ -201,8 +206,10 @@ class configmanager(object):
             temp=None
             try:
                 temp=func(self,self.dbcon,*args,**kwargs)
+                
             except Exception as e:
                 logging.error(e)
+                #raise(e)
             self.lock.release()
             return temp
         return funcwrap
@@ -212,78 +219,28 @@ class configmanager(object):
         self.lock.acquire()
         self.dbcon.close()
         self.dbcon=sqlite3.connect(self.db_path)
+        cur = self.dbcon.cursor()
+        cur.execute('''CREATE TABLE IF NOT EXISTS main(name TEXT, val TEXT,PRIMARY KEY(name));''')
+        cur.execute('''INSERT OR IGNORE INTO main(name,val) values ("state","false");''')
+        self.dbcon.commit()
         self.lock.release()
         
-    @dbaccess
-    def drop(self,submodule):
-        cur = self.dbcon.cursor()
-        cur.execute('''DROP TABLE ?;''',submodule)
-        return True
-        
-    @dbaccess
-    def list_submodules(self,submodule):
-        cur = self.dbcon.cursor()
-        #cur.execute('''.tables''')
-        #sqlite specific
-        cur.execute('''SELECT name FROM sqlite_master WHERE type = "table"''')
-        tempp=cur.fetchall()
-        if tempp is None:
-            return None
-        return [elem[0] for elem in tempp]
-        
-    def gethandler(self,submodule,defaults,overlays={}):
-        return configmanager_handler(self,submodule,defaults,overlays)
     
-    def gethandler_plugin(self,submodule,defaults,overlays={}):
-        defaults["state"]="false"
-        return configmanager_handler(self,submodule,defaults,overlays)
-    
-    @dbaccess
-    def get(self,dbcon,_submodule,_name):
-        cur = dbcon.cursor()
-        cur.execute('''SELECT val FROM ? WHERE name=?;''',(_submodule,_name))
-        return cur.fetchone()
-    
-
-class configmanager_handler(object):
-    submodule=None
-    configmanager=None
-    defaults=None
-    overlays=None
-    def __init__(self,_configmanager,_submodule_name, defaults,_overlays):
-        self.configmanager=_configmanager
-        self.submodule=_submodule_name
-        self.update(defaults,_overlays)
-    
-    def dbaccess(func):
-        def funcwrap(self,*args,**kwargs):
-            self.configmanager.lock.acquire()
-            temp=None
-            try:
-                temp=func(self,self.configmanager.dbcon,*args,**kwargs)
-            except Exception as e:
-                logging.error(e)
-                raise(e)
-            self.configmanager.lock.release()
-            return temp
-        return funcwrap
-        
     @dbaccess
     def update(self,dbcon,_defaults,_overlays={}):
         self.defaults=_defaults
         self.overlays=_overlays
-        cur = dbcon.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS  ?(name TEXT, val TEXT,PRIMARY KEY(name));''',(self.submodule,))
-        
-        cur.execute('''SELECT name FROM ?;''',self.submodule)
+        cur=dbcon.cursor()
+        cur.execute('''SELECT name FROM main;''')
         _in_db=cur.fetchall()
         for elem in _defaults:
-            cur.execute('''INSERT OR NOTHING INTO ?(name,val) values (?,?);''',(self.submodule,elem,_defaults[elem]))
+            cur.execute('''INSERT OR IGNORE INTO main(name,val) values (?,?);''',(elem,_defaults[elem]))
         if _in_db==None:
             return True
         for elem in _in_db:
             if elem[0] not in _defaults:
-                cur.execute('''DELETE FROM ? WHERE name=?;''',(self.submodule,elem[0]))
+                cur.execute('''DELETE FROM main WHERE name=?;''',(elem[0],))
+        dbcon.commit()
         return True
         
     @dbaccess
@@ -298,14 +255,12 @@ class configmanager_handler(object):
         if name in self.overlays:
             self.overlays[name]=value
         cur = dbcon.cursor()
-        cur.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,str(value),name))
-        cur.commit()
+        cur.execute('''UPDATE main SET val=? WHERE name=?;''',(str(value),name))
+        dbcon.commit()
         return True
     
-    @dbaccess
     def set_default(self,dbcon,name):
-        dbcon.execute('''UPDATE ? SET val=? WHERE name=?;''',(self.submodule,self.defaults[name],name))
-        return True
+        return self.set(self.defaults[name])
         
     @dbaccess
     def get(self,dbcon,name):
@@ -315,12 +270,14 @@ class configmanager_handler(object):
             else:
                 return self.overlays[name]
         cur = dbcon.cursor()
-        cur.execute('''SELECT val FROM ? WHERE name=?;''',(self.submodule,name))
-        return cur.fetchone()
+        cur.execute('''SELECT val FROM main WHERE name=?;''',(name,))
+        temp=cur.fetchone()
+        print(temp)
+        return temp
     
-    def geti(self,name):
+    def getb(self,name):
         temp=self.get(name)
-        if temp in ["","False"]:
+        if temp in [None,"","False"]:
             return False
         return True
     
@@ -334,56 +291,58 @@ class configmanager_handler(object):
 
 
 class pluginmanager(object):
-    pluginpathes=None
-    pathes=None
-    pluginloader=None
-    config_plugins=None
+    pluginenv=None
+    pathes_plugins=None
+    path_plugins_config=None
+    resources=None
     redirect_addr=""
     interfaces=["main"]
     
-    def __init__(self,pathes,_config_plugins):
-        #if _path[-1]==os.sep:
-        #    self.pluginpath=_path
-        #else:
-        #    self.pluginpath=_path+os.sep
-        self.pathes=pathes.copy()
-        #self.pathes=self.pluginpathes+sys.path
-        self.config_plugins=_config_plugins
-        #self.config_self=_config_self
+    def __init__(self,_pathes_plugins,_path_plugins_config,pluginenv=sys.path,resources={}):
+        self.pluginenv=_path_plugins.copy()
+        self.pathes_plugins=_pathes_plugins
+        self.path_plugins_config=_path_plugins_config
+        self.pluginenv=pluginenv
+        self.resources=resources
         
+    def list_plugins(self):
+        temp={}
+        for path in self.pathes_plugins:
+            if os.path.isdir(path)==True:
+                for plugin in os.listdir(self.path_plugins):
+                    temp[plugin]=path
+            
+        return temp
     
-    def clean_plugins(self):
-        temp=self.config_plugins.list_submodules()
-        if temp is None:
-            return None
-        for plugin in temp:
-            if os.exist(self.pluginpath+plugin)==False:
-                self.config_plugins.drop(plugin)
+    def clean_plugin_conf(self):
+        lplugins=self.list_plugins()
+        lconfig=os.listdir(self.path_plugins_config)
+        for dbconf in lconfig:
+            #remove .conf
+            if dbconf[:-5] not in lplugins:
+                os.remove("{}{}{}.conf".format(self.path_plugins_config,os.sep,dbconf))
     
-    def init_plugins(self,links):
-        temp=self.config_plugins.list_submodules()
-        if temp is None:
-            return None
-        for plugin in temp:
-            if self.config_plugins.get(plugin,"state")=="False":
+    def init_plugins(self):
+        for plugin in self.list_plugins().items():
+            pconf=configmanager("{}{}{}.conf".format(self.path_plugins_config,os.sep,plugin[0]))
+            if pconf.getb("state")==False:
                 continue
-            self.__dict__["p_{}".format(plugin)] = \
-                importlib.machinery.PathFinder.find_spec(plugin,self.pathes)
-            if self.__dict__["p_{}".format(plugin)] is not None:
+            pspec = importlib.machinery.PathFinder.find_spec(plugin[0],plugin[1])
+            if pspec is not None:
                 #init sys pathes
-                self.__dict__["p_{}".format(plugin)].submodule_search_locations = \
-                    sys.path
-                #replace by loaded module
-                self.__dict__["p_{}".format(plugin)]=self.__dict__["p_{}".\
-                    format(plugin)].loader.load_module()
-                
+                pspec.submodule_search_locations = self.pluginenv
+                #load module
+                pload=pspec.loader.load_module()
+                pconf.update(pload.defaults)
+                pload.config=pconf
+                pload.resources=self.resources.copy()
                 #load interfaces
                 for elem in self.interfaces:
                     try:
-                        self.__dict__["p_{}".format(plugin)].__dict__[elem](links,self.config_plugins.gethandler_plugin(plugin,self.__dict__["p_{}".format(plugin)].defaults))
+                        pload.__dict__[elem]()
                     except Exception as e:
                         pass
-
+                self.__dict__["p_{}".format(plugin)]=pload
     def register_remote(self,_addr):
         self.redirect_addr=_addr
 
@@ -398,13 +357,7 @@ class commonscn(object):
     cert_hash=None
     scn_type="unknown"
     pluginmanager=None
-    configmanager=None
-    #values replaced by init_config by actual config handlers
-    config={
-    "main":[],
-    "web":[],
-    "gui":[],
-    "cmd":[]} 
+    config=None
     
     #validactions=[]
     
@@ -421,15 +374,6 @@ class commonscn(object):
     def update_prioty(self):
         self.cache["prioty"]="{}/{}/{}".format(success,self.priority,self.scn_type)
     
-    def clean_config(self):
-        for cf in self.configmanager.list_submodules():
-            if cf not in self.config:
-                self.configmanager.drop(cf)
-    
-    def init_config(self):
-        for cf in self.config:
-            self.config[cf]=self.configmanager.gethandler(cf,self.config[cf])
-        
 
 def dhash(ob):
     if type(ob).__name__=="str":
@@ -439,8 +383,11 @@ def dhash(ob):
     
 #gen hash for server, gen hash for transmitting
 def dhash_salt(ob,salt):
+    print("ob:{}, salt:{}".format(ob,salt))
     if type(ob).__name__=="str":
         ha=hashlib.sha256(bytes(ob,"utf8"))
+    elif None in [ob,salt]:
+        raise(TypeError("ob:{}, salt:{}".format(ob,salt)))
     else:
         ha=hashlib.sha256(ob)
     ha.update(salt)
@@ -453,6 +400,12 @@ def gen_passwd_hash(passwd,salt):
     ha=dhash(passwd)
     return dhash_salt(ha,salt)
 
+
+def check_sqlitesafe(_name):
+    if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
+        "sqlite_" not in str(_name).lower():
+        return True
+    return False
 
 def check_hash(_hashstr):
     if all(c in "0123456789abcdefABCDEF" for c in _hashstr) and \

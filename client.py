@@ -719,19 +719,23 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
 
 
 class client_init(object):
-    config_path=None
-    config=None
+    config_root=None
+    plugins=None
+    plugins_config=None
     links={}
     
-    def __init__(self,confm,_config):
-        self.config_path=_config.get("config")
+    def __init__(self,confm):
+        self.links["config"]=confm
+        self.config_root=confm.get("config")
+        self.plugins="{}".format(self.config_root)
+        
+        self.config_path=confm.get("config")
         if self.config_path[-1]==os.sep:
             self.config_path=self.config_path[:-1]
         _cpath="{}{}{}".format(self.config_path,os.sep,"client")
         init_config_folder(self.config_path,"client")
-        self.config=_config
         
-        if _config.geti("webgui")!=False:
+        if confm.getb("webgui")!=False:
             logging.debug("webgui enabled")
             client_handler.webgui=True
             #load static files
@@ -742,24 +746,24 @@ class client_init(object):
             client_handler.webgui=False
         
         client_handler.salt=os.urandom(4)
-        if _config.geti("local")!=False:
+        if confm.getb("local")==True:
             client_handler.handle_localhost=True
-        elif _config.geti("cpwhash")!=False:
-            if _config.geti("remote")!=False:
+        elif confm.getb("cpwhash")==True:
+            if confm.getb("remote")==True:
                 client_handler.handle_remote=True
             client_handler.handle_localhost=True
-            client_handler.cpwhash=dhash_salt(_config.get("cpwhash"),client_handler.salt)
-        elif _config.geti("cpwfile")!=False:
-            if _config.geti("remote")!=False:
+            client_handler.cpwhash=dhash_salt(confm.get("cpwhash"),client_handler.salt)
+        elif confm.getb("cpwfile")==True:
+            if confm.getb("remote")==True:
                 client_handler.handle_remote=True
             client_handler.handle_localhost=True
             op=open("r")
             client_handler.cpwhash=gen_passwd_hash(op.readline())
             op.close()
             
-        if _config.get("spwhash")!="False":
-            client_handler.spwhash=dhash_salt(_config.get("spwhash"),client_handler.salt)
-        elif _config.get("spwfile")!="False":
+        if confm.getb("spwhash")==True:
+            client_handler.spwhash=dhash_salt(confm.get("spwhash"),client_handler.salt)
+        elif confm.getb("spwfile")==True:
             op=open("r")
             client_handler.spwhash=gen_passwd_hash(op.readline())
             op.close()
@@ -791,21 +795,21 @@ class client_init(object):
         
 
                 
-        if _config.get("port")!="False":
+        if confm.getb("port")==True:
             port=int(port)
         elif len(_name)>=2:
             port=int(_name[1])
         else:
             port=0
 
-        self.links["client_server"]=client_server(_name[0],_config.get("priority"),dhash(pub_cert),_message)
+        self.links["client_server"]=client_server(_name[0],confm.get("priority"),dhash(pub_cert),_message)
         self.links["client_server"].configmanager=confm
-        if _conf.geti("noplugins")==False:
+        if confm.getb("noplugins")==False:
             plugconf=configmanager(self.config_path+os.sep+"plugins.config")
             self.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
-            if _config.geti("webgui")!=False:
+            if confm.getb("webgui")!=False:
                 cm.links["client_server"].pluginmanager.interfaces+=["web",]
-            if _config.geti("cmd")!=False:
+            if confm.getb("cmd")!=False:
                 cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
         cm.links["client_server"].pluginmanager.init_plugins(cm.links)
             
@@ -954,6 +958,7 @@ if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
     
+    pluginpathes=["{}{}plugins".format(sharedir,os.sep)]
     
     if len(sys.argv)>1:
         tparam=()
@@ -969,27 +974,32 @@ if __name__ ==  "__main__":
                 if len(tparam)==1:
                     client_args[tparam[0]]=""
                     continue
+                if tparam[0]in ["pluginpath","pp"]:
+                    pluginpathes+=[tparam[1],]
+                    continue
                 client_args[tparam[0]]=tparam[1]
     
     configpath=client_args["config"]
-    
     configpath=path.expanduser(configpath)
     if configpath[-1]==os.sep:
         configpath=configpath[:-1]
     client_args["config"]=configpath
+    pluginpathes.insert(1,"{}{}plugins".format(configpath,os.sep))
     #if configpath[:-1]==os.sep:
     #    configpath=configpath[:-1]
     
-    confm=configmanager(configpath+os.sep+"clientmain.config")
-    conf=confm.gethandler("main",default_client_args,client_args)
+    os.makedirs("{}{}config".format(configpath,os.sep),0o750,True)
+    os.makedirs("{}{}config{}plugins".format(configpath,os.sep,os.sep),0o750,True)
+    confm=configmanager("{}{}config{}{}".format(configpath,os.sep,os.sep,"clientmain.conf"))
+    confm.update(default_client_args,client_args)
 
     
-    cm=client_init(confm,conf) #confm,default_client_args,client_args)
+    cm=client_init(confm) #confm,default_client_args,client_args)
     
     
     
         
-    if cm.config["main"].get("cmd")!="False":
+    if confm.getb("cmd")!=False:
         logging.debug("start server")
         cm.serve_forever_nonblock()
         logging.debug("start console")
