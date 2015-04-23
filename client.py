@@ -26,7 +26,7 @@ class client_client(object):
     links=None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","listhashes","searchhash","addname","delname","updatename","listnames","listnodenames","listall","unparsedlistnames","getservice","registerservice","listservices","info","check","check_direct","prioty_direct","prioty","setpriority","delservice","ask"}
+    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","get","listhashes","listnodenametypes", "searchhash", "addname", "delname", "updatename", "listnames", "listnodenames", "listall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -69,13 +69,11 @@ class client_client(object):
             con.set_tunnel(requeststr,pheaders)
         else:
             con.putrequest(requesttype, requeststr)
-        
+            
             if dparam["spwhash"] is not None:
                 con.putheader("spwhash",dparam["spwhash"])
             if dparam["cpwhash"] is not None:
                 con.putheader("cpwhash",dparam["cpwhash"])
-
-
         if usecache==False:
             con.putheader("Cache-Control", "no-cache")
         
@@ -93,21 +91,6 @@ class client_client(object):
             resp=parse_response(r)
             con.close()
             return resp[0],resp[1],val,dhash(pcert)
-        """if dparam["nohashdb"] is not None:
-            #here the order is changed so use split instead of rsplit
-            temp=resp[1].split("/",1)
-            if len(temp)==2:
-                if temp[0]=="isself":
-                    val=isself
-                else:
-                    #val is in different order
-                    val=temp[0]
-                #reorder message part to middle
-                return (resp[0],temp[1],val)
-            else:
-                return (resp[0],resp[1],dhash(pcert))
-        else:    
-            return resp[0],resp[1],val"""
 
     def show(self,dparam):
         return (True,(self.name,self.cert_hash,
@@ -150,14 +133,11 @@ class client_client(object):
         if _ha[0]==False:
             return _ha
         temp=self.hashdb.certhash_as_name(_ha[1][0])
-        return (True,(_ha[1][0]),isself,self.cert_hash)
+        return (True,(temp,_ha[1][0]),isself,self.cert_hash)
 
-
-        
     def unparsedlistnames(self,server_addr,dparam):
         return self.do_request(server_addr, "/listnames",dparam,usecache=True)
 
-    
     def listnames(self,server_addr,dparam):
         temp=self.unparsedlistnames(server_addr,dparam)
         if temp[0]==False:
@@ -209,7 +189,6 @@ class client_client(object):
             raise(VALNameError)
         return temp
 
-
     def listservices(self,*args):
         if len(args)==1:
             dparam=args[0]
@@ -227,7 +206,7 @@ class client_client(object):
                 temp2+=[elem.rsplit("&",1),]
         return (temp[0],temp2,temp[2],temp[3])
     
-    def info(self,*args): # _addr,dparam):
+    def info(self,*args):
         if len(args)==1:
             dparam=args[0]
             _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
@@ -243,7 +222,6 @@ class client_client(object):
         else:
             return _tinfo
 
-            
     def prioty_direct(self,*args):
         if len(args)==1:
             dparam=args[0]
@@ -260,7 +238,6 @@ class client_client(object):
         if temp[0]==False:
             return temp
         return self.prioty_direct(temp[1])
-
 
     def setpriority(self,*args):
         if len(args)==2:
@@ -297,7 +274,6 @@ class client_client(object):
             self.hashdb.changepriority(_name,_hash,temp[1][0])
             self.hashdb.changetype(_name,_hash,temp[1][1])
         return temp
-
     
     #check if node is reachable and update priority
     def check(self,server_addr,_name,_hash,dparam):
@@ -305,10 +281,7 @@ class client_client(object):
         if temp[0]==False:
             return temp
         return self.check_direct(temp[1],_name,_hash,dparam)
-
-        
-                
-        
+    
     #local management
     def addname(self,_name,dparam):
         temp=self.hashdb.addname(_name)
@@ -367,6 +340,13 @@ class client_client(object):
             return(False, error)
         else:
             return (True,temp,isself,self.cert_hash)
+            
+    def get(self,_name,_certhash,_dparam):
+        temp=self.hashdb.get(_name,_certhash)
+        if temp is None:
+            return(False, error)
+        else:
+            return (True,temp,isself,self.cert_hash)
     
     def listhashes(self,_name,dparam):
         temp=self.hashdb.listcerts(_name)
@@ -375,7 +355,14 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    def listnodenames(self,dparam):
+    def listnodenametypes(self,dparam):
+        temp=self.hashdb.listnodenametypes()
+        if temp is None:
+            return(False, error)
+        else:
+            return (True,temp,isself,self.cert_hash)
+    
+    def listnodename(self,dparam):
         temp=self.hashdb.listnodenames()
         if temp is None:
             return(False, error)
@@ -388,8 +375,65 @@ class client_client(object):
             return (False, error)
         else:
             return (True,temp,isself,self.cert_hash)
-
+    
+    #ipu: ip version unknown
+    def try_ref_ip(self,_address):
+        temp=self.gethash(_address)
+        if temp[0]==False:
+            return temp
+        trysplit=_address.rsplit(":",1)
+        if all(c in "0123456789." for c in trysplit[0]):
+            return self.addreference(temp[1][0],_address,"ip4")
+        elif all(c in "0123456789:][" for c in _address):
+            return self.addreference(temp[1][0],_address,"ip6")
+        else:
+            return self.addreference(temp[1][0],_address,"ipu")
+    
+    def addreference(self,*args):
+        if len(args)==5:
+            _name,_certhash,_reference,_reftype,dparam=args
+        elif len(args)==4:
+            _certhash,_reference,_reftype,dparam=args
+            _name=self.certdb.certhash_as_name(_certhash)
+            if _name is None:
+                return (False,"name to hash not found")
+        else:
+            return (False,("wrong amount arguments","{}".format(args)))
         
+        if check_reference(_reference)==False:
+            return (False,"reference invalid")
+        if check_reference_type(_reference)==False:
+            return (False,"reference invalid")
+            
+        _tref=self.hashdb.get(_name,_certhash)
+        if _tref is None:
+            return (False,"name,hash not exist")
+        if self.hashdb.addreference(_tref[2],_reference,_referencetype) is None:
+            return (False,"adding a reference failed")
+        return (True,success,isself,self.cert_hash)
+        
+    def delreference(self,_name,_certhash,_reference,dparam):
+        _tref=self.hashdb.get(_name,_certhash)
+        if _tref is None:
+            return (False,"name,hash not exist")
+        if self.hashdb.delreference(_tref[2]) is None:
+            return (False,error)
+        return (True,success,isself,self.cert_hash)
+        
+    def getreferences(self,_name,_certhash,dparam):
+        _tref=self.hashdb.get(_name,_certhash)
+        if _tref is None:
+            return (False,"name,hash not exist")
+        temp=self.hashdb.getreference(_tref[2])
+        if temp is None:
+            return (False,error)
+        return (True,temp,isself,self.cert_hash)
+    
+    def findbyref(self,_reference,dparam):
+        temp=self.hashdb.findbyref(_reference)
+        if temp is None:
+            return (False,error)
+        return (True,temp,isself,self.cert_hash)
 
 ###server on client
     
@@ -442,7 +486,6 @@ class client_server(commonscn):
     def info(self,_addr):
         return self.cache["info"]
 
-    
     def cap(self,_addr):
         return self.cache["cap"]
     
@@ -697,10 +740,10 @@ class client_handler(BaseHTTPRequestHandler):
         plugin,action=self.path[1:].split("/",1)
         if self.links["client_server"].pluginmanager.redirect_addr=="":
             try:
-                self.links["client_server"].pluginmanager.__dict__["p_{}".format(plugin)](action)
+                self.links["client_server"].pluginmanager.plugins[plugin](action)
             except Exception as e:
                 logging.error(e)
-            return
+                return
         elif  self.links["client_server"].pluginmanager.redirect_addr!="":
             self.links["client_client"].do_request(self.links["client_server"].pluginmanager.redirect_addr,self.path,requesttype="POST")
             return
@@ -723,16 +766,12 @@ class client_init(object):
     plugins_config=None
     links={}
     
-    def __init__(self,confm,pluginpathes):
+    def __init__(self,confm,pluginm):
         self.links["config"]=confm
         self.config_root=confm.get("config")
-        self.plugins_config="{}{}config{}plugins".format(self.config_root,os.sep,os.sep)
         
-        self.config_path=confm.get("config")
-        if self.config_path[-1]==os.sep:
-            self.config_path=self.config_path[:-1]
-        _cpath="{}{}{}".format(self.config_path,os.sep,"client")
-        init_config_folder(self.config_path,"client")
+        _cpath="{}{}{}".format(self.config_root,os.sep,"client")
+        init_config_folder(self.config_root,"client")
         
         if confm.getb("webgui")!=False:
             logging.debug("webgui enabled")
@@ -803,17 +842,12 @@ class client_init(object):
 
         self.links["client_server"]=client_server(_name[0],confm.get("priority"),dhash(pub_cert),_message)
         self.links["client_server"].configmanager=confm
-        if confm.getb("noplugins")==False:
-            self.links["client_server"].pluginmanager=pluginmanager(pluginpathes,self.plugins_config)
-            if confm.getb("webgui")!=False:
-                self.links["client_server"].pluginmanager.interfaces+=["web",]
-            if confm.getb("cmd")!=False:
-                self.links["client_server"].pluginmanager.interfaces+=["cmd",]
-            self.links["client_server"].pluginmanager.init_plugins()
+        self.links["client_server"].pluginmanager=pluginm
+        
             
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
-        self.links["client"]=client_client(_name[0],dhash(pub_cert),self.config_path+os.sep+"certdb.sqlite",self.links)
+        self.links["client"]=client_client(_name[0],dhash(pub_cert),self.config_root+os.sep+"certdb.sqlite",self.links)
 
     def serve_forever_block(self):
         self.links["server"].serve_forever()
@@ -988,13 +1022,26 @@ if __name__ ==  "__main__":
     
     os.makedirs("{}{}config".format(configpath,os.sep),0o750,True)
     os.makedirs("{}{}config{}plugins".format(configpath,os.sep,os.sep),0o750,True)
-    confm=configmanager("{}{}config{}{}".format(configpath,os.sep,os.sep,"clientmain.conf"))
+    
+    confm=configmanager("{}{}config{}{}".format(configpath,os.sep,os.sep,"clientcmdmain.conf"))
     confm.update(default_client_args,client_args)
-
-    
-    cm=client_init(confm,pluginpathes) #confm,default_client_args,client_args)
     
     
+    plugins_config="{}{}config{}plugins".format(configpath,os.sep,os.sep)
+    
+    if confm.getb("noplugins")==False:
+        pluginm=pluginmanager(pluginpathes,plugins_config)
+        if confm.getb("webgui")!=False:
+            pluginm.interfaces+=["web",]
+        if confm.getb("cmd")!=False:
+            pluginm.interfaces+=["cmd",]
+    else:
+        pluginm=None
+    
+    cm=client_init(confm,pluginm)
+    
+    if confm.getb("noplugins")==False:
+        pluginm.init_plugins()
     
         
     if confm.getb("cmd")!=False:

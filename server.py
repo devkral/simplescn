@@ -9,7 +9,6 @@ import socketserver #,socket
 import traceback
 import os
 import socket
-from os import path
 
 from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash,commonscn,sharedir,pluginmanager,configmanager
 
@@ -306,7 +305,7 @@ class server_init(object):
     links=None
     
     def __init__(self,**kwargs):
-        self.config_path=path.expanduser(kwargs["config"])
+        self.config_path=os.path.expanduser(kwargs["config"])
         if self.config_path[-1]==os.sep:
             self.config_path=self.config_path[:-1]
         _spath="{}{}{}".format(self.config_path,os.sep,"server")
@@ -407,6 +406,10 @@ expire: time until client entry expires
 tunnel: enable tunnel
 webgui: enables webgui
 """)
+
+#### don't port to sqlite for now as it increases complexity and needed libs
+#### but libs needed anyway by common
+#### support plugins?
 
 server_args={"config":default_configdir,
              "port":None,

@@ -11,24 +11,62 @@ from gi.repository import Gtk,Gdk
 
 
 import client
-from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,sharedir,isself,default_sslcont,dhash,AddressFail,\
+from client import default_client_args as dclargs
+
+from common import default_configdir,init_config_folder,check_name,check_certs,generate_certs,\
+sharedir,isself,default_sslcont,dhash,AddressFail,\
 scnparse_url,server_port,check_hash,configmanager,pluginmanager
 #VALError
 
 messageid=0
 
-class gtkclientNode(logging.NullHandler):
-    pass
+class gtkclient_node(logging.NullHandler):
+    builder=None
+    links=None
+
+    def __init__(self,links,_address,shash=None):
+        self.links=links
+        
+        self.builder=Gtk.Builder()
+        self.builder.set_application(links["gtkclient"])
+        self.builder.add_objects_from_file(sharedir+"gui/gtkclientnode.ui")
+        
+    
+class gtkclient_server(logging.NullHandler):
+    builder=None
+    links=None
+
+    def __init__(self,links,_address,shash=None):
+        self.links=links
+        
+        self.builder=Gtk.Builder()
+        self.builder.set_application(links["gtkclient"])
+        self.builder.add_objects_from_file(sharedir+"gui/gtkclientserver.ui")
+
+class gtkclient_info(logging.NullHandler):
+    builder=None
+    links=None
+
+    def __init__(self,links,_address,shash=None):
+        self.links=links
+        
+        self.builder=Gtk.Builder()
+        self.builder.set_application(links["gtkclient"])
+        self.builder.add_objects_from_file(sharedir+"gui/gtkclientmain.ui",["infowin",])
+        
 
 class gtkclient_main(logging.NullHandler,Gtk.Application):
     builder=None
     clip=None
     win=None
+    backlog=[]
     statusbar=None
     localview=None
     localstore=None
     recentview=None
     recentstore=None
+    remote_client=None
+    use_remote_client=False
     param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
     param_server={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
     param_node={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
@@ -73,16 +111,20 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         _storage=self.do_requestdo("listnametypes")
         if _storage[0]==False:
             return
+        lstore=self.builder.get_object("localstore")
         for elem in _storage[1]:
             if elem[1]=="server":
-                self.hashes[elem[1]]=("server",elem[0])
-            elif elem[2]!="unknown":
-                if elem[0] not in self.friends:
-                    self.friends[elem[0]]=[]
-                    self.hashes[elem[1]]=("friends",elem[0])
+                lstore.append(("Server",elem[0],elem[1]))
+                #self.hashes[elem[1]]=("Server",elem[0])
+                #self.do_requestdo("")
+                #for elem2 in 
+                serverlist.append((elem[0],))
+                
+            else:
+                lstore.append(("Friends",elem[0],elem[1]))
 
-        
-    def do_request(self,requeststr, parse=-1):
+    #ugly
+    """def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
         params=""
         for elem in ["certhash","certname"]:
@@ -148,29 +190,31 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         elif _finish1[0]=="":
             _finish1=_finish1[1:]
         #temp[0]==True
-        return (temp[0],_finish1,temp[2],temp[3])
+        return (temp[0],_finish1,temp[2],temp[3])"""
         
-    def do_requestdo(self,*requeststrs,parse=-1):
-        temp="/do"
-        for elem in requeststrs:
-            temp="{}/{}".format(temp,elem)
-        return self.do_request(temp,parse)
+    def do_requestdo(self,action,*requeststrs,parse=-1):
+        if self.use_remote_client==False:
+            return self.links["client"].__all__[action](*requeststrs)
+        """else:
+            temp="/do/{}".format(action)
+            for elem in requeststrs:
+                temp="{}/{}".format(temp,elem)
+            return self.do_request(temp,parse)"""
 
-    def do_requestdirect(self,*requeststrs):
+    """def do_requestdirect(self,*requeststrs):
         _treqstr=""
         for elem in requeststrs:
             _treqstr="{}/{}".format(_treqstr,elem)
-        serverurl=self.builder.get_object("serverurl").get_text().strip().rstrip()
+        #serverurl=self.builder.get_object("servercomboentry").get_text().strip().rstrip()
         try:
             return client.client_client.__dict__["do_request"](self,serverurl,_treqstr,self.param_node,usecache=False,forceport=False)
         except Exception as e:
             if "tb_frame" in e.__dict__:
-                st=str(e)+"\n\n"+str(traceback.format_tb(e))
-            else:
-                st=str(e)
-
+                    st="{}\n\n{}".format(e,traceback.format_tb(e))
+                else:
+                    st=str(e)
             logging.error(st)
-            return (False, e)
+            return (False,)"""
 
     def pushint(self):
         time.sleep(5)
@@ -188,728 +232,17 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     #self.statusbar.push(self.messageid,record)
     ###logging handling
     def emit(self, record):
+        self.backlog+=[record,]
+        if len(backlog)>200:
+            self.backlog=self.backlog[200:]
         self.statusbar.push(messageid, record.message)
         self.pushmanage()
-
-    def gethash_intern(self,_addr):
-        try:
-            return client.client_client.gethash(self,_addr,{})
-        except Exception as e:
-            return (False,e)
-
-    def updatehash_client(self,*args):
-        #self.param_client["certhash"]=None
-        clienturl=self.builder.get_object("clienturl").get_text()
-        result=self.gethash_intern(clienturl)
-        if result[0]==True:
-            self.param_client["certhash"]=result[1][0]
-
-    def gtkupdate_clientpw(self,*args):
-        self.param_client["cpwhash"]=dhash(self.builder.get_object("clientpw").get_text())
-
-    def updatehash_server(self,*args):
-        #
-        _veristate=self.builder.get_object("veristates")
-        _listnodesb=self.builder.get_object("listnodesb")
-        _registerb=self.builder.get_object("registerb")
-        _serverexpander=self.builder.get_object("exppwserver")
-        serverurl=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
-        if serverurl=="":
-            _registerb.set_visible(False)
-            return
-        if self._old_serverurl==serverurl:
-            return
-        self._old_serverurl=serverurl
-        result=self.do_requestdo("ask",serverurl)
-        if result[0]==True:
-            _serverexpander.set_expanded(False)
-            _registerb.set_sensitive(True)
-            _registerb.set_visible(True)
-            if result[1][1] is None:
-                self.param_server["name"]=None
-                self.param_server["certhash"]=result[1][0]
-            elif result[1][1] is isself:
-                self.param_server["name"]=None
-                self.param_server["certhash"]=result[1][0]
-                _veristate.set_text("Server is own client") # normally impossible
-            else:
-                self.param_server["certhash"]=None
-                self.param_server["name"]=result[1][1]
-                _veristate.set_text("Server verified as:\n"+result[1][1])
-            _listnodesb.set_visible(True)
-        else:
-            _registerb.set_visible(False)
-            _veristate.set_text("Server does not exist")
-            _listnodesb.set_visible(False)
-        
-    def internchat(self,_partner,_message=None):
-        pass
-
-    # 
-    def chat(self,_message):
-        pass
-
-
-    def gtkupdate_serverpw(self,*args):
-        self.param_client["spwhash"]=dhash(self.builder.get_object("serverpw").get_text())
-        self.param_server["spwhash"]=dhash(self.builder.get_object("serverpw").get_text())
-        self.updatehash_server()
-
-        
-    def gtkregister(self,*args):
-        _veristate=self.builder.get_object("veristates")
-        _server=self.builder.get_object("serverurl").get_text().strip(" ").rstrip(" ")
-        _registerb=self.builder.get_object("registerb")
-        if _server=="":
-            return
-
-        temp=self.do_requestdo("register",_server)
-        
-        if temp[0]==True and temp[2] is not None:
-            if temp is isself:
-                _veristate.set_text("Server is own client") # normally impossible
-            else:
-                _veristate.set_text("Server verified as:\n"+temp[2])
-        else:
-            _veristate.set_text("<unverified>")
-        if temp[0]==True:
-            _registerb.set_sensitive(False)
-        else:
-            logging.info("registration failed")
-        
-    def gtkadd_serverhash(self,*args):
-        _server=self.builder.get_object("serverurl").get_text().strip().rstrip()
-        _view=self.builder.get_object("nameview")
-        _se=_view.get_selection().get_selected()
-        if _se[1] is None:
-            return
-        _name=_se[0][_se[1]][0]
-        if _server=="":
-            return
-
-        _hash=self.do_requestdo("gethash",_server)
-        
-        if _hash[0]==False:
-            return
-        _t=self.do_requestdo("addhash",_name,_hash[1][0])
-        if _t[0]==True:
-            logging.debug("serverhash added")
-        else:
-            logging.info(_t[1])
     
-        
-    def gtktogglelocal(self,*args):
-        uselocalclient=self.builder.get_object("uselocalclient")
-        ciexpander=self.builder.get_object("clientinfoexpander")
-        if uselocalclient.get_active()==True:
-            ciexpander.set_visible(False)
-        else:
-            ciexpander.set_visible(True)
-            ciexpander.set_expanded(True)
-        
-    def gtkget(self,*args):
-        #_veristate=self.builder.get_object("veristates")
-        _servero=self.builder.get_object("serverurl")
-        _server=_servero.get_text().strip(" ").rstrip(" ")
-        if _server=="":
-            return
-        _nameo=self.builder.get_object("name")
-        _name=_nameo.get_text().strip(" ").rstrip(" ")
-        if _name=="":
-            return
-        _hasho=self.builder.get_object("hash")
-        _hash=_hasho.get_text().strip(" ").rstrip(" ")
-        if _hash=="":
-            return
-
-        _nodeo=self.builder.get_object("nodeurl")
-        _listnodesb=self.builder.get_object("listnodesb")
-        
-        temp=self.do_requestdo("get",_server,_name,_hash)
-        
-        temp2=self.do_requestdo("check",_server,_name,_hash)
-        if temp2[0]==False:
-            logging.error("udpate failed")
-            logging.error(temp2[1])
-        
-        #if temp[0]==True and temp[2] is not None:
-            #if temp is isself:
-                #_veristate.set_text("Server is own client") # normally impossible
-            #else:
-                #_veristate.set_text("Server verified as:\n"+temp[2])
-        #else:
-            #_veristate.set_text("unverified")
-        if temp[0]==True:
-            _nodeo.set_text("{}:{}".format(*temp[1]))
-            self.param_node["certhash"]=_hash
-        _listnodesb.set_visible(False)
-
-    def gtkchat(self,*args):
-        pass
-        
-    def gtknode_invalidate(self,*args):
-        self.param_node["certname"]=None
-        self.param_node["certhash"]=None
-
-
-        
-
-########### names #####################
-                
-    def gtkupdate_nodenames(self,*args):
-        self.namestore.clear()
-        for elem in self.friends:
-            self.namestore.append((elem,))
-
-    def gtkadd_name(self,*args):
-        _tgan=self.builder.get_object("nameaddentry")
-        _tgan.set_text("")
-        _tgan.show()
-        _tgan.grab_focus()
-    
-    def gtkadd_nameconfirm(self,*args):
-        _tgan=self.builder.get_object("nameaddentry")
-        _store=self.builder.get_object("namestore")
-        _tname=_tgan.get_text().strip(" ")
-        if _tname=="":
-            _tgan.hide()
-            _tgan.set_text("")
-            return
-        _tcname=self.do_requestdo("addname",_tname)
-        if _tcname[0]==True:
-            _tgan.hide()
-            _tgan.set_text("")
-            _store.append((_tname,))
-            
-
-    def gtkdel_name(self,*args):
-        _view=self.builder.get_object("nameview")
-        _text=self.builder.get_object("delnamel")
-        _dialog=self.builder.get_object("deleteconfirmname")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            self.statusbar.push(messageid,"nameview not selected")
-            self.pushmanage()
-            return
-        _text.set_text(temp[0][temp[1]][0])
-        _dialog.show()
-
-        
-    def gtkdel_nameconfirm(self,*args):
-        _dialog=self.builder.get_object("deleteconfirmname")
-        _dialog.hide()
-        _view=self.builder.get_object("nameview")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            self.statusbar.push(messageid,"name not selected")
-            self.pushmanage()
-            return
-        self.do_requestdo("delname",temp[0][temp[1]][0])
-        self.gtkupdate_nodenames()
-        
-    def gtkdel_namecancel(self,*args):
-        _dialog=self.builder.get_object("deleteconfirmname")
-        _dialog.hide()
-
-########### nodeinfo ##################
-    nifetch=""
-    nicanchange=False
-    def gtkhide_nodeinfo(self,*args):
-        win=self.builder.get_object("nodeinfow")
-        win.hide()
-
-        
-    def gtkshow_nodeinfo_client(self,*args):
-        url=self.builder.get_object("clienturl")
-        if url.get_text().strip(" ")=="":
-            return
-        win=self.builder.get_object("nodeinfow")
-        serverexp=self.builder.get_object("serverexp")
-        updateb=self.builder.get_object("updateinfob")
-        if win.get_visible()==True:
-            win.hide()
-            return
-        serverexp.hide()
-        updateb.show()
-        self.nicanchange=True
-        self.nifetch="clienturl"
-        win.show()
-        
-        self.gtkrefresh_nodeinfo()
-            
-    def gtkshow_nodeinfo_server(self,*args):
-        url=self.builder.get_object("serverurl")
-        if url.get_text().strip(" ")=="":
-            return
-        win=self.builder.get_object("nodeinfow")
-        serverexp=self.builder.get_object("serverexp")
-        updateb=self.builder.get_object("updateinfob")
-        if win.get_visible()==True:
-            win.hide()
-            return
-        serverexp.hide()
-        updateb.hide()
-        self.nicanchange=False
-        self.nifetch="serverurl"
-        win.show()
-        
-        self.gtkrefresh_nodeinfo()
-            
-    def gtkshow_nodeinfo_node(self,*args):
-        url=self.builder.get_object("nodeurl")
-        if url.get_text().strip(" ")=="":
-            return
-        win=self.builder.get_object("nodeinfow")
-        serverexp=self.builder.get_object("serverexp")
-        updateb=self.builder.get_object("updateinfob")
-        if win.get_visible()==True:
-            win.hide()
-            return
-        serverexp.show()
-        updateb.hide()
-        self.nicanchange=False
-        self.nifetch="nodeurl"
-        win.show()
-        
-        self.gtkrefresh_nodeinfo()
-
-    # this actually changes variables in contrast to other update methods of this class
-    def gtkupdate_nodeinfo(self,*args):
-        if self.nifetch=="nodeurl":
-            return
-        #ownclientinfo=self.builder.get_object("ownclientinfo")
-        #urlo=self.builder.get_object(self.nifetch)
-        #showname=self.builder.get_object("showname")
-        #showhash=self.builder.get_object("showhash")
-        #modtype=self.builder.get_object("modtype")
-        _priority=self.builder.get_object("modpriority").get_text().strip().rstrip()
-        #updateb=self.builder.get_object("updateinfob")
-        if _priority!="":
-            self.do_requestdo("setpriority",_priority)
-        
-        
-
-    # this is safe, nearly equal to other update methods of this class
-    def gtkrefresh_nodeinfo(self,*args):
-        #ownclientinfo=self.builder.get_object("ownclientinfo")
-        urlo=self.builder.get_object(self.nifetch)
-        showname=self.builder.get_object("showname")
-        showhash=self.builder.get_object("showhash")
-        showport=self.builder.get_object("showport")
-        messagebuf=self.builder.get_object("messagebuf")
-        showname.set_text("")
-        showhash.set_text("")
-        showport.set_text("")
-        
-        if self.nicanchange==False:
-            stype=self.builder.get_object("showtype")
-            _dtype=self.builder.get_object("modtype")
-            spriority=self.builder.get_object("showpriority")
-            _dpriority=self.builder.get_object("modpriority")
-        else:
-            #_dtype=self.builder.get_object("showtype")
-            #stype=self.builder.get_object("modtype")
-            stype=self.builder.get_object("showtype")
-            _dtype=self.builder.get_object("modtype")
-            _dpriority=self.builder.get_object("showpriority")
-            spriority=self.builder.get_object("modpriority")
-        
-        spriority.show()
-        _dpriority.hide()
-        stype.show()
-        _dtype.hide()
-        spriority.set_text("")
-        stype.set_text("")
-        #updateb=self.builder.get_object("updateinfob")
-        #serverexp=self.builder.get_object("serverexp")
-        
-        url=urlo.get_text().strip(" ")
-        if url=="":
-            return
-        u=scnparse_url(url)
-        if len(u)>=2:
-            showport.set_text(str(u[1]))
-        elif self.nifetch=="serverurl":
-            showport.set_text(str(server_port))
-        else:
-            showport.set_text("")
-
-        if self.nifetch=="clienturl":
-            prio=self.do_requestdo("prioty_direct")
-        elif self.nifetch=="serverurl":
-            url="{}:{}".format(*scnparse_url(url))
-            prio=self.do_requestdo("prioty_direct",url)
-        else:
-            prio=self.do_requestdo("prioty_direct",url)
-        if prio[0]==True:
-            spriority.set_text(str(prio[1][0]))
-            
-        if self.nifetch=="clienturl":
-            info=self.do_requestdo("info",parse=4)
-        elif self.nifetch=="serverurl":
-            url="{}:{}".format(*scnparse_url(url))
-                
-            info=self.do_requestdo("info",url,parse=4)
-        else:
-            info=self.do_requestdo("info",url,parse=4)
-        
-        if info[0]==True and len(info[1])>=4:
-            stype.set_text(info[1][0])
-            showname.set_text(info[1][1])
-            showhash.set_text(info[1][2])
-            messagebuf.set_text(info[1][3])
-            if self.nifetch=="serverurl":
-                self.do_requestdo("check_direct",url,info[1][1],info[1][2])
-            if self.nifetch=="nodeurl":
-                _serverurl=self.builder.get_object("serverurl").get_text().strip().rstrip()
-                if _serverurl!="":
-                    self.do_requestdo("check",_serverurl,info[1][1],info[1][2])
-                    
-        
-            
-########### local nodes #############
-    def gtkshow_localnodes(self,*args):
-        smw=self.builder.get_object("nodemw")
-        if smw.get_visible()==False:
-            smw.show()
-            self.gtkupdate_localnodes()
-        else:
-            smw.hide()
-
-    def gtkhide_localnodes(self,*args):
-        smw=self.builder.get_object("nodemw")
-        smw.hide()
-        
-    def gtkupdate_localnodes(self,*args):
-        nodestore=self.builder.get_object("localnodestore")
-        _serverurl=self.builder.get_object("serverurl").get_text()
-        _servertitel=self.builder.get_object("servertitelname")
-        _servertitel.set_text("")
-        _nodes=self.do_requestdo("listall") #,_serverurl)
-        if _nodes[0]==False:
-            return
-        _temp=_serverurl
-        if self.param_server["certname"] is not None:
-            _temp="{} ({})".format(_temp,self.param_node["certname"])
-        _servertitel.set_text(_temp)
-        #print(_nodes)
-        nodestore.clear()
-        for elem in _nodes[1]:
-            if elem[1]!="default":
-                nodestore.append((elem[0],elem[2],elem[3],elem[1]))
-
-    def gtkadd_localnode(self,*args):
-        _oname=self.builder.get_object("hashaddnameentry")
-        _ohash=self.builder.get_object("hashaddentry")
-        _nameview=self.builder.get_object("nameview")
-        _tname=_nameview.get_selection().get_selected()
-        if _tname[1] is None:
-            _oname.set_text("")
-        else:
-            _oname.set_text(_tname[0][_tname[1]][0])
-        
-        _ohash.set_text("")
-        self.gtkshow_addhash()
-
-    def gtkdelete_localnode(self,*args):
-        _view=self.builder.get_object("nodeview")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            return
-        tem2=self.do_requestdo("delhash",temp[0][temp[1]][0],temp[0][temp[1]][3])
-        if tem2[0]==False:
-            self.statusbar.push(messageid,"localnode not selected")
-            self.pushmanage()
-            return
-        self.gtkupdate_localnodes()
-        
-    def gtksel_localnode(self,*args):
-        _nodeview=self.builder.get_object("nodeview")
-        _t=_nodeview.get_selection().get_selected()
-        if _t[1] is None:
-            self.statusbar.push(messageid,"localnode not selected")
-            self.pushmanage()
-            return
-        
-        self.clip.set_text(_t[0][_t[1]][3], -1)
-        #self.gtkshow_addhash()
-        
-#############  remote nodes ####################
-                
-    def gtkshow_remotenodes(self,*args):
-        serverurl=self.builder.get_object("serverurl")
-        if serverurl.get_text().strip(" ")=="":
-            return
-
-        smw=self.builder.get_object("nodelistw")
-        if smw.get_visible()==False:
-            smw.show()
-            self.gtkupdate_remotenodes()
-        else:
-            smw.hide()
-
-    def gtkhide_remotenodes(self,*args):
-        smw=self.builder.get_object("nodelistw")
-        smw.hide()
-        
-    def gtkupdate_remotenodes(self,*args):
-        rnodestore=self.builder.get_object("remotenodestore")
-        _serverurl=self.builder.get_object("serverurl").get_text()
-        _servertitel=self.builder.get_object("servertitelname")
-        _servertitel.set_text("")
-        _nodes=self.do_requestdo("listnames",_serverurl)
-        if _nodes[0]==False:
-            return
-        _temp=_serverurl
-        if self.param_server["certname"] is not None:
-            _temp="{} ({})".format(_temp,self.param_node["certname"])
-        _servertitel.set_text(_temp)
-        rnodestore.clear()
-        for elem in _nodes[1]:
-            if elem[2]==None:
-                rnodestore.append((elem[0],"Unverified",elem[1]))
-            elif elem[2] is isself or elem[2]=="isself":
-                rnodestore.append((elem[0],"Is own client",elem[1]))
-            else:
-                rnodestore.append((elem[0],elem[2],elem[1]))
-
-    def gtkadd_node(self,*args):
-        _view=self.builder.get_object("nodelistview")
-        _nameview=self.builder.get_object("nameview")
-        _tnode=_view.get_selection().get_selected()
-        _tname=_nameview.get_selection().get_selected()
-        
-        if _tnode[1] is None:
-            return
-        #if _tname[1] is None:
-        #    return
-
-        _oname=self.builder.get_object("hashaddnameentry")
-        _ohash=self.builder.get_object("hashaddentry")
-        if _tname[1] is None:
-            _oname.set_text("")
-        else:
-            _oname.set_text(_tname[0][_tname[1]][0])
-        _ohash.set_text(_tnode[0][_tnode[1]][2])
-        self.gtkshow_addhash()
-                        
-        
-
-    def gtkdel_node(self,*args):
-        _view=self.builder.get_object("nodelistview")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            return
-
-        self.do_requestdo("delhash",temp[0][temp[1]][1],temp[0][temp[1]][2])
-        temp[0][temp[1]][1]="<unverified>"
-        
-    def gtksel_node(self,*args):
-        win=self.builder.get_object("nodelistw")
-        _view=self.builder.get_object("nodelistview")
-        _name=self.builder.get_object("name")
-        _hash=self.builder.get_object("hash")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            return
-        _name.set_text(temp[0][temp[1]][0])
-        _hash.set_text(temp[0][temp[1]][2])
-        win.hide()
-        self.gtkget()
-
-    def gtkcopy_node(self,*args):
-        _view=self.builder.get_object("nodelistview")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            return
-        self.clip.set_text(temp[0][temp[1]][2], -1)
-
-########## addhash ###############
-    def gtkshow_addhash(self,*args):
-        smw=self.builder.get_object("addhashw")
-        if smw.get_visible()==False:
-            smw.show()
-        else:
-            smw.hide()
-
-    def gtkhide_addhash(self,*args):
-        smw=self.builder.get_object("addhashw")
-        smw.hide()
-        
-    def gtkverify_addhash(self,*args):
-        hae=self.builder.get_object("hashaddentry")
-        if check_hash(hae.get_text())==True:
-            hae.override_background_color(Gtk.StateFlags.NORMAL,Gdk.RGBA(0,0,1,1))
-            #hae.override_background_color(Gtk.StateFlags.ACTIVE,Gdk.RGBA(0,0,1,1))
-            
-            #hae.override_color(Gtk.StateFlags.NORMAL|Gtk.StateFlags.ACTIVE,Gdk.RGBA(0,0,1,1))
-        else:
-            hae.override_background_color(Gtk.StateFlags.NORMAL,Gdk.RGBA(1,0,0,1))
-            
-            #hae.override_background_color(Gtk.StateFlags.ACTIVE,Gdk.RGBA(1,0,0,1))
-            #hae.override_color(Gtk.StateFlags.NORMAL|Gtk.StateFlags.ACTIVE,Gdk.RGBA(1,0,0,1))
-         
-
-    def gtkconfirm_addhash(self,*args):
-        smw=self.builder.get_object("addhashw")
-        _oname=self.builder.get_object("hashaddnameentry")
-        _ohash=self.builder.get_object("hashaddentry")
-        localnodestore=self.builder.get_object("localnodestore")
-        _name=_oname.get_text().strip(" ").rstrip(" ")
-        _hash=_ohash.get_text().strip(" ").rstrip(" ")
-        
-        if _name=="":
-            return
-        if _hash=="":
-            return
-        temp2=self.do_requestdo("addhash",_name,_hash)
-        if temp2[0]==True:
-            localnodestore.append((_name,"unknown","20",_hash))
-            smw.hide()
+    def gtkretrieve_server(self,*args):
+        serverurl=self.builder.get_object("servercomboentry").get_text()
         
 
 
-
-########## nodeservices ##########
-                
-    def gtkshow_nodeservices(self,*args):
-        nodeurl=self.builder.get_object("nodeurl")
-        if nodeurl.get_text().strip(" ")=="":
-            return
-        smw=self.builder.get_object("nodeservicesw")
-        if smw.get_visible()==False:
-            smw.show()
-            self.gtkupdate_nodeservices()
-        else:
-            smw.hide()
-
-    def gtkhide_nodeservices(self,*args):
-        smw=self.builder.get_object("nodeservicesw")
-        smw.hide()
-        
-    def gtkupdate_nodeservices(self,*args):
-        servicestore=self.builder.get_object("nodeservicestore")
-        _nodeurl=self.builder.get_object("nodeurl").get_text()
-        _nodetitel=self.builder.get_object("nodetitelname")
-        _nodetitel.set_text("")
-        _temp=_nodeurl
-        if self.param_node["certname"] is not None:
-            _temp="{} ({})".format(_temp,self.param_node["certname"])
-        _nodetitel.set_text(_temp)
-        _nodeservices=self.do_requestdo("listservices",_nodeurl)
-        if _nodeservices[0]==False:
-            return
-        
-        servicestore.clear()
-        for elem in _nodeservices[1]:
-            servicestore.append((elem[0],elem[1]))
-
-    def gtkupdate_nodeservicepanel(self,*args):
-        _panel=self.builder.get_object("serviceaddr")
-        _url=self.builder.get_object("nodeurl").get_text().rsplit(":",1)[0]
-        _view=self.builder.get_object("nodeserviceview")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            return
-        _panel.set_text("{}:{}".format(_url,temp[0][temp[1]][1]))
-        #self.do_requestdo("deleteservice",)
-
-        
-    def gtkcopy_nodeservicepanel(self,*args):
-        _panel=self.builder.get_object("serviceaddr")
-        self.clip.set_text(_panel.get_text(),-1)
-        
-    def gtkshow_localservices(self,*args):
-        clienturl=self.builder.get_object("clienturl")
-        if clienturl.get_text().strip(" ")=="":
-            return
-
-        smw=self.builder.get_object("servicemw")
-        if smw.get_visible()==False:
-            smw.show()
-            self.gtkupdate_localservices()
-        else:
-            smw.hide()
-
-    def gtkhide_localservices(self,*args):
-        smw=self.builder.get_object("servicemw")
-        smw.hide()
-        
-    def gtkupdate_localservices(self,*args):
-        servicestore=self.builder.get_object("localservicestore")
-        _localservices=self.do_requestdo("listservices")
-        if _localservices[0]==False:
-            return
-        servicestore.clear()
-        for elem in _localservices[1]:
-            servicestore.append((elem[0],elem[1]))
-
-    def gtkadd_service(self,*args):
-        _tgrid=self.builder.get_object("newservice")
-        if _tgrid.get_visible()==True:
-            self.gtkadd_service_confirm()
-            return
-        _tgrid.show()
-        _tgan=self.builder.get_object("newservicenameentry")
-        _tgan.set_text("")
-        _tgan2=self.builder.get_object("newserviceportentry")
-        _tgan2.set_text("")
-        _tgan.set_editable(True)
-        _tgan.grab_focus()
-
-    def gtkadd_service_confirm(self,*args):
-        servicestore=self.builder.get_object("localservicestore")
-        _tgrid=self.builder.get_object("newservice")
-        _tgan=self.builder.get_object("newservicenameentry")
-        _tgan2=self.builder.get_object("newserviceportentry")
-        _tname=_tgan.get_text()
-        _tport=_tgan2.get_text()
-        if _tname=="":
-            _tgrid.hide()
-            _tgan.set_text("")
-            _tgan2.set_text("")
-            return
-        if _tport=="":
-            _tgan2.grab_focus()
-            return
-        _tcname=self.do_requestdo("registerservice",_tname,_tport)
-        if _tcname[0]==True:
-            _tgrid.hide()
-            _tgan.set_text("")
-            _tgan2.set_text("")
-            if _tgan.get_editable()==False:
-                self.gtkupdate_localservices(self)
-                #n=servicestore.iter_n_children()
-                #servicestore.remove(servicestore.iter_nth_child(None,n-1))
-            else:
-                servicestore.append((_tname,_tport))
-        
-    def gtkmod_service(self,*args):
-        #servicestore=self.builder.get_object("servicestore")
-        _tgrid=self.builder.get_object("newservice")
-        _tgrid.show()
-        _tgan=self.builder.get_object("newservicenameentry")
-        _tgan2=self.builder.get_object("newserviceportentry")
-        _view=self.builder.get_object("localserviceview")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            return
-        _tgan.set_text(temp[0][temp[1]][0])
-        _tgan2.set_text(temp[0][temp[1]][1])
-        #_tgan.set_active(False)
-        _tgan.set_editable(False)
-        _tgan2.grab_focus()
-        #get selection
-        #_tgan=""
-
-    def gtkdel_service(self,*args):
-        _view=self.builder.get_object("localserviceview")
-        temp=_view.get_selection().get_selected()
-        if temp[1] is None:
-            return
-        self.do_requestdo("delservice",temp[0][temp[1]][0])
-        
-        self.gtkupdate_localservices()
 
     def gtkclose(self,*args):
         global run
@@ -918,10 +251,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
 
 class gtk_client_init(client.client_init):
 
-    def __init__(self,**kwargs):
-        self.config_path=path.expanduser(kwargs["config"])
-        if self.config_path[-1]==os.sep:
-            self.config_path=self.config_path[:-1]
+    def __init__(self,confm,pluginpathes):
+        self.config_path=confm.get("config")
         _cpath="{}{}{}".format(self.config_path,os.sep,"client")
         init_config_folder(self.config_path,"client")
         
@@ -929,52 +260,15 @@ class gtk_client_init(client.client_init):
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
             logging.debug("Certificate generation complete")
-
-        with open(_cpath+"_name", 'r') as readclient:
-            _name=readclient.readline()
-            if _name[-1]=="\n":
-                _name=_name[:-1]
-        #report missing file
-        if None in [_name,]:
-            raise(Exception("missing"))
         
-        _name=_name.split("/")
-        if len(_name)>2 or check_name(_name[0])==False:
-            print("Configuration error in {}".format(_cpath+"_name"))
-            print("should be: <name>/<port>")
-            print("Name has some restricted characters")
-            sys.exit(1)
-
-        if kwargs["client"] is not None:
-            _client=kwargs["client"]
-            if len(kwargs["client"].rsplit(":",1))==1:
-                if len(_name)>=2:
-                   _client="{}:{}".format(kwargs["client"],_name[1])
-        else:
-            _client=None
-            if len(_name)>=2:
-                _client="localhost:{}".format(_name[1])
-
-        if kwargs["noserver"] is None:
-            if kwargs["cpwhash"] is None and \
-               kwargs["cpwfile"] is None:
-                pw=""
-                for elem in os.urandom(20):
-                    pw+=str(int(elem)%10)
-                kwargs["cpwhash"]=dhash(pw)
-                
-            client.client_init.__init__(self,**kwargs)
+        client.client_init.__init__(self,confm,pluginpathes)
             
-            _client="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-            logging.debug("start server")
-            self.serve_forever_nonblock()
-            logging.debug("start gtkclient")
-            self.links["gtkclient"]=gtkclient_main(self.links)
-            #logging.getLogger().addHandler(self.links["gtkclient"])
-        else:
-            logging.debug("start gtkclient")
-            self.links["gtkclient"]=gtkclient_main(self.links)
-
+        #_client="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        logging.debug("start server")
+        self.serve_forever_nonblock()
+        logging.debug("start gtkclient")
+        self.links["gtkclient"]=gtkclient_main(self.links)
+        
 
 def paramhelp():
     print(\
@@ -996,25 +290,13 @@ def signal_handler(*args):
     run=False
     #app.close()
 
-  
+             
 if __name__ ==  "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
     
-    client_args=client.client_args.copy()
-    client_args.update({"config":default_configdir,
-              "port":None,
-              #set local to true (because elsewise program doesn't work with "server" set
-              # "true" could also be ""
-              "local": "true",
-              "priority":"20",
-              "timeout":"300", # not implemented yet
-              "noserver":None,
-              "noplugins":None,
-              "client":None,
-              "clientpw":None,
-              "certhash":None,
-              "cmd":None})
+    clargs=client.client_args.copy()
+    pluginpathes=["{}{}plugins".format(sharedir,os.sep)]
     
     if len(sys.argv)>1:
         tparam=()
@@ -1028,31 +310,59 @@ if __name__ ==  "__main__":
                 if len(tparam)==1:
                     tparam=elem.split(":")
                 if len(tparam)==1:
-                    client_args[tparam[0]]=""
+                    clargs[tparam[0]]=""
                     continue
-                client_args[tparam[0]]=tparam[1]
+                if tparam[0]in ["pluginpath","pp"]:
+                    pluginpathes+=[tparam[1],]
+                    continue
+                clargs[tparam[0]]=tparam[1]
                 
+    
+    
+    configpath=clargs["config"]
+    configpath=path.expanduser(configpath)
+    if configpath[-1]==os.sep:
+        configpath=configpath[:-1]
+    clargs["config"]=configpath
+    pluginpathes.insert(1,"{}{}plugins".format(configpath,os.sep))
+    
+    os.makedirs("{}{}config".format(configpath,os.sep),0o750,True)
+    os.makedirs("{}{}config{}plugins".format(configpath,os.sep,os.sep),0o750,True)
+    confm=configmanager("{}{}config{}{}".format(configpath,os.sep,os.sep,"clientgtkgui.conf"))
+    confm.update(dclargs,clargs)
     
     client.client_handler.webgui=False
     
-    config_path=path.expanduser(client_args["config"])
+    config_path=path.expanduser(clargs["config"])
     if config_path[-1]==os.sep:
         config_path=config_path[:-1]
-        
-        
+    
+    plugins_config="{}{}config{}plugins".format(configpath,os.sep,os.sep)
+    
+    if confm.getb("noplugins")==False:
+        pluginm=pluginmanager(pluginpathes,plugins_config)
+        if confm.getb("webgui")!=False:
+            pluginm.interfaces+=["web",]
+        if confm.getb("cmd")!=False:
+            pluginm.interfaces+=["cmd",]
+    else:
+        pluginm=None
+    
     #logging.debug("start client")
-    cm=gtk_client_init(**client_args)
+    cm=gtk_client_init(confm,pluginm)
+    
+    if confm.getb("noplugins")==False:
+        pluginm.init_plugins()
     
     
-    if client_args["noplugins"] is None:
-        plugconf=configmanager(config_path+os.sep+"plugins.config")
-        cm.links["client_server"].pluginmanager=pluginmanager(sys.path,plugconf)
-        if client_args["webgui"] is not None:
-            cm.links["client_server"].pluginmanager.interfaces+=["web",]
-        cm.links["client_server"].pluginmanager.interfaces+=["cmd",]
-        cm.links["client_server"].pluginmanager.interfaces+=["gui",]
-        cm.links["client_server"].pluginmanager.init_plugins(cm.links)
-    #logging.debug("add logging handler")
+    """if confm.getb("cmd")!=False:
+        logging.debug("start server")
+        cm.serve_forever_nonblock()
+        logging.debug("start console")
+        cm.cmd()
+    else:
+        logging.debug("start server")
+        cm.serve_forever_block()"""
     logging.debug("enter mainloop")
     while run==True:
         Gtk.main_iteration_do(True)

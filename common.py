@@ -214,8 +214,11 @@ class configmanager(object):
                 temp=func(self,self.dbcon,*args,**kwargs)
                 
             except Exception as e:
-                logging.error(e)
-                #raise(e)
+                if "tb_frame" in e.__dict__:
+                    st="{}\n\n{}".format(e,traceback.format_tb(e))
+                else:
+                    st=str(e)
+                logging.error(st)
             self.lock.release()
             return temp
         return funcwrap
@@ -306,8 +309,9 @@ class pluginmanager(object):
     resources=None
     redirect_addr=""
     interfaces=["main"]
+    plugins={}
     
-    def __init__(self,_pathes_plugins,_path_plugins_config,pluginenv=sys.path,resources={}):
+    def __init__(self, _pathes_plugins, _path_plugins_config, pluginenv=sys.path, resources={}):
         self.pluginenv=pluginenv.copy()
         self.pathes_plugins=_pathes_plugins
         self.path_plugins_config=_path_plugins_config
@@ -346,12 +350,18 @@ class pluginmanager(object):
                 pload.config=pconf
                 pload.resources=self.resources.copy()
                 #load interfaces
+                ret=False
                 for elem in self.interfaces:
                     try:
-                        pload.__dict__[elem]()
+                        ret=pload.__dict__[elem]()
                     except Exception as e:
-                        pass
-                self.__dict__["p_{}".format(plugin)]=pload
+                        if "tb_frame" in e.__dict__:
+                            st="{}\n\n{}".format(e,traceback.format_tb(e))
+                        else:
+                            st=str(e)
+                        logging.error(st)
+                if ret==True:
+                    self.plugins[plugin]=pload
     def register_remote(self,_addr):
         self.redirect_addr=_addr
 
@@ -409,9 +419,21 @@ def gen_passwd_hash(passwd,salt):
     return dhash_salt(ha,salt)
 
 
-def check_sqlitesafe(_name):
+"""def check_sqlitesafe(_name):
     if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
         "sqlite_" not in str(_name).lower():
+        return True
+    return False"""
+
+def check_reference(_reference):
+    if all(c not in "\0'\"\x1A\x7F" for c in _reference) and \
+        len(_reference)<100:
+        return True
+    return False
+
+def check_reference_type(_reference_type):
+    if all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type) and \
+        len(_reference_type)<10:
         return True
     return False
 
@@ -424,8 +446,10 @@ def check_hash(_hashstr):
 def check_name(_name, maxlength=64):
     #ensure no bad characters
     #name shouldn't be too big
-    #name shouldn't be isself as it is used
-    if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
+    #.:[]to differ name from ip address
+    #name shouldn't be isself as it is used 
+    if all(c not in " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
+        all(c not in ".:[]" for c in _name) and \
         len(_name)<=maxlength and \
         _name!="isself":
         return True
@@ -501,7 +525,11 @@ class certhash_db(object):
                 temp=func(self,dbcon,*args,**kwargs)
                 dbcon.close()
             except Exception as e:
-                logging.error(e)
+                if "tb_frame" in e.__dict__:
+                    st=str(e)+"\n\n"+str(traceback.format_tb(e))
+                else:
+                    st=str(e)
+                logging.error(st)
             return temp
         return funcwrap
 
@@ -647,6 +675,12 @@ class certhash_db(object):
         return True
     
     @connecttodb
+    def get(self,dbcon,_name,_certhash):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT type,priority,certreferenceid FROM certs WHERE name=? AND certhash=?;''',(_name,_certhash))
+        return cur.fetchone()
+    
+    @connecttodb
     def listcerts(self,dbcon,_name):
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=?  ORDER BY priority DESC;''',(_name,))
@@ -678,32 +712,6 @@ class certhash_db(object):
         return temmp
     
     @connecttodb
-    def addreference(self,dbcon,_referenceid,_reference,_reftype):
-        cur = dbcon.cursor()
-        cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,reftype) values(?,?,?);''', (_referenceid,_reference, _reftype))
-        dbcon.commit()
-        return True
-    
-    @connecttodb
-    def delreference(self,dbcon,_referenceid):
-        cur = dbcon.cursor()
-        cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=?;',(_certreferenceid,))
-        if cur.fetchone() is None:
-            logging.info("certreference doesn't exists")
-            return False
-        cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (_referenceid,))
-        dbcon.commit()
-        return True
-
-
-    @connecttodb
-    def getreferences(self,dbcon,_referenceid):
-        cur = dbcon.cursor()
-        cur.execute('''SELECT certreference,reftype FROM certreferences WHERE certreferenceid=?;''',(_referenceid))
-        return cur.fetchall()
-    
-    
-    @connecttodb
     def certhash_as_name(self,dbcon,_certhash):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''',(_certhash,))
@@ -724,4 +732,43 @@ class certhash_db(object):
             return False
         else:
             return True
-        
+    
+    @connecttodb
+    def addreference(self,dbcon,_referenceid,_reference,_reftype):
+        if check_reference(_reference)==False:
+            logging.error("reference invalid")
+            return False
+        if check_reference_type(_reference_type)==False:
+            logging.error("reference type invalid")
+            return False
+        cur = dbcon.cursor()
+        cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,reftype) values(?,?,?);''', (_referenceid,_reference, _reftype))
+        dbcon.commit()
+        return True
+    
+    @connecttodb
+    def delreference(self,dbcon,_referenceid,_reference):
+        cur = dbcon.cursor()
+        cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;',(_certreferenceid,_reference))
+        if cur.fetchone() is None:
+            logging.info("certreference doesn't exists")
+            return False
+        cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=;''', (_referenceid,_reference))
+        dbcon.commit()
+        return True
+
+    @connecttodb
+    def getreferences(self,dbcon,_referenceid):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT certreference,reftype FROM certreferences WHERE certreferenceid=?;''',(_referenceid))
+        return cur.fetchall()
+    
+    @connecttodb
+    def findbyref(self,dbcon,_reference):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT certreferenceid FROM certreferences WHERE reference=?;''',(_reference))
+        temp=cur.fetchone()
+        if temp is None:
+            return None
+        cur.execute('''SELECT name,certhash,type,priority FROM certs WHERE certreferenceid=?;''',(_referenceid))
+        return cur.fetchall()
