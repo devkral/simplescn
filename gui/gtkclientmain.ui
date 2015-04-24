@@ -23,15 +23,25 @@
   </object>
   <object class="GtkApplicationWindow" id="infowin">
     <property name="can_focus">False</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="icon">icon.png</property>
+    <signal name="delete-event" handler="close" swapped="no"/>
     <child>
       <object class="GtkGrid" id="infomaingrid">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
+        <property name="halign">center</property>
         <property name="hexpand">True</property>
         <child>
           <object class="GtkSeparator" id="separator2">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="margin_left">4</property>
+            <property name="margin_right">4</property>
+            <property name="margin_top">3</property>
+            <property name="margin_bottom">3</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -44,8 +54,9 @@
             <property name="can_focus">False</property>
             <property name="halign">center</property>
             <property name="hexpand">True</property>
+            <property name="column_spacing">6</property>
             <child>
-              <object class="GtkLabel" id="label1">
+              <object class="GtkLabel" id="infonamelllll">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="halign">end</property>
@@ -57,11 +68,11 @@
               </packing>
             </child>
             <child>
-              <object class="GtkLabel" id="infonamelabel">
+              <object class="GtkLabel" id="infonamel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="halign">start</property>
-                <property name="label" translatable="yes">&lt;name&gt;</property>
+                <property name="label" translatable="yes">&lt;unknown&gt;</property>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -76,9 +87,38 @@
           </packing>
         </child>
         <child>
-          <object class="GtkListBox" id="col1">
+          <object class="GtkGrid" id="col1">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">center</property>
+            <property name="orientation">vertical</property>
+            <property name="column_spacing">6</property>
+            <child>
+              <object class="GtkLabel" id="hashlabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Hash:</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="hashl">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="hexpand">True</property>
+                <property name="wrap">True</property>
+                <property name="wrap_mode">char</property>
+                <property name="ellipsize">end</property>
+                <property name="track_visited_links">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -86,9 +126,33 @@
           </packing>
         </child>
         <child>
-          <object class="GtkListBox" id="listbox2">
+          <object class="GtkGrid" id="col2">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="orientation">vertical</property>
+            <property name="column_spacing">6</property>
+            <child>
+              <object class="GtkLabel" id="addresslabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Adress:</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="addressl">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="hexpand">True</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="left_attach">2</property>
@@ -122,7 +186,9 @@
   <object class="GtkApplicationWindow" id="mainwin">
     <property name="visible">True</property>
     <property name="can_focus">True</property>
+    <property name="title" translatable="yes">Simple Communication Nodes</property>
     <property name="icon">icon.png</property>
+    <signal name="delete-event" handler="close" swapped="no"/>
     <child>
       <object class="GtkGrid" id="mainwinmaingrid">
         <property name="visible">True</property>
@@ -222,7 +288,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkGrid" id="grid3">
+          <object class="GtkGrid" id="servergrid">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
@@ -250,6 +316,8 @@
                 <child internal-child="entry">
                   <object class="GtkEntry" id="servercomboentry">
                     <property name="can_focus">True</property>
+                    <signal name="activate" handler="veristate_server" swapped="no"/>
+                    <signal name="focus-out-event" handler="veristate_server" swapped="no"/>
                   </object>
                 </child>
               </object>
@@ -265,9 +333,20 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="halign">start</property>
+                <signal name="clicked" handler="retrieve_server" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">2</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="veristateserver">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">3</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -377,7 +456,7 @@
                       <object class="GtkMenuItem" id="delserverhash">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Delete server from friend</property>
+                        <property name="label" translatable="yes">_Delete server from friends</property>
                         <property name="use_underline">True</property>
                       </object>
                     </child>
@@ -387,6 +466,16 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Open server</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="retrieve_server" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="infoserver">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Info server</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="server_info" swapped="no"/>
                       </object>
                     </child>
                   </object>

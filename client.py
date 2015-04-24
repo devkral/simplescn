@@ -48,8 +48,8 @@ class client_client(object):
         else:
             val=self.hashdb.certhash_as_name(dhash(pcert))
             #print(dparam)
-            if dparam["certname"] is not None and dparam["certname"]!=val:
-                raise(VALNameError)
+            #if dparam["certname"] is not None and dparam["certname"]!=val:
+            #    raise(VALNameError)
             if val=="isself":
                 raise(VALNameError)
 
@@ -132,6 +132,8 @@ class client_client(object):
         _ha=self.gethash(server_addr,dparam)
         if _ha[0]==False:
             return _ha
+        if _ha[1][0]==self.cert_hash:
+            return (True,(isself,_ha[1][0]),isself,self.cert_hash)
         temp=self.hashdb.certhash_as_name(_ha[1][0])
         return (True,(temp,_ha[1][0]),isself,self.cert_hash)
 

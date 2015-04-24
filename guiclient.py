@@ -20,42 +20,92 @@ scnparse_url,server_port,check_hash,configmanager,pluginmanager
 
 messageid=0
 
-class gtkclient_node(logging.NullHandler):
+class gtkclient_template(Gtk.Builder):
     builder=None
     links=None
-
-    def __init__(self,links,_address,shash=None):
+    win=None
+    dparam=None
+    address=None
+    
+    def __init__(self,_file,links,_address,dparam,objectlist=None):
+        Gtk.Builder.__init__(self)
         self.links=links
+        self.dparam=dparam
+        self.address=_address
         
-        self.builder=Gtk.Builder()
-        self.builder.set_application(links["gtkclient"])
-        self.builder.add_objects_from_file(sharedir+"gui/gtkclientnode.ui")
+        self.set_application(links["gtkclient"])
+        if objectlist is None:
+            self.add_from_file(_file)
+        else:
+            self.add_objects_from_file(_file,objectlist)
+
+    def do_requestdo(self,action,*requeststrs,parse=-1):
+        requeststrs+=(self.dparam,)
+        self.links["gtkclient"].do_requestdo(action,*requeststrs,parse=parse)
+    
+    def close(self,*args):
+        self.links["gtkclient"].remove_window(self.win)
+        del self
+
+class gtkclient_node(gtkclient_template):
+    
+    def __init__(self,links,_address,dparam):
+        gtkclient_template.__init__(self,sharedir+"gui/gtkclientnode.ui",links,_address,dparam)
+        self.win=self.get_object("nodewin")
+    
+class gtkclient_server(gtkclient_template):
+    
+    def __init__(self,links,_address,dparam):
+        gtkclient_template.__init__(self,sharedir+"gui/gtkclientserver.ui",links,_address,dparam)
+        
+        self.win=self.get_object("serverwin")
+    
+
+class gtkclient_info(gtkclient_template):
+    col1count=1
+    col2count=1
+    col1=None
+    col1=None
+    name=None
+    def __init__(self,links,_address,dparam,name="<unknown>"):
+        gtkclient_template.__init__(self,sharedir+"gui/gtkclientmain.ui",links,_address,dparam,["infowin",])
+        self.name=name
+        #self.get_object("col1").set_orientation(Gtk.Orientation.VERTICAL)
+        col1=self.get_object("col1")
+        col2=self.get_object("col2")
+        self.win=self.get_object("infowin")
+        self.win.set_visible(True)
+        self.update()
+        
+    def update(self):
+        self.get_object("addressl").set_text(self.address)
+        self.get_object("infonamel").set_text(self.name)
+        if self.dparam["certhash"] is not None:
+            self.get_object("hashl").set_text(self.dparam["certhash"])
+        else:
+            self.get_object("hashl").set_text("<None>")
+        
         
     
-class gtkclient_server(logging.NullHandler):
-    builder=None
-    links=None
-
-    def __init__(self,links,_address,shash=None):
-        self.links=links
+        #_info=self.do_requestdo("info",self.address,parse=2)
+        #if _info[0]==True:
+        #    pass
+    
+    def col1_entry(self,name,value):
+        col1.insert(self.col1count)
+        self.col1count+=1
         
-        self.builder=Gtk.Builder()
-        self.builder.set_application(links["gtkclient"])
-        self.builder.add_objects_from_file(sharedir+"gui/gtkclientserver.ui")
-
-class gtkclient_info(logging.NullHandler):
-    builder=None
-    links=None
-
-    def __init__(self,links,_address,shash=None):
-        self.links=links
         
-        self.builder=Gtk.Builder()
-        self.builder.set_application(links["gtkclient"])
-        self.builder.add_objects_from_file(sharedir+"gui/gtkclientmain.ui",["infowin",])
         
+    def col2_entry(self,name,value):
+        col2.insert(self.col2count)
+        
+        self.col2count+=1
+    
 
 class gtkclient_main(logging.NullHandler,Gtk.Application):
+    links=None
+    
     builder=None
     clip=None
     win=None
@@ -67,10 +117,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     recentstore=None
     remote_client=None
     use_remote_client=False
-    param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
-    param_server={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
-    param_node={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
-
+    #param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
+    param_server={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+    param_node={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+    
 
     cert_hash=None
     #start_url_hash=(None,None)
@@ -194,7 +244,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     def do_requestdo(self,action,*requeststrs,parse=-1):
         if self.use_remote_client==False:
-            return self.links["client"].__all__[action](*requeststrs)
+            return client.client_client.__dict__[action](self.links["client"],*requeststrs)
+            #self.links["client"].__dict__[action](*requeststrs)
         """else:
             temp="/do/{}".format(action)
             for elem in requeststrs:
@@ -238,13 +289,76 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.statusbar.push(messageid, record.message)
         self.pushmanage()
     
-    def gtkretrieve_server(self,*args):
-        serverurl=self.builder.get_object("servercomboentry").get_text()
+    def _verifyserver(self,serverurl):
+        _veri=self.builder.get_object("veristateserver")
         
+        _hash=self.do_requestdo("ask",serverurl,self.param_server)
+        if _hash[0]==False:
+            _veri.set_text("")
+            return None
+            
+        if _hash[1][0] is None:
+            _veri.set_text("Unknown server")
+        elif _hash[1][0] is isself:
+            _veri.set_text("This client")
+        else:
+            _veri.set_text("Verified as:\n{}".format(_hash[1][0]))
+        return _hash[1]
+        
+    def veristate_server(self,*args):
+        serverurl=self.builder.get_object("servercomboentry").get_text()
+        self._verifyserver(serverurl)
+    
+        
+    def server_info(self,*args):
+        serverurl=self.builder.get_object("servercomboentry").get_text()
+        temp=self._verifyserver(serverurl)
+        tdparam=self.param_server.copy()
+        if temp is not None:
+            tdparam["certhash"]=temp[1]
+            if temp[0] is None:
+                gtkclient_info(self.links,serverurl,tdparam)
+            elif temp[0] is isself:
+                gtkclient_info(self.links,serverurl,tdparam,"This client")
+            else:
+                gtkclient_info(self.links,serverurl,tdparam,temp[0])
 
+        else:
+            gtkclient_info(self.links,serverurl,tdparam)
+        
+    def node_info(self,*args):
+        #serverurl=self.builder.get_object("servercomboentry").get_text()
+        tdparam=self.param_node.copy()
+        temp=None
+        if temp is not None:
+            tdparam["certhash"]=temp[1]
+            gtkclient_info(self.links,nodeurl,tdparam,temp[0])
+        else:
+            gtkclient_info(self.links,nodeurl,tdparam)
 
-
-    def gtkclose(self,*args):
+    
+    def retrieve_server(self,*args):
+        serverurl=self.builder.get_object("servercomboentry").get_text()
+        temp=self._verifyserver(serverurl)
+        if temp is None:
+            return
+        temp=temp[1]
+        tdparam=self.param_server.copy()
+        tdparam["certhash"]=temp
+        gtkclient_server(self.links,serverurl,tdparam)
+        
+    def add_serverhash(self,*args):
+        temp=self._verifyserver(serverurl)
+        if temp is None:
+            #
+            return
+        if temp[0] is not None:
+            return
+        
+        
+        
+        
+    def close(self,*args):
         global run
         run=False
 
