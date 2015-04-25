@@ -59,13 +59,14 @@ class gtkclient_server(gtkclient_template):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientserver.ui",links,_address,dparam)
         
         self.win=self.get_object("serverwin")
+        
+    def serveraction(self,*args):
+        pass
     
+    def snode_get(self,*args):
+        pass
 
 class gtkclient_info(gtkclient_template):
-    col1count=1
-    col2count=1
-    col1=None
-    col1=None
     name=None
     def __init__(self,links,_address,dparam,name="<unknown>"):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientmain.ui",links,_address,dparam,["infowin",])
@@ -92,15 +93,12 @@ class gtkclient_info(gtkclient_template):
         #    pass
     
     def col1_entry(self,name,value):
-        col1.insert(self.col1count)
-        self.col1count+=1
+        pass
         
         
         
     def col2_entry(self,name,value):
-        col2.insert(self.col2count)
-        
-        self.col2count+=1
+        pass
     
 
 class gtkclient_main(logging.NullHandler,Gtk.Application):
@@ -326,15 +324,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         else:
             gtkclient_info(self.links,serverurl,tdparam)
         
-    def node_info(self,*args):
-        #serverurl=self.builder.get_object("servercomboentry").get_text()
-        tdparam=self.param_node.copy()
-        temp=None
-        if temp is not None:
-            tdparam["certhash"]=temp[1]
-            gtkclient_info(self.links,nodeurl,tdparam,temp[0])
-        else:
-            gtkclient_info(self.links,nodeurl,tdparam)
+
 
     
     def retrieve_server(self,*args):
@@ -347,16 +337,71 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         tdparam["certhash"]=temp
         gtkclient_server(self.links,serverurl,tdparam)
         
-    def add_serverhash(self,*args):
+    
+    #### node actions ####
+    def addnodehash(self,*args):
+        pass
+    
+    def delnodehash(self,*args):
+        pass
+    
+    def enternode(self,*args):
+        pass
+    
+    def opennode(self,*args):
+        pass
+        
+    def infonode(self,*args):
+        #serverurl=self.builder.get_object("servercomboentry").get_text()
+        tdparam=self.param_node.copy()
+        temp=None
+        if temp is not None:
+            tdparam["certhash"]=temp[1]
+            gtkclient_info(self.links,nodeurl,tdparam,temp[0])
+        else:
+            gtkclient_info(self.links,nodeurl,tdparam)
+            
+    def select_recent(self,*args):
+        pass
+        
+    #### server actions ####
+    
+    def addserverhash(self,*args):
         temp=self._verifyserver(serverurl)
         if temp is None:
             #
             return
         if temp[0] is not None:
             return
+    
+    def delserverhash(self,*args):
+        pass
         
+    
+    
+    
+    #### client actions ####
+    
+    def useremoteclient(self,*args):
+        pass
         
+    
+    #### misc actions ####
+    
+    def debugme(self,*args):
+        pass
         
+    def cmdmenu(self,*args):
+        pass
+        
+    def aboutme(self, args):
+        pass
+        
+    def select_local(self,*args):
+        pass
+        
+    def client_help(self, args):
+        pass
         
     def close(self,*args):
         global run

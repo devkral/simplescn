@@ -2,7 +2,7 @@
 <!-- Generated with glade 3.18.3 -->
 <interface>
   <requires lib="gtk+" version="3.12"/>
-  <object class="GtkApplicationWindow" id="applicationwindow1">
+  <object class="GtkApplicationWindow" id="clientdialog">
     <property name="can_focus">False</property>
     <child>
       <object class="GtkGrid" id="grid1">
@@ -247,6 +247,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="model">localstore</property>
+                    <signal name="row-activated" handler="select_local" swapped="no"/>
                     <child internal-child="selection">
                       <object class="GtkTreeSelection" id="treeview-selection1"/>
                     </child>
@@ -270,6 +271,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="model">recentstore</property>
+                    <signal name="row-activated" handler="select_recent" swapped="no"/>
                     <child internal-child="selection">
                       <object class="GtkTreeSelection" id="treeview-selection2"/>
                     </child>
@@ -316,7 +318,7 @@
                 <child internal-child="entry">
                   <object class="GtkEntry" id="servercomboentry">
                     <property name="can_focus">True</property>
-                    <signal name="activate" handler="veristate_server" swapped="no"/>
+                    <signal name="activate" handler="retrieve_server" swapped="no"/>
                     <signal name="focus-out-event" handler="veristate_server" swapped="no"/>
                   </object>
                 </child>
@@ -398,6 +400,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Add node to friends</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="addnodehash" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -406,6 +409,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Delete node from friends</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="delnodehash" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -414,6 +418,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Enter node adress manually</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="enternode" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -423,11 +428,21 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkMenuItem" id="infonode">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Info node</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="infonode" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkMenuItem" id="opennode">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Open node</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="opennode" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -450,6 +465,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Add server to friends</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="addserverhash" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -458,6 +474,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Delete server from friends</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="delserverhash" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -501,18 +518,29 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <object class="GtkMenuItem" id="aboutm">
+                      <object class="GtkMenuItem" id="aboutme">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_About</property>
+                        <signal name="activate" handler="aboutme" swapped="no"/>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkMenuItem" id="debugmi">
+                      <object class="GtkMenuItem" id="debugme">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Debug Window</property>
+                        <property name="label" translatable="yes">_Debug</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="debugme" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkCheckMenuItem" id="cmdmenu">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Command</property>
+                        <property name="use_underline">True</property>
+                        <signal name="toggled" handler="cmdmenu" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -521,6 +549,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Help</property>
                         <property name="use_underline">True</property>
+                        <signal name="activate" handler="client_help" swapped="no"/>
                       </object>
                     </child>
                   </object>
