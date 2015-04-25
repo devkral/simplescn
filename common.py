@@ -376,7 +376,7 @@ class commonscn(object):
     cert_hash=None
     scn_type="unknown"
     pluginmanager=None
-    config=None
+    #config=None
     
     #validactions=[]
     

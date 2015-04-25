@@ -26,6 +26,7 @@ class gtkclient_template(Gtk.Builder):
     win=None
     dparam=None
     address=None
+    #autoclose=0 #closes window after a timeperiod
     
     def __init__(self,_file,links,_address,dparam,objectlist=None):
         Gtk.Builder.__init__(self)
@@ -52,6 +53,17 @@ class gtkclient_node(gtkclient_template):
     def __init__(self,links,_address,dparam):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientnode.ui",links,_address,dparam)
         self.win=self.get_object("nodewin")
+        
+    self.update()
+    
+    def update(self,*args):
+        pass
+    
+    def update_plugins(self,*args):
+        pass
+    
+    def activate_action(self,*args):
+        pass
     
 class gtkclient_server(gtkclient_template):
     
@@ -59,12 +71,27 @@ class gtkclient_server(gtkclient_template):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientserver.ui",links,_address,dparam)
         
         self.win=self.get_object("serverwin")
-        
-    def serveraction(self,*args):
+        self.update()
+    
+    def update(self,*args):
         pass
+    
+    def update_plugins(self,*args):
+        pass
+    
+    def activate_action(self,*args):
+        pass
+    
     
     def snode_get(self,*args):
         pass
+        
+    def snode_select(self,*args):
+        pass
+    
+    def snode_filter(self,*args):
+        pass
+    
 
 class gtkclient_info(gtkclient_template):
     name=None

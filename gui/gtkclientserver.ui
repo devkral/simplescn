@@ -6,9 +6,6 @@
     <property name="visible">True</property>
     <property name="can_focus">False</property>
   </object>
-  <object class="GtkEntryCompletion" id="servernodeentryc">
-    <property name="inline_selection">True</property>
-  </object>
   <object class="GtkListStore" id="servernodeslist">
     <columns>
       <!-- column-name name -->
@@ -18,6 +15,14 @@
       <!-- column-name namehashnotshown -->
       <column type="gchararray"/>
     </columns>
+  </object>
+  <object class="GtkEntryCompletion" id="servernodeentryc">
+    <property name="model">servernodeslist</property>
+    <property name="text_column">2</property>
+    <property name="inline_selection">True</property>
+  </object>
+  <object class="GtkTreeModelFilter" id="snodefilter">
+    <property name="child_model">servernodeslist</property>
   </object>
   <object class="GtkApplicationWindow" id="serverwin">
     <property name="visible">True</property>
@@ -40,7 +45,9 @@
               <object class="GtkTreeView" id="servernodeview">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="model">servernodeslist</property>
+                <property name="model">snodefilter</property>
+                <signal name="row-activated" handler="snode_get" swapped="no"/>
+                <signal name="select-cursor-row" handler="snode_select" swapped="no"/>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="treeview-selection"/>
                 </child>
@@ -79,6 +86,7 @@
                 <property name="completion">servernodeentryc</property>
                 <property name="input_hints">GTK_INPUT_HINT_WORD_COMPLETION | GTK_INPUT_HINT_NONE</property>
                 <signal name="activate" handler="server_get" swapped="no"/>
+                <signal name="changed" handler="snode_filter" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -92,28 +100,48 @@
           </packing>
         </child>
         <child>
-          <object class="GtkMenuButton" id="pluginmenu">
+          <object class="GtkGrid" id="grid2">
             <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">True</property>
-            <property name="opacity">0.98999999999999999</property>
-            <property name="halign">start</property>
-            <property name="resize_mode">immediate</property>
-            <property name="xalign">0</property>
-            <property name="yalign">0</property>
-            <property name="popup">actions</property>
-            <signal name="toggled" handler="serveraction" swapped="no"/>
+            <property name="can_focus">False</property>
             <child>
-              <object class="GtkLabel" id="label1">
+              <object class="GtkMenuButton" id="pluginmenu">
                 <property name="visible">True</property>
-                <property name="sensitive">False</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Actions</property>
-                <property name="track_visited_links">False</property>
-                <attributes>
-                  <attribute name="underline" value="True"/>
-                </attributes>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="opacity">0.98999999999999999</property>
+                <property name="halign">start</property>
+                <property name="resize_mode">immediate</property>
+                <property name="xalign">0</property>
+                <property name="yalign">0</property>
+                <property name="popup">actions</property>
+                <signal name="toggled" handler="activate_action" swapped="no"/>
+                <child>
+                  <object class="GtkLabel" id="label1">
+                    <property name="visible">True</property>
+                    <property name="sensitive">False</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">Actions</property>
+                    <property name="track_visited_links">False</property>
+                    <attributes>
+                      <attribute name="underline" value="True"/>
+                    </attributes>
+                  </object>
+                </child>
               </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="veristate">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
             </child>
           </object>
           <packing>

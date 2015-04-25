@@ -151,7 +151,13 @@ class server_handler(BaseHTTPRequestHandler):
         
         with open(_ppath,"rb") as rob:
             self.wfile.write(rob.read())
-
+    """
+    WWW-Authenticate: Digest realm="testrealm@host.com",
+                        qop="auth,auth-int",
+                        algorithm="SHA256", or should I use SHA256session
+                        nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
+                        opaque="5ccc069c403ebaf9f0171e9517f40e41"
+                        """
     #check server password
     def check_spw(self):
         if self.spwhash is None:
@@ -160,7 +166,13 @@ class server_handler(BaseHTTPRequestHandler):
             if dhash_salt(self.headers["spwhash"],self.salt)==self.spwhash:
                 return True
         return False
-
+    """
+    WWW-Authenticate: Digest realm="testrealm@host.com",
+                        qop="auth,auth-int",
+                        algorithm="SHA256", or should I use SHA256session
+                        nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
+                        opaque="5ccc069c403ebaf9f0171e9517f40e41"
+                        """
     #check server password
     def check_tpw(self):
         if self.tpwhash is None:

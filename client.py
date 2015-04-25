@@ -520,7 +520,13 @@ class client_handler(BaseHTTPRequestHandler):
         with open(_ppath,"rb") as rob:
             self.wfile.write(rob.read())
             #.format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
-        
+    """
+    WWW-Authenticate: Digest realm="testrealm@host.com",
+                        qop="auth,auth-int",
+                        algorithm="SHA256", or should I use SHA256session
+                        nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
+                        opaque="5ccc069c403ebaf9f0171e9517f40e41"
+                        """
     def check_cpw(self,dparam):
         if self.cpwhash is None:
             return True
@@ -730,12 +736,12 @@ class client_handler(BaseHTTPRequestHandler):
                 else:
                     self.send_error(400,"invalid key/value pair\n{}".format(elem))
                     return
-                                
         else:
             _cmdlist=self.path[1:].split("/")
+        
         action=_cmdlist[0]
         if action=="do":
-            self.handle_client(_cmdlist[1:],dparam) #remove do
+            self.handle_client(_cmdlist[1:],dparam) #removes do
     
 
     def do_POST(self):
@@ -843,7 +849,7 @@ class client_init(object):
             port=0
 
         self.links["client_server"]=client_server(_name[0],confm.get("priority"),dhash(pub_cert),_message)
-        self.links["client_server"].configmanager=confm
+        self.links["configmanager"]=confm
         self.links["client_server"].pluginmanager=pluginm
         
             
@@ -869,6 +875,12 @@ class client_init(object):
             unparsed=inp.strip(" ").rstrip(" ")
             if unparsed[:5]=="hash/":
                 print(dhash(unparsed[6:]))
+                continue
+            if unparsed[:4]=="set/":
+                keyvalue=unparsed[5:].split(1)
+                if len(keyvalue)==1:
+                    continue
+                self.links["configmanager"].set(keyvalue[0],keyvalue[1])
                 continue
             if unparsed[:4]=="help":
                 cmdhelp()
