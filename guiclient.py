@@ -466,14 +466,13 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if temp is not None:
             tdparam["certhash"]=temp[1]
             if temp[0] is None:
-                gtkclient_info(self.links,serverurl,tdparam)
+                name=serverurl[:20]
             elif temp[0] is isself:
-                gtkclient_info(self.links,serverurl,tdparam,"This client")
+                name="Own server"
             else:
-                gtkclient_info(self.links,serverurl,tdparam,temp[0])
+                name=temp[0]
+            gtkclient_info(self.links,serverurl,tdparam,name)
 
-        else:
-            gtkclient_info(self.links,serverurl,tdparam)
         
 
 
