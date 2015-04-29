@@ -164,34 +164,15 @@ class client_client(object):
     def getservice(self,client_addr,_service,dparam):
         return self.do_request(client_addr, "/getservice/{}".format(_service),dparam)
 
-    def registerservice(self,*args):
-        if len(args)==3:
-            _servicename,_port,dparam=args
-            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==4:
-            client_addr,_servicename,_port,dparam=args
-        else:
-            return (False,("wrong amount arguments","{}".format(args)))
-        
-        temp= self.do_request(client_addr, "/registerservice/{}/{}".format(_servicename,_port),dparam,forceport=True)
-        if len(args)==3 and temp[2] is not isself:
-            raise(VALNameError)
-        return temp
+    def registerservice(self,_servicename,_port,dparam):
+        self.links["client_server"].spmap[_servicename]=_port
+        return (True,"service registered",isself,self.cert_hash)
 
-    def delservice(self,*args):
-        if len(args)==2:
-            _servicename,dparam=args
-            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==3:
-            client_addr,_servicename,dparam=args
-        else:
-            return (False,("wrong amount arguments","{}".format(args)))
+    def delservice(self,_servicename,dparam):
+        if _servicename in self.spmap:
+            del self.links["client_server"].spmap[_servicename]
+        return (True,"service deleted",isself,self.cert_hash)
         
-        temp= self.do_request(client_addr, "/delservice/{}".format(_servicename),dparam,forceport=True)
-        if len(args)==3 and temp[2] is not isself:
-            raise(VALNameError)
-        return temp
-
     def listservices(self,*args):
         if len(args)==1:
             dparam=args[0]
@@ -444,7 +425,8 @@ class client_server(commonscn):
     capabilities=["basic",]
     scn_type="client"
     spmap={}
-    validactions={"info","getservice","registerservice","listservices","cap","prioty","delservice"}
+    validactions={"info","getservice","listservices","cap","prioty"}
+    local_client_service_control=False
     def __init__(self,_name,_priority,_cert_hash,_message):
         if len(_name)==0:
             logging.debug("Name empty")
@@ -459,20 +441,10 @@ class client_server(commonscn):
         self.priority=_priority
         self.cert_hash=_cert_hash
         
+        if local_client_service_control==True:
+            validactions.update({"registerservice","delservice"})
         self.update_cache()
-    
-    def getservice(self,_service,_addr):
-        if _service not in self.spmap:
-            return "{}/service".format(error)
-        return "{}/{}".format(success,self.spmap[_service])
-    def listservices(self,_addr):
-        temp=""
-        for _service in self.spmap:
-            temp="{}\n{}&{}".format(temp,_service,self.spmap[_service])
-        if len(temp)==0:
-            return "{}/empty".format(success)
-        return "{}/{}".format(success,temp[1:])
-    
+    ### management section - maybe removed ###
     def registerservice(self,_service,_port,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             self.spmap[_service]=_port
@@ -485,6 +457,20 @@ class client_server(commonscn):
                 del self.spmap[_service]
             return "{}/removed".format(success)
         return error
+        
+    ### management section - end ###
+    
+    def getservice(self,_service,_addr):
+        if _service not in self.spmap:
+            return "{}/service".format(error)
+        return "{}/{}".format(success,self.spmap[_service])
+    def listservices(self,_addr):
+        temp=""
+        for _service in self.spmap:
+            temp="{}\n{}&{}".format(temp,_service,self.spmap[_service])
+        if len(temp)==0:
+            return "{}/empty".format(success)
+        return "{}/{}".format(success,temp[1:])
 
     def info(self,_addr):
         return self.cache["info"]
