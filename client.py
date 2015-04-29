@@ -26,7 +26,7 @@ class client_client(object):
     links=None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","get","listhashes","listnodenametypes", "searchhash", "addname", "delname", "updatename", "listnames", "listnodenames", "listall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
+    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addname", "delname", "updatename", "listnames", "listnodenames", "listall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -99,19 +99,20 @@ class client_client(object):
     def register(self,server_addr,dparam):
         return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dparam)
     
-    def get(self,server_addr,_name,_hash,dparam):
+    def get(self, server_addr, _name, _hash, dparam):
         temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dparam)
         try:
             address,port=temp[1].rsplit(":",1)
         except ValueError:
             return (False,"splitting not possible",temp[1])
         try:
-            temp=(temp[0],(address,int(port)),temp[2])
-            if temp[1][1]<1:
+            temp2=(temp[0],(address,int(port)),temp[2],temp[3])
+            if temp2[1][1]<1:
                 return (False,"port <1",temp[1])
         except ValueError:
             return (False,"port not a number",temp[1])
-        return temp
+        return temp2
+        
     
     def gethash(self,_addr,dparam):
         _addr=_addr.split(":")
@@ -132,8 +133,9 @@ class client_client(object):
         _ha=self.gethash(server_addr,dparam)
         if _ha[0]==False:
             return _ha
+        
         if _ha[1][0]==self.cert_hash:
-            return (True,(isself,_ha[1][0]),isself,self.cert_hash)
+            return (True,(isself,self.cert_hash),isself,self.cert_hash)
         temp=self.hashdb.certhash_as_name(_ha[1][0])
         return (True,(temp,_ha[1][0]),isself,self.cert_hash)
 
@@ -343,7 +345,7 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
             
-    def get(self,_name,_certhash,_dparam):
+    def getlocal(self,_name,_certhash,_dparam):
         temp=self.hashdb.get(_name,_certhash)
         if temp is None:
             return(False, error)

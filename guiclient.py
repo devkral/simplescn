@@ -45,6 +45,7 @@ class gtkclient_template(Gtk.Builder):
         return self.links["gtkclient"].do_requestdo(action,*requeststrs,parse=parse)
     
     def close(self,*args):
+        self.win.destroy()
         self.links["gtkclient"].remove_window(self.win)
         del self
 
@@ -70,25 +71,34 @@ class gtkclient_node(gtkclient_template):
     
 class gtkclient_server(gtkclient_template):
     isregistered=False
+    
+    def visible_func (self,_model,_iter,_data):
+        _entry=self.get_object("servernodeentry")
+        _val=_entry.get_text()
+        if _val==_model[_iter][3][:len(_val)]:
+            return True
+        else:
+            return False
+    
     def __init__(self,links,_address,dparam):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientserver.ui",links,_address,dparam)
         self.win=self.get_object("serverwin")
+        self.filter=self.get_object("snodefilter")
         view=self.get_object("servernodeview")
         col0renderer=Gtk.CellRendererText()
-        col0 = Gtk.TreeViewColumn("Name", col0renderer, text=0)
+        col0 = Gtk.TreeViewColumn("state", col0renderer, text=0)
         view.append_column(col0)
         col1renderer=Gtk.CellRendererText()
-        col1 = Gtk.TreeViewColumn("Hash", col1renderer, text=1)
+        col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
         view.append_column(col1)
         col2renderer=Gtk.CellRendererText()
-        col2 = Gtk.TreeViewColumn("Name\n(local)", col2renderer, text=2)
+        col2 = Gtk.TreeViewColumn("Hash", col2renderer, text=2)
         view.append_column(col2)
         
         
+        self.filter.set_visible_func(self.visible_func)
+        
         self.connect_signals(self)
-        
-        
-        
         self.update()
     
     def update(self,*args):
@@ -102,12 +112,12 @@ class gtkclient_server(gtkclient_template):
             return
         for elem in _names[1]:
             if elem[2] is None:
-                namestore.append((elem[0],elem[1],"","{}/{}".format(elem[0],elem[1])))
+                namestore.append(("",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
             elif elem[2] is isself:
                 self.isregistered=True
-                namestore.append((elem[0],elem[1],"This client","{}/{}".format(elem[0],elem[1])))
+                namestore.append(("i",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
             else:
-                namestore.append((elem[0],elem[1],elem[2],"{}/{}".format(elem[0],elem[1])))
+                namestore.append(("l",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
         if self.isregistered==False:
             registerb.set_label("Register")
         else:
@@ -123,14 +133,41 @@ class gtkclient_server(gtkclient_template):
     
     
     def snode_get(self,*args):
-        pass
+        _entry=self.get_object("servernodeentry")
+        val=_entry.get_text()
+        if val=="" or val.find("/")==-1:
+            return
+        _name,_hash=_entry.get_text().split("/",1)
+        _node=self.do_requestdo("get",self.address,_name,_hash)
+        if _node[0]==False:
+            logging.debug("get failed")
+            return
         
+        self.links["gtkclient"].set_curnode(_node[1],_name,_hash)
+        self.close()
+        
+    def snode_activate(self,*args):
+        view=self.get_object("servernodeview")
+        _entry=self.get_object("servernodeentry")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _entry.set_text(_sel[0][_sel[1]][0])
+        self.snode_get()
+        
+        
+    
     def snode_select(self,*args):
-        pass
+        view=self.get_object("servernodeview")
+        _entry=self.get_object("servernodeentry")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _entry.set_text(_sel[0][_sel[1]][3])
+        
     
     def snode_filter(self,*args):
-        pass
-    
+        self.filter.refilter()
     
     def register(self,*args):
         namestore=self.get_object("servernodelist")
@@ -179,6 +216,8 @@ class gtkclient_info(gtkclient_template):
 
 class gtkclient_main(logging.NullHandler,Gtk.Application):
     links=None
+
+    curnode=None
     
     builder=None
     clip=None
@@ -318,10 +357,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     def do_requestdo(self,action,*requeststrs,parse=-1):
         if True: #self.use_remote_client==False:
-            ret=client.client_client.__dict__[action](self.links["client"],*requeststrs)
-            if ret is None:
-                logging.error("Return value invalid")
-            return ret
+            return client.client_client.__dict__[action](self.links["client"],*requeststrs)
             #self.links["client"].__dict__[action](*requeststrs)
         """else:
             temp="/do/{}".format(action)
@@ -386,6 +422,25 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         serverurl=self.builder.get_object("servercomboentry").get_text()
         self._verifyserver(serverurl)
     
+    def set_curnode(self,_addresstupel,_name,_hash):
+        self.curnode=(_addresstupel,_name,_hash)
+        cnode=self.builder.get_object("curnode")
+        cnodeorigin=self.builder.get_object("nodeorigin")
+        _ask=self.do_requestdo("ask",_name,_hash)
+        if _ask[0]==False:
+            cnodeorigin.set_text("invalid")
+            cnode.set_text("")
+            self.curnode=None
+        elif _ask[1][0] is None:
+            cnodeorigin.set_text("remote:")
+            cnode.set_text(_name)
+        elif _ask[1][0] is isself:
+            cnodeorigin.set_text("This client")
+            cnode.set_text("")
+        else:
+            cnodeorigin.set_text("verified:")
+            cnode.set_text(_ask[1][0])
+        
         
     def server_info(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
@@ -485,6 +540,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def close(self,*args):
         global run
         run=False
+        self.win.destroy()
 
 
 class gtk_client_init(client.client_init):

@@ -27,6 +27,7 @@
   <object class="GtkEntryCompletion" id="servernodeentryc">
     <property name="model">servernodelist</property>
     <property name="text_column">3</property>
+    <property name="inline_completion">True</property>
     <property name="inline_selection">True</property>
   </object>
   <object class="GtkTreeModelFilter" id="snodefilter">
@@ -49,11 +50,13 @@
             <property name="vexpand">True</property>
             <property name="shadow_type">in</property>
             <property name="min_content_width">100</property>
+            <property name="min_content_height">100</property>
             <child>
               <object class="GtkTreeView" id="servernodeview">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="model">snodefilter</property>
+                <signal name="cursor-changed" handler="snode_select" swapped="no"/>
                 <signal name="row-activated" handler="snode_get" swapped="no"/>
                 <signal name="select-cursor-row" handler="snode_select" swapped="no"/>
                 <child internal-child="selection">
