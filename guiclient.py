@@ -28,18 +28,15 @@ class gtkclient_template(Gtk.Builder):
     address=None
     #autoclose=0 #closes window after a timeperiod
     
-    def __init__(self,_file,links,_address,dparam,objectlist=None):
+    def __init__(self,_file,links,_address,dparam):
         Gtk.Builder.__init__(self)
         self.links=links
         self.dparam=dparam
         self.address=_address
         
         self.set_application(links["gtkclient"])
-        if objectlist is None:
-            self.add_from_file(_file)
-        else:
-            self.add_objects_from_file(_file,objectlist)
-
+        self.add_from_file(_file)
+        
     def do_requestdo(self,action,*requeststrs,parse=-1):
         requeststrs+=(self.dparam,)
         return self.links["gtkclient"].do_requestdo(action,*requeststrs,parse=parse)
@@ -185,7 +182,7 @@ class gtkclient_server(gtkclient_template):
 class gtkclient_info(gtkclient_template):
     name=None
     def __init__(self,links,_address,dparam,name=""):
-        gtkclient_template.__init__(self,sharedir+"gui/gtkclientmain.ui",links,_address,dparam,["infowin",])
+        gtkclient_template.__init__(self,sharedir+"gui/gtkclientinfo.ui",links,_address,dparam)
         self.name=name
         #self.get_object("col1").set_orientation(Gtk.Orientation.VERTICAL)
         col1=self.get_object("col1")
@@ -272,6 +269,9 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         recentcolrenderer=Gtk.CellRendererText()
         recentcol = Gtk.TreeViewColumn("Recent", recentcolrenderer, text=0)
         self.recentview.append_column(recentcol)
+        recentcolrenderer2=Gtk.CellRendererText()
+        recentcol2 = Gtk.TreeViewColumn("Url", recentcolrenderer2, text=0)
+        self.recentview.append_column(recentcol2)
         
         # self.init_storage()
 
@@ -450,7 +450,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         elif _ask[1][0] is isself:
             cnodeorigin.set_text("")
             cnode.set_text("This client")
-            self.curnode=(isself,_address,_name,_hash)
+            self.curnode=("This client",_address,_name,_hash)
             #self.curnode=(_name,_address,_name,_hash)
         else:
             cnodeorigin.set_text("verified:")
@@ -510,12 +510,9 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def infonode(self,*args):
         #serverurl=self.builder.get_object("servercomboentry").get_text()
         tdparam=self.param_node.copy()
-        temp=None
-        if temp is not None:
-            tdparam["certhash"]=temp[1]
-            gtkclient_info(self.links,nodeurl,tdparam,temp[0])
-        else:
-            gtkclient_info(self.links,nodeurl,tdparam)
+        if self.curnode is not None:
+            tdparam["certhash"]=self.curnode[3]
+            gtkclient_info(self.links,self.curnode[1],tdparam,self.curnode[0])
             
     def select_recent(self,*args):
         pass
