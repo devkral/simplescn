@@ -21,7 +21,7 @@ scnparse_url,server_port,check_hash,configmanager,pluginmanager
 messageid=0
 
 class gtkclient_template(Gtk.Builder):
-    builder=None
+    #builder=None
     links=None
     win=None
     dparam=None
@@ -42,7 +42,7 @@ class gtkclient_template(Gtk.Builder):
 
     def do_requestdo(self,action,*requeststrs,parse=-1):
         requeststrs+=(self.dparam,)
-        self.links["gtkclient"].do_requestdo(action,*requeststrs,parse=parse)
+        return self.links["gtkclient"].do_requestdo(action,*requeststrs,parse=parse)
     
     def close(self,*args):
         self.links["gtkclient"].remove_window(self.win)
@@ -54,27 +54,66 @@ class gtkclient_node(gtkclient_template):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientnode.ui",links,_address,dparam)
         self.win=self.get_object("nodewin")
         
-    self.update()
+        self.update()
     
-    def update(self,*args):
+    def update(self,*ars):
         pass
     
-    def update_plugins(self,*args):
+    def update_actions(self):
         pass
+        
     
     def activate_action(self,*args):
         pass
     
-class gtkclient_server(gtkclient_template):
+        
     
+class gtkclient_server(gtkclient_template):
+    isregistered=False
     def __init__(self,links,_address,dparam):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientserver.ui",links,_address,dparam)
-        
         self.win=self.get_object("serverwin")
+        view=self.get_object("servernodeview")
+        col0renderer=Gtk.CellRendererText()
+        col0 = Gtk.TreeViewColumn("Name", col0renderer, text=0)
+        view.append_column(col0)
+        col1renderer=Gtk.CellRendererText()
+        col1 = Gtk.TreeViewColumn("Hash", col1renderer, text=1)
+        view.append_column(col1)
+        col2renderer=Gtk.CellRendererText()
+        col2 = Gtk.TreeViewColumn("Name\n(local)", col2renderer, text=2)
+        view.append_column(col2)
+        
+        
+        self.connect_signals(self)
+        
+        
+        
         self.update()
     
     def update(self,*args):
-        pass
+        namestore=self.get_object("servernodelist")
+        registerb=self.get_object("registerbutton")
+        self.isregistered=False
+        namestore.clear()
+        _names=self.do_requestdo("listnames",self.address)
+        if _names[0]==False:
+            logging.error(_names[1])
+            return
+        for elem in _names[1]:
+            if elem[2] is None:
+                namestore.append((elem[0],elem[1],"","{}/{}".format(elem[0],elem[1])))
+            elif elem[2] is isself:
+                self.isregistered=True
+                namestore.append((elem[0],elem[1],"This client","{}/{}".format(elem[0],elem[1])))
+            else:
+                namestore.append((elem[0],elem[1],elem[2],"{}/{}".format(elem[0],elem[1])))
+        if self.isregistered==False:
+            registerb.set_label("Register")
+        else:
+            registerb.set_label("Update Address")
+            
+
     
     def update_plugins(self,*args):
         pass
@@ -92,6 +131,16 @@ class gtkclient_server(gtkclient_template):
     def snode_filter(self,*args):
         pass
     
+    
+    def register(self,*args):
+        namestore=self.get_object("servernodelist")
+        res=self.do_requestdo("register",self.address)
+        if res[0]==False:
+            logging.error(res[1])
+        if self.isregistered==False:
+            self.isregistered=True
+            namestore.prepend((self.links["client_server"].name,self.links["client"].cert_hash,"This client","{}/{}".format(self.links["client_server"].name,self.links["client"].cert_hash)))
+            registerb.set_label("Update Address")
 
 class gtkclient_info(gtkclient_template):
     name=None
@@ -268,8 +317,11 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         return (temp[0],_finish1,temp[2],temp[3])"""
         
     def do_requestdo(self,action,*requeststrs,parse=-1):
-        if self.use_remote_client==False:
-            return client.client_client.__dict__[action](self.links["client"],*requeststrs)
+        if True: #self.use_remote_client==False:
+            ret=client.client_client.__dict__[action](self.links["client"],*requeststrs)
+            if ret is None:
+                logging.error("Return value invalid")
+            return ret
             #self.links["client"].__dict__[action](*requeststrs)
         """else:
             temp="/do/{}".format(action)

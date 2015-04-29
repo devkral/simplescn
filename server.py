@@ -66,7 +66,7 @@ class server(commonscn):
         while self.isactive:
             self.changeip_sem.acquire()
             self.nhipmap_len=len(self.nhipmap)
-            etime=int(time.time())-self.expire_time
+            e_time=int(time.time())-self.expire_time
             tnhlist=""
             for _name in self.nhipmap:
                 for _hash in self.nhipmap[_name]:

@@ -6,23 +6,31 @@
     <property name="visible">True</property>
     <property name="can_focus">False</property>
   </object>
-  <object class="GtkListStore" id="servernodeslist">
+  <object class="GtkImage" id="reloadimg">
+    <property name="visible">True</property>
+    <property name="sensitive">False</property>
+    <property name="can_focus">False</property>
+    <property name="icon_name">view-refresh</property>
+  </object>
+  <object class="GtkListStore" id="servernodelist">
     <columns>
       <!-- column-name name -->
       <column type="gchararray"/>
       <!-- column-name hash -->
+      <column type="gchararray"/>
+      <!-- column-name localname -->
       <column type="gchararray"/>
       <!-- column-name namehashnotshown -->
       <column type="gchararray"/>
     </columns>
   </object>
   <object class="GtkEntryCompletion" id="servernodeentryc">
-    <property name="model">servernodeslist</property>
-    <property name="text_column">2</property>
+    <property name="model">servernodelist</property>
+    <property name="text_column">3</property>
     <property name="inline_selection">True</property>
   </object>
   <object class="GtkTreeModelFilter" id="snodefilter">
-    <property name="child_model">servernodeslist</property>
+    <property name="child_model">servernodelist</property>
   </object>
   <object class="GtkApplicationWindow" id="serverwin">
     <property name="visible">True</property>
@@ -85,11 +93,24 @@
                 <property name="secondary_icon_name">preferences-desktop-peripherals</property>
                 <property name="completion">servernodeentryc</property>
                 <property name="input_hints">GTK_INPUT_HINT_WORD_COMPLETION | GTK_INPUT_HINT_NONE</property>
-                <signal name="activate" handler="server_get" swapped="no"/>
+                <signal name="activate" handler="snode_get" swapped="no"/>
                 <signal name="changed" handler="snode_filter" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="reloadserverb">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="image">reloadimg</property>
+                <signal name="clicked" handler="update" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">2</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -137,9 +158,24 @@
               <object class="GtkLabel" id="veristate">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="hexpand">True</property>
               </object>
               <packing>
                 <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="registerbutton">
+                <property name="label" translatable="yes">Register</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="halign">end</property>
+                <signal name="clicked" handler="register" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">2</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
