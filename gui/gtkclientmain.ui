@@ -233,6 +233,7 @@
               <object class="GtkScrolledWindow" id="recentwindow">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="vexpand">True</property>
                 <property name="shadow_type">in</property>
                 <property name="min_content_width">104</property>
                 <property name="min_content_height">91</property>
