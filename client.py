@@ -129,11 +129,10 @@ class client_client(object):
         except Exception:
             return (False,"server does not exist")
 
-    def ask(self,server_addr,dparam):
-        _ha=self.gethash(server_addr,dparam)
+    def ask(self,_address,dparam):
+        _ha=self.gethash(_address,dparam)
         if _ha[0]==False:
             return _ha
-        
         if _ha[1][0]==self.cert_hash:
             return (True,(isself,self.cert_hash),isself,self.cert_hash)
         temp=self.hashdb.certhash_as_name(_ha[1][0])

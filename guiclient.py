@@ -6,7 +6,7 @@ import os
 import time,threading
 import traceback#threading,
 from os import path
-from gi.repository import Gtk,Gdk
+from gi.repository import Gtk,Gdk,Pango
 #,Gio
 
 
@@ -51,9 +51,10 @@ class gtkclient_template(Gtk.Builder):
 
 class gtkclient_node(gtkclient_template):
     
-    def __init__(self,links,_address,dparam):
+    def __init__(self,links,_address,dparam,name=""):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientnode.ui",links,_address,dparam)
         self.win=self.get_object("nodewin")
+        self.win.set_title(name)
         
         self.update()
     
@@ -80,13 +81,15 @@ class gtkclient_server(gtkclient_template):
         else:
             return False
     
-    def __init__(self,links,_address,dparam):
+    def __init__(self,links,_address,dparam,name=""):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientserver.ui",links,_address,dparam)
         self.win=self.get_object("serverwin")
         self.filter=self.get_object("snodefilter")
         view=self.get_object("servernodeview")
         col0renderer=Gtk.CellRendererText()
         col0 = Gtk.TreeViewColumn("state", col0renderer, text=0)
+        #col0.props.align_set = True
+        #col0.props.alignment=Pango.Alignment.CENTER
         view.append_column(col0)
         col1renderer=Gtk.CellRendererText()
         col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
@@ -95,6 +98,7 @@ class gtkclient_server(gtkclient_template):
         col2 = Gtk.TreeViewColumn("Hash", col2renderer, text=2)
         view.append_column(col2)
         
+        self.win.set_title(name)
         
         self.filter.set_visible_func(self.visible_func)
         
@@ -112,12 +116,12 @@ class gtkclient_server(gtkclient_template):
             return
         for elem in _names[1]:
             if elem[2] is None:
-                namestore.append(("",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
+                namestore.append(("remote",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
             elif elem[2] is isself:
                 self.isregistered=True
-                namestore.append(("i",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
+                namestore.append(("isself",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
             else:
-                namestore.append(("l",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
+                namestore.append(("local",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
         if self.isregistered==False:
             registerb.set_label("Register")
         else:
@@ -140,10 +144,9 @@ class gtkclient_server(gtkclient_template):
         _name,_hash=_entry.get_text().split("/",1)
         _node=self.do_requestdo("get",self.address,_name,_hash)
         if _node[0]==False:
-            logging.debug("get failed")
             return
         
-        self.links["gtkclient"].set_curnode(_node[1],_name,_hash)
+        self.links["gtkclient"].set_curnode("{}:{}".format(*_node[1]),_name,_hash)
         self.close()
         
     def snode_activate(self,*args):
@@ -181,7 +184,7 @@ class gtkclient_server(gtkclient_template):
 
 class gtkclient_info(gtkclient_template):
     name=None
-    def __init__(self,links,_address,dparam,name="<unknown>"):
+    def __init__(self,links,_address,dparam,name=""):
         gtkclient_template.__init__(self,sharedir+"gui/gtkclientmain.ui",links,_address,dparam,["infowin",])
         self.name=name
         #self.get_object("col1").set_orientation(Gtk.Orientation.VERTICAL)
@@ -189,6 +192,7 @@ class gtkclient_info(gtkclient_template):
         col2=self.get_object("col2")
         self.win=self.get_object("infowin")
         self.win.set_visible(True)
+        self.win.set_title(name)
         self.update()
         
     def update(self):
@@ -228,6 +232,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     localstore=None
     recentview=None
     recentstore=None
+    recentcount=0
     remote_client=None
     use_remote_client=False
     #param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
@@ -422,24 +427,36 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         serverurl=self.builder.get_object("servercomboentry").get_text()
         self._verifyserver(serverurl)
     
-    def set_curnode(self,_addresstupel,_name,_hash):
-        self.curnode=(_addresstupel,_name,_hash)
+    def set_curnode(self,_address,_name,_hash):
+        if self.curnode is not None and self.curnode[0] is not isself:
+            if self.recentcount<20:
+                self.recentcount+=1
+                self.recentstore.prepend(self.curnode)
+            else:
+                self.recentstore.prepend(self.curnode)
+                self.recentstore.remove(self.recentstore.iter_n_children(20))
+                
         cnode=self.builder.get_object("curnode")
         cnodeorigin=self.builder.get_object("nodeorigin")
-        _ask=self.do_requestdo("ask",_name,_hash)
+        _ask=self.do_requestdo("ask",_address,self.param_server)
         if _ask[0]==False:
-            cnodeorigin.set_text("invalid")
-            cnode.set_text("")
+            cnodeorigin.set_text("")
+            cnode.set_text("invalid")
             self.curnode=None
         elif _ask[1][0] is None:
             cnodeorigin.set_text("remote:")
             cnode.set_text(_name)
+            self.curnode=(_name,_address,_name,_hash)
         elif _ask[1][0] is isself:
-            cnodeorigin.set_text("This client")
-            cnode.set_text("")
+            cnodeorigin.set_text("")
+            cnode.set_text("This client")
+            self.curnode=(isself,_address,_name,_hash)
+            #self.curnode=(_name,_address,_name,_hash)
         else:
             cnodeorigin.set_text("verified:")
             cnode.set_text(_ask[1][0])
+            self.curnode=(_ask[1][0],_address,_name,_hash)
+        
         
         
     def server_info(self,*args):
@@ -466,10 +483,15 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         temp=self._verifyserver(serverurl)
         if temp is None:
             return
-        temp=temp[1]
         tdparam=self.param_server.copy()
-        tdparam["certhash"]=temp
-        gtkclient_server(self.links,serverurl,tdparam)
+        tdparam["certhash"]=temp[1]
+        if temp[0] is None:
+            name=serverurl[:20]
+        elif temp[0] is isself:
+            name="Own server"
+        else:
+            name=temp[0]
+        gtkclient_server(self.links,serverurl,tdparam,name)
         
     
     #### node actions ####

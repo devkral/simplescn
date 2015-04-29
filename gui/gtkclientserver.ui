@@ -27,7 +27,6 @@
   <object class="GtkEntryCompletion" id="servernodeentryc">
     <property name="model">servernodelist</property>
     <property name="text_column">3</property>
-    <property name="inline_completion">True</property>
     <property name="inline_selection">True</property>
   </object>
   <object class="GtkTreeModelFilter" id="snodefilter">
@@ -92,6 +91,8 @@
               <object class="GtkEntry" id="servernodeentry">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="has_focus">True</property>
+                <property name="is_focus">True</property>
                 <property name="hexpand">True</property>
                 <property name="secondary_icon_name">preferences-desktop-peripherals</property>
                 <property name="completion">servernodeentryc</property>
