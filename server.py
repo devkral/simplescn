@@ -315,6 +315,7 @@ class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
 class server_init(object):
     config_path=None
     links=None
+    sthread=None
     
     def __init__(self,**kwargs):
         self.config_path=os.path.expanduser(kwargs["config"])
@@ -441,21 +442,21 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
 
-    if len(sys.argv)>1:
+    if len(sys.argv) > 1:
         tparam=()
         for elem in sys.argv[1:]: #strip filename from arg list
-            elem=elem.strip("-")
+            elem= elem.strip("-")
             if elem in ["help","h"]:
                 paramhelp()
                 sys.exit(0)
             else:
-                tparam=elem.split("=")
-                if len(tparam)==1:
+                tparam = elem.split("=")
+                if len(tparam) == 1:
                     tparam=elem.split(":")
-                if len(tparam)==1:
-                    server_args[tparam[0]]=""
+                if len(tparam) == 1:
+                    server_args[tparam[0]] = ""
                     continue
-                server_args[tparam[0]]=tparam[1]
+                server_args[tparam[0]] = tparam[1]
 
     #should be gui agnostic so specify here
     if server_args["webgui"] is not None:

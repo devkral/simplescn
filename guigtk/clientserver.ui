@@ -55,6 +55,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="model">snodefilter</property>
+                <property name="search_column">3</property>
                 <signal name="cursor-changed" handler="snode_select" swapped="no"/>
                 <signal name="row-activated" handler="snode_get" swapped="no"/>
                 <signal name="select-cursor-row" handler="snode_select" swapped="no"/>
@@ -136,8 +137,6 @@
                 <property name="opacity">0.98999999999999999</property>
                 <property name="halign">start</property>
                 <property name="resize_mode">immediate</property>
-                <property name="xalign">0</property>
-                <property name="yalign">0</property>
                 <property name="popup">actions</property>
                 <signal name="toggled" handler="activate_action" swapped="no"/>
                 <child>

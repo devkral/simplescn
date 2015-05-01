@@ -441,7 +441,7 @@ class client_server(commonscn):
         self.priority=_priority
         self.cert_hash=_cert_hash
         
-        if local_client_service_control==True:
+        if self.local_client_service_control==True:
             validactions.update({"registerservice","delservice"})
         self.update_cache()
     ### management section - maybe removed ###
@@ -993,25 +993,25 @@ if __name__ ==  "__main__":
     
     pluginpathes=["{}{}plugins".format(sharedir,os.sep)]
     
-    if len(sys.argv)>1:
+    if len(sys.argv) > 1:
         tparam=()
         for elem in sys.argv[1:]: #strip filename from arg list
-            elem=elem.strip("-")
+            elem = elem.strip("-")
             if elem in ["help","h"]:
                 paramhelp()
                 sys.exit(0)
             else:
                 tparam=elem.split("=")
-                if len(tparam)==1:
-                    tparam=elem.split(":")
-                if len(tparam)==1:
-                    client_args[tparam[0]]=""
+                if len(tparam) == 1:
+                    tparam = elem.split(":")
+                if len(tparam) == 1:
+                    client_args[tparam[0]] = ""
                     continue
-                if tparam[0]in ["pluginpath","pp"]:
-                    pluginpathes+=[tparam[1],]
+                if tparam[0] in ["pluginpath", "pp"]:
+                    pluginpathes += [tparam[1], ]
                     continue
-                client_args[tparam[0]]=tparam[1]
-    
+                client_args[tparam[0]] = tparam[1]
+
     configpath=client_args["config"]
     configpath=path.expanduser(configpath)
     if configpath[-1]==os.sep:
@@ -1020,16 +1020,15 @@ if __name__ ==  "__main__":
     pluginpathes.insert(1,"{}{}plugins".format(configpath,os.sep))
     #if configpath[:-1]==os.sep:
     #    configpath=configpath[:-1]
-    
+
     os.makedirs("{}{}config".format(configpath,os.sep),0o750,True)
     os.makedirs("{}{}config{}plugins".format(configpath,os.sep,os.sep),0o750,True)
-    
+
     confm=configmanager("{}{}config{}{}".format(configpath,os.sep,os.sep,"clientcmdmain.conf"))
     confm.update(default_client_args,client_args)
-    
-    
+
     plugins_config="{}{}config{}plugins".format(configpath,os.sep,os.sep)
-    
+
     if confm.getb("noplugins")==False:
         pluginm=pluginmanager(pluginpathes,plugins_config)
         if confm.getb("webgui")!=False:
@@ -1038,13 +1037,12 @@ if __name__ ==  "__main__":
             pluginm.interfaces+=["cmd",]
     else:
         pluginm=None
-    
+
     cm=client_init(confm,pluginm)
-    
+
     if confm.getb("noplugins")==False:
         pluginm.init_plugins()
-    
-        
+
     if confm.getb("cmd")!=False:
         logging.debug("start server")
         cm.serve_forever_nonblock()
