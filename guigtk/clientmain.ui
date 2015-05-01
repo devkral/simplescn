@@ -114,31 +114,66 @@
       </object>
     </child>
   </object>
+  <object class="GtkTextBuffer" id="cmdbuffer"/>
   <object class="GtkApplicationWindow" id="cmdwin">
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">cmd:</property>
+    <property name="icon">icon.png</property>
     <child>
       <object class="GtkGrid" id="grid4">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
+        <property name="border_width">4</property>
         <child>
-          <object class="GtkEntry" id="cmdenter">
+          <object class="GtkScrolledWindow" id="scrolledwindow3">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkTextView" id="cmdview">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <property name="shadow_type">in</property>
+            <property name="min_content_width">100</property>
+            <property name="min_content_height">200</property>
+            <child>
+              <object class="GtkTextView" id="cmdview">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="editable">False</property>
+                <property name="buffer">cmdbuffer</property>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEntry" id="cmdenter">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="has_focus">True</property>
+            <property name="is_focus">True</property>
+            <property name="hexpand">True</property>
+            <property name="secondary_icon_name">system-run</property>
+            <signal name="activate" handler="cmd_do" swapped="no"/>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="cmdhelplabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">start</property>
+            <property name="label" translatable="yes">Enter command, seperate by "/"
+Enter parameters by closing command with "?" and
+adding key1=value1&amp;key2=value2 key/value pairs:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
           </packing>
         </child>
       </object>
@@ -159,12 +194,14 @@
         <property name="visible">True</property>
         <property name="can_focus">True</property>
         <property name="shadow_type">in</property>
-        <property name="min_content_width">50</property>
-        <property name="min_content_height">100</property>
+        <property name="min_content_width">100</property>
+        <property name="min_content_height">200</property>
         <child>
           <object class="GtkTextView" id="textview1">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="editable">False</property>
+            <property name="wrap_mode">word</property>
             <property name="buffer">debugbuffer</property>
           </object>
         </child>
@@ -652,6 +689,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Debug</property>
                         <property name="use_underline">True</property>
+                        <signal name="toggled" handler="debugme" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -660,7 +698,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Command</property>
                         <property name="use_underline">True</property>
-                        <signal name="toggled" handler="cmdmenu" swapped="no"/>
+                        <signal name="toggled" handler="cmdme" swapped="no"/>
                       </object>
                     </child>
                     <child>

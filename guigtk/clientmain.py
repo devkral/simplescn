@@ -23,6 +23,8 @@ client.client_handler.webgui=False
 messageid=0
 run=True
 
+
+
 class gtkclient_main(logging.NullHandler,Gtk.Application):
     links=None
 
@@ -39,7 +41,12 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     recentstore=None
     recentcount=0
     remote_client=None
-    use_remote_client=False
+    #use_remote_client=False
+    
+    debug_wintoggle=None
+    cmd_wintoggle=None
+        
+    
     #param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
     param_server={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
     param_node={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
@@ -67,6 +74,11 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.recentstore=self.builder.get_object("recentstore")
         self.statusbar=self.builder.get_object("mainstatusbar")
         
+        self.debugwin=self.builder.get_object("debugwin")
+        self.cmdwin=self.builder.get_object("cmdwin")
+        self.debug_wintoggle=self.builder.get_object("debugme")
+        self.cmd_wintoggle=self.builder.get_object("cmdme")
+        
         col0renderer=Gtk.CellRendererText()
         col0 = Gtk.TreeViewColumn("Category", col0renderer, text=0)
         self.localview.append_column(col0)
@@ -80,6 +92,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         recentcolrenderer2=Gtk.CellRendererText()
         recentcol2 = Gtk.TreeViewColumn("Url", recentcolrenderer2, text=0)
         self.recentview.append_column(recentcol2)
+        
+        
+        self.debugwin.connect('delete-event',self.close_debug)
+        self.cmdwin.connect('delete-event',self.close_cmd)
         
         # self.init_storage()
 
@@ -354,10 +370,20 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     #### misc actions ####
     
     def debugme(self,*args):
-        pass
+        if self.debug_wintoggle.get_active()==True:
+            self.debugwin.show()
+            self.debugwin.grab_focus()
+        else:
+            self.debugwin.hide()
         
-    def cmdmenu(self,*args):
-        pass
+    def cmdme(self,*args):
+        if self.cmd_wintoggle.get_active()==True:
+            self.cmdwin.show()
+            self.cmdwin.grab_focus()
+            
+        else:
+            self.cmdwin.hide()
+            
         
     def aboutme(self, args):
         pass
@@ -367,7 +393,75 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     def client_help(self, args):
         pass
+    
+    
+    
+    
+    def cmd_do(self,*args):
+        inp=self.builder.get_object("cmdenter")
+        out=self.builder.get_object("cmdbuffer")
+        dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
+        unparsed=inp.get_text().strip(" ").rstrip(" ")
+        if unparsed[:5]=="hash/":
+            out.insert(out.get_end_iter(),str(dhash(unparsed[6:]))+"\n")
+            return
+        if unparsed[:4]=="set/":
+            keyvalue=unparsed[5:].split(1)
+            if len(keyvalue)==1:
+                out.insert(out.get_end_iter(),"invalid\n")
+                return
+            self.links["configmanager"].set(keyvalue[0],keyvalue[1])
+            return
+        if unparsed[:4]=="help":
+            out.insert(out.get_end_iter(),client.cmdhelp())
+            return
+        pos_param=unparsed.find("?")
+        if pos_param!=-1:
+            parsed=unparsed[:pos_param].split("/")
+            tparam=unparsed[pos_param+1:].split("&")
+            for elem in tparam:
+                elem=elem.split("=")
+                if len(elem)==1 and elem[0]!="":
+                    dparam[elem[0]]=""
+                elif len(elem)==2:
+                    dparam[elem[0]]=elem[1]
+                else:
+                    out.insert(out.get_end_iter(),"invalid key/value pair\n{}".format(elem))
+                    return
+                        
+        else:
+            parsed=unparsed.split("/")
+        parsed+=[dparam,]
+        try:
+            func=type(self.links["client"]).__dict__[str(parsed[0])]
+            resp=func(self.links["client"],*parsed[1:])
+            if resp[0]==False:
+                out.insert(out.get_end_iter(),"Error:\n{}\n".format(resp[1]))
+            else:
+                if resp[2] is None:
+                    print("Unverified")
+                elif resp[2] is isself:
+                    print("Is own client")
+                else:
+                    print("Verified as: "+resp[2])
+                out.insert(out.get_end_iter(),"Success:\n{}\n".format(resp[1]))
+        except KeyError as e:
+            out.insert(out.get_end_iter(),"Command does not exist?\n{}\n".format(parsed))
+                
+        except Exception as e:
+            out.insert(out.get_end_iter(),"Error\ntype: {}\nparsed: {}\n".format(type(e).__name__,parsed))
         
+    
+    def close_debug(self,win,event):
+        self.debug_wintoggle.set_active(False)
+        self.debugwin.hide()
+        return True
+    
+    def close_cmd(self,win,event):
+        self.cmd_wintoggle.set_active(False)
+        self.cmdwin.hide()
+        return True
+    
     def close(self,*args):
         global run
         run=False

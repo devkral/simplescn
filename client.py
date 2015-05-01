@@ -852,7 +852,7 @@ class client_init(object):
         self.sthread.start()
 
     def cmd(self):
-        dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
+        dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
         print(*self.links["client"].show(dparam)[1],sep="/")
         while True:
             inp=input("Enter command, seperate by \"/\"\nEnter parameters by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n")
@@ -870,10 +870,8 @@ class client_init(object):
                 self.links["configmanager"].set(keyvalue[0],keyvalue[1])
                 continue
             if unparsed[:4]=="help":
-                cmdhelp()
+                print(cmdhelp())
                 continue
-
-            dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
             pos_param=unparsed.find("?")
             if pos_param!=-1:
                 parsed=unparsed[:pos_param].split("/")
@@ -885,7 +883,7 @@ class client_init(object):
                     elif len(elem)==2:
                         dparam[elem[0]]=elem[1]
                     else:
-                        self.send_error(400,"invalid key/value pair\n{}".format(elem))
+                        logging.error("invalid key/value pair\n{}".format(elem))
                         return
                         
             else:
@@ -931,26 +929,24 @@ cmdanot={
     }
                 
 def cmdhelp():
-    print(\
+    out="""
+### cmd-commands ###\n
 """
-### cmd-commands ###
-""")
-    for elem in client_handler.clientactions:
+    for elem in client_client.validactions:
         if elem in cmdanot:
-            print("{}:{}".format(elem,cmdanot[elem]))
+            out+="{}:{}".format(elem,cmdanot[elem])+"\n"
         else:
-            print(elem)
+            out+=elem+"\n"
 
-    print(\
-"""
+    out+="""
 ### cmd-parameters ###
 parameters annoted with <cmd>?<parameter1>=?&<parameter2>=?
 TODO
-""")
+"""
+    return out
     
 def paramhelp():
-    print(\
-"""
+    return """
 ### parameters ###
 config=<dir>: path to config dir
 port=<number>: Port
@@ -964,7 +960,7 @@ webgui: enables webgui
 cmd: opens cmd
 s: set password for contacting client
 c: set password for using client webcontrol
-""")
+"""
     
 def signal_handler(_signal, frame):
   sys.exit(0)
@@ -998,7 +994,7 @@ if __name__ ==  "__main__":
         for elem in sys.argv[1:]: #strip filename from arg list
             elem = elem.strip("-")
             if elem in ["help","h"]:
-                paramhelp()
+                print(paramhelp())
                 sys.exit(0)
             else:
                 tparam=elem.split("=")
