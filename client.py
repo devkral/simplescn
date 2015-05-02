@@ -169,7 +169,7 @@ class client_client(object):
         return (True,"service registered",isself,self.cert_hash)
 
     def delservice(self,_servicename,dparam):
-        if _servicename in self.spmap:
+        if _servicename in self.links["client_server"].spmap:
             del self.links["client_server"].spmap[_servicename]
         return (True,"service deleted",isself,self.cert_hash)
         

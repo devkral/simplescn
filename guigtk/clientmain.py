@@ -43,11 +43,17 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     remote_client=None
     #use_remote_client=False
     
+    debugwin=None
+    cmdwin=None
+    clientwin=None
     debug_wintoggle=None
     cmd_wintoggle=None
-        
+    client_wintoggle=None
     
-    #param_client={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
+    remoteclient_url=""
+    remoteclient_hash=""
+    use_localclient=True
+    param_client={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
     param_server={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
     param_node={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
     
@@ -76,8 +82,17 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
         self.debugwin=self.builder.get_object("debugwin")
         self.cmdwin=self.builder.get_object("cmdwin")
+        self.clientwin=self.builder.get_object("clientdia")
+        self.mswin=self.builder.get_object("manageserviceswin")
+        self.addnamedia=self.builder.get_object("addnamedia")
+        self.delnamedia=self.builder.get_object("delnamedia")
+        self.addnodedia=self.builder.get_object("addnodedia")
+        self.delnodedia=self.builder.get_object("delnodedia")
+        
+        
         self.debug_wintoggle=self.builder.get_object("debugme")
         self.cmd_wintoggle=self.builder.get_object("cmdme")
+        self.client_wintoggle=self.builder.get_object("useremoteclient")
         
         col0renderer=Gtk.CellRendererText()
         col0 = Gtk.TreeViewColumn("Category", col0renderer, text=0)
@@ -93,9 +108,26 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         recentcol2 = Gtk.TreeViewColumn("Url", recentcolrenderer2, text=0)
         self.recentview.append_column(recentcol2)
         
+        serviceview=self.builder.get_object("localserviceview")
+        servicecolrenderer=Gtk.CellRendererText()
+        servicecol = Gtk.TreeViewColumn("Service", servicecolrenderer, text=0)
+        serviceview.append_column(servicecol)
+        servicecol2renderer=Gtk.CellRendererText()
+        servicecol2 = Gtk.TreeViewColumn("Port", servicecol2renderer, text=1)
+        serviceview.append_column(servicecol2)
+        
         
         self.debugwin.connect('delete-event',self.close_debug)
         self.cmdwin.connect('delete-event',self.close_cmd)
+        self.clientwin.connect('delete-event',self.close_client)
+        self.mswin.connect('delete-event',self.close_manages)
+        self.addnamedia.connect('delete-event',self.close_addname)
+        self.delnamedia.connect('delete-event',self.close_delname)
+        self.addnodedia.connect('delete-event',self.close_addnode)
+        self.delnodedia.connect('delete-event',self.close_delnode)
+        
+        
+        #self.clientwin.connect('delete-event',self.close_client)
         
         # self.init_storage()
 
@@ -319,6 +351,16 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     
     #### node actions ####
+    def addnodehash_intern(self,_node,_hash):
+        #_
+        #_hash=
+        
+        
+        self.addnodehashdia.show()
+        self.addnodehashdia.grab_focus()
+        #else:
+        #    self.debugwin.hide()
+    
     def addnodehash(self,*args):
         pass
     
@@ -342,6 +384,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         pass
     
     def listservices(self,*args):
+        
         pass
     #### server actions ####
     
@@ -361,11 +404,97 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     
     #### client actions ####
     
-    def useremoteclient(self,*args):
-        pass
+    def clientme(self,*args):
+        self.builder.get_object("clienturl").set_text(self.remoteclient_url)
+        self.builder.get_object("clienthash").set_text(self.remoteclient_hash)
+        self.builder.get_object("uselocal").set_active(self.use_localclient)
+        
+        self.clientwin.show()
+        self.clientwin.grab_focus()
     
+    def client_confirm(self,*args):
+        clurl=self.builder.get_object("clienturl")
+        clhash=self.builder.get_object("clienthash")
+        ulocal=self.builder.get_object("uselocal")
+        if ulocal.get_active()!=True:
+            if clurl.get_text()=="":
+                #clurl.
+                return
+            if check_hash(clhash.get_text()==False):
+                return
+        self.remoteclient_url=clurl.get_text()
+        self.remoteclient_hash=self.builder.get_object("clienthash").get_text()
+        self.use_localclient=self.builder.get_object("uselocal").get_active()
+        self.close_client()
+        
+    def client_localtoggle(self,*args):
+        toggle=self.builder.get_object("uselocal")
+        clurl=self.builder.get_object("clienturl")
+        clhash=self.builder.get_object("clienthash")
+        if toggle.get_active()==True:
+            clurl.set_sensitive(False)
+            clhash.set_sensitive(False)
+        else:
+            clurl.set_sensitive(True)
+            clhash.set_sensitive(True)
+    
+    
+    def update_services(self,*args):
+        localservicelist=self.builder.get_object("localservicelist")
+        localservicelist.clear()
+        but=self.builder.get_object("deleteserviceb")
+        but.hide()
+        services=self.do_requestdo("listservices")
+        if services[0]==False:
+            return
+        for elem in services[1]:
+            localservicelist.append((elem[0],elem[1]))
+        
+    def add_service(self,*args):
+        localservicelist=self.builder.get_object("localservicelist")
+        servicee=self.builder.get_object("newservicenameentry")
+        porte=self.builder.get_object("newserviceportentry")
+        service=servicee.get_text().strip(" ").rstrip(" ")
+        port=porte.get_text().strip(" ").rstrip(" ")
+        if service=="":
+            logging.debug("service invalid")
+            return
+        if port=="" or port.isdecimal()==False:
+            logging.debug("port invalid")
+            return
+        ret=self.do_requestdo("registerservice",service,port,self.param_client)
+        if ret[0]==False:
+            logging.debug(ret[1])
+            return
+        servicee.set_text("")
+        porte.set_text("")
+        
+        localservicelist.append((service,port))
+    def sel_service(self,*args):
+        view=self.builder.get_object("localserviceview")
+        but=self.builder.get_object("deleteserviceb")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            but.hide()
+        else:
+            but.show()
+    def del_service(self,*args):
+        view=self.builder.get_object("localserviceview")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        service=_sel[0][_sel[1]][0]
+        if service=="":
+            return
+        ret=self.do_requestdo("delservice",service,self.param_client)
+        if ret[0]==False:
+            return
+        self.update_services()
+        
     def manageservices(self,*args):
-        pass
+        self.update_services()
+        self.mswin.show()
+        self.mswin.grab_focus()
     
     #### misc actions ####
     
@@ -452,14 +581,38 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             out.insert(out.get_end_iter(),"Error\ntype: {}\nparsed: {}\n".format(type(e).__name__,parsed))
         
     
-    def close_debug(self,win,event):
+    def close_debug(self,*args):
         self.debug_wintoggle.set_active(False)
         self.debugwin.hide()
         return True
     
-    def close_cmd(self,win,event):
+    def close_cmd(self,*args):
         self.cmd_wintoggle.set_active(False)
         self.cmdwin.hide()
+        return True
+        
+    def close_client(self,*args):
+        self.clientwin.hide()
+        return True
+    
+    def close_manages(self,*args):
+        self.mswin.hide()
+        return True
+    
+    def close_addname(self,*args):
+        self.addnamedia.hide()
+        return True
+        
+    def close_delname(self,*args):
+        self.delnamedia.hide()
+        return True
+        
+    def close_addnode(self,*args):
+        self.addnodedia.hide()
+        return True
+        
+    def close_delnode(self,*args):
+        self.delnodedia.hide()
         return True
     
     def close(self,*args):
