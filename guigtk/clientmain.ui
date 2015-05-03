@@ -17,6 +17,7 @@
   <object class="GtkApplicationWindow" id="delnodedia">
     <property name="can_focus">False</property>
     <property name="border_width">3</property>
+    <property name="title" translatable="yes">Delete node</property>
     <property name="modal">True</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
@@ -68,6 +69,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="delnode_confirm" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -80,6 +82,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_delnode" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -113,6 +116,111 @@
           <packing>
             <property name="left_attach">1</property>
             <property name="top_attach">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkApplicationWindow" id="enternodedia">
+    <property name="can_focus">False</property>
+    <property name="border_width">3</property>
+    <property name="title" translatable="yes">Enter node</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.png</property>
+    <property name="type_hint">dialog</property>
+    <property name="urgency_hint">True</property>
+    <property name="transient_for">mainwin</property>
+    <child>
+      <object class="GtkGrid" id="grid8">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <property name="row_spacing">2</property>
+        <property name="column_spacing">5</property>
+        <child>
+          <object class="GtkLabel" id="label9">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Url:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label10">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Hash:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEntry" id="enternodeurl">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEntry" id="enternodehash">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkGrid" id="enternodebgrid1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="column_spacing">2</property>
+            <child>
+              <object class="GtkButton" id="okbuttonnodee">
+                <property name="label" translatable="yes">Ok</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="enternode_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="cancelbuttonnodee">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_enternode" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">2</property>
+            <property name="width">2</property>
           </packing>
         </child>
       </object>
@@ -153,8 +261,13 @@
   </object>
   <object class="GtkApplicationWindow" id="managereferences">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Manage reference</property>
     <child>
-      <placeholder/>
+      <object class="GtkLabel" id="label11">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="label" translatable="yes">TOdo</property>
+      </object>
     </child>
   </object>
   <object class="GtkListStore" id="recentstore">
@@ -268,7 +381,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="model">recentstore</property>
-                    <signal name="row-activated" handler="select_recent" swapped="no"/>
+                    <signal name="row-activated" handler="activate_recent" swapped="no"/>
                     <child internal-child="selection">
                       <object class="GtkTreeSelection" id="treeview-selection2"/>
                     </child>
@@ -446,6 +559,47 @@
               </object>
             </child>
             <child>
+              <object class="GtkMenuItem" id="servermenuout">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">_Server</property>
+                <property name="use_underline">True</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="servermenu">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <child>
+                      <object class="GtkMenuItem" id="addserverhash">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Add server to friends</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="addserverhash" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="openserver">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Open server</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="retrieve_server" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="infoserver">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Info server</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="server_info" swapped="no"/>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
               <object class="GtkMenuItem" id="nodemenuout">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
@@ -513,56 +667,6 @@
                         <property name="label" translatable="yes">_Services</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="listservices" swapped="no"/>
-                      </object>
-                    </child>
-                  </object>
-                </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="servermenuout">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_Server</property>
-                <property name="use_underline">True</property>
-                <child type="submenu">
-                  <object class="GtkMenu" id="servermenu">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <child>
-                      <object class="GtkMenuItem" id="addserverhash">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Add server to friends</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="addserverhash" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="delserverhash">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Delete server from friends</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="delserverhash" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="openserver">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Open server</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="retrieve_server" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="infoserver">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Info server</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="server_info" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -639,6 +743,8 @@
   <object class="GtkApplicationWindow" id="addnamedia">
     <property name="can_focus">False</property>
     <property name="border_width">3</property>
+    <property name="title" translatable="yes">Add name</property>
+    <property name="modal">True</property>
     <property name="destroy_with_parent">True</property>
     <property name="type_hint">dialog</property>
     <property name="urgency_hint">True</property>
@@ -663,6 +769,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="addname_confirm" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -675,6 +782,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_addname" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -703,6 +811,7 @@
           <object class="GtkEntry" id="addnam">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -715,6 +824,7 @@
   <object class="GtkApplicationWindow" id="addnodedia">
     <property name="can_focus">False</property>
     <property name="border_width">3</property>
+    <property name="title" translatable="yes">Add node</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
@@ -768,6 +878,7 @@
           <object class="GtkEntry" id="anameentry">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
             <property name="completion">nodecompletion</property>
           </object>
           <packing>
@@ -779,6 +890,7 @@
           <object class="GtkEntry" id="ahashentry">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -789,6 +901,7 @@
           <object class="GtkEntry" id="atypeentry">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -807,6 +920,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="addnode_confirm" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -819,6 +933,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_addnode" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -837,6 +952,7 @@
   </object>
   <object class="GtkApplicationWindow" id="clientdia">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Client:</property>
     <property name="modal">True</property>
     <property name="window_position">center</property>
     <property name="destroy_with_parent">True</property>
@@ -1056,6 +1172,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
   <object class="GtkApplicationWindow" id="delnamedia">
     <property name="can_focus">False</property>
     <property name="border_width">3</property>
+    <property name="title" translatable="yes">Delete name</property>
     <property name="modal">True</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
@@ -1081,6 +1198,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="delname_confirm" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -1093,6 +1211,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_delname" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -1198,6 +1317,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="secondary_icon_activatable">False</property>
                 <property name="secondary_icon_sensitive">False</property>
                 <property name="placeholder_text" translatable="yes">&lt;new servicename&gt;</property>
+                <signal name="activate" handler="add_service" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -1212,6 +1332,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="max_width_chars">6</property>
                 <property name="placeholder_text" translatable="yes">&lt;port&gt;</property>
                 <property name="input_purpose">number</property>
+                <signal name="activate" handler="add_service" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>

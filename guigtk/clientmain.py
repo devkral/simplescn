@@ -12,7 +12,7 @@ from guigtk.clientservice import gtkclient_remoteservice
 #from gui.gtk.guicommon import run # gtkguinode
 
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \
-init_config_folder, generate_certs, isself, default_sslcont
+init_config_folder, generate_certs, isself, default_sslcont,check_hash
 
 #check_hash, server_port, dhash, scnparse_url, AddressFail
 
@@ -88,6 +88,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.delnamedia=self.builder.get_object("delnamedia")
         self.addnodedia=self.builder.get_object("addnodedia")
         self.delnodedia=self.builder.get_object("delnodedia")
+        self.enternodedia=self.builder.get_object("enternodedia")
         
         
         self.debug_wintoggle=self.builder.get_object("debugme")
@@ -125,6 +126,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.delnamedia.connect('delete-event',self.close_delname)
         self.addnodedia.connect('delete-event',self.close_addnode)
         self.delnodedia.connect('delete-event',self.close_delnode)
+        self.enternodedia.connect('delete-event',self.close_enternode)
         
         
         #self.clientwin.connect('delete-event',self.close_client)
@@ -351,27 +353,66 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     
     #### node actions ####
-    def addnodehash_intern(self,_node,_hash):
-        #_
-        #_hash=
+    def addnodehash_intern(self,_node,_hash,_type=""):
+        nodee=self.builder.get_object("anameentry")
+        hashe=self.builder.get_object("ahashentry")
+        typee=self.builder.get_object("atypeentry")
         
+        nodee.set_text(_node)
+        hashe.set_text(_hash)
+        typee.set_text(_type)
         
         self.addnodehashdia.show()
         self.addnodehashdia.grab_focus()
-        #else:
-        #    self.debugwin.hide()
     
     def addnodehash(self,*args):
-        pass
+        view=self.builder.get_object("recentstore")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _name=_sel[0][_sel[1]][2]
+        _hash=_sel[0][_sel[1]][3]
+        addnodehash_intern(_name,_hash)
     
     def delnodehash(self,*args):
         pass
     
+    
     def enternode(self,*args):
-        pass
+        self.builder.get_object("enternodeurl").set_text("")
+        self.builder.get_object("enternodehash").set_text("")
+        self.enternodedia.show()
+        self.enternodedia.grab_focus()
+    
+    def enternode_confirm(self,*args):
+        tparam=self.param_node.copy()
+        _address=self.builder.get_object("enternodeurl").get_text().strip(" ").rstrip(" ")
+        _hash=self.builder.get_object("enternodehash").get_text().strip(" ").rstrip(" ")
+        if _hash=="":
+            ret=self.do_requestdo("gethash",_address,tparam)
+            if ret[0]==False:
+                logging.info(ret[1])
+                return
+            _hash=ret[1][0]
+        if check_hash(_hash)==False:
+            logging.info("hash wrong")
+            return
+        if _address=="":
+            logging.info("address wrong")
+            return
+        tparam["certhash"]=_hash
+        ret=self.do_requestdo("info",tparam)
+        if ret[0]==False:
+            logging.error(ret[1])
+            return
+        self.set_curnode(_address,ret[1][1],_hash)
+        self.close_enternode()
     
     def opennode(self,*args):
-        pass
+        tdparam=self.param_node.copy()
+        if self.curnode is not None:
+            tdparam["certhash"]=self.curnode[3]
+            gtkclient_node(self.links,self.curnode[1],tdparam,self.curnode[0])
         
     def infonode(self,*args):
         #serverurl=self.builder.get_object("servercomboentry").get_text()
@@ -380,24 +421,40 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             tdparam["certhash"]=self.curnode[3]
             gtkclient_info(self.links,self.curnode[1],tdparam,self.curnode[0])
             
-    def select_recent(self,*args):
-        pass
+    def activate_recent(self,*args):
+        view=self.builder.get_object("recentstore")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _address=_sel[0][_sel[1]][1]
+        _name=_sel[0][_sel[1]][2]
+        _hash=_sel[0][_sel[1]][3]
+        self.set_curnode(_address,_name,_hash)
     
     def listservices(self,*args):
-        
-        pass
+        tdparam=self.param_node.copy()
+        if self.curnode is not None:
+            tdparam["certhash"]=self.curnode[3]
+            gtkclient_remoteservice(self.links,self.curnode[1],tdparam,self.curnode[0])
+    
+    
+    
     #### server actions ####
     
     def addserverhash(self,*args):
+        view=self.builder.get_object("localview")
+        _sel=view.get_selection().get_selected()
         temp=self._verifyserver(serverurl)
-        if temp is None:
-            #
-            return
-        if temp[0] is not None:
-            return
+        if temp is not None:
+            _hash=temp[1]
+        else:
+            _hash=""
+        if _sel[1] is not None:
+            _name=_sel[0][_sel[1]][3]
+        else:
+            _name=""
+        self.addnodehash_intern(_hash,_name,"server")
     
-    def delserverhash(self,*args):
-        pass
         
     
     
@@ -444,7 +501,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         localservicelist.clear()
         but=self.builder.get_object("deleteserviceb")
         but.hide()
-        services=self.do_requestdo("listservices")
+        services=self.do_requestdo("listservices",self.param_client)
         if services[0]==False:
             return
         for elem in services[1]:
@@ -524,6 +581,18 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         pass
     
     
+    def addname_confirm(self,*args):
+        pass
+        
+    def delname_confirm(self,*args):
+        pass
+        
+    def addnode_confirm(self,*args):
+        pass
+    
+    def delnode_confirm(self,*args):
+        pass
+        
     
     
     def cmd_do(self,*args):
@@ -613,6 +682,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     def close_delnode(self,*args):
         self.delnodedia.hide()
+        return True
+    
+    def close_enternode(self,*args):
+        self.enternodedia.hide()
         return True
     
     def close(self,*args):
