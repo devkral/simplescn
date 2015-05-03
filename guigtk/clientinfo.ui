@@ -90,7 +90,9 @@
                 <property name="hexpand">True</property>
                 <property name="wrap">True</property>
                 <property name="wrap_mode">char</property>
-                <property name="ellipsize">end</property>
+                <property name="selectable">True</property>
+                <property name="width_chars">20</property>
+                <property name="max_width_chars">20</property>
                 <property name="track_visited_links">False</property>
               </object>
               <packing>
@@ -114,7 +116,7 @@
               <object class="GtkLabel" id="addresslabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Adress:</property>
+                <property name="label" translatable="yes">Address:</property>
               </object>
               <packing>
                 <property name="left_attach">0</property>
