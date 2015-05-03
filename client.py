@@ -164,6 +164,7 @@ class client_client(object):
     def getservice(self,client_addr,_service,dparam):
         return self.do_request(client_addr, "/getservice/{}".format(_service),dparam)
 
+    #### second way to add or remove a service
     def registerservice(self,_servicename,_port,dparam):
         self.links["client_server"].spmap[_servicename]=_port
         return (True,"service registered",isself,self.cert_hash)
@@ -425,7 +426,7 @@ class client_server(commonscn):
     capabilities=["basic",]
     scn_type="client"
     spmap={}
-    validactions={"info","getservice","listservices","cap","prioty"}
+    validactions={"info","getservice","listservices","cap","prioty","registerservice","delservice"}
     local_client_service_control=False
     def __init__(self,_name,_priority,_cert_hash,_message):
         if len(_name)==0:
@@ -441,10 +442,9 @@ class client_server(commonscn):
         self.priority=_priority
         self.cert_hash=_cert_hash
         
-        if self.local_client_service_control==True:
-            validactions.update({"registerservice","delservice"})
         self.update_cache()
-    ### management section - maybe removed ###
+    ### the primary way to add or remove a service
+    ### can be called by every application on same client, maybe add additional protection
     def registerservice(self,_service,_port,_addr):
         if _addr[0] in ["localhost","127.0.0.1","::1"]:
             self.spmap[_service]=_port
