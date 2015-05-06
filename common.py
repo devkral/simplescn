@@ -681,7 +681,7 @@ class certhash_db(object):
         return cur.fetchone()
     
     @connecttodb
-    def listcerts(self,dbcon,_name):
+    def listhashes(self,dbcon,_name):
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=?  ORDER BY priority DESC;''',(_name,))
         return cur.fetchall()

@@ -35,9 +35,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     win=None
     backlog=[]
     statusbar=None
-    localview=None
+    
     localstore=None
-    recentview=None
+    serverlist_dic=[]
+    
     recentstore=None
     recentcount=0
     remote_client=None
@@ -74,11 +75,12 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.win=self.builder.get_object("mainwin")
-        self.localview=self.builder.get_object("localview")
         self.localstore=self.builder.get_object("localstore")
-        self.recentview=self.builder.get_object("recentview")
         self.recentstore=self.builder.get_object("recentstore")
         self.statusbar=self.builder.get_object("mainstatusbar")
+        
+        recentview=self.builder.get_object("recentview")
+        localview=self.builder.get_object("localview")
         
         self.debugwin=self.builder.get_object("debugwin")
         self.cmdwin=self.builder.get_object("cmdwin")
@@ -96,18 +98,15 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.client_wintoggle=self.builder.get_object("useremoteclient")
         
         col0renderer=Gtk.CellRendererText()
-        col0 = Gtk.TreeViewColumn("Category", col0renderer, text=0)
-        self.localview.append_column(col0)
-        col1renderer=Gtk.CellRendererText()
-        col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
-        self.localview.append_column(col1)
+        col0 = Gtk.TreeViewColumn("Nodes", col0renderer, text=0)
+        localview.append_column(col0)
         
         recentcolrenderer=Gtk.CellRendererText()
         recentcol = Gtk.TreeViewColumn("Recent", recentcolrenderer, text=0)
-        self.recentview.append_column(recentcol)
+        recentview.append_column(recentcol)
         recentcolrenderer2=Gtk.CellRendererText()
-        recentcol2 = Gtk.TreeViewColumn("Url", recentcolrenderer2, text=0)
-        self.recentview.append_column(recentcol2)
+        recentcol2 = Gtk.TreeViewColumn("Url", recentcolrenderer2, text=1)
+        recentview.append_column(recentcol2)
         
         serviceview=self.builder.get_object("localserviceview")
         servicecolrenderer=Gtk.CellRendererText()
@@ -117,6 +116,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         servicecol2 = Gtk.TreeViewColumn("Port", servicecol2renderer, text=1)
         serviceview.append_column(servicecol2)
         
+        self.localstore=self.builder.get_object("localstore")
         
         self.debugwin.connect('delete-event',self.close_debug)
         self.cmdwin.connect('delete-event',self.close_cmd)
@@ -129,27 +129,39 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.enternodedia.connect('delete-event',self.close_enternode)
         
         
+        #overstore.append("Unknown",unstore)
+        
+        
         #self.clientwin.connect('delete-event',self.close_client)
         
-        # self.init_storage()
+        self.update_storage()
 
-    def init_storage(self):
-        _storage=self.do_requestdo("listnametypes")
+    def update_storage(self):
+        _storage=self.do_requestdo("listnodenametypes",self.param_client)
         if _storage[0]==False:
             return
-        lstore=self.builder.get_object("localstore")
-        serverlist=self.builder.get_object("serverlist")
+        
+        self.localstore.clear()
+        self.serverit=self.localstore.insert_with_values(None,-1,[0,],["Server",])
+        self.server_dic=[]
+        self.friendit=self.localstore.insert_with_values(None,-1,[0,],["Friend",])
+        self.friend_dic=[]
+        self.unknownit=self.localstore.insert_with_values(None,-1,[0,],["Unknown",])
+        self.unknown_dic=[]
+        
+        #serverlist=self.builder.get_object("serverlist")
+        #serverlist.clear()
         for elem in _storage[1]:
             if elem[1]=="server":
-                lstore.append(("Server",elem[0],elem[1]))
-                #self.hashes[elem[1]]=("Server",elem[0])
-                #self.do_requestdo("")
-                #for elem2 in 
-                serverlist.append((elem[0],))
-                
+                self.server_dic+=[elem[0],]
+                self.localstore.insert_with_values(self.serverit,-1,[0,],[elem[0],])
+            elif elem[1]=="client":
+                self.friend_dic+=[elem[0],]
+                self.localstore.insert_with_values(self.friendit,-1,[0,],[elem[0],])
             else:
-                lstore.append(("Friends",elem[0],elem[1]))
-
+                self.unknown_dic+=[elem[0],]
+                self.localstore.insert_with_values(self.unknownit,-1,[0,],[elem[0],])
+        
     #ugly
     """def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
@@ -284,7 +296,9 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     def veristate_server(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
-        self._verifyserver(serverurl)
+        servlist=self.builder.get_object("serverlist")
+        if self._verifyserver(serverurl) is not None:
+            servlist.append(())
     
     def set_curnode(self,_address,_name,_hash):
         if self.curnode is not None and self.curnode[0]!="This client":
@@ -375,7 +389,11 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         addnodehash_intern(_name,_hash)
     
     def delnodehash(self,*args):
-        pass
+        view=self.builder.get_object("recentstore")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _name=_sel[0][_sel[1]][2]
     
     
     def enternode(self,*args):

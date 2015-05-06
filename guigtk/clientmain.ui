@@ -14,224 +14,6 @@
     <property name="can_focus">False</property>
     <property name="icon_name">edit-delete</property>
   </object>
-  <object class="GtkApplicationWindow" id="delnodedia">
-    <property name="can_focus">False</property>
-    <property name="border_width">3</property>
-    <property name="title" translatable="yes">Delete node</property>
-    <property name="modal">True</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
-    <property name="type_hint">dialog</property>
-    <property name="urgency_hint">True</property>
-    <property name="transient_for">mainwin</property>
-    <property name="attached_to">mainwin</property>
-    <child>
-      <object class="GtkGrid" id="grid7">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="hexpand">True</property>
-        <property name="vexpand">True</property>
-        <property name="column_spacing">7</property>
-        <child>
-          <object class="GtkLabel" id="delnodela">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">end</property>
-            <property name="label" translatable="yes">Delete Node
-(with all references):</property>
-            <property name="justify">right</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="shownode">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">start</property>
-          </object>
-          <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkGrid" id="delnodegrid1">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">end</property>
-            <property name="vexpand">True</property>
-            <child>
-              <object class="GtkButton" id="okbuttonnode2">
-                <property name="label" translatable="yes">Ok</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="delnode_confirm" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="cancelbuttonnode2">
-                <property name="label" translatable="yes">Cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="close_delnode" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">2</property>
-            <property name="width">2</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="label7">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="label" translatable="yes">References:</property>
-            <property name="lines">0</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="referencecount">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-          <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-  </object>
-  <object class="GtkApplicationWindow" id="enternodedia">
-    <property name="can_focus">False</property>
-    <property name="border_width">3</property>
-    <property name="title" translatable="yes">Enter node</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
-    <property name="type_hint">dialog</property>
-    <property name="urgency_hint">True</property>
-    <property name="transient_for">mainwin</property>
-    <child>
-      <object class="GtkGrid" id="grid8">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="hexpand">True</property>
-        <property name="vexpand">True</property>
-        <property name="row_spacing">2</property>
-        <property name="column_spacing">5</property>
-        <child>
-          <object class="GtkLabel" id="label9">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">end</property>
-            <property name="label" translatable="yes">Url:</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="label10">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">end</property>
-            <property name="label" translatable="yes">Hash:</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkEntry" id="enternodeurl">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="hexpand">True</property>
-          </object>
-          <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkEntry" id="enternodehash">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="hexpand">True</property>
-          </object>
-          <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkGrid" id="enternodebgrid1">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">end</property>
-            <property name="column_spacing">2</property>
-            <child>
-              <object class="GtkButton" id="okbuttonnodee">
-                <property name="label" translatable="yes">Ok</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="enternode_confirm" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="cancelbuttonnodee">
-                <property name="label" translatable="yes">Cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="close_enternode" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">2</property>
-            <property name="width">2</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-  </object>
-  <object class="GtkListStore" id="localrow">
-    <columns>
-      <!-- column-name name -->
-      <column type="gchararray"/>
-    </columns>
-  </object>
   <object class="GtkListStore" id="localservicelist">
     <columns>
       <!-- column-name name -->
@@ -249,9 +31,7 @@
   </object>
   <object class="GtkTreeStore" id="localstore">
     <columns>
-      <!-- column-name category -->
-      <column type="gchararray"/>
-      <!-- column-name name -->
+      <!-- column-name node -->
       <column type="gchararray"/>
     </columns>
   </object>
@@ -1245,6 +1025,218 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <packing>
             <property name="left_attach">1</property>
             <property name="top_attach">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkApplicationWindow" id="delnodedia">
+    <property name="can_focus">False</property>
+    <property name="border_width">3</property>
+    <property name="title" translatable="yes">Delete node</property>
+    <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.png</property>
+    <property name="type_hint">dialog</property>
+    <property name="urgency_hint">True</property>
+    <property name="transient_for">mainwin</property>
+    <property name="attached_to">mainwin</property>
+    <child>
+      <object class="GtkGrid" id="grid7">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <property name="column_spacing">7</property>
+        <child>
+          <object class="GtkLabel" id="delnodela">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Delete Node
+(with all references):</property>
+            <property name="justify">right</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="shownode">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">start</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkGrid" id="delnodegrid1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="vexpand">True</property>
+            <child>
+              <object class="GtkButton" id="okbuttonnode2">
+                <property name="label" translatable="yes">Ok</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="delnode_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="cancelbuttonnode2">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_delnode" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">2</property>
+            <property name="width">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label7">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">References:</property>
+            <property name="lines">0</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="referencecount">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkApplicationWindow" id="enternodedia">
+    <property name="can_focus">False</property>
+    <property name="border_width">3</property>
+    <property name="title" translatable="yes">Enter node</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.png</property>
+    <property name="type_hint">dialog</property>
+    <property name="urgency_hint">True</property>
+    <property name="transient_for">mainwin</property>
+    <child>
+      <object class="GtkGrid" id="grid8">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <property name="row_spacing">2</property>
+        <property name="column_spacing">5</property>
+        <child>
+          <object class="GtkLabel" id="label9">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Url:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label10">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Hash:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEntry" id="enternodeurl">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEntry" id="enternodehash">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkGrid" id="enternodebgrid1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="column_spacing">2</property>
+            <child>
+              <object class="GtkButton" id="okbuttonnodee">
+                <property name="label" translatable="yes">Ok</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="enternode_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="cancelbuttonnodee">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_enternode" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">2</property>
+            <property name="width">2</property>
           </packing>
         </child>
       </object>

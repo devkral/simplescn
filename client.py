@@ -26,7 +26,7 @@ class client_client(object):
     links=None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addname", "delname", "updatename", "listnames", "listnodenames", "listall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
+    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addname", "delname", "updatename", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -334,7 +334,7 @@ class client_client(object):
             return (True,temp,isself,self.cert_hash)
     
     def listhashes(self,_name,dparam):
-        temp=self.hashdb.listcerts(_name)
+        temp=self.hashdb.listhashes(_name)
         if temp is None:
             return(False, error)
         else:
@@ -347,15 +347,15 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    def listnodename(self,dparam):
+    def listnodenames(self,dparam):
         temp=self.hashdb.listnodenames()
         if temp is None:
             return(False, error)
         else:
             return (True,temp,isself,self.cert_hash)
 
-    def listall(self,dparam):
-        temp=self.hashdb.listall()
+    def listnodeall(self,dparam):
+        temp=self.hashdb.listnodeall()
         if temp is None:
             return (False, error)
         else:
@@ -413,7 +413,7 @@ class client_client(object):
         if temp is None:
             return (False,error)
         return (True,temp,isself,self.cert_hash)
-    
+        
     def findbyref(self,_reference,dparam):
         temp=self.hashdb.findbyref(_reference)
         if temp is None:
