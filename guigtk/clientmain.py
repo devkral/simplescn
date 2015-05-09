@@ -87,9 +87,11 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.clientwin=self.builder.get_object("clientdia")
         self.mswin=self.builder.get_object("manageserviceswin")
         self.addnamedia=self.builder.get_object("addnamedia")
+        self.addnodedia=self.builder.get_object("addnodedia")
         self.delnamedia=self.builder.get_object("delnamedia")
         self.addnodedia=self.builder.get_object("addnodedia")
         self.delnodedia=self.builder.get_object("delnodedia")
+        self.managehashdia=self.builder.get_object("managehashdia")
         self.enternodedia=self.builder.get_object("enternodedia")
         
         
@@ -123,9 +125,11 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.clientwin.connect('delete-event',self.close_client)
         self.mswin.connect('delete-event',self.close_manages)
         self.addnamedia.connect('delete-event',self.close_addname)
+        self.addnodedia.connect('delete-event',self.close_addnodedia)
         self.delnamedia.connect('delete-event',self.close_delname)
         self.addnodedia.connect('delete-event',self.close_addnode)
         self.delnodedia.connect('delete-event',self.close_delnode)
+        self.managehashdia.connect('delete-event',self.close_managehashdia)
         self.enternodedia.connect('delete-event',self.close_enternode)
         
         
@@ -376,8 +380,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         hashe.set_text(_hash)
         typee.set_text(_type)
         
-        self.addnodehashdia.show()
-        self.addnodehashdia.grab_focus()
+        self.addnodedia.show()
+        self.addnodedia.grab_focus()
     
     def addnodehash(self,*args):
         view=self.builder.get_object("recentstore")
@@ -460,13 +464,17 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     #### server actions ####
     
     def addserverhash(self,*args):
+        serverurl=self.builder.get_object("servercomboentry").get_text()
         view=self.builder.get_object("localview")
         _sel=view.get_selection().get_selected()
         temp=self._verifyserver(serverurl)
         if temp is not None:
             _hash=temp[1]
         else:
-            _hash=""
+            return
+        if temp[0] is not None:
+            logging.debug("Already exists")
+            return
         if _sel[1] is not None:
             _name=_sel[0][_sel[1]][3]
         else:
@@ -474,7 +482,6 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.addnodehash_intern(_hash,_name,"server")
     
         
-    
     
     
     #### client actions ####
@@ -593,7 +600,24 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         pass
         
     def select_local(self,*args):
-        pass
+        localview=self.builder.get_object("localview")
+        _sel=localview.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _name=_sel[0][_sel[1]][0]
+        
+        if _sel[0].iter_parent(_sel[1])==False:
+            print("dd")
+            return
+        _type=_sel[0][_sel[1]][0]
+        if _type=="Server":
+            pass
+        
+        self.managehashdia.show()
+        
+        
+        
+        
         
     def client_help(self, args):
         pass
@@ -697,9 +721,17 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def close_addnode(self,*args):
         self.addnodedia.hide()
         return True
-        
+    
+    def close_addnodedia(self,*args):
+        self.addnodedia.hide()
+        return True
+    
     def close_delnode(self,*args):
         self.delnodedia.hide()
+        return True
+        
+    def close_managehashdia(self,*args):
+        self.managehashdia.hide()
         return True
     
     def close_enternode(self,*args):
