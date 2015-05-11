@@ -599,20 +599,23 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def aboutme(self, args):
         pass
         
-    def select_local(self,*args):
+    def activate_local(self,*args):
         localview=self.builder.get_object("localview")
         _sel=localview.get_selection().get_selected()
         if _sel[1] is None:
             return
         _name=_sel[0][_sel[1]][0]
         
-        if _sel[0].iter_parent(_sel[1])==False:
-            print("dd")
+        parentit=_sel[0].iter_parent(_sel[1])
+        if parentit is None:
             return
-        _type=_sel[0][_sel[1]][0]
+        #    print("dd")
+        #    return
+        _type=_sel[0][parentit][0]
         if _type=="Server":
             pass
-        
+        print(_type,_name)
+        self.leave_active=True
         self.managehashdia.show()
         
         
@@ -733,6 +736,19 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def close_managehashdia(self,*args):
         self.managehashdia.hide()
         return True
+        
+    leave_active=False
+    def close_managehashdia_activateleave(self,*args):
+        self.leave_active=True
+
+    def close_managehashdia_deactivateleave(self,*args):
+        self.leave_active=False
+        
+    def close_managehashdia_leave(self,*args):
+        if self.leave_active==True:
+            self.managehashdia.hide()
+    #def close_managehashdia3(self,*args):
+    
     
     def close_enternode(self,*args):
         self.enternodedia.hide()
