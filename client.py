@@ -26,7 +26,7 @@ class client_client(object):
     links=None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addname", "delname", "updatename", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
+    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "updateentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -268,22 +268,22 @@ class client_client(object):
         return self.check_direct(temp[1],_name,_hash,dparam)
     
     #local management
-    def addname(self,_name,dparam):
-        temp=self.hashdb.addname(_name)
+    def addentity(self,_name,dparam):
+        temp=self.hashdb.addentity(_name)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error)
 
-    def delname(self,_name,dparam):
-        temp=self.hashdb.delname(_name)
+    def delentity(self,_name,dparam):
+        temp=self.hashdb.delentity(_name)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error)
 
-    def updatename(self,_name,_newname,dparam):
-        temp=self.hashdb.updatename(_name,_newname)
+    def updateentity(self,_name,_newname,dparam):
+        temp=self.hashdb.updateentity(_name,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:

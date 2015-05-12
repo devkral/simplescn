@@ -12,7 +12,7 @@ from guigtk.clientservice import gtkclient_remoteservice
 #from gui.gtk.guicommon import run # gtkguinode
 
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \
-init_config_folder, generate_certs, isself, default_sslcont,check_hash
+init_config_folder, generate_certs, isself, default_sslcont,check_hash, scnparse_url,AddressEmptyFail
 
 #check_hash, server_port, dhash, scnparse_url, AddressFail
 
@@ -29,6 +29,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     links=None
 
     curnode=None
+    curlocal=None
     
     builder=None
     clip=None
@@ -86,10 +87,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.cmdwin=self.builder.get_object("cmdwin")
         self.clientwin=self.builder.get_object("clientdia")
         self.mswin=self.builder.get_object("manageserviceswin")
-        self.addnamedia=self.builder.get_object("addnamedia")
-        self.addnodedia=self.builder.get_object("addnodedia")
-        self.delnamedia=self.builder.get_object("delnamedia")
-        self.addnodedia=self.builder.get_object("addnodedia")
+        self.addentitydia=self.builder.get_object("addentitydia")
+        self.delentitydia=self.builder.get_object("delentitydia")
         self.delnodedia=self.builder.get_object("delnodedia")
         self.managehashdia=self.builder.get_object("managehashdia")
         self.enternodedia=self.builder.get_object("enternodedia")
@@ -99,38 +98,47 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.cmd_wintoggle=self.builder.get_object("cmdme")
         self.client_wintoggle=self.builder.get_object("useremoteclient")
         
-        col0renderer=Gtk.CellRendererText()
-        col0 = Gtk.TreeViewColumn("Nodes", col0renderer, text=0)
+        col0 = Gtk.TreeViewColumn("Nodes", Gtk.CellRendererText(), text=0)
         localview.append_column(col0)
         
-        recentcolrenderer=Gtk.CellRendererText()
-        recentcol = Gtk.TreeViewColumn("Recent", recentcolrenderer, text=0)
+        recentcol = Gtk.TreeViewColumn("Recent", Gtk.CellRendererText(), text=0)
         recentview.append_column(recentcol)
-        recentcolrenderer2=Gtk.CellRendererText()
-        recentcol2 = Gtk.TreeViewColumn("Url", recentcolrenderer2, text=1)
+        recentcol2 = Gtk.TreeViewColumn("Url", Gtk.CellRendererText(), text=1)
         recentview.append_column(recentcol2)
         
         serviceview=self.builder.get_object("localserviceview")
-        servicecolrenderer=Gtk.CellRendererText()
-        servicecol = Gtk.TreeViewColumn("Service", servicecolrenderer, text=0)
+        servicecol = Gtk.TreeViewColumn("Service", Gtk.CellRendererText(), text=0)
         serviceview.append_column(servicecol)
-        servicecol2renderer=Gtk.CellRendererText()
-        servicecol2 = Gtk.TreeViewColumn("Port", servicecol2renderer, text=1)
+        servicecol2 = Gtk.TreeViewColumn("Port", Gtk.CellRendererText(), text=1)
         serviceview.append_column(servicecol2)
+        
+        
+        
+        hview=self.builder.get_object("hashview")
+        rview=self.builder.get_object("refview")
+        
+        hcol1= Gtk.TreeViewColumn("Hash", Gtk.CellRendererText(),text=0)
+        hcol2= Gtk.TreeViewColumn("Type", Gtk.CellRendererText(),text=1)
+        
+        rcol1= Gtk.TreeViewColumn("Reference", Gtk.CellRendererText(),text=0)
+        rcol2= Gtk.TreeViewColumn("Type", Gtk.CellRendererText(),text=1)
+        
+        hview.append_column(hcol1)
+        hview.append_column(hcol2)
+        rview.append_column(rcol1)
+        rview.append_column(rcol2)
         
         self.localstore=self.builder.get_object("localstore")
         
         self.debugwin.connect('delete-event',self.close_debug)
         self.cmdwin.connect('delete-event',self.close_cmd)
-        self.clientwin.connect('delete-event',self.close_client)
+        self.clientwin.connect('delete-event',self.close_clientdia)
         self.mswin.connect('delete-event',self.close_manages)
-        self.addnamedia.connect('delete-event',self.close_addname)
-        self.addnodedia.connect('delete-event',self.close_addnodedia)
-        self.delnamedia.connect('delete-event',self.close_delname)
-        self.addnodedia.connect('delete-event',self.close_addnode)
-        self.delnodedia.connect('delete-event',self.close_delnode)
+        self.addentitydia.connect('delete-event',self.close_addentitydia)
+        self.delentitydia.connect('delete-event',self.close_delentitydia)
+        self.delnodedia.connect('delete-event',self.close_delnodedia)
         self.managehashdia.connect('delete-event',self.close_managehashdia)
-        self.enternodedia.connect('delete-event',self.close_enternode)
+        self.enternodedia.connect('delete-event',self.close_enternodedia)
         
         
         #overstore.append("Unknown",unstore)
@@ -152,11 +160,17 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.friend_dic=[]
         self.unknownit=self.localstore.insert_with_values(None,-1,[0,],["Unknown",])
         self.unknown_dic=[]
+        self.emptyit=self.localstore.insert_with_values(None,-1,[0,],["Empty",])
+        self.empty_dic=[]
         
         #serverlist=self.builder.get_object("serverlist")
         #serverlist.clear()
         for elem in _storage[1]:
-            if elem[1]=="server":
+            if elem[1] is None:
+                self.empty_dic+=[elem[0],]
+                self.localstore.insert_with_values(self.emptyit,-1,[0,],[elem[0],])
+            
+            elif elem[1]=="server":
                 self.server_dic+=[elem[0],]
                 self.localstore.insert_with_values(self.serverit,-1,[0,],[elem[0],])
             elif elem[1]=="client":
@@ -599,8 +613,29 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def aboutme(self, args):
         pass
         
+    def checkserver(self,*args):
+        serverurl=self.builder.get_object("servercomboentry").get_text()
+        temp=self.do_requestdo("listhashes",_name,self.param_client)
+        if temp[0]==False:
+            logging.debug("Exist?")
+                
+            return
+        try:
+            serverurl="{}:{}".format(*scnparse_url(serverurl))
+        except AddressEmptyFail:
+            logging.debug("Address Empty")
+            return
+        if self.do_requestdo("prioty_direct",serverurl,self.param_server)==False:
+            logging.debug("Server address invalid")
+            return
+        for elem in temp[1]:
+            if elem[1]=="unknown":
+                self.do_requestdo("check",serverurl,_name,elem[0],self.param_server)
+        self.update_storage()
+        
     def activate_local(self,*args):
         localview=self.builder.get_object("localview")
+        serverurl=self.builder.get_object("servercomboentry").get_text()
         _sel=localview.get_selection().get_selected()
         if _sel[1] is None:
             return
@@ -608,39 +643,153 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
         parentit=_sel[0].iter_parent(_sel[1])
         if parentit is None:
+            self.addentity()
             return
-        #    print("dd")
-        #    return
         _type=_sel[0][parentit][0]
-        if _type=="Server":
+        if _type in ["Empty","Unknown"]:
             pass
-        print(_type,_name)
+        self.curlocal=(_type,_name)
         self.leave_active=True
+        self.update_hashes()
         self.managehashdia.show()
         
+    def update_hashes(self,*args):
+        temp=self.do_requestdo("listhashes",self.curlocal[1],self.param_client)
+        hashlist=self.builder.get_object("hashlist")
+        hashlist.clear()
+        if temp[0]==False:
+            logging.debug("Exist?")
+        for elem in temp[1]:
+            if elem[1] is not None:
+                hashlist.append((elem[0],elem[1],elem[3]))
         
+    def select_hash(self,*args):
+        view=self.builder.get_object("hashview")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        self.update_refs()
         
-        
+    def update_refs(self,*args):
+        view=self.builder.get_object("refview")
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _refid=_sel[0][_sel[1]][2]
+    
+        temp=self.do_requestdo("getreferences",self.curlocal[1],_refid,self.param_client)
+        reflist=self.builder.get_object("reflist")
+        reflist.clear()
+        if temp[0]==False:
+            logging.debug("Exist?")
+        for elem in temp[1]:
+            reflist.append((elem[0],elem[1]))
         
     def client_help(self, args):
         pass
     
-    
-    def addname_confirm(self,*args):
-        pass
+    def addentity(self,*args):
+        self.builder.get_object("addentityentry").set_text("")
         
-    def delname_confirm(self,*args):
-        pass
+        self.addentitydia.show()
         
-    def addnode_confirm(self,*args):
-        pass
-    
-    def delnode_confirm(self,*args):
-        pass
+    def addentity_confirm(self,*args):
+        addentity=self.builder.get_object("addentityentry")
+        _entity=addentity.get_text()
+        res=self.do_requestdo("addentity",_entity,self.param_client)
+        if res[0]==True:
+            self.addentitydia.hide()
+            self.empty_dic+=[_entity,]
+            self.localstore.insert_with_values(self.emptyit,-1,[0,],[_entity,])
+            
+    def delentity(self,*args):
+        self.builder.get_object("showentity")
+        self.delentitydia.show()
         
+    def delentity_confirm(self,*args):
+        res=self.do_requestdo("delentity",self.curlocal[1],self.param_client)
+        if res[0]==True:
+            self.update_storage()
+            self.delentitydia.hide()
+            
+    def addhash_confirm(self,*args):
+        addhashentry=self.builder.get_object("addhashentry")
+        if addhashentry.is_visible()==False:
+            addhashentry.set_text("")
+            addhashentry.set_visible(True)
+            return
+            
+        _hash=addhashentry.get_text()
+        if check_hash(_hash)==False:
+            return
+        res=self.do_requestdo("addhash",self.curlocal[1],_hash,self.param_client)
+        if res[0]==True:
+            addhashentry.hide()
+            self.update_hashes()
     
+    def delhash_confirm(self,*args):
+        hview=self.builder.get_object("hashview")
+        _selh=hview.get_selection().get_selected()
+        if _selh[1] is None:
+            return
+        _hash=_selh[0][_selh[1]][0]
+        res=self.do_requestdo("delhash",self.curlocal[1],_hash,self.param_client)
+        if res[0]==True:
+            self.delhashdia.hide()
+            self.update_hashes()
+        #self.update()
+        
+    def addreference_confirm(self,*args):
+        addrefentry=self.builder.get_object("addrefentry")
+        if addrefentry.is_visible()==False:
+            addrefentry.set_text("")
+            addrefentry.set_visible(True)
+            return
+        hview=self.builder.get_object("hashview")
+        _selh=hview.get_selection().get_selected()
+        if _selh[1] is None:
+            return
+        _hash=_selh[0][_selh[1]][0]
+        
+        _ref=addrefentry.get_text()
+        tparam=self.param_client.copy()
+        tparam["certhash"]=_hash
+        
+        if self.curlocal[0] in ["Server",]:
+            #try:
+            #    temp=scnparse_url(_ref)
+            #except AddressEmptyFail:
+            #    return
+            _reference=_ref
+            _reftype="ipu" #TODO: be more specific
+        elif self.curlocal[0]=="Friend":
+            _reftype="name"
+        else:
+            return
+        
+        res=self.do_request("addreference",self.curlocal[1],_hash,_ref,_reftype,tparam)
+        if res[0]==True:
+            self.update_refs()
+        
+    def delreference_confirm(self,*args):
+        hview=self.builder.get_object("hashview")
+        rview=self.builder.get_object("refview")
+        _selh=hview.get_selection().get_selected()
+        if _selh[1] is None:
+            return
+        _hash=_selh[0][_selh[1]][0]
+        _selh=hview.get_selection().get_selected()
+        if _selr[1] is None:
+            return
+        _ref=_selr[0][_selr[1]][0]
+        
+        res=self.do_requestdo("delreference",self.curlocal[1],_hash,_ref,self.param_client)
+        if res[0]==True:
+            self.delrefdia.hide()
+            self.update_refs()
     
     def cmd_do(self,*args):
+        cmdveri=self.builder.get_object("cmdverify")
         inp=self.builder.get_object("cmdenter")
         out=self.builder.get_object("cmdbuffer")
         dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
@@ -682,11 +831,11 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 out.insert(out.get_end_iter(),"Error:\n{}\n".format(resp[1]))
             else:
                 if resp[2] is None:
-                    print("Unverified")
+                    cmdveri.set_text("Unverified")
                 elif resp[2] is isself:
-                    print("Is own client")
+                    cmdveri.set_text("Is own client")
                 else:
-                    print("Verified as: "+resp[2])
+                    cmdveri.set_text("Verified as: "+resp[2])
                 out.insert(out.get_end_iter(),"Success:\n{}\n".format(resp[1]))
         except KeyError as e:
             out.insert(out.get_end_iter(),"Command does not exist?\n{}\n".format(parsed))
@@ -705,7 +854,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.cmdwin.hide()
         return True
         
-    def close_client(self,*args):
+    def close_clientdia(self,*args):
         self.clientwin.hide()
         return True
     
@@ -713,24 +862,21 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.mswin.hide()
         return True
     
-    def close_addname(self,*args):
-        self.addnamedia.hide()
+    def close_addentitydia(self,*args):
+        self.addentitydia.hide()
         return True
         
-    def close_delname(self,*args):
-        self.delnamedia.hide()
-        return True
-        
-    def close_addnode(self,*args):
-        self.addnodedia.hide()
+    def close_delentitydia(self,*args):
+        self.delentitydia.hide()
         return True
     
-    def close_addnodedia(self,*args):
-        self.addnodedia.hide()
-        return True
     
-    def close_delnode(self,*args):
+    def close_delnodedia(self,*args):
         self.delnodedia.hide()
+        return True
+        
+    def close_delrefdia(self,*args):
+        self.delrefdia.hide()
         return True
         
     def close_managehashdia(self,*args):
@@ -750,7 +896,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     #def close_managehashdia3(self,*args):
     
     
-    def close_enternode(self,*args):
+    def close_enternodedia(self,*args):
         self.enternodedia.hide()
         return True
     

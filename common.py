@@ -530,11 +530,12 @@ class certhash_db(object):
                 else:
                     st=str(e)
                 logging.error(st)
+                logging.error(func.__name__)
             return temp
         return funcwrap
 
     @connecttodb
-    def addname(self,dbcon,_name):
+    def addentity(self,dbcon,_name):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is not None:
@@ -543,12 +544,12 @@ class certhash_db(object):
         if check_name(_name)==False:
             logging.info("name contains invalid elements")
             return False
-        cur.execute('''INSERT INTO certs(name,certhash) values(?,"default");''', (_name,))
+        cur.execute('''INSERT INTO certs(name,certhash) values (?,'default');''', (_name,))
         dbcon.commit()
         return True
 
     @connecttodb
-    def delname(self,dbcon,_name):
+    def delentity(self,dbcon,_name):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
         if cur.fetchone() is None:
@@ -559,7 +560,7 @@ class certhash_db(object):
         return True
     
     @connecttodb
-    def updatename(self,dbcon,_name,_newname):
+    def updateentity(self,dbcon,_name,_newname):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
         if cur.fetchone() is None:
