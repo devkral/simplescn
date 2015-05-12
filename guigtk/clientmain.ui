@@ -14,97 +14,10 @@
     <property name="can_focus">False</property>
     <property name="icon_name">edit-delete</property>
   </object>
-  <object class="GtkApplicationWindow" id="delrefdia">
-    <property name="can_focus">False</property>
-    <property name="border_width">3</property>
-    <property name="title" translatable="yes">Delete name</property>
-    <property name="modal">True</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
-    <property name="type_hint">dialog</property>
-    <property name="urgency_hint">True</property>
-    <property name="transient_for">mainwin</property>
-    <property name="attached_to">mainwin</property>
-    <child>
-      <object class="GtkGrid" id="grid13">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="hexpand">True</property>
-        <property name="vexpand">True</property>
-        <child>
-          <object class="GtkGrid" id="delrefbgrid">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">end</property>
-            <property name="valign">start</property>
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <property name="column_spacing">3</property>
-            <child>
-              <object class="GtkButton" id="okbuttonref">
-                <property name="label" translatable="yes">Ok</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="delreference_confirm" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="cancelbuttonref">
-                <property name="label" translatable="yes">Cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="close_delrefdia" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
-            <property name="width">2</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="delreferla">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="label" translatable="yes">Delete Reference:</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="showreference">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="selectable">True</property>
-            <property name="track_visited_links">False</property>
-          </object>
-          <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-  </object>
   <object class="GtkListStore" id="hashlist">
     <columns>
       <!-- column-name hash -->
       <column type="gchararray"/>
-      <!-- column-name refid -->
-      <column type="guint64"/>
     </columns>
   </object>
   <object class="GtkListStore" id="localservicelist">
@@ -1111,6 +1024,91 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <packing>
             <property name="left_attach">1</property>
             <property name="top_attach">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkApplicationWindow" id="delrefdia">
+    <property name="can_focus">False</property>
+    <property name="border_width">3</property>
+    <property name="title" translatable="yes">Delete name</property>
+    <property name="modal">True</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.png</property>
+    <property name="type_hint">dialog</property>
+    <property name="urgency_hint">True</property>
+    <property name="transient_for">mainwin</property>
+    <property name="attached_to">mainwin</property>
+    <child>
+      <object class="GtkGrid" id="grid13">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <child>
+          <object class="GtkGrid" id="delrefbgrid">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="valign">start</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <property name="column_spacing">3</property>
+            <child>
+              <object class="GtkButton" id="okbuttonref">
+                <property name="label" translatable="yes">Ok</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="delreference_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="cancelbuttonref">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_delrefdia" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+            <property name="width">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="delreferla">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">Delete Reference:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="showreference">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="selectable">True</property>
+            <property name="track_visited_links">False</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
           </packing>
         </child>
       </object>

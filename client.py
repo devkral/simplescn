@@ -409,7 +409,7 @@ class client_client(object):
         _tref=self.hashdb.get(_name,_certhash)
         if _tref is None:
             return (False,"name,hash not exist")
-        temp=self.hashdb.getreference(_tref[2])
+        temp=self.hashdb.getreferences(_tref[2])
         if temp is None:
             return (False,error)
         return (True,temp,isself,self.cert_hash)

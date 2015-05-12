@@ -666,7 +666,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             if elem[1] is None:
                 pass
             elif elem[1]==self.curlocal[0]:
-                hashlist.append((elem[0],elem[3]))
+                hashlist.append((elem[0],))
         
     def select_hash(self,*args):
         view=self.builder.get_object("hashview")
@@ -678,17 +678,18 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.update_refs()
         
     def update_refs(self,*args):
-        view=self.builder.get_object("refview")
-        _sel=view.get_selection().get_selected()
+        hview=self.builder.get_object("hashview")
+        _sel=hview.get_selection().get_selected()
         if _sel[1] is None:
             return
-        _refid=_sel[0][_sel[1]][1]
+        _hash=_sel[0][_sel[1]][0]
     
-        temp=self.do_requestdo("getreferences",self.curlocal[1],_refid,self.param_client)
+        temp=self.do_requestdo("getreferences",self.curlocal[1],_hash,self.param_client)
         reflist=self.builder.get_object("reflist")
         reflist.clear()
         if temp[0]==False:
             logging.debug("Exist?")
+            return
         for elem in temp[1]:
             reflist.append((elem[0],elem[1]))
         
@@ -722,7 +723,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def addhash_confirm(self,*args):
         addhashentry=self.builder.get_object("addhashentry")
         if addhashentry.is_visible()==False:
-            addhashentry.set_text("")
+            if self.curnode is not None:
+                addhashentry.set_text(self.curnode[3])
+            else:
+                addhashentry.set_text("")
             addhashentry.set_visible(True)
             return
             

@@ -508,8 +508,11 @@ class certhash_db(object):
             logging.error(e)
             return
         try:
-            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, certreferenceid INTEGER AUTO INCREMENT, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, certreferenceid INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
             con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, reftype TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
+            #hack:
+            con.execute('''CREATE TABLE if not exists certrefcount(certreferenceid INTEGER);''')
+            con.execute('''INSERT INTO certrefcount(certreferenceid) values(?);''', (0,))
             con.commit()
         except Exception as e:
             con.rollback()
@@ -590,8 +593,13 @@ class certhash_db(object):
         if cur.fetchone() is not None:
             logging.info("hash already exists")
             return False
+            
+        #hack
+        cur.execute('''SELECT certreferenceid FROM certrefcount''')
+        count=cur.fetchone()[0]
+        cur.execute('''UPDATE certrefcount SET certreferenceid=?''',(count+1,))
         
-        cur.execute('''INSERT INTO certs(name,certhash,type,priority) values(?,?,?,?);''', (_name,_certhash,nodetype,priority))
+        cur.execute('''INSERT INTO certs(name,certhash,type,priority,certreferenceid) values(?,?,?,?,?);''', (_name,_certhash,nodetype,priority,count))
         
         dbcon.commit()
         return True
@@ -761,7 +769,7 @@ class certhash_db(object):
     @connecttodb
     def getreferences(self,dbcon,_referenceid):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreference,reftype FROM certreferences WHERE certreferenceid=?;''',(_referenceid))
+        cur.execute('''SELECT certreference,reftype FROM certreferences WHERE certreferenceid=?;''',(_referenceid,))
         return cur.fetchall()
     
     @connecttodb
