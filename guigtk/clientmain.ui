@@ -103,8 +103,6 @@
     <columns>
       <!-- column-name hash -->
       <column type="gchararray"/>
-      <!-- column-name type -->
-      <column type="gchararray"/>
       <!-- column-name refid -->
       <column type="guint64"/>
     </columns>
@@ -1280,6 +1278,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="can_focus">True</property>
                 <property name="hexpand">True</property>
                 <signal name="activate" handler="addhash_confirm" swapped="no"/>
+                <signal name="focus-in-event" handler="close_managehashdia_deactivateleave" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -1381,6 +1380,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="can_focus">True</property>
                 <property name="hexpand">True</property>
                 <signal name="activate" handler="addreference_confirm" swapped="no"/>
+                <signal name="focus-in-event" handler="close_managehashdia_deactivateleave" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>

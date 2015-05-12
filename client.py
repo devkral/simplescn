@@ -13,7 +13,7 @@ import socket
 import os
 from os import path
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir,certhash_db,default_sslcont,parse_response,dhash,VALNameError,VALHashError,isself,check_name,dhash_salt,gen_passwd_hash,commonscn,sharedir,scnparse_url,AddressFail,pluginmanager,configmanager
+from common import success, error, server_port, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, dhash_salt, gen_passwd_hash, commonscn, sharedir, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
 
 
 
@@ -387,13 +387,13 @@ class client_client(object):
         
         if check_reference(_reference)==False:
             return (False,"reference invalid")
-        if check_reference_type(_reference)==False:
-            return (False,"reference invalid")
+        if check_reference_type(_reftype)==False:
+            return (False,"reference type invalid")
             
         _tref=self.hashdb.get(_name,_certhash)
         if _tref is None:
             return (False,"name,hash not exist")
-        if self.hashdb.addreference(_tref[2],_reference,_referencetype) is None:
+        if self.hashdb.addreference(_tref[2],_reference,_reftype) is None:
             return (False,"adding a reference failed")
         return (True,success,isself,self.cert_hash)
         

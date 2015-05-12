@@ -739,7 +739,7 @@ class certhash_db(object):
         if check_reference(_reference)==False:
             logging.error("reference invalid")
             return False
-        if check_reference_type(_reference_type)==False:
+        if check_reference_type(_reftype)==False:
             logging.error("reference type invalid")
             return False
         cur = dbcon.cursor()

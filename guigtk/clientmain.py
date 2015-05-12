@@ -118,13 +118,11 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         rview=self.builder.get_object("refview")
         
         hcol1= Gtk.TreeViewColumn("Hash", Gtk.CellRendererText(),text=0)
-        hcol2= Gtk.TreeViewColumn("Type", Gtk.CellRendererText(),text=1)
         
         rcol1= Gtk.TreeViewColumn("Reference", Gtk.CellRendererText(),text=0)
         rcol2= Gtk.TreeViewColumn("Type", Gtk.CellRendererText(),text=1)
         
         hview.append_column(hcol1)
-        hview.append_column(hcol2)
         rview.append_column(rcol1)
         rview.append_column(rcol2)
         
@@ -646,11 +644,16 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             self.addentity()
             return
         _type=_sel[0][parentit][0]
-        if _type in ["Empty","Unknown"]:
-            pass
-        self.curlocal=(_type,_name)
+        
+        if _type=="Server":
+            self.curlocal=("server",_name)
+        elif _type=="Friend":
+            self.curlocal=("client",_name)
+        else:
+            self.curlocal=("unknown",_name)
         self.leave_active=True
         self.update_hashes()
+        self.managehashdia.set_title(_name)
         self.managehashdia.show()
         
     def update_hashes(self,*args):
@@ -660,12 +663,16 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if temp[0]==False:
             logging.debug("Exist?")
         for elem in temp[1]:
-            if elem[1] is not None:
-                hashlist.append((elem[0],elem[1],elem[3]))
+            if elem[1] is None:
+                pass
+            elif elem[1]==self.curlocal[0]:
+                hashlist.append((elem[0],elem[3]))
         
     def select_hash(self,*args):
         view=self.builder.get_object("hashview")
         _sel=view.get_selection().get_selected()
+        reflist=self.builder.get_object("reflist")
+        reflist.clear()
         if _sel[1] is None:
             return
         self.update_refs()
@@ -675,7 +682,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         _sel=view.get_selection().get_selected()
         if _sel[1] is None:
             return
-        _refid=_sel[0][_sel[1]][2]
+        _refid=_sel[0][_sel[1]][1]
     
         temp=self.do_requestdo("getreferences",self.curlocal[1],_refid,self.param_client)
         reflist=self.builder.get_object("reflist")
@@ -760,16 +767,18 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             #    temp=scnparse_url(_ref)
             #except AddressEmptyFail:
             #    return
-            _reference=_ref
             _reftype="ipu" #TODO: be more specific
         elif self.curlocal[0]=="Friend":
             _reftype="name"
         else:
-            return
+            #return
+            _reftype="test"
         
-        res=self.do_request("addreference",self.curlocal[1],_hash,_ref,_reftype,tparam)
+        res=self.do_requestdo("addreference",self.curlocal[1],_hash,_ref,_reftype,tparam)
         if res[0]==True:
+            addrefentry.hide()
             self.update_refs()
+            
         
     def delreference_confirm(self,*args):
         hview=self.builder.get_object("hashview")
