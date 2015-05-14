@@ -2,7 +2,7 @@
 
 from gi.repository import Gtk
 
-from guigtk.guicommon import gtkclient_template
+from guicommon import gtkclient_template
 from common import sharedir,isself
 
 class gtkclient_node(gtkclient_template):

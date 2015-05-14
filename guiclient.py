@@ -1,11 +1,21 @@
 #! /usr/bin/env python3
+import sys,os
+
+thisdir=os.path.dirname(os.path.realpath(__file__))
+if thisdir not in sys.path:
+    sys.path.append(thisdir)
+
+guigtk=os.path.join(thisdir,"guigtk")
+if guigtk not in sys.path:
+    sys.path.append(guigtk)
+
+from os import path
+
 import logging
 import signal
-import sys
-import os
-from os import path
-import guigtk.clientmain
-from guigtk.clientmain import gtkclient_init, do_gtkiteration
+
+import clientmain
+from clientmain import gtkclient_init, do_gtkiteration
 
 import client
 from client import default_client_args as dclargs

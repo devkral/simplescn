@@ -1,5 +1,12 @@
 #! /usr/bin/env python3
 
+
+import sys,os
+
+thisdir=os.path.dirname(os.path.realpath(__file__))
+if thisdir not in sys.path:
+    sys.path.append(thisdir)
+
 #import SSL as ssln
 #from OpenSSL import SSL,crypto
 from http.server  import BaseHTTPRequestHandler,HTTPServer
@@ -10,7 +17,6 @@ import ssl
 import sys,signal,threading
 import traceback
 import socket
-import os
 from os import path
 
 from common import success, error, server_port, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, dhash_salt, gen_passwd_hash, commonscn, sharedir, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
@@ -483,13 +489,14 @@ class client_server(commonscn):
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
+    
     #
-    links=None
-    handle_localhost=False
-    handle_remote=False
-    cpwhash=None
-    spwhash=None
-    salt=None
+    links = None
+    handle_localhost = False
+    handle_remote = False
+    cpwhash = None
+    spwhash = None
+    salt = None
     statics={}
     webgui=False
         
@@ -518,10 +525,10 @@ class client_handler(BaseHTTPRequestHandler):
         if self.cpwhash is None:
             return True
         if "cpwhash" in self.headers:
-            if dhash_salt(self.headers["cpwhash"],self.salt)==self.cpwhash:
+            if dhash_salt(self.headers["cpwhash"], self.salt) == self.cpwhash:
                 return True
         elif "cpwhash" in dparam:
-            if dhash_salt(dparam["cpwhash"],self.salt)==self.cpwhash:
+            if dhash_salt(dparam["cpwhash"], self.salt) == self.cpwhash:
                 return True
         return False
 
@@ -529,7 +536,7 @@ class client_handler(BaseHTTPRequestHandler):
         if self.spwhash is None:
             return True
         if "spwhash" in self.headers:
-            if dhash_salt(self.headers["spwhash"],self.salt)==self.spwhash:
+            if dhash_salt(self.headers["spwhash"], self.salt) == self.spwhash:
                 return True
         
         return False
@@ -562,69 +569,69 @@ class client_handler(BaseHTTPRequestHandler):
                 if len(st)>0:
                     self.send_error(500,st)
                 else:
-                    self.send_error(500,"unknown")
+                    self.send_error(500, "unknown")
             return
-        if response[0]==False:
+        if response[0] == False:
             #helps against ssl failing about empty string (EOF)
-            if len(response)>=1 and len(response[1])>0:
-                self.send_error(400,str(response[1]))
+            if len(response) >= 1 and len(response[1]) > 0:
+                self.send_error(400, str(response[1]))
             else:
-                self.send_error(400,"unknown")
+                self.send_error(400, "unknown")
             return
         else:
             self.send_response(200)
             self.send_header("Cache-Control", "no-cache")
-            self.send_header('Content-type',"text")
+            self.send_header('Content-type', "text")
             self.end_headers()
             #have beginning trailing "" for indicating list
             if type(response[1]).__name__ in ["tuple","list"]:
-                sumelem=""
+                sumelem = ""
                 for listelem in response[1]:
-                    if type(listelem).__name__ in ["tuple","list"]:
-                        nestsum=""
+                    if type(listelem).__name__ in ["tuple", "list"]:
+                        nestsum = ""
                         for nestlistelem in listelem:
                             if nestlistelem is None:
-                                nestsum="{}/%".format(nestsum)
+                                nestsum = "{}/%".format(nestsum)
                             elif nestlistelem is isself:
-                                nestsum="{}/isself".format(nestsum)
+                                nestsum = "{}/isself".format(nestsum)
                             else:
-                                nestsum="{}/{}".format(nestsum,nestlistelem)
-                        sumelem="{}\n{}".format(sumelem,nestsum)
+                                nestsum = "{}/{}".format(nestsum, nestlistelem)
+                        sumelem = "{}\n{}".format(sumelem, nestsum)
                     elif listelem is isself:
-                        sumelem="{}\nisself".format(sumelem)
+                        sumelem = "{}\nisself".format(sumelem)
                     elif listelem is None:
-                        sumelem="{}\n%".format(sumelem)
+                        sumelem = "{}\n%".format(sumelem)
                     else:
-                        sumelem="{}\n{}".format(sumelem,listelem)
-                        
+                        sumelem = "{}\n{}".format(sumelem, listelem)
+
                 #here switch certname before content
-                self.wfile.write(bytes("{}/{}".format(response[2].__str__(),sumelem),"utf8"))
+                self.wfile.write(bytes("{}/{}".format(response[2].__str__(), sumelem), "utf8"))
             elif response[1] is None:
                 self.wfile.write(bytes("{}/%".format(response[2].__str__())))
             else:
                 #here switch certname before content
-                self.wfile.write(bytes("{}/{}".format(response[2].__str__(),response[1]),"utf8"))
+                self.wfile.write(bytes("{}/{}".format(response[2].__str__(), response[1]), "utf8"))
 
-    def handle_server(self,_cmdlist):
+    def handle_server(self, _cmdlist):
         if _cmdlist[0] not in self.links["client_server"].validactions:
-            self.send_error(400,"invalid action - server")
+            self.send_error(400, "invalid action - server")
             return
         
          # add address to _cmdlist
-        _cmdlist+=[self.client_address,]
+        _cmdlist += [self.client_address,]
         
         if self.check_spw()==False:
             self.send_error(401,self.salt)            
             return
         try:
-            func=type(self.links["client_server"]).__dict__[_cmdlist[0]]
-            response=func(self.links["client_server"],*_cmdlist[1:])
+            func = type(self.links["client_server"]).__dict__[_cmdlist[0]]
+            response = func(self.links["client_server"],*_cmdlist[1:])
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
                 if "tb_frame" in e.__dict__:
-                    st=str(e)+"\n\n"+str(traceback.format_tb(e))
+                    st = str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
-                    st=str(e)
+                    st = str(e)
                 #helps against ssl failing about empty string (EOF)
                 if len(st)>0:
                     self.send_error(500,st)
@@ -634,8 +641,8 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(500,"server error")
             return
         
-        respparse=response.split("/",1)
-        if respparse[0]==error:
+        respparse = response.split("/",1)
+        if respparse[0] == error:
             #helps against ssl failing about empty string (EOF)
             if len(respparse)>1 and len(respparse[1])>0:
                 self.send_error(400,respparse[1])
@@ -664,41 +671,40 @@ class client_handler(BaseHTTPRequestHandler):
         
         dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
         pos_param=self.path.find("?")
-        if pos_param!=-1:
-            _cmdlist=self.path[1:pos_param].split("/")
-            tparam=self.path[pos_param+1:].split("&")
+        if pos_param != -1:
+            _cmdlist = self.path[1:pos_param].split("/")
+            tparam = self.path[pos_param+1:].split("&")
             for elem in tparam:
-                elem=elem.split("=")
+                elem = elem.split("=")
 
-                if len(elem)==1 and elem[0]!="":
-                    dparam[elem[0]]=""
-                elif len(elem)==2:
-                    dparam[elem[0]]=elem[1]
+                if len(elem) == 1 and elem[0] != "":
+                    dparam[elem[0]] = ""
+                elif len(elem) == 2:
+                    dparam[elem[0]] = elem[1]
                 else:
-                    self.send_error(400,"invalid key/value pair\n{}".format(elem))
+                    self.send_error(400, "invalid key/value pair\n{}".format(elem))
                     return
-                                
         else:
             _cmdlist=self.path[1:].split("/")
 
 
         action=_cmdlist[0]
 
-        if action=="do":
+        if action == "do":
             self.handle_client(_cmdlist[1:],dparam) #remove do
             return
         elif action in self.links["client_server"].validactions:
             self.handle_server(_cmdlist)
             return
 
-        if self.webgui==False:
+        if self.webgui == False:
             self.send_response(400,"no webgui")
             return
         #client 
-        if action in ("","client","html","index"):
+        if action in ("", "client", "html", "index"):
             self.html("client.html")
             return
-        elif action=="static" and len(_cmdlist)>=2:
+        elif action == "static" and len(_cmdlist) >= 2:
             if _cmdlist[1] in self.statics:
                 self.send_response(200)
                 self.end_headers()
@@ -706,53 +712,58 @@ class client_handler(BaseHTTPRequestHandler):
             else:
                 self.send_response(404)
             return
-        self.send_response(400,"invalid action")
+        self.send_response(400, "invalid action")
     
     def do_PUT(self):
-        pos_param=self.path.find("?")
-        if pos_param!=-1:
-            _cmdlist=self.path[1:pos_param].split("/")
-            tparam=self.path[pos_param+1:].split("&")
+        pos_param = self.path.find("?")
+        if pos_param != -1:
+            _cmdlist = self.path[1:pos_param].split("/")
+            tparam = self.path[pos_param+1:].split("&")
             for elem in tparam:
-                elem=elem.split("=")
+                elem = elem.split("=")
 
-                if len(elem)==1 and elem[0]!="":
-                    dparam[elem[0]]=""
-                elif len(elem)==2:
-                    dparam[elem[0]]=elem[1]
+                if len(elem) == 1 and elem[0] != "":
+                    dparam[elem[0]] = ""
+                elif len(elem) == 2:
+                    dparam[elem[0]] = elem[1]
                 else:
                     self.send_error(400,"invalid key/value pair\n{}".format(elem))
                     return
         else:
-            _cmdlist=self.path[1:].split("/")
-        
-        action=_cmdlist[0]
-        if action=="do":
-            self.handle_client(_cmdlist[1:],dparam) #removes do
-    
+            _cmdlist = self.path[1:].split("/")
+
+        action = _cmdlist[0]
+        if action == "do":
+            self.handle_client(_cmdlist[1:], dparam) #removes do
+
 
     def do_POST(self):
         plugin,action=self.path[1:].split("/",1)
-        if self.links["client_server"].pluginmanager.redirect_addr=="":
+        pluginm=self.links["client_server"].pluginmanager
+        if pluginm.redirect_addr in ["",None]:
             try:
-                self.links["client_server"].pluginmanager.plugins[plugin](action)
+                pluginm.plugins[plugin].receive(action, self.rfile, self.wfile)
             except Exception as e:
                 logging.error(e)
                 return
-        elif  self.links["client_server"].pluginmanager.redirect_addr!="":
-            self.links["client_client"].do_request(self.links["client_server"].pluginmanager.redirect_addr,self.path,requesttype="POST")
+        else:
+            self.links["client_client"].do_request(pluginm.redirect_addr, \
+                                            self.path, requesttype = "POST")
             return
         
         
-class http_client_server(socketserver.ThreadingMixIn,HTTPServer,client_server):
+class http_client_server(socketserver.ThreadingMixIn,HTTPServer, client_server):
+    """server part of client; inheritates client_server to provide
+        client information"""
     #address_family = socket.AF_INET6
-    sslcont=None
+    sslcont = None
     
-    def __init__(self, _client_address,certfpath):
-        HTTPServer.__init__(self, _client_address,client_handler)
-        self.sslcont=default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv")
-        self.socket=self.sslcont.wrap_socket(self.socket)
+    
+    def __init__(self, _client_address, certfpath):
+        HTTPServer.__init__(self, _client_address, client_handler)
+        self.sslcont = default_sslcont()
+        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+        self.socket = self.sslcont.wrap_socket(self.socket)
         
 
 
@@ -778,65 +789,64 @@ class client_init(object):
         else:
             client_handler.webgui=False
         
-        client_handler.salt=os.urandom(4)
-        if confm.getb("local")==True:
+        client_handler.salt = os.urandom(8)
+        if confm.getb("local") == True:
             client_handler.handle_localhost=True
-        elif confm.getb("cpwhash")==True:
-            if confm.getb("remote")==True:
-                client_handler.handle_remote=True
-            client_handler.handle_localhost=True
+        elif confm.getb("cpwhash") == True:
+            if confm.getb("remote") == True:
+                client_handler.handle_remote = True
+            client_handler.handle_localhost = True
             client_handler.cpwhash=dhash_salt(confm.get("cpwhash"),client_handler.salt)
-        elif confm.getb("cpwfile")==True:
-            if confm.getb("remote")==True:
+        elif confm.getb("cpwfile") == True:
+            if confm.getb("remote") == True:
                 client_handler.handle_remote=True
             client_handler.handle_localhost=True
             op=open("r")
             client_handler.cpwhash=gen_passwd_hash(op.readline())
             op.close()
             
-        if confm.getb("spwhash")==True:
-            client_handler.spwhash=dhash_salt(confm.get("spwhash"),client_handler.salt)
-        elif confm.getb("spwfile")==True:
+        if confm.getb("spwhash") == True:
+            client_handler.spwhash = dhash_salt(confm.get("spwhash"),client_handler.salt)
+        elif confm.getb("spwfile") == True:
             op=open("r")
-            client_handler.spwhash=gen_passwd_hash(op.readline())
+            client_handler.spwhash = gen_passwd_hash(op.readline())
             op.close()
         
-        if check_certs(_cpath+"_cert")==False:
+        if check_certs(_cpath+"_cert") == False:
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
             logging.debug("Certificate generation complete")
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
-            pub_cert=readinpubkey.read()
+            pub_cert = readinpubkey.read()
 
         with open(_cpath+"_name", 'r') as readclient:
-            _name=readclient.readline()
+            _name = readclient.readline()
         with open(_cpath+"_message", 'r') as readinmes:
-            _message=readinmes.read()
+            _message = readinmes.read()
             if _message[-1] in "\n":
-                _message=_message[:-1]
+                _message = _message[:-1]
         #report missing file
         if None in [pub_cert,_name,_message]:
             raise(Exception("missing"))
         
-        _name=_name.split("/")
-        if len(_name)>2 or check_name(_name[0])==False:
+        _name = _name.split("/")
+        if len(_name)>2 or check_name(_name[0]) == False:
             print("Configuration error in {}".format(_cpath+"_name"))
             print("should be: <name>/<port>")
             print("Name has some restricted characters")
             sys.exit(1)
 
-        
 
                 
-        if confm.getb("port")==True:
-            port=int(port)
-        elif len(_name)>=2:
-            port=int(_name[1])
+        if confm.getb("port") == True:
+            port = int(port)
+        elif len(_name) >= 2:
+            port = int(_name[1])
         else:
-            port=0
+            port = 0
 
-        self.links["client_server"]=client_server(_name[0],confm.get("priority"),dhash(pub_cert),_message)
-        self.links["configmanager"]=confm
+        self.links["client_server"] = client_server(_name[0], confm.get("priority"), dhash(pub_cert), _message)
+        self.links["configmanager"] = confm
         self.links["client_server"].pluginmanager=pluginm
         
             

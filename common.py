@@ -347,21 +347,23 @@ class pluginmanager(object):
                 #load module
                 pload=pspec.loader.load_module()
                 pconf.update(pload.defaults)
-                pload.config=pconf
-                pload.resources=self.resources.copy()
+                pload.config = pconf
+                pload.resources = self.resources.copy()
+                pload.interfaces = self.interfaces.copy()
                 #load interfaces
-                ret=False
-                for elem in self.interfaces:
-                    try:
-                        ret=pload.__dict__[elem]()
-                    except Exception as e:
-                        if "tb_frame" in e.__dict__:
-                            st="{}\n\n{}".format(e,traceback.format_tb(e))
-                        else:
-                            st=str(e)
-                        logging.error(st)
-                if ret==True:
-                    self.plugins[plugin]=pload
+                ret = False
+                
+                try:
+                    ret = pload.init()
+                except Exception as e:
+                    if "tb_frame" in e.__dict__:
+                        st = "{}\n\n{}".format(e, traceback.format_tb(e))
+                    else:
+                        st = str(e)
+                    logging.error(st)
+                #receive is function, which get connections from handler
+                if ret == True and "receive" in pload.__dict__:
+                    self.plugins[plugin] = pload
     def register_remote(self,_addr):
         self.redirect_addr=_addr
 

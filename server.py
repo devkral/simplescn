@@ -1,16 +1,21 @@
 #! /usr/bin/env python3
 
+import sys,os
+thisdir=os.path.dirname(os.path.realpath(__file__))
+if thisdir not in sys.path:
+    sys.path.append(thisdir)
+
+
 from http.server  import BaseHTTPRequestHandler,HTTPServer
 import time
 #import socket
 import logging
-import sys,signal,threading
+import signal,threading
 import socketserver #,socket
 import traceback
-import os
 import socket
 
-from common import success,error,server_port,check_certs,generate_certs,init_config_folder,default_configdir, default_sslcont,check_name,dhash_salt,gen_passwd_hash,rw_socket,dhash,commonscn,sharedir,pluginmanager,configmanager
+from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, sharedir, pluginmanager, configmanager
 
 
 
@@ -325,17 +330,17 @@ class server_init(object):
         port=kwargs["port"]
         init_config_folder(self.config_path,"server")
         
-        server_handler.salt=os.urandom(4)
+        server_handler.salt = os.urandom(8)
         if kwargs["spwhash"] is not None:
-            server_handler.spwhash=dhash_salt(kwargs["spwhash"],server_handler.salt)
+            server_handler.spwhash = dhash_salt(kwargs["spwhash"],server_handler.salt)
         elif kwargs["spwfile"] is not None:
             op=open("r")
-            server_handler.spwhash=gen_passwd_hash(op.readline())
+            server_handler.spwhash = gen_passwd_hash(op.readline())
             op.close()
         if kwargs["tunnel"] is not None:
-            server_handler.istunnel=True
+            server_handler.istunnel = True
         if kwargs["tpwhash"] is not None:
-            server_handler.tpwhash=dhash_salt(kwargs["tpwhash"],server_handler.salt)
+            server_handler.tpwhash = dhash_salt(kwargs["tpwhash"],server_handler.salt)
         elif kwargs["tpwfile"] is not None:
             op=open("r")
             server_handler.tpwhash=gen_passwd_hash(op.readline())

@@ -1,14 +1,17 @@
 #! /usr/bin/env python3
 
+import os,sys
+#sys.path.append(os.path.dirname(__file__))
+
 import logging
-import os
+
 import time, threading
 
 from gi.repository import Gtk,Gdk #,Pango
-from guigtk.clientinfo import gtkclient_info
-from guigtk.clientnode import gtkclient_node
-from guigtk.clientserver import gtkclient_server
-from guigtk.clientservice import gtkclient_remoteservice
+from clientinfo import gtkclient_info
+from clientnode import gtkclient_node
+from clientserver import gtkclient_server
+from clientservice import gtkclient_remoteservice
 #from gui.gtk.guicommon import run # gtkguinode
 
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \

@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 from gi.repository import Gtk
-from guigtk.guicommon import gtkclient_template
+from guicommon import gtkclient_template
 from common import sharedir,isself
 
 class gtkclient_server(gtkclient_template):

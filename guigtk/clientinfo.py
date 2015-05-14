@@ -3,7 +3,7 @@
 from common import sharedir,isself
 
 from gi.repository import Gtk
-from guigtk.guicommon import gtkclient_template
+from guicommon import gtkclient_template
 
 class gtkclient_info(gtkclient_template):
     name=None
