@@ -47,7 +47,7 @@ cmd: opens cmd
 def signal_handler(*args):
     #global run
     #win.close()
-    guigtk.clientmain.run = False
+    clientmain.run = False
     #app.close()
 
 

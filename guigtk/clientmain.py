@@ -78,6 +78,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.builder.connect_signals(self)
         
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        
         self.win=self.builder.get_object("mainwin")
         self.localstore=self.builder.get_object("localstore")
         self.recentstore=self.builder.get_object("recentstore")
@@ -85,6 +86,13 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
         recentview=self.builder.get_object("recentview")
         localview=self.builder.get_object("localview")
+        
+        
+        combotype=self.builder.get_object("combotype")
+        combotype.append_text("name")
+        combotype.append_text("ipu")
+        combotype.append_text("ip4")
+        combotype.append_text("ip6")
         
         self.debugwin=self.builder.get_object("debugwin")
         self.cmdwin=self.builder.get_object("cmdwin")
@@ -637,6 +645,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def activate_local(self,*args):
         localview=self.builder.get_object("localview")
         serverurl=self.builder.get_object("servercomboentry").get_text()
+        action1=self.builder.get_object("refactiongrid1")
+        action_sub=self.builder.get_object("refactiongrid_sub")
+        combotypee=self.builder.get_object("combotypeentry")
+        refactiongrid_sub=self.builder.get_object("refactiongrid_sub")
         _sel=localview.get_selection().get_selected()
         if _sel[1] is None:
             return
@@ -655,8 +667,12 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         else:
             self.curlocal=("unknown",_name)
         self.leave_active=True
+        
         self.update_hashes()
         self.managehashdia.set_title(_name)
+        combotypee.set_text(self.curlocal[0])
+        action1.set_visible(False)
+        refactiongrid_sub.set_visible(False)
         self.managehashdia.show()
         
     def update_hashes(self,*args):
@@ -673,12 +689,69 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     def select_hash(self,*args):
         view=self.builder.get_object("hashview")
+        action1=self.builder.get_object("refactiongrid1")
+        action_sub=self.builder.get_object("refactiongrid_sub")
+        
+        
+        combotype=self.builder.get_object("combotype")
+        togglechangetype=self.builder.get_object("togglechangetype")
+        addrefb=self.builder.get_object("addrefb")
+        addrefentry=self.builder.get_object("addrefentry")
+        confirmaddrefb=self.builder.get_object("confirmaddrefb")
+        
+        
+        
         _sel=view.get_selection().get_selected()
         reflist=self.builder.get_object("reflist")
         reflist.clear()
         if _sel[1] is None:
+            action1.set_visible(False)
+            action_sub.set_visible(False)
             return
+        action1.set_visible(False)
+        action_sub.set_visible(True)
+        
+        
+        
+        
+        addrefentry.hide()
+        togglechangetype.set_visible(True)
+        addrefb.set_visible(True)
+        combotype.set_visible(False)
+        confirmaddrefb.set_visible(False)
+        confirmaddrefb.set_visible(False)
+        
         self.update_refs()
+    
+    def select_ref(self,*args):
+        combotype=self.builder.get_object("combotype")
+        combotypee=self.builder.get_object("combotypeentry")
+        view=self.builder.get_object("refview")
+        action1=self.builder.get_object("refactiongrid1")
+        
+        
+        togglechangetype=self.builder.get_object("togglechangetype")
+        addrefb=self.builder.get_object("addrefb")
+        addrefentry=self.builder.get_object("addrefentry")
+        confirmaddrefb=self.builder.get_object("confirmaddrefb")
+        
+        
+        _sel=view.get_selection().get_selected()
+        if _sel[1] is None:
+            action1.set_visible(False)
+            combotype.set_visible(False)
+            return
+        combotypee.set_text(_sel[0][_sel[1]][1])
+        action1.set_visible(True)
+        
+        
+        addrefentry.hide()
+        togglechangetype.set_visible(True)
+        addrefb.set_visible(True)
+        combotype.set_visible(False)
+        confirmaddrefb.set_visible(False)
+        confirmaddrefb.set_visible(False)
+        
         
     def update_refs(self,*args):
         hview=self.builder.get_object("hashview")
@@ -703,7 +776,32 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.builder.get_object("addentityentry").set_text("")
         
         self.addentitydia.show()
+    
+    def toggleutype(self,tbutton):
+        combotypee=self.builder.get_object("combotypeentry")
+        combotype=self.builder.get_object("combotype")
+        rview=self.builder.get_object("refview")
+        hview=self.builder.get_object("hashview")
         
+        _selr=rview.get_selection().get_selected()
+        if _selr[1] is None:
+            return
+        _selh=hview.get_selection().get_selected()
+        if _selh[1] is None:
+            return
+            
+        _hash=_selh[0][_selh[1]][0]
+        _ref, _type=_selr[0][_selr[1]]
+        if tbutton.get_active()==True:
+            combotypee.set_text(_type)
+            combotype.set_visible(True)
+        else:
+            res=self.do_requestdo("addreference",self.curlocal[1],_hash,_type,self.param_client)
+            if res[0]==True:
+                combotype.set_visible(False)
+            else:
+                logging.error(res[1])
+            
     def addentity_confirm(self,*args):
         addentity=self.builder.get_object("addentityentry")
         _entity=addentity.get_text()
@@ -753,37 +851,54 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             self.update_hashes()
         #self.update()
         
-    def addreference_confirm(self,*args):
+    def addreference_confirm1(self,*args):
         addrefentry=self.builder.get_object("addrefentry")
+        addrefb=self.builder.get_object("addrefb")
+        confirmaddrefb=self.builder.get_object("confirmaddrefb")
         if addrefentry.is_visible()==False:
             addrefentry.set_text("")
             addrefentry.set_visible(True)
             return
+        
+        
         hview=self.builder.get_object("hashview")
         _selh=hview.get_selection().get_selected()
         if _selh[1] is None:
             return
-        _hash=_selh[0][_selh[1]][0]
+        self._intern_ref_hash=_selh[0][_selh[1]][0]
+        
+        togglechangetype=self.builder.get_object("togglechangetype")
+        confirmaddrefb=self.builder.get_object("confirmaddrefb")
+        togglechangetype.set_visible(False)
+        togglechangetype.set_active(False)
+        confirmaddrefb.set_visible(True)
+        confirmaddrefb.grab_focus()
+        #addrefentry.set_sensitive(False)
+        addrefb.set_visible(False)
+        
+    def addreference_confirm2(self,*args):
+        addrefb=self.builder.get_object("addrefb")
+        addrefentry=self.builder.get_object("addrefentry")
+        combotype=self.builder.get_object("combotype")
+        combotypeentry=self.builder.get_object("combotypeentry")
+
+        confirmaddrefb=self.builder.get_object("confirmaddrefb")
+        togglechangetype=self.builder.get_object("togglechangetype")
+        
+        
         
         _ref=addrefentry.get_text()
         tparam=self.param_client.copy()
-        tparam["certhash"]=_hash
+        tparam["certhash"]=self._intern_ref_hash
         
-        if self.curlocal[0] in ["Server",]:
-            #try:
-            #    temp=scnparse_url(_ref)
-            #except AddressEmptyFail:
-            #    return
-            _reftype="ipu" #TODO: be more specific
-        elif self.curlocal[0]=="Friend":
-            _reftype="name"
-        else:
-            #return
-            _reftype="test"
         
-        res=self.do_requestdo("addreference",self.curlocal[1],_hash,_ref,_reftype,tparam)
+        res=self.do_requestdo("addreference", self.curlocal[1], self._intern_ref_hash, _ref,combotypeentry.get_text(),tparam)
         if res[0]==True:
             addrefentry.hide()
+            togglechangetype.set_visible(True)
+            addrefb.set_visible(True)
+            combotype.set_visible(False)
+            confirmaddrefb.set_visible(False)
             self.update_refs()
             
         

@@ -385,7 +385,7 @@ class client_client(object):
             _name,_certhash,_reference,_reftype,dparam=args
         elif len(args)==4:
             _certhash,_reference,_reftype,dparam=args
-            _name=self.certdb.certhash_as_name(_certhash)
+            _name=self.hashdb.certhash_as_name(_certhash)
             if _name is None:
                 return (False,"name to hash not found")
         else:
