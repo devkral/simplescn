@@ -697,7 +697,6 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         togglechangetype=self.builder.get_object("togglechangetype")
         addrefb=self.builder.get_object("addrefb")
         addrefentry=self.builder.get_object("addrefentry")
-        confirmaddrefb=self.builder.get_object("confirmaddrefb")
         
         
         
@@ -718,8 +717,6 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         togglechangetype.set_visible(True)
         addrefb.set_visible(True)
         combotype.set_visible(False)
-        confirmaddrefb.set_visible(False)
-        confirmaddrefb.set_visible(False)
         
         self.update_refs()
     
@@ -733,7 +730,6 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         togglechangetype=self.builder.get_object("togglechangetype")
         addrefb=self.builder.get_object("addrefb")
         addrefentry=self.builder.get_object("addrefentry")
-        confirmaddrefb=self.builder.get_object("confirmaddrefb")
         
         
         _sel=view.get_selection().get_selected()
@@ -749,8 +745,6 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         togglechangetype.set_visible(True)
         addrefb.set_visible(True)
         combotype.set_visible(False)
-        confirmaddrefb.set_visible(False)
-        confirmaddrefb.set_visible(False)
         
         
     def update_refs(self,*args):
@@ -796,7 +790,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             combotypee.set_text(_type)
             combotype.set_visible(True)
         else:
-            res=self.do_requestdo("addreference",self.curlocal[1],_hash,_type,self.param_client)
+            res=self.do_requestdo("addreference",self.curlocal[1],_hash,_ref,_type,self.param_client)
             if res[0]==True:
                 combotype.set_visible(False)
             else:
@@ -853,8 +847,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     def addreference_confirm1(self,*args):
         addrefentry=self.builder.get_object("addrefentry")
-        addrefb=self.builder.get_object("addrefb")
-        confirmaddrefb=self.builder.get_object("confirmaddrefb")
+        combotype=self.builder.get_object("combotype")
+        combotypee=self.builder.get_object("combotypeentry")
         if addrefentry.is_visible()==False:
             addrefentry.set_text("")
             addrefentry.set_visible(True)
@@ -865,41 +859,25 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         _selh=hview.get_selection().get_selected()
         if _selh[1] is None:
             return
-        self._intern_ref_hash=_selh[0][_selh[1]][0]
+        ref_hash=_selh[0][_selh[1]][0]
         
         togglechangetype=self.builder.get_object("togglechangetype")
-        confirmaddrefb=self.builder.get_object("confirmaddrefb")
-        togglechangetype.set_visible(False)
-        togglechangetype.set_active(False)
-        confirmaddrefb.set_visible(True)
-        confirmaddrefb.grab_focus()
-        #addrefentry.set_sensitive(False)
-        addrefb.set_visible(False)
-        
-    def addreference_confirm2(self,*args):
-        addrefb=self.builder.get_object("addrefb")
-        addrefentry=self.builder.get_object("addrefentry")
-        combotype=self.builder.get_object("combotype")
-        combotypeentry=self.builder.get_object("combotypeentry")
-
-        confirmaddrefb=self.builder.get_object("confirmaddrefb")
-        togglechangetype=self.builder.get_object("togglechangetype")
-        
         
         
         _ref=addrefentry.get_text()
         tparam=self.param_client.copy()
-        tparam["certhash"]=self._intern_ref_hash
+        tparam["certhash"]=ref_hash
         
         
-        res=self.do_requestdo("addreference", self.curlocal[1], self._intern_ref_hash, _ref,combotypeentry.get_text(),tparam)
+        res=self.do_requestdo("addreference", self.curlocal[1], ref_hash, _ref,self.curlocal[0],tparam)
         if res[0]==True:
             addrefentry.hide()
-            togglechangetype.set_visible(True)
-            addrefb.set_visible(True)
-            combotype.set_visible(False)
-            confirmaddrefb.set_visible(False)
+            
+            combotypee.set_text(self.curlocal[0])
+            togglechangetype.set_active(True)
+            combotype.set_visible(True)
             self.update_refs()
+
             
         
     def delreference_confirm(self,*args):
