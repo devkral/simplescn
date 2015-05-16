@@ -1514,7 +1514,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               <object class="GtkEntry" id="addrefentry">
                 <property name="can_focus">True</property>
                 <property name="hexpand">True</property>
-                <property name="placeholder_text" translatable="yes">&lt;url/name&gt;</property>
+                <property name="placeholder_text" translatable="yes">&lt;url:port/name&gt;</property>
                 <signal name="activate" handler="addreference_confirm1" swapped="no"/>
               </object>
               <packing>
