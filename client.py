@@ -192,7 +192,7 @@ class client_client(object):
         elif len(args)==2:
             client_addr,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)))
+            return (False,("wrong amount arguments (listservices): {}".format(args)))
         temp=self.do_request(client_addr, "/listservices",dparam,forceport=True)
         if temp[0]==False:
             return temp
@@ -209,7 +209,7 @@ class client_client(object):
         elif len(args)==2:
             _addr,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)))
+            return (False,("wrong amount arguments (info): {}".format(args)))
         _tinfo=self.do_request(_addr,  "/info",dparam,forceport=True)
         if _tinfo[0]==True:
             _tinfolist=_tinfo[1].split("/",2)
@@ -225,7 +225,7 @@ class client_client(object):
         elif len(args)==2:
             _addr,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)),isself)
+            return (False,("wrong amount arguments (priority_direct): {}".format(args)),isself)
         temp=self.do_request(_addr,  "/prioty",dparam,forceport=True)
         return temp
 
@@ -239,7 +239,7 @@ class client_client(object):
         if len(args)==2:
             _priority,dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)))
+            return (False,("wrong amount arguments (setpriority): {}".format(args)))
         if type(_priority).__name__=="str" and _priority.isdecimal()==False:
             return (False,"no integer")
         elif type(_priority).__name__=="str":
@@ -309,7 +309,7 @@ class client_client(object):
         elif len(args)==4:
             _name, _certhash, _type, dparam=args
         else:
-            return (False,("wrong amount arguments","{}".format(args)))
+            return (False,("wrong amount arguments (addhash): {}".format(args)))
         if self.hashdb.addhash(_name,_certhash,_type) == False:
             return (False,"addhash failed")
         else:
@@ -425,7 +425,7 @@ class client_client(object):
             if _name is None:
                 return (False,"name not in db")
         else:
-            return (False,("wrong amount arguments","{}".format(args)))
+            return (False,("wrong amount arguments (addreference): {}".format(args)))
         
         if check_reference(_reference)==False:
             return (False,"reference invalid")
@@ -454,7 +454,7 @@ class client_client(object):
             _localname,_certhash,dparam=args
             _reftypefilter=None
         else:
-            return (False,("wrong amount arguments  (getreferences):{}".format(args)))
+            return (False,("wrong amount arguments (getreferences): {}".format(args)))
         _tref=self.hashdb.get(_localname, _certhash)
         if _tref is None:
             return (False,"localname,hash not exist")
