@@ -92,6 +92,7 @@
     <property name="can_focus">True</property>
     <property name="title" translatable="yes">Simple Communication Nodes</property>
     <property name="icon">icon.png</property>
+    <property name="show_menubar">False</property>
     <signal name="delete-event" handler="close" swapped="no"/>
     <child>
       <object class="GtkGrid" id="mainwinmaingrid">
@@ -550,6 +551,7 @@
     <property name="type_hint">dialog</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid3">
         <property name="visible">True</property>
@@ -629,6 +631,7 @@
     <property name="window_position">center-on-parent</property>
     <property name="icon">icon.png</property>
     <property name="transient_for">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid2">
         <property name="visible">True</property>
@@ -760,6 +763,7 @@
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
     <property name="attached_to">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid1">
         <property name="visible">True</property>
@@ -884,6 +888,7 @@
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="transient_for">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid4">
         <property name="visible">True</property>
@@ -960,6 +965,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="transient_for">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkScrolledWindow" id="scrolledwindow2">
         <property name="visible">True</property>
@@ -990,6 +996,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
     <property name="attached_to">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid5">
         <property name="visible">True</property>
@@ -1069,12 +1076,14 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Delete node</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
     <property name="type_hint">dialog</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
     <property name="attached_to">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid7">
         <property name="visible">True</property>
@@ -1184,6 +1193,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
     <property name="attached_to">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid13">
         <property name="visible">True</property>
@@ -1295,6 +1305,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="type_hint">dialog</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
+    <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid8">
         <property name="visible">True</property>
@@ -1514,7 +1525,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               <object class="GtkEntry" id="addrefentry">
                 <property name="can_focus">True</property>
                 <property name="hexpand">True</property>
-                <property name="placeholder_text" translatable="yes">&lt;url:port/name&gt;</property>
+                <property name="placeholder_text" translatable="yes">e.g.: url:something.foo.com</property>
                 <signal name="activate" handler="addreference_confirm1" swapped="no"/>
               </object>
               <packing>

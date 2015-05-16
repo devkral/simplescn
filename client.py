@@ -19,7 +19,7 @@ import traceback
 import socket
 from os import path
 
-from common import success, error, server_port, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, dhash_salt, gen_passwd_hash, commonscn, sharedir, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
+from common import success, error, server_port, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, sharedir, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
 
 
 
@@ -32,7 +32,7 @@ class client_client(object):
     links=None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "updateentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
+    validactions={"register","get","connect","gethash", "show","addhash","delhash","movehash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "updateentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -315,15 +315,22 @@ class client_client(object):
         else:
             return (True, success, isself, self.cert_hash)
 
-    def deljusthash(self,_certhash,dparam):
+    #def deljusthash(self,_certhash,dparam):
+    #    temp=self.hashdb.delhash(_certhash)
+    #    if temp==True:
+    #        return (True,success,isself,self.cert_hash)
+    #    else:
+    #        return (False,error)
+        
+    def delhash(self,_certhash,dparam):
         temp=self.hashdb.delhash(_certhash)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error)
-        
-    def delhash(self,_name,_certhash,dparam):
-        temp=self.hashdb.delhash(_certhash,_name)
+            
+    def movehash(self,_certhash,_newname,dparam):
+        temp=self.hashdb.movehash(_certhash,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
@@ -393,29 +400,6 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    #ipu: ip version unknown
-    def try_ref_ip(self,*args):
-        if len(args)==2:
-            _address,dparam=args
-            temp=self.gethash(_address)
-            if temp[0]==False:
-                return temp
-            _hash=temp[1][0]
-        elif len(args)==3:
-            _address,_hash,dparam=args
-        else:
-            return (False,("wrong amount arguments (try_ref_ip): {}".format(args)))
-        if self.hashdb.exist(_address) == True:
-            return self.addreference(_hash,_address, "name", dparam)
-        
-        trysplit=_address.rsplit(":",1)
-        if all(c in "0123456789." for c in trysplit[0]):
-            return self.addreference(_hash,_address,"ip4",dparam)
-        elif all(c in "0123456789:][" for c in _address):
-            return self.addreference(_hash,_address,"ip6",dparam)
-        else:
-            return self.addreference(_hash,_address,"ipu",dparam)
-    
     def addreference(self,*args):
         if len(args)==5:
             _name,_certhash,_reference,_reftype,dparam=args
@@ -448,16 +432,22 @@ class client_client(object):
         return (True,success,isself,self.cert_hash)
         
     def getreferences(self,*args): 
-        if len(args) == 4:
-            _localname,_certhash,_reftypefilter,dparam=args
-        elif len(args) == 3:
-            _localname,_certhash,dparam=args
+        if len(args) == 3:
+            _certhash,_reftypefilter,dparam=args
+        elif len(args) == 2:
+            _certhash,dparam=args
             _reftypefilter=None
         else:
             return (False,("wrong amount arguments (getreferences): {}".format(args)))
+        if check_hash(_certhash)==True:
+            _localname=self.hashdb.certhash_as_name(_certhash) #can return None to sort out invalid hashes
+        else:
+            _localname=False
+        if _localname is None:
+            return (False, "certhash does not exist: {}".format(_certhash))
         _tref=self.hashdb.get(_localname, _certhash)
         if _tref is None:
-            return (False,"localname,hash not exist")
+            return (False,"error in hashdb")
         temp=self.hashdb.getreferences(_tref[2], _reftypefilter)
         if temp is None:
             return (False,error)
@@ -904,7 +894,7 @@ class client_init(object):
         self.sthread.daemon = True
         self.sthread.start()
 
-    def cmd(self):
+    def cmd_cmd(self):
         dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
         print(*self.links["client"].show(dparam)[1],sep="/")
         while True:
@@ -1096,7 +1086,7 @@ if __name__ ==  "__main__":
         logging.debug("start server")
         cm.serve_forever_nonblock()
         logging.debug("start console")
-        cm.cmd()
+        cm.cmd_cmd()
     else:
         logging.debug("start server")
         cm.serve_forever_block()

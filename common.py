@@ -431,18 +431,21 @@ def check_reference(_reference):
     if all(c not in "\0'\"\x1A\x7F" for c in _reference) and \
         len(_reference)<100:
         return True
+    #logging.debug("invalid reference: {}".format(_reference))
     return False
 
 def check_reference_type(_reference_type):
     if all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type) and \
-        len(_reference_type)<10:
+        len(_reference_type)<15:
         return True
+    #logging.debug("invalid referencetype: {}".format(_reference_type))
     return False
 
 def check_hash(_hashstr):
     if all(c in "0123456789abcdefABCDEF" for c in _hashstr) and \
         len(_hashstr)==64:
         return True
+    #logging.debug("invalid hash: {}".format(_hashstr))
     return False
 
 def check_name(_name, maxlength=64):
@@ -455,9 +458,10 @@ def check_name(_name, maxlength=64):
         len(_name)<=maxlength and \
         _name!="isself":
         return True
+    #logging.debug("invalid name (maxlength: {}): {}".format(maxlength, _name))
     return False
 
-def check_typename(_name, maxlength=10):
+def check_typename(_name, maxlength=15):
     #ensure no bad characters
     #name shouldn't be too big
     #name shouldn't be isself as it is used
@@ -465,6 +469,7 @@ def check_typename(_name, maxlength=10):
         len(_name)<=maxlength and \
         _name!="isself":
         return True
+    #logging.debug("invalid type: {}".format(_name))
     return False
 
 def rw_socket(sockr,sockw,buffersize):
@@ -544,7 +549,7 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is not None:
-            logging.info("name exists")
+            logging.info("name exist: {}".format(_name))
             return False
         if check_name(_name)==False:
             logging.info("name contains invalid elements")
@@ -558,7 +563,7 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
         if cur.fetchone() is None:
-            logging.info("name doesn't exists")
+            logging.info("name does not exist: {}".format(_name))
             return False
         cur.execute('''DELETE FROM certs WHERE name=?;''', (_name,))
         dbcon.commit()
@@ -569,12 +574,12 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
         if cur.fetchone() is None:
-            logging.info("name doesn't exists")
+            logging.info("name does not exist: {}".format(_name))
             return False
         
         cur.execute('SELECT name FROM certs WHERE name=?;',(_newname,))
         if cur.fetchone() is not None:
-            logging.info("newname does exists")
+            logging.info("newname already exist: {}".format(_newname))
             return False
         cur.execute('''UPDATE certs SET name=? WHERE name=?;''', (_newname,_name,))
         dbcon.commit()
@@ -582,19 +587,23 @@ class certhash_db(object):
 
     @connecttodb
     def addhash(self,dbcon,_name,_certhash,nodetype="unknown",priority=20):
+        
+        if _name is None:
+            logging.error("name None")
+        if nodetype is None:
+            logging.error("nodetype None")
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
-            logging.info("name doesn't exists")
+            logging.info("name does not exist: {}".format(_name))
             return False
-        if nodetype is None:
-            logging.error("nodetype None")
         if check_hash(_certhash)==False:
-            logging.error("hash contains invalid characters")
+            logging.error("hash contains invalid characters: {}".format(_certhash))
             return False
-        cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
-        if cur.fetchone() is not None:
-            logging.info("hash already exists")
+        cur.execute('''SELECT name FROM certs WHERE certhash=?;''',(_certhash,))
+        _oldname=cur.fetchone()
+        if _oldname is not None:
+            logging.info("hash already exist: {}".format(_certhash))
             return False
             
         #hack
@@ -606,23 +615,41 @@ class certhash_db(object):
         
         dbcon.commit()
         return True
-
+    
+    @connecttodb
+    def movehash(self,dbcon,_certhash,_newname):
+        cur = dbcon.cursor()
+        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_newname,))
+        if cur.fetchone() is None:
+            logging.info("name does not exist: {}".format(_newname))
+            return False
+            
+        cur.execute('''SELECT name FROM certs WHERE certhash=?;''',(_certhash,))
+        _oldname=cur.fetchone()
+        if _oldname is None:
+            logging.info("certhash does not exist: {}".format(_certhash))
+            return False
+        cur.execute('''UPDATE certs SET name=? WHERE certhash=?;''', (_newname,_certhash,))
+        
+        dbcon.commit()
+        return True
+        
     @connecttodb
     def changetype(self,dbcon,_name,_certhash,_type):
-        if check_name(_type,10)==False:
-            logging.info("type contains invalid characters, or is too long")
+        if check_typename(_type,15)==False:
+            logging.info("type contains invalid characters or is too long (maxlen: {}): {}".format(15,_type))
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
-            logging.info("name doesn't exists")
+            logging.info("name does not exist: {}".format(_name))
             return False
         if check_hash(_certhash)==False:
             logging.info("hash contains invalid characters")
             return False
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
         if cur.fetchone() is None:
-            logging.info("hash does not exist")
+            logging.info("hash does not exist: {}".format(_certhash))
             return False
         cur.execute('''UPDATE certs SET type=? WHERE name=? AND certhash=?) values(?,?,?);''', (_type,_name,_certhash))
         
@@ -635,12 +662,12 @@ class certhash_db(object):
         #convert str to int and fail if either no integer in string format
         # or datatype is something else except int
         if type(_priority).__name__=="str" and _priority.isdecimal()==False:
-            logging.info("priority is no integer")
+            logging.info("priority can not parsed as integer: {}".format(_priority))
             return False
         elif type(_priority).__name__=="str":
             _priority=int(_priority)
         elif type(_priority).__name__!="int":
-            logging.info("priority has unsupported datatype")
+            logging.info("priority has unsupported datatype: {}".format(type(_priority).__name__))
             return False
 
         if _priority<0 or _priority>100:
@@ -650,15 +677,15 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
-            logging.info("name doesn't exists")
+            logging.info("name does not exist: {}".format(_name))
             return False
         if check_hash(_certhash)==False:
-            logging.info("hash contains invalid characters")
+            logging.info("hash contains invalid characters: {}".format(_certhash))
             return False
         
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
         if cur.fetchone() is None:
-            logging.info("hash does not exist")
+            logging.info("hash does not exist: {}".format(_certhash))
             return False
 
         
@@ -670,16 +697,10 @@ class certhash_db(object):
     @connecttodb
     def delhash(self,dbcon,_certhash,_name=None):
         cur = dbcon.cursor()
-        if _name is None:
-            cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
-        else:
-            cur.execute('''SELECT certhash FROM certs WHERE name=? AND certhash=?;''',(_name,_certhash))
+        cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
             
         if cur.fetchone() is None:
-            if _name is None:
-                logging.info("name/hash doesn't exists")
-            else:
-                logging.info("hash doesn't exists")
+            logging.info("hash does not exist: {}".format(_certhash))
             return False
         
         cur.execute('''DELETE FROM certs WHERE certhash=?;''', (_certhash,))
@@ -695,7 +716,7 @@ class certhash_db(object):
     @connecttodb
     def listhashes(self,dbcon,_name,_nodetype=None):
         cur = dbcon.cursor()
-        if _type is None:
+        if _nodetype is None:
             cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? ORDER BY priority DESC;''',(_name,))
         else:
             cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? and type=? ORDER BY priority DESC;''',(_name,_nodetype))
@@ -705,7 +726,7 @@ class certhash_db(object):
     @connecttodb
     def listnodenames(self, dbcon, _nodetype=None):
         cur = dbcon.cursor()
-        if _type is None:
+        if _nodetype is None:
             cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
         else:
             cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''',(_nodetype,))
@@ -723,7 +744,7 @@ class certhash_db(object):
     @connecttodb
     def listnodeall(self,dbcon, _nodetype=None):
         cur = dbcon.cursor()
-        if _type is None:
+        if _nodetype is None:
             cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority DESC;''')
         else:
             cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority WHERE type=? DESC;''',(_nodetype,))
@@ -757,10 +778,10 @@ class certhash_db(object):
     @connecttodb
     def addreference(self,dbcon,_referenceid,_reference,_reftype):
         if check_reference(_reference)==False:
-            logging.error("reference invalid")
+            logging.error("reference invalid: {}".format(_reference))
             return False
         if check_reference_type(_reftype)==False:
-            logging.error("reference type invalid")
+            logging.error("reference type invalid: {}".format(_reftype))
             return False
         cur = dbcon.cursor()
         cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_referenceid, _reference, _reftype))
@@ -772,7 +793,7 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;',(_certreferenceid,_reference))
         if cur.fetchone() is None:
-            logging.info("certreference doesn't exists")
+            logging.info("certreferenceid/reference does not exist: {}".format(_certreferenceid,_reference))
             return False
         cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid,_reference))
         dbcon.commit()
