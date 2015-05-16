@@ -587,9 +587,10 @@ class certhash_db(object):
         if cur.fetchone() is None:
             logging.info("name doesn't exists")
             return False
-        
+        if nodetype is None:
+            logging.error("nodetype None")
         if check_hash(_certhash)==False:
-            logging.info("hash contains invalid characters")
+            logging.error("hash contains invalid characters")
             return False
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
         if cur.fetchone() is not None:
@@ -736,9 +737,9 @@ class certhash_db(object):
     def exist(self,dbcon,_name,_hash=None):
         cur = dbcon.cursor()
         if _hash is None:
-            cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name))
+            cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         else:
-            cur.execute('''SELECT name FROM certs WHERE name=? AND certhash=?;''',(_name,_hash))
+            cur.execute('''SELECT name FROM certs WHERE name=? AND certhash=?;''',(_name, _hash))
         if cur.fetchone() is None:
             return False
         else:
@@ -753,18 +754,18 @@ class certhash_db(object):
             logging.error("reference type invalid")
             return False
         cur = dbcon.cursor()
-        cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,reftype) values(?,?,?);''', (_referenceid,_reference, _reftype))
+        cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,reftype) values(?,?,?);''', (_referenceid, _reference, _reftype))
         dbcon.commit()
         return True
     
     @connecttodb
-    def delreference(self,dbcon,_referenceid,_reference):
+    def delreference(self,dbcon,_certreferenceid,_reference):
         cur = dbcon.cursor()
         cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;',(_certreferenceid,_reference))
         if cur.fetchone() is None:
             logging.info("certreference doesn't exists")
             return False
-        cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=;''', (_referenceid,_reference))
+        cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid,_reference))
         dbcon.commit()
         return True
 

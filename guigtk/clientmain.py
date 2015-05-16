@@ -15,7 +15,7 @@ from clientservice import gtkclient_remoteservice
 #from gui.gtk.guicommon import run # gtkguinode
 
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \
-init_config_folder, generate_certs, isself, default_sslcont,check_hash, scnparse_url,AddressEmptyFail
+init_config_folder, generate_certs, isself, default_sslcont, check_hash, scnparse_url, AddressEmptyFail
 
 #check_hash, server_port, dhash, scnparse_url, AddressFail
 
@@ -88,11 +88,16 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         localview=self.builder.get_object("localview")
         
         
-        combotype=self.builder.get_object("combotype")
-        combotype.append_text("name")
-        combotype.append_text("ipu")
-        combotype.append_text("ip4")
-        combotype.append_text("ip6")
+        comboreftype=self.builder.get_object("comboreftype")
+        comboreftype.append_text("name")
+        comboreftype.append_text("ipu")
+        comboreftype.append_text("ip4")
+        comboreftype.append_text("ip6")
+        
+        listnodetypes=self.builder.get_object("listnodetypes")
+        listnodetypes.append(("server","Server"))
+        listnodetypes.append(("client","Friend"))
+        listnodetypes.append(("unknown","Unknown"))
         
         self.debugwin=self.builder.get_object("debugwin")
         self.cmdwin=self.builder.get_object("cmdwin")
@@ -100,6 +105,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.mswin=self.builder.get_object("manageserviceswin")
         self.addentitydia=self.builder.get_object("addentitydia")
         self.delentitydia=self.builder.get_object("delentitydia")
+        self.delrefdia=self.builder.get_object("delrefdia")
+        self.addnodedia=self.builder.get_object("addnodedia")
         self.delnodedia=self.builder.get_object("delnodedia")
         self.managehashdia=self.builder.get_object("managehashdia")
         self.enternodedia=self.builder.get_object("enternodedia")
@@ -108,6 +115,18 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.debug_wintoggle=self.builder.get_object("debugme")
         self.cmd_wintoggle=self.builder.get_object("cmdme")
         self.client_wintoggle=self.builder.get_object("useremoteclient")
+        
+        
+        addnodecombo = self.builder.get_object("addnodecombo")
+        addnodecomborender=Gtk.CellRendererText()
+        addnodecombo.pack_start(addnodecomborender, True)
+        addnodecombo.add_attribute(addnodecomborender, "text", 0)
+        
+        
+        addnodetypecombo = self.builder.get_object("addnodetypecombo")
+        addnodetypecomborender=Gtk.CellRendererText()
+        addnodetypecombo.pack_start(addnodetypecomborender, True)
+        addnodetypecombo.add_attribute(addnodetypecomborender, "text", 1)
         
         col0 = Gtk.TreeViewColumn("Nodes", Gtk.CellRendererText(), text=0)
         localview.append_column(col0)
@@ -128,7 +147,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         hview=self.builder.get_object("hashview")
         rview=self.builder.get_object("refview")
         
-        hcol1= Gtk.TreeViewColumn("Hash", Gtk.CellRendererText(),text=0)
+        hcol1= Gtk.TreeViewColumn("Node", Gtk.CellRendererText(),text=0)
         
         rcol1= Gtk.TreeViewColumn("Reference", Gtk.CellRendererText(),text=0)
         rcol2= Gtk.TreeViewColumn("Type", Gtk.CellRendererText(),text=1)
@@ -145,6 +164,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.mswin.connect('delete-event',self.close_manages)
         self.addentitydia.connect('delete-event',self.close_addentitydia)
         self.delentitydia.connect('delete-event',self.close_delentitydia)
+        self.delrefdia.connect('delete-event',self.close_delrefdia)
+        self.addnodedia.connect('delete-event',self.close_addnodedia)
         self.delnodedia.connect('delete-event',self.close_delnodedia)
         self.managehashdia.connect('delete-event',self.close_managehashdia)
         self.enternodedia.connect('delete-event',self.close_enternodedia)
@@ -177,7 +198,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         for elem in _storage[1]:
             if elem[1] is None:
                 self.empty_dic+=[elem[0],]
-                self.localstore.insert_with_values(self.emptyit,-1,[0,],[elem[0],])
+                #
             
             elif elem[1]=="server":
                 self.server_dic+=[elem[0],]
@@ -188,7 +209,28 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             else:
                 self.unknown_dic+=[elem[0],]
                 self.localstore.insert_with_values(self.unknownit,-1,[0,],[elem[0],])
+                
+        for elem in self.server_dic+self.friend_dic+self.unknown_dic:
+            if elem in self.empty_dic:
+                self.empty_dic.remove(elem)
+
+        for elem in self.empty_dic:
+            self.localstore.insert_with_values(self.emptyit,-1,[0,],[elem,])
         
+        localnames=self.builder.get_object("localnames")
+        localnames.clear()
+        localnames.append(("",))
+        _names=self.do_requestdo("listnodenames",self.param_client)
+        if _names[0]==False:
+            return
+        
+        for elem in _names[1]:
+            localnames.append((elem,))
+        
+        
+        
+        #if self.empty_dic
+            
     #ugly
     """def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
@@ -394,26 +436,57 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
     
     #### node actions ####
-    def addnodehash_intern(self,_node,_hash,_type=""):
-        nodee=self.builder.get_object("anameentry")
-        hashe=self.builder.get_object("ahashentry")
-        typee=self.builder.get_object("atypeentry")
+    def addnodehash_intern(self,_name,_hash,_type="unknown"):
+        addnodecombo = self.builder.get_object("addnodecombo")
+        addnodehashentry = self.builder.get_object("addnodehashentry")
+        addnodetypeentry = self.builder.get_object("addnodetypecombo")
         
-        nodee.set_text(_node)
-        hashe.set_text(_hash)
-        typee.set_text(_type)
+        addnodecombo.set_active_id(_name)
+        addnodehashentry.set_text(_hash)
+        addnodetypeentry.set_active_id(_type)
         
         self.addnodedia.show()
         self.addnodedia.grab_focus()
     
     def addnodehash(self,*args):
-        view=self.builder.get_object("recentstore")
-        _sel=view.get_selection().get_selected()
+        localview=self.builder.get_object("localview")
+        _sel=localview.get_selection().get_selected()
         if _sel[1] is None:
+            _name=""
+        else:
+            _name=_sel[0][_sel[1]][0]
+        
+        
+        self.managehashdia.hide()
+        if self.curnode is None:
+            self.addnodehash_intern(_name,"","client")
+        else:
+            self.addnodehash_intern(_name,self.curnode[3],"client")
+        
+
+    def addnodehash_confirm(self,*args):
+        addnodecombo = self.builder.get_object("addnodecombo")
+        addnodehashentry = self.builder.get_object("addnodehashentry")
+        addnodetypecombo = self.builder.get_object("addnodetypecombo")
+        
+        
+        _name = addnodecombo.get_active_id()
+        _hash = addnodehashentry.get_text().strip(" ").rstrip(" ")
+        _type = addnodetypecombo.get_active_id()
+        
+        if _type == "":
+            _type = "unknown"
+        
+        if check_hash(_hash) == False:
+            logging.debug("invalid hash")
             return
-        _name=_sel[0][_sel[1]][2]
-        _hash=_sel[0][_sel[1]][3]
-        addnodehash_intern(_name,_hash)
+        res = self.do_requestdo("addhash",_name,_hash,_type,self.param_client)
+        if res[0] == True:
+            self.update_storage()
+            self.close_addnodedia()
+        else:
+            logging.error(res[1])
+    
     
     def delnodehash(self,*args):
         view=self.builder.get_object("recentstore")
@@ -421,6 +494,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if _sel[1] is None:
             return
         _name=_sel[0][_sel[1]][2]
+        
     
     
     def enternode(self,*args):
@@ -458,6 +532,61 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if self.curnode is not None:
             tdparam["certhash"]=self.curnode[3]
             gtkclient_node(self.links,self.curnode[1],tdparam,self.curnode[0])
+    
+    def checknodetype(self,*args):
+        serverurl=self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
+        if serverurl=="":
+            return
+        
+        hview = self.builder.get_object("hashview")
+        _selh=hview.get_selection().get_selected()
+        if _selh[1] is None:
+            return
+        _hash=_selh[0][_selh[1]][0]
+        tparam=self.param_node.copy()
+        tparam["certhash"]=_hash
+        ##TODO: self.curlocal[0] is incorrect but an working approach
+        ret=self.do_requestdo("check", serverurl, self.curlocal[0], self.curlocal[0], _hash, tparam)
+        if ret[0]==True:
+            self.managehashdia.hide()
+        else:
+            logging.error(ret[1])
+    
+    # update node type then open node 
+    def get_node(self,*args):
+        rview = self.builder.get_object("refview")
+        _selr=hview.get_selection().get_selected()
+        if _selr[1] is None:
+            return
+        _ref, _type=_selr[0][_selr[1]][1]
+        if _type == "name":
+            serverurl=self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
+            if serverurl=="":
+                logging.info("no server selected")
+                return
+            
+            turl=self.do_requestdo("get",serverurl,_ref,_hash,self.param_server)
+            if turl[0]==False:
+                logging.info("retrieving failed")
+                return
+            _url=turl[1]
+        else:
+            _url=_ref
+        
+        hview = self.builder.get_object("hashview")
+        _selh=hview.get_selection().get_selected()
+        if _selh[1] is None:
+            return
+        _hash=_selh[0][_selh[1]][2]
+        tdparam=self.param_node.copy()
+        tdparam["certhash"]=_hash
+        
+        ret=self.do_requestdo("check_direct", _url, self.curlocal[0], _hash,tdparam)
+        if ret[0]==True:
+            self.managehashdia.hide()
+            gtkclient_node(self.links,_url,tdparam,self.curlocal[0])
+        else:
+            logging.error(ret[1])
         
     def infonode(self,*args):
         #serverurl=self.builder.get_object("servercomboentry").get_text()
@@ -488,21 +617,28 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     
     def addserverhash(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
-        view=self.builder.get_object("localview")
-        _sel=view.get_selection().get_selected()
+        localview=self.builder.get_object("localview")
+        
+        
         temp=self._verifyserver(serverurl)
-        if temp is not None:
-            _hash=temp[1]
-        else:
+        if temp is None:
+            logging.debug("Something failed")
             return
+            
         if temp[0] is not None:
             logging.debug("Already exists")
             return
-        if _sel[1] is not None:
-            _name=_sel[0][_sel[1]][3]
-        else:
+        _hash=temp[1]
+        
+        
+        _sel=localview.get_selection().get_selected()
+        if _sel[1] is None:
             _name=""
-        self.addnodehash_intern(_hash,_name,"server")
+        else:
+            _name=_sel[0][_sel[1]][0]
+        
+        self.managehashdia.hide()
+        self.addnodehash_intern(_name, _hash, "server")
     
         
     
@@ -643,12 +779,13 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.update_storage()
         
     def activate_local(self,*args):
-        localview=self.builder.get_object("localview")
         serverurl=self.builder.get_object("servercomboentry").get_text()
         action1=self.builder.get_object("refactiongrid1")
         action_sub=self.builder.get_object("refactiongrid_sub")
-        combotypee=self.builder.get_object("combotypeentry")
         refactiongrid_sub=self.builder.get_object("refactiongrid_sub")
+        refscrollwin=self.builder.get_object("refscrollwin")
+        
+        localview=self.builder.get_object("localview")
         _sel=localview.get_selection().get_selected()
         if _sel[1] is None:
             return
@@ -666,13 +803,13 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             self.curlocal=("client",_name)
         else:
             self.curlocal=("unknown",_name)
-        self.leave_active=True
-        
+        self._intern_node_type="unknown"
         self.update_hashes()
         self.managehashdia.set_title(_name)
-        combotypee.set_text(self.curlocal[0])
-        action1.set_visible(False)
-        refactiongrid_sub.set_visible(False)
+        
+        action1.hide()
+        refactiongrid_sub.hide()
+        refscrollwin.hide()
         self.managehashdia.show()
         
     def update_hashes(self,*args):
@@ -683,7 +820,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             logging.debug("Exist?")
         for elem in temp[1]:
             if elem[1] is None:
-                pass
+                if elem[0]!="default":
+                    logging.info("invalid element: {}".format(elem))
             elif elem[1]==self.curlocal[0]:
                 hashlist.append((elem[0],))
         
@@ -691,60 +829,62 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         view=self.builder.get_object("hashview")
         action1=self.builder.get_object("refactiongrid1")
         action_sub=self.builder.get_object("refactiongrid_sub")
+        refscrollwin=self.builder.get_object("refscrollwin")
         
-        
-        combotype=self.builder.get_object("combotype")
-        togglechangetype=self.builder.get_object("togglechangetype")
+        comboreftype=self.builder.get_object("comboreftype")
+        togglechangereftype=self.builder.get_object("togglechangereftype")
         addrefb=self.builder.get_object("addrefb")
         addrefentry=self.builder.get_object("addrefentry")
-        
         
         
         _sel=view.get_selection().get_selected()
         reflist=self.builder.get_object("reflist")
         reflist.clear()
+        
+        togglechangereftype.set_active(False)
+        
         if _sel[1] is None:
-            action1.set_visible(False)
-            action_sub.set_visible(False)
+            action1.hide()
+            action_sub.hide()
+            refscrollwin.hide()
             return
-        action1.set_visible(False)
-        action_sub.set_visible(True)
-        
-        
-        
+        action1.hide()
+        action_sub.show()
         
         addrefentry.hide()
-        togglechangetype.set_visible(True)
-        addrefb.set_visible(True)
-        combotype.set_visible(False)
-        
+        togglechangereftype.hide()
+        addrefb.show()
+        comboreftype.hide()
+        refscrollwin.show()
         self.update_refs()
     
     def select_ref(self,*args):
-        combotype=self.builder.get_object("combotype")
-        combotypee=self.builder.get_object("combotypeentry")
+        comboreftype=self.builder.get_object("comboreftype")
+        comboreftypee=self.builder.get_object("comboreftypeentry")
         view=self.builder.get_object("refview")
         action1=self.builder.get_object("refactiongrid1")
         
         
-        togglechangetype=self.builder.get_object("togglechangetype")
+        togglechangereftype=self.builder.get_object("togglechangereftype")
         addrefb=self.builder.get_object("addrefb")
         addrefentry=self.builder.get_object("addrefentry")
         
         
         _sel=view.get_selection().get_selected()
         if _sel[1] is None:
-            action1.set_visible(False)
-            combotype.set_visible(False)
+            action1.hide()
+            comboreftype.hide()
+            togglechangereftype.hide()
             return
-        combotypee.set_text(_sel[0][_sel[1]][1])
-        action1.set_visible(True)
+        comboreftypee.set_text(_sel[0][_sel[1]][1])
+        action1.show()
         
         
         addrefentry.hide()
-        togglechangetype.set_visible(True)
-        addrefb.set_visible(True)
-        combotype.set_visible(False)
+        togglechangereftype.show()
+        addrefb.show()
+        comboreftype.hide()
+        togglechangereftype.set_active(False)
         
         
     def update_refs(self,*args):
@@ -772,8 +912,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.addentitydia.show()
     
     def toggleutype(self,tbutton):
-        combotypee=self.builder.get_object("combotypeentry")
-        combotype=self.builder.get_object("combotype")
+        comboreftypee=self.builder.get_object("comboreftypeentry")
+        comboreftype=self.builder.get_object("comboreftype")
         rview=self.builder.get_object("refview")
         hview=self.builder.get_object("hashview")
         
@@ -785,14 +925,18 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             return
             
         _hash=_selh[0][_selh[1]][0]
-        _ref, _type=_selr[0][_selr[1]]
+        _ref,_oldtype=_selr[0][_selr[1]]
         if tbutton.get_active()==True:
-            combotypee.set_text(_type)
-            combotype.set_visible(True)
+            comboreftypee.set_text(_oldtype)
+            comboreftype.show()
         else:
-            res=self.do_requestdo("addreference",self.curlocal[1],_hash,_ref,_type,self.param_client)
+            _newtype=comboreftypee.get_text().strip(" ").rstrip(" ")
+            if _newtype=="":
+                return
+            res=self.do_requestdo("addreference", self.curlocal[1], _hash, _ref, _newtype, self.param_client)
             if res[0]==True:
-                combotype.set_visible(False)
+                comboreftype.hide()
+                _selr[0][_selr[1]][1]=_newtype
             else:
                 logging.error(res[1])
             
@@ -815,23 +959,23 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             self.update_storage()
             self.delentitydia.hide()
             
-    def addhash_confirm(self,*args):
-        addhashentry=self.builder.get_object("addhashentry")
-        if addhashentry.is_visible()==False:
-            if self.curnode is not None:
-                addhashentry.set_text(self.curnode[3])
-            else:
-                addhashentry.set_text("")
-            addhashentry.set_visible(True)
+    
+    
+    def delhash(self,*args):
+        hview=self.builder.get_object("hashview")
+        dia=self.builder.get_object("delnodedia")
+        showhash=self.builder.get_object("showhash")
+        referencecount=self.builder.get_object("referencecount")
+        _selh=hview.get_selection().get_selected()
+        if _selh[1] is None:
             return
-            
-        _hash=addhashentry.get_text()
-        if check_hash(_hash)==False:
-            return
-        res=self.do_requestdo("addhash",self.curlocal[1],_hash,self.param_client)
-        if res[0]==True:
-            addhashentry.hide()
-            self.update_hashes()
+        _hash=_selh[0][_selh[1]][0]
+        showhash.set_text(_hash)
+        refsl=self.do_requestdo("getreferences",self.curlocal[1],_hash,self.param_client)
+        
+        if refsl[0]==True:
+            referencecount.set_text(str(len(refsl[1])))
+        dia.show()
     
     def delhash_confirm(self,*args):
         hview=self.builder.get_object("hashview")
@@ -841,17 +985,23 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         _hash=_selh[0][_selh[1]][0]
         res=self.do_requestdo("delhash",self.curlocal[1],_hash,self.param_client)
         if res[0]==True:
-            self.delhashdia.hide()
+            self.delnodedia.hide()
             self.update_hashes()
+            self.update_storage()
         #self.update()
         
     def addreference_confirm1(self,*args):
         addrefentry=self.builder.get_object("addrefentry")
-        combotype=self.builder.get_object("combotype")
-        combotypee=self.builder.get_object("combotypeentry")
+        comboreftype=self.builder.get_object("comboreftype")
+        comboreftypee=self.builder.get_object("comboreftypeentry")
         if addrefentry.is_visible()==False:
             addrefentry.set_text("")
-            addrefentry.set_visible(True)
+            addrefentry.show()
+            return
+        
+        _ref=addrefentry.get_text().strip(" ").rstrip(" ")
+        if _ref=="":
+            addrefentry.hide()
             return
         
         
@@ -861,25 +1011,37 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             return
         ref_hash=_selh[0][_selh[1]][0]
         
-        togglechangetype=self.builder.get_object("togglechangetype")
+        togglechangereftype=self.builder.get_object("togglechangereftype")
         
         
-        _ref=addrefentry.get_text()
         tparam=self.param_client.copy()
         tparam["certhash"]=ref_hash
         
         
-        res=self.do_requestdo("addreference", self.curlocal[1], ref_hash, _ref,self.curlocal[0],tparam)
+        res=self.do_requestdo("try_ref_ip", _ref, ref_hash ,tparam)
         if res[0]==True:
             addrefentry.hide()
             
-            combotypee.set_text(self.curlocal[0])
-            togglechangetype.set_active(True)
-            combotype.set_visible(True)
+            comboreftypee.set_text(self.curlocal[0])
+            togglechangereftype.set_active(True)
+            comboreftype.show()
             self.update_refs()
-
+        else:
+            logging.error(res[1])
             
-        
+    def delreference(self,*args):
+        rview=self.builder.get_object("refview")
+        dia=self.builder.get_object("delrefdia")
+        showref=self.builder.get_object("showreference")
+        showreftype=self.builder.get_object("showreferencetype")
+        _selr=rview.get_selection().get_selected()
+        if _selr[1] is None:
+            return
+        _ref,_type=_selr[0][_selr[1]]
+        showref.set_text(_ref)
+        showreftype.set_text(_type)
+        dia.show()
+    
     def delreference_confirm(self,*args):
         hview=self.builder.get_object("hashview")
         rview=self.builder.get_object("refview")
@@ -887,12 +1049,12 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if _selh[1] is None:
             return
         _hash=_selh[0][_selh[1]][0]
-        _selh=hview.get_selection().get_selected()
+        _selr=rview.get_selection().get_selected()
         if _selr[1] is None:
             return
-        _ref=_selr[0][_selr[1]][0]
+        _ref = _selr[0][_selr[1]][0]
         
-        res=self.do_requestdo("delreference",self.curlocal[1],_hash,_ref,self.param_client)
+        res = self.do_requestdo("delreference", self.curlocal[1], _hash, _ref, self.param_client)
         if res[0]==True:
             self.delrefdia.hide()
             self.update_refs()
@@ -992,18 +1154,9 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.managehashdia.hide()
         return True
         
-    leave_active=False
-    def close_managehashdia_activateleave(self,*args):
-        self.leave_active=True
-
-    def close_managehashdia_deactivateleave(self,*args):
-        self.leave_active=False
-        
-    def close_managehashdia_leave(self,*args):
-        if self.leave_active==True:
-            self.managehashdia.hide()
-    #def close_managehashdia3(self,*args):
-    
+    def close_addnodedia(self,*args):
+        self.addnodedia.hide()
+        return True
     
     def close_enternodedia(self,*args):
         self.enternodedia.hide()

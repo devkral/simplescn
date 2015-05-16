@@ -20,6 +20,20 @@
       <column type="gchararray"/>
     </columns>
   </object>
+  <object class="GtkListStore" id="listnodetypes">
+    <columns>
+      <!-- column-name typeid -->
+      <column type="gchararray"/>
+      <!-- column-name typename -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
+  <object class="GtkListStore" id="localnames">
+    <columns>
+      <!-- column-name name -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
   <object class="GtkListStore" id="localservicelist">
     <columns>
       <!-- column-name name -->
@@ -140,7 +154,6 @@
                     <property name="model">localstore</property>
                     <property name="reorderable">True</property>
                     <property name="search_column">0</property>
-                    <property name="activate_on_single_click">True</property>
                     <signal name="row-activated" handler="activate_local" swapped="no"/>
                     <child internal-child="selection">
                       <object class="GtkTreeSelection" id="treeview-selection1"/>
@@ -609,6 +622,134 @@
       </object>
     </child>
   </object>
+  <object class="GtkApplicationWindow" id="addnodedia">
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Add node</property>
+    <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="icon">icon.png</property>
+    <property name="transient_for">mainwin</property>
+    <child>
+      <object class="GtkGrid" id="grid2">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <property name="border_width">3</property>
+        <property name="row_spacing">3</property>
+        <property name="column_spacing">5</property>
+        <child>
+          <object class="GtkGrid" id="grid11">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="column_spacing">5</property>
+            <child>
+              <object class="GtkButton" id="button3">
+                <property name="label" translatable="yes">Ok</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="addnodehash_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="button5">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_addnodedia" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">3</property>
+            <property name="width">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label2">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Type:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label4">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Name:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label11">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Hash:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkComboBox" id="addnodecombo">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="model">localnames</property>
+            <property name="id_column">0</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEntry" id="addnodehashentry">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkComboBox" id="addnodetypecombo">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="model">listnodetypes</property>
+            <property name="id_column">0</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">2</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkApplicationWindow" id="clientdia">
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">Client:</property>
@@ -923,6 +1064,8 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
   </object>
   <object class="GtkApplicationWindow" id="delnodedia">
     <property name="can_focus">False</property>
+    <property name="hexpand">True</property>
+    <property name="vexpand">True</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Delete node</property>
     <property name="modal">True</property>
@@ -1020,6 +1163,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <object class="GtkLabel" id="referencecount">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">start</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -1046,6 +1190,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
+        <property name="column_spacing">3</property>
         <child>
           <object class="GtkGrid" id="delrefbgrid">
             <property name="visible">True</property>
@@ -1084,7 +1229,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
+            <property name="top_attach">2</property>
             <property name="width">2</property>
           </packing>
         </child>
@@ -1092,6 +1237,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <object class="GtkLabel" id="delreferla">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">end</property>
             <property name="label" translatable="yes">Delete Reference:</property>
           </object>
           <packing>
@@ -1103,12 +1249,38 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <object class="GtkLabel" id="showreference">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">start</property>
             <property name="selectable">True</property>
             <property name="track_visited_links">False</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
             <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="showreferencetype">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+            <property name="selectable">True</property>
+            <property name="track_visited_links">False</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Reference type:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
           </packing>
         </child>
       </object>
@@ -1225,11 +1397,10 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="type_hint">dialog</property>
+    <property name="gravity">east</property>
     <property name="transient_for">mainwin</property>
     <property name="attached_to">scrolledwindow1</property>
     <property name="show_menubar">False</property>
-    <signal name="focus-out-event" handler="close_managehashdia_leave" swapped="no"/>
-    <signal name="key-press-event" handler="close_managehashdia_deactivateleave" swapped="no"/>
     <child>
       <object class="GtkGrid" id="grid9">
         <property name="visible">True</property>
@@ -1243,7 +1414,6 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <object class="GtkGrid" id="grid10">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="halign">end</property>
             <property name="hexpand">True</property>
             <property name="column_spacing">3</property>
             <child>
@@ -1252,7 +1422,8 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <signal name="clicked" handler="addhash_confirm" swapped="no"/>
+                <property name="halign">end</property>
+                <signal name="clicked" handler="addnodehash" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -1265,6 +1436,8 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="halign">end</property>
+                <signal name="clicked" handler="delhash" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">2</property>
@@ -1272,11 +1445,14 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               </packing>
             </child>
             <child>
-              <object class="GtkEntry" id="addhashentry">
+              <object class="GtkButton" id="checknodebut">
+                <property name="label" translatable="yes">Check</property>
+                <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="hexpand">True</property>
-                <signal name="activate" handler="addhash_confirm" swapped="no"/>
-                <signal name="focus-in-event" handler="close_managehashdia_deactivateleave" swapped="no"/>
+                <property name="receives_default">True</property>
+                <property name="tooltip_text" translatable="yes">Check and update if type incorrect</property>
+                <property name="halign">start</property>
+                <signal name="clicked" handler="checknodetype" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -1296,15 +1472,14 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
             <property name="shadow_type">in</property>
-            <property name="min_content_width">20</property>
-            <property name="min_content_height">100</property>
+            <property name="min_content_width">50</property>
+            <property name="min_content_height">200</property>
             <child>
               <object class="GtkTreeView" id="refview">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="model">reflist</property>
                 <signal name="cursor-changed" handler="select_ref" swapped="no"/>
-                <signal name="focus-in-event" handler="close_managehashdia_deactivateleave" swapped="no"/>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="treeview-selection5"/>
                 </child>
@@ -1320,7 +1495,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <object class="GtkGrid" id="refactiongrid_sub">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="halign">end</property>
+            <property name="hexpand">True</property>
             <property name="column_spacing">3</property>
             <child>
               <object class="GtkButton" id="addrefb">
@@ -1328,6 +1503,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="halign">end</property>
                 <signal name="clicked" handler="addreference_confirm1" swapped="no"/>
               </object>
               <packing>
@@ -1341,6 +1517,8 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <property name="halign">end</property>
+                <signal name="clicked" handler="delreference" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">2</property>
@@ -1351,8 +1529,8 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               <object class="GtkEntry" id="addrefentry">
                 <property name="can_focus">True</property>
                 <property name="hexpand">True</property>
+                <property name="placeholder_text" translatable="yes">&lt;url/name&gt;</property>
                 <signal name="activate" handler="addreference_confirm1" swapped="no"/>
-                <signal name="focus-in-event" handler="close_managehashdia_deactivateleave" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -1370,6 +1548,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="valign">end</property>
             <property name="column_spacing">6</property>
             <child>
               <object class="GtkButton" id="button6">
@@ -1412,16 +1591,15 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="can_focus">False</property>
             <property name="valign">end</property>
             <property name="row_spacing">3</property>
-            <property name="column_spacing">5</property>
             <child>
               <object class="GtkButton" id="getnodebut">
                 <property name="label" translatable="yes">Get</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="opacity">0.93000000000000005</property>
-                <property name="halign">end</property>
+                <property name="halign">center</property>
                 <property name="valign">end</property>
+                <signal name="clicked" handler="get_node" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -1429,48 +1607,35 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="checknodebut">
-                <property name="label" translatable="yes">Check</property>
+              <object class="GtkToggleButton" id="togglechangereftype">
+                <property name="label" translatable="yes">Update
+reference type</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="halign">start</property>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="combotype">
-                <property name="can_focus">False</property>
-                <property name="has_entry">True</property>
-                <child internal-child="entry">
-                  <object class="GtkEntry" id="combotypeentry">
-                    <property name="can_focus">False</property>
-                    <property name="halign">baseline</property>
-                  </object>
-                </child>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkToggleButton" id="togglechangetype">
-                <property name="label" translatable="yes">Update Type</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
+                <property name="halign">center</property>
                 <property name="hexpand">True</property>
                 <signal name="toggled" handler="toggleutype" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
                 <property name="top_attach">1</property>
-                <property name="width">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkComboBoxText" id="comboreftype">
+                <property name="can_focus">False</property>
+                <property name="has_entry">True</property>
+                <child internal-child="entry">
+                  <object class="GtkEntry" id="comboreftypeentry">
+                    <property name="can_focus">False</property>
+                    <property name="editable">False</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
               </packing>
             </child>
           </object>
@@ -1488,14 +1653,13 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="vexpand">True</property>
             <property name="shadow_type">in</property>
             <property name="min_content_width">20</property>
-            <property name="min_content_height">100</property>
+            <property name="min_content_height">200</property>
             <child>
               <object class="GtkTreeView" id="hashview">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="model">hashlist</property>
                 <signal name="cursor-changed" handler="select_hash" swapped="no"/>
-                <signal name="focus-in-event" handler="close_managehashdia_deactivateleave" swapped="no"/>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="treeview-selection4"/>
                 </child>

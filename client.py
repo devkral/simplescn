@@ -32,7 +32,7 @@ class client_client(object):
     links=None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","check","check_direct","gethash", "show","addhash","deljusthash","delhash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "updateentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
+    validactions={"register","get","connect","gethash", "show","addhash","deljusthash","delhash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "updateentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "try_ref_ip", "addreference","delreference","getreferences", "findbyref"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -96,7 +96,10 @@ class client_client(object):
         else:
             resp=parse_response(r)
             con.close()
-            return resp[0],resp[1],val,dhash(pcert)
+            if len(resp)>=2:
+                return resp[0],resp[1],val,dhash(pcert)
+            else:
+                return False, "invalid amount of return values:\n" ,val,dhash(pcert)
 
     def show(self,dparam):
         return (True,(self.name,self.cert_hash,
@@ -107,16 +110,18 @@ class client_client(object):
     
     def get(self, server_addr, _name, _hash, dparam):
         temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dparam)
-        try:
-            address,port=temp[1].rsplit(":",1)
-        except ValueError:
+        if temp[0]==False:
+            return temp
+        if temp[1].find(":") == -1:
             return (False,"splitting not possible",temp[1])
+        address,port=temp[1].rsplit(":",1)
+            
         try:
             temp2=(temp[0],(address,int(port)),temp[2],temp[3])
-            if temp2[1][1]<1:
-                return (False,"port <1",temp[1])
         except ValueError:
             return (False,"port not a number",temp[1])
+        if temp2[1][1]<1:
+            return (False,"port <1",temp[1])
         return temp2
         
     
@@ -256,22 +261,24 @@ class client_client(object):
             return temp
 
     #check if _addr is reachable and update priority
-    def check_direct(self,_addr,_name,_hash,dparam):
+    def check_direct(self,_addr,_namelocal,_hash,dparam):
+        dparam["certhash"]=_hash #ensure this
+        
         temp=self.prioty_direct(_addr,dparam)
         if temp[0]==False:
             return temp
         
-        if self.hashdb.exist(_name,_hash)==True:
-            self.hashdb.changepriority(_name,_hash,temp[1][0])
-            self.hashdb.changetype(_name,_hash,temp[1][1])
+        if self.hashdb.exist(_namelocal,_hash)==True:
+            self.hashdb.changepriority(_namelocal,_hash,temp[1][0])
+            self.hashdb.changetype(_namelocal,_hash,temp[1][1])
         return temp
     
     #check if node is reachable and update priority
-    def check(self,server_addr,_name,_hash,dparam):
+    def check(self,server_addr,_name,_namelocal,_hash,dparam):
         temp=self.get(server_addr,_name,_hash,dparam)
         if temp[0]==False:
             return temp
-        return self.check_direct(temp[1],_name,_hash,dparam)
+        return self.check_direct(temp[1],_namelocal,_hash,dparam)
     
     #local management
     def addentity(self,_name,dparam):
@@ -295,21 +302,19 @@ class client_client(object):
         else:
             return (False,error)
 
-    # connects to server and check 
     def addhash(self,*args):
         if len(args)==3:
-            _name,_certhash,dparam=args
-            server_addr=None
+            _name, _certhash, dparam=args
+            _type=None
         elif len(args)==4:
-            server_addr,_name,_certhash,dparam=args
+            _name, _certhash, _type, dparam=args
         else:
             return (False,("wrong amount arguments","{}".format(args)))
-        temp=(self.hashdb.addhash(_name,_certhash),"addhash",isself,self.cert_hash)
-        
-        if temp[0]==True and server_addr is not None:
-            temp=self.update(server_addr,_name,_certhash)
-        return temp
-        
+        if self.hashdb.addhash(_name,_certhash,_type) == False:
+            return (False,"addhash failed")
+        else:
+            return (True, success, isself, self.cert_hash)
+
     def deljusthash(self,_certhash,dparam):
         temp=self.hashdb.delhash(_certhash)
         if temp==True:
@@ -368,17 +373,27 @@ class client_client(object):
             return (True,temp,isself,self.cert_hash)
     
     #ipu: ip version unknown
-    def try_ref_ip(self,_address):
-        temp=self.gethash(_address)
-        if temp[0]==False:
-            return temp
+    def try_ref_ip(self,*args):
+        if len(args)==2:
+            _address,dparam=args
+            temp=self.gethash(_address)
+            if temp[0]==False:
+                return temp
+            _hash=temp[1][0]
+        elif len(args)==3:
+            _address,_hash,dparam=args
+        else:
+            return (False,("wrong amount arguments", "{}".format(args)))
+        if self.hashdb.exist(_address) == True:
+            return self.addreference(_hash,_address, "name", dparam)
+        
         trysplit=_address.rsplit(":",1)
         if all(c in "0123456789." for c in trysplit[0]):
-            return self.addreference(temp[1][0],_address,"ip4")
+            return self.addreference(_hash,_address,"ip4",dparam)
         elif all(c in "0123456789:][" for c in _address):
-            return self.addreference(temp[1][0],_address,"ip6")
+            return self.addreference(_hash,_address,"ip6",dparam)
         else:
-            return self.addreference(temp[1][0],_address,"ipu")
+            return self.addreference(_hash,_address,"ipu",dparam)
     
     def addreference(self,*args):
         if len(args)==5:
@@ -387,7 +402,7 @@ class client_client(object):
             _certhash,_reference,_reftype,dparam=args
             _name=self.hashdb.certhash_as_name(_certhash)
             if _name is None:
-                return (False,"name to hash not found")
+                return (False,"name not in db")
         else:
             return (False,("wrong amount arguments","{}".format(args)))
         
@@ -401,13 +416,13 @@ class client_client(object):
             return (False,"name,hash not exist")
         if self.hashdb.addreference(_tref[2],_reference,_reftype) is None:
             return (False,"adding a reference failed")
-        return (True,success,isself,self.cert_hash)
+        return (True,_reftype,isself,self.cert_hash)
         
     def delreference(self,_name,_certhash,_reference,dparam):
         _tref=self.hashdb.get(_name,_certhash)
         if _tref is None:
             return (False,"name,hash not exist")
-        if self.hashdb.delreference(_tref[2]) is None:
+        if self.hashdb.delreference(_tref[2],_reference) is None:
             return (False,error)
         return (True,success,isself,self.cert_hash)
         
