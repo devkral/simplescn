@@ -1426,7 +1426,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <signal name="clicked" handler="addnodehash" swapped="no"/>
               </object>
               <packing>
-                <property name="left_attach">1</property>
+                <property name="left_attach">0</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -1440,22 +1440,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <signal name="clicked" handler="delhash" swapped="no"/>
               </object>
               <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="checknodebut">
-                <property name="label" translatable="yes">Check</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="tooltip_text" translatable="yes">Check and update if type incorrect</property>
-                <property name="halign">start</property>
-                <signal name="clicked" handler="checknodetype" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
+                <property name="left_attach">1</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>

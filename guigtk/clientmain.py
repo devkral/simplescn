@@ -533,25 +533,6 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             tdparam["certhash"]=self.curnode[3]
             gtkclient_node(self.links,self.curnode[1],tdparam,self.curnode[0])
     
-    def checknodetype(self,*args):
-        serverurl=self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
-        if serverurl=="":
-            return
-        
-        hview = self.builder.get_object("hashview")
-        _selh=hview.get_selection().get_selected()
-        if _selh[1] is None:
-            return
-        _hash=_selh[0][_selh[1]][0]
-        tparam=self.param_node.copy()
-        tparam["certhash"]=_hash
-        ##TODO: self.curlocal[0] is incorrect but an working approach
-        ret=self.do_requestdo("check", serverurl, self.curlocal[0], self.curlocal[0], _hash, tparam)
-        if ret[0]==True:
-            self.managehashdia.hide()
-        else:
-            logging.error(ret[1])
-    
     # update node type then open node 
     def get_node(self,*args):
         rview = self.builder.get_object("refview")
