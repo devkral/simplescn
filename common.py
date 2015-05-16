@@ -721,15 +721,15 @@ class certhash_db(object):
         return cur.fetchall()
     
     @connecttodb
-    def listnodeall(self,dbcon, _type=None):
+    def listnodeall(self,dbcon, _nodetype=None):
         cur = dbcon.cursor()
         if _type is None:
             cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority DESC;''')
         else:
-            cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority WHERE type=? DESC;''',(_type,))
+            cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority WHERE type=? DESC;''',(_nodetype,))
         temmp=cur.fetchall()
-        if temmp is None:
-            return None
+        #if temmp is None:
+        #    return None
         return temmp
     
     @connecttodb

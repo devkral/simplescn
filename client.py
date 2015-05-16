@@ -344,8 +344,15 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    def listhashes(self,_name,dparam):  #TODO: expose filter
-        temp=self.hashdb.listhashes(_name)
+    def listhashes(self, *args):
+        if len(args) == 3:
+            _name, _nodetypefilter, dparam = args
+        elif len(args) == 2:
+            _name, dparam=args
+            _nodetypefilter = None
+        else:
+            return (False,("wrong amount arguments (listhashes): {}".format(args)))
+        temp=self.hashdb.listhashes(_name,_nodetypefilter)
         if temp is None:
             return(False, error)
         else:
@@ -358,15 +365,29 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    def listnodenames(self,dparam):  #TODO: expose filter
-        temp=self.hashdb.listnodenames()
+    def listnodenames(self,*args):
+        if len(args)==2:
+            _nodetypefilter,dparam=args
+        elif len(args)==1:
+            dparam=args[0]
+            _nodetypefilter=None
+        else:
+            return (False,("wrong amount arguments (listnodenames): {}".format(args)))
+        temp=self.hashdb.listnodenames(_nodetypefilter)
         if temp is None:
             return(False, error)
         else:
             return (True,temp,isself,self.cert_hash)
 
-    def listnodeall(self,dparam):
-        temp=self.hashdb.listnodeall()
+    def listnodeall(self, *args):
+        if len(args)==2:
+            _nodetypefilter,dparam=args
+        elif len(args)==1:
+            dparam=args[0]
+            _nodetypefilter=None
+        else:
+            return (False,("wrong amount arguments (listnodeall): {}".format(args)))
+        temp=self.hashdb.listnodeall(_nodetypefilter)
         if temp is None:
             return (False, error)
         else:
@@ -383,7 +404,7 @@ class client_client(object):
         elif len(args)==3:
             _address,_hash,dparam=args
         else:
-            return (False,("wrong amount arguments", "{}".format(args)))
+            return (False,("wrong amount arguments (try_ref_ip): {}".format(args)))
         if self.hashdb.exist(_address) == True:
             return self.addreference(_hash,_address, "name", dparam)
         
@@ -418,20 +439,26 @@ class client_client(object):
             return (False,"adding a reference failed")
         return (True,_reftype,isself,self.cert_hash)
         
-    def delreference(self,_name,_certhash,_reference,dparam):
-        _tref=self.hashdb.get(_name,_certhash)
+    def delreference(self,_localname,_certhash,_reference,dparam):
+        _tref=self.hashdb.get(_localname,_certhash)
         if _tref is None:
             return (False,"name,hash not exist")
         if self.hashdb.delreference(_tref[2],_reference) is None:
             return (False,error)
         return (True,success,isself,self.cert_hash)
         
-    def getreferences(self,*args): #TODO: expose filter
-        _name,_certhash,dparam = args
-        _tref=self.hashdb.get(_name,_certhash)
+    def getreferences(self,*args): 
+        if len(args) == 4:
+            _localname,_certhash,_reftypefilter,dparam=args
+        elif len(args) == 3:
+            _localname,_certhash,dparam=args
+            _reftypefilter=None
+        else:
+            return (False,("wrong amount arguments  (getreferences):{}".format(args)))
+        _tref=self.hashdb.get(_localname, _certhash)
         if _tref is None:
-            return (False,"name,hash not exist")
-        temp=self.hashdb.getreferences(_tref[2])
+            return (False,"localname,hash not exist")
+        temp=self.hashdb.getreferences(_tref[2], _reftypefilter)
         if temp is None:
             return (False,error)
         return (True,temp,isself,self.cert_hash)
