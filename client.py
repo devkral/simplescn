@@ -344,7 +344,7 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    def listhashes(self,_name,dparam):
+    def listhashes(self,_name,dparam):  #TODO: expose filter
         temp=self.hashdb.listhashes(_name)
         if temp is None:
             return(False, error)
@@ -358,7 +358,7 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    def listnodenames(self,dparam):
+    def listnodenames(self,dparam):  #TODO: expose filter
         temp=self.hashdb.listnodenames()
         if temp is None:
             return(False, error)
@@ -426,7 +426,8 @@ class client_client(object):
             return (False,error)
         return (True,success,isself,self.cert_hash)
         
-    def getreferences(self,_name,_certhash,dparam):
+    def getreferences(self,*args): #TODO: expose filter
+        _name,_certhash,dparam = args
         _tref=self.hashdb.get(_name,_certhash)
         if _tref is None:
             return (False,"name,hash not exist")

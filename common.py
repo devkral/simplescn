@@ -511,7 +511,7 @@ class certhash_db(object):
             return
         try:
             con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, certreferenceid INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
-            con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, reftype TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
+            con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, type TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
             #hack:
             con.execute('''CREATE TABLE if not exists certrefcount(certreferenceid INTEGER);''')
             con.execute('''INSERT INTO certrefcount(certreferenceid) values(?);''', (0,))
@@ -693,22 +693,22 @@ class certhash_db(object):
         return cur.fetchone()
     
     @connecttodb
-    def listhashes(self,dbcon,_name_type=None):
+    def listhashes(self,dbcon,_name,_nodetype=None):
         cur = dbcon.cursor()
         if _type is None:
             cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? ORDER BY priority DESC;''',(_name,))
         else:
-            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? and type=? ORDER BY priority DESC;''',(_name,_type))
+            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? and type=? ORDER BY priority DESC;''',(_name,_nodetype))
         return cur.fetchall()
     
 
     @connecttodb
-    def listnodenames(self, dbcon, _type=None):
+    def listnodenames(self, dbcon, _nodetype=None):
         cur = dbcon.cursor()
         if _type is None:
             cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
         else:
-            cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''',(_type,))
+            cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''',(_nodetype,))
         temmp=cur.fetchall()
         if temmp is None:
             return None
@@ -763,7 +763,7 @@ class certhash_db(object):
             logging.error("reference type invalid")
             return False
         cur = dbcon.cursor()
-        cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,reftype) values(?,?,?);''', (_referenceid, _reference, _reftype))
+        cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_referenceid, _reference, _reftype))
         dbcon.commit()
         return True
     
@@ -779,9 +779,12 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def getreferences(self,dbcon,_referenceid):
+    def getreferences(self,dbcon,_referenceid, _reftype=None):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreference,reftype FROM certreferences WHERE certreferenceid=?;''',(_referenceid,))
+        if _reftype is None:
+            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''',(_referenceid,))
+        else:
+            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? and type=?;''',(_referenceid, _reftype))
         return cur.fetchall()
     
     @connecttodb
