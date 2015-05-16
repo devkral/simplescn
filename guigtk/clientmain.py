@@ -573,7 +573,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 logging.info("retrieving failed")
                 return
             _url="{}:{}".format(*turl[1])
-        elif _type == "surl":
+        elif _type == "surl": # TODO: fails
             serverurl=_ref
             namesret=self.do_requestdo("getreferences",_hash, "name",self.param_server)
             if namesret[0]==False:
