@@ -693,16 +693,22 @@ class certhash_db(object):
         return cur.fetchone()
     
     @connecttodb
-    def listhashes(self,dbcon,_name):
+    def listhashes(self,dbcon,_name_type=None):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=?  ORDER BY priority DESC;''',(_name,))
+        if _type is None:
+            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? ORDER BY priority DESC;''',(_name,))
+        else:
+            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? and type=? ORDER BY priority DESC;''',(_name,_type))
         return cur.fetchall()
     
 
     @connecttodb
-    def listnodenames(self,dbcon):
+    def listnodenames(self, dbcon, _type=None):
         cur = dbcon.cursor()
-        cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
+        if _type is None:
+            cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
+        else:
+            cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''',(_type,))
         temmp=cur.fetchall()
         if temmp is None:
             return None
@@ -715,9 +721,12 @@ class certhash_db(object):
         return cur.fetchall()
     
     @connecttodb
-    def listnodeall(self,dbcon):
+    def listnodeall(self,dbcon, _type=None):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority DESC;''')
+        if _type is None:
+            cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority DESC;''')
+        else:
+            cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority WHERE type=? DESC;''',(_type,))
         temmp=cur.fetchall()
         if temmp is None:
             return None
