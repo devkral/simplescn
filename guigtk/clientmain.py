@@ -555,10 +555,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     # update node type then open node 
     def get_node(self,*args):
         rview = self.builder.get_object("refview")
-        _selr=hview.get_selection().get_selected()
+        _selr=rview.get_selection().get_selected()
         if _selr[1] is None:
             return
-        _ref, _type=_selr[0][_selr[1]][1]
+        _ref, _type=_selr[0][_selr[1]]
         if _type == "name":
             serverurl=self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
             if serverurl=="":
@@ -572,12 +572,15 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             _url=turl[1]
         else:
             _url=_ref
+        if ":"  not in _url:
+            logging.info("invalid stuff")
+            return
         
         hview = self.builder.get_object("hashview")
         _selh=hview.get_selection().get_selected()
         if _selh[1] is None:
             return
-        _hash=_selh[0][_selh[1]][2]
+        _hash=_selh[0][_selh[1]][0]
         tdparam=self.param_node.copy()
         tdparam["certhash"]=_hash
         
