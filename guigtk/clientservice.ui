@@ -2,6 +2,19 @@
 <!-- Generated with glade 3.18.3 -->
 <interface>
   <requires lib="gtk+" version="3.12"/>
+  <object class="GtkImage" id="image1">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="icon_name">view-refresh</property>
+  </object>
+  <object class="GtkListStore" id="nodelist">
+    <columns>
+      <!-- column-name name -->
+      <column type="gchararray"/>
+      <!-- column-name port -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
   <object class="GtkApplicationWindow" id="servicewin">
     <property name="can_focus">False</property>
     <child>
@@ -56,7 +69,7 @@
                 <property name="name">serviceview</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="model">nodeservicestore</property>
+                <property name="model">nodelist</property>
                 <property name="search_column">0</property>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="treeview-selection11"/>
@@ -73,19 +86,53 @@
           <object class="GtkGrid" id="grid2">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="valign">center</property>
+            <property name="vexpand">True</property>
+            <property name="row_spacing">4</property>
             <child>
               <object class="GtkButton" id="copyportb">
                 <property name="label" translatable="yes">_Copy</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="valign">center</property>
+                <property name="valign">end</property>
+                <property name="vexpand">True</property>
                 <property name="use_underline">True</property>
+                <signal name="clicked" handler="copy" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
                 <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="reloadbut">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="valign">start</property>
+                <property name="vexpand">True</property>
+                <property name="image">image1</property>
+                <signal name="clicked" handler="update" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="closebut">
+                <property name="label" translatable="yes">Clos_e</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="valign">end</property>
+                <property name="vexpand">True</property>
+                <property name="use_underline">True</property>
+                <signal name="clicked" handler="close" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">2</property>
               </packing>
             </child>
           </object>
