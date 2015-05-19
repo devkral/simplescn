@@ -16,6 +16,7 @@ class gtkclient_info(gtkclient_template):
         self.win=self.get_object("infowin")
         self.win.set_visible(True)
         self.win.set_title(name)
+        self.connect_signals(self)
         self.update()
         
     def update(self):
