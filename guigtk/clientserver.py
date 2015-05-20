@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
 
+import os
+
 from gi.repository import Gtk
 from guicommon import gtkclient_template
 from common import sharedir,isself
@@ -16,7 +18,7 @@ class gtkclient_server(gtkclient_template):
             return False
     
     def __init__(self,links,_address,dparam,name=""):
-        gtkclient_template.__init__(self,sharedir+"guigtk/clientserver.ui",links,_address,dparam)
+        gtkclient_template.__init__(self,os.path.join(sharedir, "guigtk", "clientserver.ui"),links,_address,dparam)
         self.win=self.get_object("serverwin")
         self.filter=self.get_object("snodefilter")
         view=self.get_object("servernodeview")
@@ -80,7 +82,7 @@ class gtkclient_server(gtkclient_template):
         if _node[0]==False:
             return
         
-        self.links["gtkclient"].set_curnode("{}:{}".format(*_node[1]),_name,_hash)
+        self.links["gtkclient"].set_curnode("{}:{}".format(*_node[1]), _name, _hash, self.address)
         self.close()
         
     def snode_activate(self,*args):

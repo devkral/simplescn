@@ -1,9 +1,15 @@
 #! /usr/bin/env python3
 
 import sys,os
-thisdir=os.path.dirname(os.path.realpath(__file__))
-if thisdir not in sys.path:
-    sys.path.append(thisdir)
+
+sharedir=None
+if sharedir is None:
+    sharedir=os.path.dirname(os.path.realpath(__file__))
+
+if sharedir[-1] == os.sep:
+    sharedir = sharedir[:-1]
+if sharedir not in sys.path:
+    sys.path.append(sharedir)
 
 
 from http.server  import BaseHTTPRequestHandler,HTTPServer
@@ -15,7 +21,7 @@ import socketserver #,socket
 import traceback
 import socket
 
-from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, sharedir, pluginmanager, configmanager
+from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager
 
 
 
@@ -146,7 +152,7 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(404,"no webgui")
             return
             
-        _ppath="{}html{}{}{}{}".format(sharedir,os.sep,lang,os.sep,page)
+        _ppath=os.path.join(sharedir, "html",lang, page)
         if os.path.exists(_ppath)==False:
             self.send_error(404,"file not exist")          
             return
@@ -326,7 +332,7 @@ class server_init(object):
         self.config_path=os.path.expanduser(kwargs["config"])
         if self.config_path[-1]==os.sep:
             self.config_path=self.config_path[:-1]
-        _spath="{}{}{}".format(self.config_path,os.sep,"server")
+        _spath=os.path.join(self.config_path,"server")
         port=kwargs["port"]
         init_config_folder(self.config_path,"server")
         
@@ -388,7 +394,7 @@ class server_init(object):
         
         self.links["server_server"]=server(serverd) 
         #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
-        plugconf=configmanager(self.config_path+os.sep+"plugins.config")
+        plugconf=configmanager(os.path.join(self.config_path, "plugins.config"))
         if kwargs["noplugins"] is None:
             self.links["server_server"].pluginmanager=pluginmanager(sys.path,plugconf)
             #self.links["server_server"].pluginmanager.interfaces+=["server"]
@@ -467,8 +473,8 @@ if __name__ == "__main__":
     if server_args["webgui"] is not None:
         server_handler.webgui=True
         #load static files  
-        for elem in os.listdir("{}static".format(sharedir)):
-            with open("{}static{}{}".format(sharedir,os.sep,elem), 'rb') as _staticr:
+        for elem in os.listdir(os.path.join(sharedir, "static")):
+            with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
                 server_handler.statics[elem]=_staticr.read()
                 #against ssl failures
                 if len(server_handler.statics[elem])==0:

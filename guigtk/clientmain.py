@@ -1,7 +1,9 @@
 #! /usr/bin/env python3
 
-import os,sys
+import os
+#,sys
 #sys.path.append(os.path.dirname(__file__))
+
 
 import logging
 
@@ -75,7 +77,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.sslcont=default_sslcont()
         self.builder=Gtk.Builder()
         self.builder.set_application(self)
-        self.builder.add_from_file(sharedir+"guigtk/clientmain.ui")
+        self.builder.add_from_file(os.path.join(sharedir, "guigtk", "clientmain.ui"))
         self.builder.connect_signals(self)
         
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
@@ -371,8 +373,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if self._verifyserver(serverurl) is not None:
             servlist.append(())
     
-    def set_curnode(self,_address,_name,_hash):
-        if self.curnode is not None and self.curnode[0]!="This client":
+    def set_curnode(self, _clientaddress,_name,_hash,_serveraddress=None):
+        if self.curnode is not None and self.curnode[0]!=isself:
             if self.recentcount<20:
                 self.recentcount+=1
                 self.recentstore.prepend(self.curnode)
@@ -390,16 +392,16 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         elif _ask[1][0] is None:
             cnodeorigin.set_text("remote:")
             cnode.set_text(_name)
-            self.curnode=(_name,_address,_name,_hash)
+            self.curnode=(_name,_clientaddress,_name,_hash,_serveraddress)
         elif _ask[1][0] is isself:
             cnodeorigin.set_text("")
             cnode.set_text("This client")
-            self.curnode=("This client",_address,_name,_hash)
+            self.curnode=(isself,_clientaddress,_name,_hash,_serveraddress)
             #self.curnode=(_name,_address,_name,_hash)
         else:
             cnodeorigin.set_text("verified:")
             cnode.set_text(_ask[1][0])
-            self.curnode=(_ask[1][0],_address,_name,_hash)
+            self.curnode=(_ask[1][0],_address,_name,_hash,_serveraddress)
         
         
         
@@ -461,7 +463,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if self.curnode is None:
             self.addnodehash_intern(_name,"","client")
         else:
-            self.addnodehash_intern(_name,self.curnode[3],"client",refstoadd=(("surl",self.curnode[1]),("name",self.curnode[2])))
+            if self.curnode[4] is None:
+                self.addnodehash_intern(_name,self.curnode[3],"client",refstoadd=(("name",self.curnode[2])))
+            else:
+                self.addnodehash_intern(_name,self.curnode[3],"client",refstoadd=(("surl",self.curnode[4]),("name",self.curnode[2])))
         
 
     def addnodehash_confirm(self,*args):
@@ -536,7 +541,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if ret[0]==False:
             logging.error(ret[1])
             return
-        self.set_curnode(_address,ret[1][1],_hash)
+        self.set_curnode(_address,ret[1][1],_hash, None)
         self.close_enternode()
     
     def opennode(self,*args):
@@ -573,7 +578,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 logging.info("retrieving failed")
                 return
             _url="{}:{}".format(*turl[1])
-        elif _type == "surl": # TODO: fails
+        elif _type == "surl":
             serverurl=_ref
             namesret=self.do_requestdo("getreferences",_hash, "name",self.param_server)
             if namesret[0]==False:
@@ -584,7 +589,9 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 if elem[0] in ["", None]:
                     logging.warn("references type name contain invalid element: {}".format(elem[0]))
                 else:
+                    #print("get",serverurl,elem[0],_hash,self.param_server)
                     tempret=self.do_requestdo("get",serverurl,elem[0],_hash,self.param_server)
+                    print("alive")
                     if tempret[0]==True:
                         break
             if tempret is None or tempret[0]==False:
@@ -625,7 +632,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         _address=_sel[0][_sel[1]][1]
         _name=_sel[0][_sel[1]][2]
         _hash=_sel[0][_sel[1]][3]
-        self.set_curnode(_address,_name,_hash)
+        self.set_curnode(_address,_name,_hash, None)
     
     def listservices(self,*args):
         tdparam=self.param_node.copy()

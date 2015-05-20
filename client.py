@@ -3,9 +3,14 @@
 
 import sys,os
 
-thisdir=os.path.dirname(os.path.realpath(__file__))
-if thisdir not in sys.path:
-    sys.path.append(thisdir)
+sharedir=None
+if sharedir is None:
+    sharedir=os.path.dirname(os.path.realpath(__file__))
+
+if sharedir[-1] == os.sep:
+    sharedir = sharedir[:-1]
+if sharedir not in sys.path:
+    sys.path.append(sharedir)
 
 #import SSL as ssln
 #from OpenSSL import SSL,crypto
@@ -19,7 +24,7 @@ import traceback
 import socket
 from os import path
 
-from common import success, error, server_port, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, sharedir, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
+from common import success, error, server_port, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
 
 
 
@@ -537,7 +542,7 @@ class client_handler(BaseHTTPRequestHandler):
         if self.webgui==False:
             self.send_error(404,"no webgui")
             return
-        _ppath="{}html{}{}{}{}".format(sharedir,os.sep,lang,os.sep,page)
+        _ppath=os.path.join(sharedir,"html",lang,page)
         if os.path.exists(_ppath)==False:
             self.send_error(404,"file not exist")
             return
@@ -654,7 +659,7 @@ class client_handler(BaseHTTPRequestHandler):
         _cmdlist += [self.client_address,]
         
         if self.check_spw()==False:
-            self.send_error(401,self.salt)            
+            self.send_error(401,self.salt)
             return
         try:
             func = type(self.links["client_server"]).__dict__[_cmdlist[0]]
@@ -729,7 +734,7 @@ class client_handler(BaseHTTPRequestHandler):
         elif action in self.links["client_server"].validactions:
             self.handle_server(_cmdlist)
             return
-
+        print(action)
         if self.webgui == False:
             self.send_response(400,"no webgui")
             return
@@ -809,15 +814,15 @@ class client_init(object):
         self.links["config"]=confm
         self.config_root=confm.get("config")
         
-        _cpath="{}{}{}".format(self.config_root,os.sep,"client")
+        _cpath=os.path.join(self.config_root,"client")
         init_config_folder(self.config_root,"client")
         
         if confm.getb("webgui")!=False:
             logging.debug("webgui enabled")
             client_handler.webgui=True
             #load static files
-            for elem in os.listdir("{}static".format(sharedir)):
-                with open("{}static{}{}".format(sharedir,os.sep,elem), 'rb') as _staticr:
+            for elem in os.listdir(os.path.join(sharedir, "static")):
+                with open(os.path.join(sharedir,"static",elem), 'rb') as _staticr:
                     client_handler.statics[elem]=_staticr.read()
         else:
             client_handler.webgui=False
@@ -885,7 +890,7 @@ class client_init(object):
             
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
-        self.links["client"]=client_client(_name[0],dhash(pub_cert),self.config_root+os.sep+"certdb.sqlite",self.links)
+        self.links["client"]=client_client(_name[0],dhash(pub_cert),os.path.join(self.config_root, "certdb.sqlite"),self.links)
 
     def serve_forever_block(self):
         self.links["server"].serve_forever()

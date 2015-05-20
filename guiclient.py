@@ -1,11 +1,17 @@
 #! /usr/bin/env python3
 import sys,os
 
-thisdir=os.path.dirname(os.path.realpath(__file__))
-if thisdir not in sys.path:
-    sys.path.append(thisdir)
 
-guigtk=os.path.join(thisdir,"guigtk")
+sharedir=None
+if sharedir is None:
+    sharedir=os.path.dirname(os.path.realpath(__file__))
+
+if sharedir[-1] == os.sep:
+    sharedir = sharedir[:-1]
+if sharedir not in sys.path:
+    sys.path.append(sharedir)
+
+guigtk=os.path.join(sharedir,"guigtk")
 if guigtk not in sys.path:
     sys.path.append(guigtk)
 
@@ -20,7 +26,7 @@ from clientmain import gtkclient_init, do_gtkiteration
 import client
 from client import default_client_args as dclargs
 
-from common import sharedir, configmanager, pluginmanager
+from common import configmanager, pluginmanager
 #VALError
 
 
