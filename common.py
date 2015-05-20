@@ -194,15 +194,14 @@ def scnparse_url(url,force_port=False):
     raise(EnforcedPortFail)
 
 class configmanager(object):
-    dbpath=None
-    dbcon=None
-    lock=None
+    db_path = None
+    dbcon = None
+    lock = None
+    imported = False
     overlays={}
     defaults={}
     def __init__(self,_dbpath):
-        self.dbpath=_dbpath
-        if self.dpath is not None:
-            import sqlite3
+        self.db_path=_dbpath
         self.lock=threading.BoundedSemaphore(1)
         
         self.reload()
@@ -211,8 +210,6 @@ class configmanager(object):
     def __del__(self):
         if self.dbcon is not None:
             self.dbcon.close()
-        #else:
-        #    raise(self.dbpath)
         
     
     def dbaccess(func):
@@ -236,12 +233,15 @@ class configmanager(object):
     
     
     def reload(self):
-        if self.dbpath is None:
+        if self.db_path is None:
             return
+        if self.db_path is not None and self.imported == False:
+            import sqlite3
+            self.imported = True
         self.lock.acquire()
         if self.dbcon is not None:
             self.dbcon.close()
-        self.dbcon=sqlite3.connect(self.dbpath)
+        self.dbcon=sqlite3.connect(self.db_path)
         cur = self.dbcon.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS main(name TEXT, val TEXT,PRIMARY KEY(name));''')
         cur.execute('''INSERT OR IGNORE INTO main(name,val) values ("state","false");''')
@@ -533,12 +533,12 @@ def rw_socket(sockr,sockw,buffersize):
     
                            
                            
-
 class certhash_db(object):
-    import sqlite3
+    
     db_path=None
     
     def __init__(self,dbpath):
+        import sqlite3
         self.db_path=dbpath
         try:
             con=sqlite3.connect(self.db_path)
@@ -558,6 +558,7 @@ class certhash_db(object):
         con.close()
     
     def connecttodb(func):
+        import sqlite3
         def funcwrap(self,*args,**kwargs):
             temp=None
             try:
