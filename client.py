@@ -734,9 +734,8 @@ class client_handler(BaseHTTPRequestHandler):
         elif action in self.links["client_server"].validactions:
             self.handle_server(_cmdlist)
             return
-        print(action)
         if self.webgui == False:
-            self.send_response(400,"no webgui")
+            self.send_error(400,"no webgui")
             return
         #client 
         if action in ("", "client", "html", "index"):
@@ -748,9 +747,10 @@ class client_handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(self.statics[_cmdlist[1]])
             else:
-                self.send_response(404)
+                self.send_error(404, "invalid static object")
             return
-        self.send_response(400, "invalid action")
+        
+        self.send_error(400, "invalid action")
     
     def do_PUT(self):
         pos_param = self.path.find("?")

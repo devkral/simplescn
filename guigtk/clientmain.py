@@ -591,7 +591,6 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 else:
                     #print("get",serverurl,elem[0],_hash,self.param_server)
                     tempret=self.do_requestdo("get",serverurl,elem[0],_hash,self.param_server)
-                    print("alive")
                     if tempret[0]==True:
                         break
             if tempret is None or tempret[0]==False:
