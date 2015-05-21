@@ -37,7 +37,7 @@ class gtkclient_remoteservice(gtkclient_template):
         servicel=self.get_object("servicelist")
         ret=self.do_requestdo("listservices", self.address)
         if ret[0]==False:
-            logging.info(e)
+            logging.info(ret[1])
             return
         servicel.clear()
         for elem in ret[1]:
@@ -49,7 +49,7 @@ class gtkclient_remoteservice(gtkclient_template):
         _sel=view.get_selection().get_selected()
         if _sel[1] is None:
             return
-        service="{address}:{port}".format(address=self.address,port=_sel[0][_sel[1]][1])
+        service="{address}:{port}".format(address=self.address.rsplit(":",1)[0],port=_sel[0][_sel[1]][1])
         self.clip.set_text(service,-1)
         self.close()
         

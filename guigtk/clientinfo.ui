@@ -2,6 +2,7 @@
 <!-- Generated with glade 3.18.3 -->
 <interface>
   <requires lib="gtk+" version="3.12"/>
+  <object class="GtkTextBuffer" id="messagebuf"/>
   <object class="GtkImage" id="rloadimg">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -20,19 +21,24 @@
         <property name="can_focus">True</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
+        <property name="border_width">3</property>
+        <property name="row_spacing">3</property>
+        <property name="column_spacing">3</property>
         <child>
           <object class="GtkGrid" id="grid2">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="hexpand">False</property>
+            <property name="hexpand">True</property>
             <property name="vexpand">False</property>
+            <property name="column_spacing">2</property>
             <child>
-              <object class="GtkButton" id="button1">
-                <property name="label" translatable="yes">button</property>
+              <object class="GtkButton" id="serviceb">
+                <property name="label" translatable="yes">Services</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="openservices" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -45,6 +51,7 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="image">rloadimg</property>
+                <signal name="clicked" handler="update" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -55,13 +62,18 @@
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">1</property>
+            <property name="width">2</property>
           </packing>
         </child>
         <child>
           <object class="GtkBox" id="col">
+            <property name="width_request">100</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="valign">start</property>
+            <property name="vexpand">True</property>
             <property name="orientation">vertical</property>
+            <property name="baseline_position">top</property>
             <child>
               <object class="GtkLabel" id="donotapear">
                 <property name="visible">True</property>
@@ -73,6 +85,32 @@
                 <property name="fill">True</property>
                 <property name="position">0</property>
               </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkScrolledWindow" id="scrolledwindow1">
+            <property name="width_request">200</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <property name="hscrollbar_policy">never</property>
+            <property name="shadow_type">in</property>
+            <property name="min_content_width">130</property>
+            <property name="min_content_height">200</property>
+            <child>
+              <object class="GtkTextView" id="textview1">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="editable">False</property>
+                <property name="wrap_mode">word</property>
+                <property name="buffer">messagebuf</property>
+              </object>
             </child>
           </object>
           <packing>

@@ -19,7 +19,7 @@ from clientservice import gtkclient_remoteservice
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \
 init_config_folder, generate_certs, isself, default_sslcont, check_hash, scnparse_url, AddressEmptyFail
 
-#check_hash, server_port, dhash, scnparse_url, AddressFail
+#check_hash, server_port, dhash, AddressFail
 
 import client
 
@@ -441,7 +441,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 name="Own server"
             else:
                 name=temp[0]
-            gtkclient_info(self.links,serverurl,tdparam,name)
+            gtkclient_info(self.links,"{}:{}".format(*scnparse_url(serverurl)),tdparam,name)
 
         
 
@@ -460,7 +460,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             name="Own server"
         else:
             name=temp[0]
-        gtkclient_server(self.links,serverurl,tdparam,name)
+        gtkclient_server(self.links,"{}:{}".format(*scnparse_url(serverurl)),tdparam,name)
         
     
     #### node actions ####
@@ -636,7 +636,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         ret=self.do_requestdo("check_direct", _url, self.curlocal[0], _hash,tdparam)
         if ret[0]==True:
             self.managehashdia.hide()
-            gtkclient_node(self.links,_url,tdparam,self.curlocal[0])
+            gtkclient_node(self.links,"{}:{}".format(*scnparse_url(url)),tdparam,self.curlocal[0])
         else:
             logging.error(ret[1])
         
@@ -645,7 +645,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         tdparam=self.param_node.copy()
         if self.curnode is not None:
             tdparam["certhash"]=self.curnode[3]
-            gtkclient_info(self.links,self.curnode[1],tdparam,self.curnode[0])
+            gtkclient_info(self.links,"{}:{}".format(*scnparse_url(self.curnode[1])),tdparam,self.curnode[0])
             
     def activate_recent(self,*args):
         view=self.builder.get_object("recentstore")
@@ -661,7 +661,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         tdparam=self.param_node.copy()
         if self.curnode is not None:
             tdparam["certhash"]=self.curnode[3]
-            gtkclient_remoteservice(self.links,self.curnode[1],tdparam,self.curnode[0])
+            gtkclient_remoteservice(self.links,"{}:{}".format(*scnparse_url(self.curnode[1])),tdparam,self.curnode[0])
     
     
     
