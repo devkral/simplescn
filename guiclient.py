@@ -11,28 +11,26 @@ if sharedir[-1] == os.sep:
 if sharedir not in sys.path:
     sys.path.append(sharedir)
 
-guigtk=os.path.join(sharedir,"guigtk")
-if guigtk not in sys.path:
-    sys.path.append(guigtk)
 
 from os import path
 
 import logging
 import signal
 
-import clientmain
-from clientmain import gtkclient_init, do_gtkiteration
+from guigtk import clientmain
+from guigtk.clientmain import gtkclient_init, do_gtkiteration
 
 import client
 from client import default_client_args as dclargs
 
+import common
 from common import configmanager, pluginmanager
+
 #VALError
+from common import logger
+#init_logger()
 
-
-
-
-
+#logger=getlogger()
 
 #cm = None
 
@@ -58,7 +56,9 @@ def signal_handler(*args):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    from common import scn_logger, init_logger
+    init_logger(scn_logger())
+    logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
 
     clargs = client.client_args.copy()
@@ -108,7 +108,7 @@ if __name__ == "__main__":
             pluginm.interfaces += ["cmd",]
     else:
         pluginm = None
-    #logging.debug("start client")
+    #logger().debug("start client")
     #global cm
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:

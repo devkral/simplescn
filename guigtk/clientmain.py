@@ -10,14 +10,18 @@ import logging
 import time, threading
 
 from gi.repository import Gtk,Gdk #,Pango
-from clientinfo import gtkclient_info
-from clientnode import gtkclient_node
-from clientserver import gtkclient_server
-from clientservice import gtkclient_remoteservice
-#from gui.gtk.guicommon import run # gtkguinode
+from guigtk.clientinfo import gtkclient_info
+from guigtk.clientnode import gtkclient_node
+from guigtk.clientserver import gtkclient_server
+from guigtk.clientservice import gtkclient_remoteservice
+
 
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \
 init_config_folder, generate_certs, isself, default_sslcont, check_hash, scnparse_url, AddressEmptyFail
+
+from common import logger
+#logger=getlogger()
+#init_logger()
 
 #check_hash, server_port, dhash, AddressFail
 
@@ -183,7 +187,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
 
     def update_storage(self):
         _storage=self.do_requestdo("listnodenametypes",self.param_client)
-        if _storage[0]==False:
+        if logger().check(_storage)==False:
             return
         
         self.localstore.clear()
@@ -200,7 +204,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         #serverlist.clear()
         for elem in _storage[1]:
             if elem[0] is None:
-                logging.critical("None element as name")
+                logger().critical("None element as name")
                 return
             if elem[1] is None:
                 self.empty_dic+=[elem[0],]
@@ -228,7 +232,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         localnames.clear()
         localnames.append(("",))
         _names=self.do_requestdo("listnodenames",self.param_client)
-        if _names[0]==False:
+        if logger().check(_names)==False:
             return
         
         for elem in _names[1]:
@@ -237,7 +241,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def update_serverlist_hash(self, _hash):
         serverlist=self.builder.get_object("serverlist")
         _serverrefs=self.do_requestdo("getreferences",_hash,self.param_client)
-        if _serverrefs[0]== False:
+        if logger().check(_serverrefs)== False:
             return
         for elem in _serverrefs[1]:
             if elem not in self.serverlist_dic:
@@ -248,15 +252,14 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                     serverlist.append((elem[0],False))
                     self.serverlist_dic.append(elem[0])
             else:
-                logging.error(_serverhashes[1])
+                logger().error(_serverhashes[1])
                 
     def update_serverlist(self, _localname):
         _serverhashes=self.do_requestdo("listhashes",_localname,self.param_client)
-        if _serverhashes[0]==True:
+        if logger().check(_serverhashes)==True:
             for _hash in _serverhashes[1]:
-                self.update_serverlist_hash(_hash[0])
-        else:
-            logging.error(_serverhashes[1])
+                if _hash[0]!="default":
+                    self.update_serverlist_hash(_hash[0])
     #ugly
     """def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
@@ -270,7 +273,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         try:
             temp=client.client_client.__dict__["do_request"](self,clienturl,requeststr+params,self.param_client,usecache=False,forceport=False)
         except AddressFail:
-            #logging.error(requeststr)
+            #logger().error(requeststr)
             return (False, "address failed")
         except Exception as e:
             if "tb_frame" in e.__dict__:
@@ -278,7 +281,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             else:
                 st=str(e)
 
-            logging.error(st)
+            logger().error(st)
             return (False, e)
         if temp[0]==False:
             return temp
@@ -348,7 +351,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                     st="{}\n\n{}".format(e,traceback.format_tb(e))
                 else:
                     st=str(e)
-            logging.error(st)
+            logger().error(st)
             return (False,)"""
 
     def pushint(self):
@@ -512,10 +515,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             _type = "unknown"
         
         if check_hash(_hash) == False:
-            logging.debug("invalid hash")
+            logger().debug("invalid hash")
             return
         res = self.do_requestdo("addhash",_name,_hash,_type,self.param_client)
-        if res[0] == True:
+        if logger().check(res) == True:
             self.update_storage()
             if self.curlocal is not None and _type==self.curlocal[0]:
                 it=hashlist.prepend((_hash,))
@@ -526,7 +529,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             
             self.close_addnodedia()
         else:
-            logging.error(res[1])
+            logger().error(res[1])
     
     
     def delnodehash(self,*args):
@@ -550,20 +553,18 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         _hash=self.builder.get_object("enternodehash").get_text().strip(" ").rstrip(" ")
         if _hash=="":
             ret=self.do_requestdo("gethash",_address,tparam)
-            if ret[0]==False:
-                logging.info(ret[1])
+            if logger().check(ret,logging.INFO)==False:
                 return
             _hash=ret[1][0]
         if check_hash(_hash)==False:
-            logging.info("hash wrong")
+            logger().info("hash wrong")
             return
         if _address=="":
-            logging.info("address wrong")
+            logger().info("address wrong")
             return
         tparam["certhash"]=_hash
         ret=self.do_requestdo("info",tparam)
-        if ret[0]==False:
-            logging.error(ret[1])
+        if logger().check(ret,logging.ERROR)==False:
             return
         self.set_curnode(_address,ret[1][1],_hash, None)
         self.close_enternode()
@@ -594,40 +595,38 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if _type == "name":
             serverurl=self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
             if serverurl=="":
-                logging.info("no server selected")
+                logger().info("no server selected")
                 return
             
             turl=self.do_requestdo("get",serverurl,_ref,_hash,self.param_server)
-            if turl[0]==False:
-                logging.info("retrieving failed")
+            if logger().check(turl, logging.INFO)==False:
                 return
             _url="{}:{}".format(*turl[1])
         elif _type == "surl":
             serverurl=_ref
             namesret=self.do_requestdo("getreferences",_hash, "name",self.param_server)
             if namesret[0]==False:
-                logging.info("getrefences failed")
+                logger().info("getrefences failed")
                 return
             tempret=None
             for elem in namesret[1]: #try all names
                 if elem[0] in ["", None]:
-                    logging.warn("references type name contain invalid element: {}".format(elem[0]))
+                    logger().warn("references type name contain invalid element: {}".format(elem[0]))
                 else:
                     #print("get",serverurl,elem[0],_hash,self.param_server)
                     tempret=self.do_requestdo("get",serverurl,elem[0],_hash,self.param_server)
                     if tempret[0]==True:
                         break
-            if tempret is None or tempret[0]==False:
-                logging.info("could not be retrieved")
+            if tempret is None or logger().check(tempret, logging.INFO)==False:
                 return
             _url="{}:{}".format(*tempret[1])
         elif _type == "url":
             _url=_ref
         else:
-            logging.info("invalid type")
+            logger().info("invalid type")
             return
         if ":"  not in _url:
-            logging.info("invalid url: {}".format(_url))
+            logger().info("invalid url: {}".format(_url))
             return
         
         tdparam=self.param_node.copy()
@@ -636,9 +635,9 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         ret=self.do_requestdo("check_direct", _url, self.curlocal[0], _hash,tdparam)
         if ret[0]==True:
             self.managehashdia.hide()
-            gtkclient_node(self.links,"{}:{}".format(*scnparse_url(url)),tdparam,self.curlocal[0])
+            gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)),tdparam,self.curlocal[0])
         else:
-            logging.error(ret[1])
+            logger().error(ret[1])
         
     def infonode(self,*args):
         #serverurl=self.builder.get_object("servercomboentry").get_text()
@@ -675,11 +674,11 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
         temp=self._verifyserver(serverurl)
         if temp is None:
-            logging.debug("Something failed")
+            logger().debug("Something failed")
             return
             
         if temp[0] is not None:
-            logging.debug("Already exists")
+            logger().debug("Already exists")
             return
         _hash=temp[1]
         
@@ -753,14 +752,14 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         service=servicee.get_text().strip(" ").rstrip(" ")
         port=porte.get_text().strip(" ").rstrip(" ")
         if service=="":
-            logging.debug("service invalid")
+            logger().debug("service invalid")
             return
         if port=="" or port.isdecimal()==False:
-            logging.debug("port invalid")
+            logger().debug("port invalid")
             return
         ret=self.do_requestdo("registerservice",service,port,self.param_client)
         if ret[0]==False:
-            logging.debug(ret[1])
+            logger().debug(ret[1])
             return
         servicee.set_text("")
         porte.set_text("")
@@ -817,16 +816,16 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         serverurl=self.builder.get_object("servercomboentry").get_text()
         temp=self.do_requestdo("listhashes",_name,self.param_client)
         if temp[0]==False:
-            logging.debug("Exist?")
+            logger().debug("Exist?")
                 
             return
         try:
             serverurl="{}:{}".format(*scnparse_url(serverurl))
         except AddressEmptyFail:
-            logging.debug("Address Empty")
+            logger().debug("Address Empty")
             return
         if self.do_requestdo("prioty_direct",serverurl,self.param_server)==False:
-            logging.debug("Server address invalid")
+            logger().debug("Server address invalid")
             return
         for elem in temp[1]:
             if elem[1]=="unknown":
@@ -872,12 +871,12 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         hashlist=self.builder.get_object("hashlist")
         hashlist.clear()
         if temp[0]==False:
-            logging.debug("Exist?")
+            logger().debug("Exist?")
             return
         for elem in temp[1]:
             if elem[1] is None:
                 if elem[0]!="default":
-                    logging.info("invalid element: {}".format(elem))
+                    logger().info("invalid element: {}".format(elem))
             elif elem[1]==self.curlocal[0]:
                 hashlist.append((elem[0],))
         
@@ -954,7 +953,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         reflist=self.builder.get_object("reflist")
         reflist.clear()
         if temp[0]==False:
-            logging.debug("Exist?")
+            logger().debug("Exist?")
             return
         for elem in temp[1]:
             reflist.append((elem[0],elem[1]))
@@ -1054,7 +1053,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 comboreftype.hide()
                 _selr[0][_selr[1]][1]=_newtype
             else:
-                logging.error(res[1])
+                logger().error(res[1])
             
     def addentity_confirm(self,*args):
         addentity=self.builder.get_object("addentityentry")
@@ -1129,7 +1128,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             return
         
         if _ref.find(":")==-1:
-            logging.debug("invalid input")
+            logger().debug("invalid input")
             return
         _type,_ref=_ref.split(":",1)
         
@@ -1145,13 +1144,13 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         #tparam["certhash"]=ref_hash
         
         if not _type in implementedrefs:
-            logging.debug("invalid type")
+            logger().debug("invalid type")
             return
         
         #if _type=="shash":
         #    ressname=self.do_requestdo("ask", _ref, self.param_client)
         #    if ressname[0]==False or ressname[1][0] is None:
-        #        logging.error("invalid name")
+        #        logger().error("invalid name")
         #        return
         
         res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.param_client)
@@ -1164,7 +1163,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             comboreftype.show()
             
         else:
-            logging.error(res[1])
+            logger().error(res[1])
         
         
             
@@ -1228,7 +1227,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             self.close_renameentitydia()
             self.update_storage()
         else:
-            logging.info(ret[1])
+            logger().info(ret[1])
     ### close
     
     def close_debug(self,*args):
@@ -1296,20 +1295,20 @@ class gtkclient_init(client.client_init):
         init_config_folder(self.config_path,"client")
         
         if check_certs(_cpath+"_cert")==False:
-            logging.debug("Certificate(s) not found. Generate new...")
+            logger().debug("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
-            logging.debug("Certificate generation complete")
+            logger().debug("Certificate generation complete")
         
         client.client_init.__init__(self,confm,pluginpathes)
             
         #_client="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        logging.debug("start server")
+        logger().debug("start server")
         self.serve_forever_nonblock()
-        logging.debug("start gtkclient")
+        logger().debug("start gtkclient")
         self.links["gtkclient"]=gtkclient_main(self.links)
 
 def do_gtkiteration():
     
-    logging.debug("enter mainloop")
+    logger().debug("enter mainloop")
     while run==True:
         Gtk.main_iteration_do(True)

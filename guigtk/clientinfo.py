@@ -5,8 +5,8 @@ import os
 from common import sharedir,isself, scnparse_url
 
 from gi.repository import Gtk
-from guicommon import gtkclient_template
-from clientservice import gtkclient_remoteservice
+from guigtk.guicommon import gtkclient_template
+from guigtk.clientservice import gtkclient_remoteservice
 
 def clearme(widget):
     widget.destroy()

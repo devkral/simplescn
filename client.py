@@ -18,15 +18,16 @@ from http.server  import BaseHTTPRequestHandler,HTTPServer
 from http import client
 import socketserver
 import logging
+import traceback
 import ssl
 import sys,signal,threading
-import traceback
 import socket
 from os import path
 
 from common import success, error, server_port, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
 
 
+from common import logger
 
 class client_client(object):
     name=None
@@ -166,10 +167,10 @@ class client_client(object):
             for line in temp[1].split("\n"):
                 _split=line.split("/")
                 if len(_split)!=2:
-                    logging.debug("invalid element:\n{}".format(line))
+                    logger().debug("invalid element:\n{}".format(line))
                     continue
                 if _split[0]=="isself":
-                    logging.debug("invalid name:\n{}".format(line))
+                    logger().debug("invalid name:\n{}".format(line))
                     continue
                 if _split[1]==self.cert_hash:
                     temp2+=[(_split[0],_split[1],isself),] 
@@ -436,7 +437,7 @@ class client_client(object):
             return (False,error)
         return (True,success,isself,self.cert_hash)
         
-    def getreferences(self,*args): 
+    def getreferences(self,*args):
         if len(args) == 3:
             _certhash,_reftypefilter,dparam=args
         elif len(args) == 2:
@@ -447,7 +448,7 @@ class client_client(object):
         if check_hash(_certhash)==True:
             _localname=self.hashdb.certhash_as_name(_certhash) #can return None to sort out invalid hashes
         else:
-            _localname=False
+            _localname=None
         if _localname is None:
             return (False, "certhash does not exist: {}".format(_certhash))
         _tref=self.hashdb.get(_localname, _certhash)
@@ -474,11 +475,11 @@ class client_server(commonscn):
     local_client_service_control=False
     def __init__(self,_name,_priority,_cert_hash,_message):
         if len(_name)==0:
-            logging.debug("Name empty")
+            logger().debug("Name empty")
             _name="<noname>"
         
         if len(_message)==0:
-            logging.debug("Message empty")
+            logger().debug("Message empty")
             _message="<empty>"
             
         self.name=_name
@@ -782,7 +783,7 @@ class client_handler(BaseHTTPRequestHandler):
             try:
                 pluginm.plugins[plugin].receive(action, self.rfile, self.wfile)
             except Exception as e:
-                logging.error(e)
+                logger().error(e)
                 return
         else:
             self.links["client_client"].do_request(pluginm.redirect_addr, \
@@ -818,7 +819,7 @@ class client_init(object):
         init_config_folder(self.config_root,"client")
         
         if confm.getb("webgui")!=False:
-            logging.debug("webgui enabled")
+            logger().debug("webgui enabled")
             client_handler.webgui=True
             #load static files
             for elem in os.listdir(os.path.join(sharedir, "static")):
@@ -851,9 +852,9 @@ class client_init(object):
             op.close()
         
         if check_certs(_cpath+"_cert") == False:
-            logging.debug("Certificate(s) not found. Generate new...")
+            logger().debug("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
-            logging.debug("Certificate generation complete")
+            logger().debug("Certificate generation complete")
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read()
 
@@ -931,7 +932,7 @@ class client_init(object):
                     elif len(elem)==2:
                         dparam[elem[0]]=elem[1]
                     else:
-                        logging.error("invalid key/value pair\n{}".format(elem))
+                        logger().error("invalid key/value pair\n{}".format(elem))
                         return
                         
             else:
@@ -1031,8 +1032,10 @@ default_client_args={"noplugins":None,
 client_args={"config":default_configdir,
              "port":None}
 
-if __name__ ==  "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+if __name__ ==  "__main__":    
+    from common import scn_logger, init_logger
+    init_logger(scn_logger())
+    logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
     
     pluginpathes=["{}{}plugins".format(sharedir,os.sep)]
@@ -1088,10 +1091,10 @@ if __name__ ==  "__main__":
         pluginm.init_plugins()
 
     if confm.getb("cmd")!=False:
-        logging.debug("start server")
+        logger().debug("start server")
         cm.serve_forever_nonblock()
-        logging.debug("start console")
+        logger().debug("start console")
         cm.cmd_cmd()
     else:
-        logging.debug("start server")
+        logger().debug("start server")
         cm.serve_forever_block()

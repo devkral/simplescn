@@ -3,7 +3,7 @@
 import os
 
 from gi.repository import Gtk
-from guicommon import gtkclient_template
+from guigtk.guicommon import gtkclient_template
 from common import sharedir,isself
 
 class gtkclient_server(gtkclient_template):

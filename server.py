@@ -15,13 +15,15 @@ if sharedir not in sys.path:
 from http.server  import BaseHTTPRequestHandler,HTTPServer
 import time
 #import socket
-import logging
 import signal,threading
 import socketserver #,socket
 import traceback
 import socket
+import logging
 
-from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager
+
+from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, logger
+
 
 
 
@@ -50,12 +52,12 @@ class server(commonscn):
         self.refreshthread.start()
         
         if d["name"] is None or len(d["name"])==0:
-            logging.debug("Name empty")
+            logger().debug("Name empty")
             d["name"]="<noname>"
         
         #self.msg=_msg
         if d["message"] is None or len(d["message"])==0:
-            logging.debug("Message empty")
+            logger().debug("Message empty")
             d["message"]="<empty>"
         
         self.priority=int(d["priority"])
@@ -70,7 +72,7 @@ class server(commonscn):
         try:
             self.refreshthread.join(4)
         except Exception as e:
-            logging.error(e)
+            logger().error(e)
             
             
     def refresh_nhipmap(self):
@@ -301,7 +303,7 @@ class server_handler(BaseHTTPRequestHandler):
         try:
             self.links["server_server"].pluginmanager.__dict__["p_{}".format(plugin)](action)
         except Exception as e:
-            logging.error(e)
+            logger().error(e)
             return
         
 def inputw():
@@ -359,9 +361,9 @@ class server_init(object):
         _message=None
         _name=None
         if check_certs(_spath+"_cert")==False:
-            logging.debug("Certificate(s) not found. Generate new...")
+            logger().debug("Certificate(s) not found. Generate new...")
             generate_certs(_spath+"_cert")
-            logging.debug("Certificate generation complete")
+            logger().debug("Certificate generation complete")
         with open(_spath+"_name", 'r') as readserver:
             _name=readserver.readline()
         with open(_spath+"_cert.pub", 'rb') as readinpubkey:
@@ -450,7 +452,9 @@ server_args={"config":default_configdir,
              "stimeout":"30"}
     
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    from common import scn_logger, init_logger
+    init_logger(scn_logger())
+    logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
 
     if len(sys.argv) > 1:
@@ -483,5 +487,5 @@ if __name__ == "__main__":
         server_handler.webgui=False
 
     cm=server_init(**server_args)
-    logging.debug("server started. Enter mainloop")
+    logger().debug("server started. Enter mainloop")
     cm.serve_forever_block()

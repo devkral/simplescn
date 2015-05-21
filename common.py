@@ -54,8 +54,54 @@ class isself(object):
     def __repr__(*args): #this exist but why doesn't it work
         return "isself"
 
+#### logging ####
+
+class scn_logger(logging.Logger):
+    _defaultHandler=None
+    lformat=None
+    
+    def __init__(self, _handler=logging.StreamHandler()):
+        logging.Logger.__init__(self,"scn_logger")
+        self.lformat=logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s:: %(message)s')
+        _handler.setFormatter(self.lformat)
+        self.replaceHandler(_handler)
+        
+    def replaceHandler(self, newhandler):
+        if self._defaultHandler is not None:
+            self.removeHandler(self._defaultHandler)
+        self.addHandler(newhandler)
+        self._defaultHandler=newhandler
+        
+        
+    def check(self,ret,level=logging.DEBUG):
+        if ret[0]==True:
+            return True
+        else:
+            if level!=0:
+                #use of internal function
+                self._log(level,ret[1],())
+            return False
 
 
+global loggerinst
+loggerinst=None
+
+def logger():
+    return loggerinst
+#class logger(scn_logger):
+#    @classmethod
+#    def __prepare__(metacls, name, bases, **kwds):
+#        return loggerinst
+#    
+#    def __new__(cls, name, bases, namespace, **kwds):
+#        result = type.__new__(cls, name, bases, dict(namespace))
+#        result.members = tuple(namespace)
+#        return result
+
+def init_logger(_logger=scn_logger()):
+    global loggerinst
+    if loggerinst is None:
+        loggerinst=_logger
 
 ##### init ######
 
@@ -116,7 +162,7 @@ def check_certs(_path):
                 #_c.check_privatekey()
                 is_ok = True
             except Exception as e:
-                logging.error(e)
+                logger().error(e)
         if is_ok==True:
             return True
     return False
@@ -144,7 +190,7 @@ def init_config_folder(_dir, prefix):
 
 ##### etc ######
 
-        
+
 #work around crappy python ssl implementation
 #which doesn't allow reads from strings
 def workaround_ssl(text_cert):
@@ -221,7 +267,7 @@ class configmanager(object):
                     st="{}\n\n{}".format(e,traceback.format_tb(e))
                 else:
                     st="{}".format(e)
-                logging.error(st)
+                logger().error(st)
             self.lock.release()
             return temp
         return funcwrap
@@ -384,7 +430,7 @@ class pluginmanager(object):
                         st = "{}\n\n{}".format(e, traceback.format_tb(e))
                     else:
                         st = str(e)
-                    logging.error(st)
+                    logger().error(st)
                 #receive is function, which get connections from handler
                 if ret == True and "receive" in pload.__dict__:
                     self.plugins[plugin] = pload
@@ -456,21 +502,21 @@ def check_reference(_reference):
     if all(c not in "\0'\"\x1A\x7F" for c in _reference) and \
         len(_reference)<100:
         return True
-    #logging.debug("invalid reference: {}".format(_reference))
+    #logger().debug("invalid reference: {}".format(_reference))
     return False
 
 def check_reference_type(_reference_type):
     if all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type) and \
         len(_reference_type)<15:
         return True
-    #logging.debug("invalid referencetype: {}".format(_reference_type))
+    #logger().debug("invalid referencetype: {}".format(_reference_type))
     return False
 
 def check_hash(_hashstr):
     if all(c in "0123456789abcdefABCDEF" for c in _hashstr) and \
         len(_hashstr)==64:
         return True
-    #logging.debug("invalid hash: {}".format(_hashstr))
+    #logger().debug("invalid hash: {}".format(_hashstr))
     return False
 
 def check_name(_name, maxlength=64):
@@ -483,7 +529,7 @@ def check_name(_name, maxlength=64):
         len(_name)<=maxlength and \
         _name!="isself":
         return True
-    #logging.debug("invalid name (maxlength: {}): {}".format(maxlength, _name))
+    #logger().debug("invalid name (maxlength: {}): {}".format(maxlength, _name))
     return False
 
 def check_typename(_name, maxlength=15):
@@ -494,7 +540,7 @@ def check_typename(_name, maxlength=15):
         len(_name)<=maxlength and \
         _name!="isself":
         return True
-    #logging.debug("invalid type: {}".format(_name))
+    #logger().debug("invalid type: {}".format(_name))
     return False
 
 def rw_socket(sockr,sockw,buffersize):
@@ -514,7 +560,7 @@ def rw_socket(sockr,sockw,buffersize):
             sockw.close()
             break
         except Exception as e:
-            logging.error(e)
+            logger().error(e)
             break
         
 #def con_socket(sockown,sockdest,buffersize,_servicename):
@@ -538,7 +584,7 @@ class certhash_db(object):
         try:
             con=sqlite3.connect(self.db_path)
         except Exception as e:
-            logging.error(e)
+            logger().error(e)
             return
         try:
             con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, certreferenceid INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
@@ -549,7 +595,7 @@ class certhash_db(object):
             con.commit()
         except Exception as e:
             con.rollback()
-            logging.error(e)
+            logger().error(e)
         con.close()
     
     def connecttodb(func):
@@ -565,8 +611,7 @@ class certhash_db(object):
                     st=str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
                     st=str(e)
-                logging.error(st)
-                logging.error(func.__name__)
+                logger().error("{}\n{}".format(st,func.__name__))
             return temp
         return funcwrap
 
@@ -575,10 +620,10 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is not None:
-            logging.info("name exist: {}".format(_name))
+            logger().info("name exist: {}".format(_name))
             return False
         if check_name(_name)==False:
-            logging.info("name contains invalid elements")
+            logger().info("name contains invalid elements")
             return False
         cur.execute('''INSERT INTO certs(name,certhash) values (?,'default');''', (_name,))
         dbcon.commit()
@@ -589,7 +634,7 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
         if cur.fetchone() is None:
-            logging.info("name does not exist: {}".format(_name))
+            logger().info("name does not exist: {}".format(_name))
             return False
         cur.execute('''DELETE FROM certs WHERE name=?;''', (_name,))
         dbcon.commit()
@@ -600,12 +645,12 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
         if cur.fetchone() is None:
-            logging.info("name does not exist: {}".format(_name))
+            logger().info("name does not exist: {}".format(_name))
             return False
         
         cur.execute('SELECT name FROM certs WHERE name=?;',(_newname,))
         if cur.fetchone() is not None:
-            logging.info("newname already exist: {}".format(_newname))
+            logger().info("newname already exist: {}".format(_newname))
             return False
         cur.execute('''UPDATE certs SET name=? WHERE name=?;''', (_newname,_name,))
         dbcon.commit()
@@ -615,21 +660,21 @@ class certhash_db(object):
     def addhash(self,dbcon,_name,_certhash,nodetype="unknown",priority=20):
         
         if _name is None:
-            logging.error("name None")
+            logger().error("name None")
         if nodetype is None:
-            logging.error("nodetype None")
+            logger().error("nodetype None")
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
-            logging.info("name does not exist: {}".format(_name))
+            logger().info("name does not exist: {}".format(_name))
             return False
         if check_hash(_certhash)==False:
-            logging.error("hash contains invalid characters: {}".format(_certhash))
+            logger().error("hash contains invalid characters: {}".format(_certhash))
             return False
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''',(_certhash,))
         _oldname=cur.fetchone()
         if _oldname is not None:
-            logging.info("hash already exist: {}".format(_certhash))
+            logger().info("hash already exist: {}".format(_certhash))
             return False
             
         #hack
@@ -647,13 +692,13 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_newname,))
         if cur.fetchone() is None:
-            logging.info("name does not exist: {}".format(_newname))
+            logger().info("name does not exist: {}".format(_newname))
             return False
             
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''',(_certhash,))
         _oldname=cur.fetchone()
         if _oldname is None:
-            logging.info("certhash does not exist: {}".format(_certhash))
+            logger().info("certhash does not exist: {}".format(_certhash))
             return False
         cur.execute('''UPDATE certs SET name=? WHERE certhash=?;''', (_newname,_certhash,))
         
@@ -663,19 +708,19 @@ class certhash_db(object):
     @connecttodb
     def changetype(self,dbcon,_name,_certhash,_type):
         if check_typename(_type,15)==False:
-            logging.info("type contains invalid characters or is too long (maxlen: {}): {}".format(15,_type))
+            logger().info("type contains invalid characters or is too long (maxlen: {}): {}".format(15,_type))
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
-            logging.info("name does not exist: {}".format(_name))
+            logger().info("name does not exist: {}".format(_name))
             return False
         if check_hash(_certhash)==False:
-            logging.info("hash contains invalid characters")
+            logger().info("hash contains invalid characters")
             return False
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
         if cur.fetchone() is None:
-            logging.info("hash does not exist: {}".format(_certhash))
+            logger().info("hash does not exist: {}".format(_certhash))
             return False
         cur.execute('''UPDATE certs SET type=? WHERE name=? AND certhash=?) values(?,?,?);''', (_type,_name,_certhash))
         
@@ -688,30 +733,30 @@ class certhash_db(object):
         #convert str to int and fail if either no integer in string format
         # or datatype is something else except int
         if type(_priority).__name__=="str" and _priority.isdecimal()==False:
-            logging.info("priority can not parsed as integer: {}".format(_priority))
+            logger().info("priority can not parsed as integer: {}".format(_priority))
             return False
         elif type(_priority).__name__=="str":
             _priority=int(_priority)
         elif type(_priority).__name__!="int":
-            logging.info("priority has unsupported datatype: {}".format(type(_priority).__name__))
+            logger().info("priority has unsupported datatype: {}".format(type(_priority).__name__))
             return False
 
         if _priority<0 or _priority>100:
-            logging.info("priority too big (>100) or smaller 0")
+            logger().info("priority too big (>100) or smaller 0")
             return False
         
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is None:
-            logging.info("name does not exist: {}".format(_name))
+            logger().info("name does not exist: {}".format(_name))
             return False
         if check_hash(_certhash)==False:
-            logging.info("hash contains invalid characters: {}".format(_certhash))
+            logger().info("hash contains invalid characters: {}".format(_certhash))
             return False
         
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
         if cur.fetchone() is None:
-            logging.info("hash does not exist: {}".format(_certhash))
+            logger().info("hash does not exist: {}".format(_certhash))
             return False
 
         
@@ -726,7 +771,7 @@ class certhash_db(object):
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
             
         if cur.fetchone() is None:
-            logging.info("hash does not exist: {}".format(_certhash))
+            logger().info("hash does not exist: {}".format(_certhash))
             return False
         
         cur.execute('''DELETE FROM certs WHERE certhash=?;''', (_certhash,))
@@ -804,10 +849,10 @@ class certhash_db(object):
     @connecttodb
     def addreference(self,dbcon,_referenceid,_reference,_reftype):
         if check_reference(_reference)==False:
-            logging.error("reference invalid: {}".format(_reference))
+            logger().error("reference invalid: {}".format(_reference))
             return False
         if check_reference_type(_reftype)==False:
-            logging.error("reference type invalid: {}".format(_reftype))
+            logger().error("reference type invalid: {}".format(_reftype))
             return False
         cur = dbcon.cursor()
         cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_referenceid, _reference, _reftype))
@@ -819,7 +864,7 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;',(_certreferenceid,_reference))
         if cur.fetchone() is None:
-            logging.info("certreferenceid/reference does not exist: {}".format(_certreferenceid,_reference))
+            logger().info("certreferenceid/reference does not exist: {}".format(_certreferenceid,_reference))
             return False
         cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid,_reference))
         dbcon.commit()

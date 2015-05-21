@@ -4,7 +4,7 @@ import os,sys
 #thisdir=os.path.dirname(os.path.realpath(__file__))
 
 from gi.repository import Gtk, Gdk
-from guicommon import gtkclient_template
+from guigtk.guicommon import gtkclient_template
 
 from common import sharedir,isself
 
