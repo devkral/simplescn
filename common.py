@@ -1,17 +1,17 @@
 #! /usr/bin/env python3
 
-import os,sys
+import os,sys,platform
 
 sharedir=os.path.dirname(os.path.realpath(__file__))
 
-
-
+#if platform.python_implementation()=="PyPy":
+#    sys.path+=['', '/usr/lib/python34.zip', '/usr/lib/python3.4', '/usr/lib/python3.4/plat-linux', '/usr/lib/python3.4/lib-dynload', '/usr/lib/python3.4/site-packages', '/usr/lib/site-python']
 import importlib
 import logging
 from OpenSSL import SSL, crypto
 import ssl
 import socket
-#import platform
+#
 
 import hashlib
 import re
