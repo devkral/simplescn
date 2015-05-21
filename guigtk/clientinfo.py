@@ -9,7 +9,9 @@ class gtkclient_info(gtkclient_template):
     name=None
     col=None
     def __init__(self,links,_address,dparam,name=""):
-        gtkclient_template.__init__(self,sharedir+"guigtk/clientinfo.ui",links,_address,dparam)
+        gtkclient_template.__init__(self, links, _address,dparam)
+        if self.init2(os.path.join(sharedir, "guigtk", "clientinfo.ui"))==False:
+            return
         self.name=name
         #self.get_object("col1").set_orientation(Gtk.Orientation.VERTICAL)
         self.col=self.get_object("col")
@@ -17,6 +19,7 @@ class gtkclient_info(gtkclient_template):
         self.win.set_visible(True)
         self.win.set_title(name)
         self.connect_signals(self)
+        self.win.connect('delete-event',self.close)
         self.update()
         
     def update(self):

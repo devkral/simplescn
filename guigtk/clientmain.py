@@ -103,31 +103,31 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.debugwin=self.builder.get_object("debugwin")
         self.cmdwin=self.builder.get_object("cmdwin")
         self.clientwin=self.builder.get_object("clientdia")
-        self.mswin=self.builder.get_object("manageserviceswin")
-        self.addentitydia=self.builder.get_object("addentitydia")
-        self.delentitydia=self.builder.get_object("delentitydia")
-        self.delrefdia=self.builder.get_object("delrefdia")
-        self.addnodedia=self.builder.get_object("addnodedia")
-        self.delnodedia=self.builder.get_object("delnodedia")
-        self.managehashdia=self.builder.get_object("managehashdia")
-        self.enternodedia=self.builder.get_object("enternodedia")
+        self.mswin = self.builder.get_object("manageserviceswin")
+        self.addentitydia = self.builder.get_object("addentitydia")
+        self.delentitydia = self.builder.get_object("delentitydia")
+        self.delrefdia = self.builder.get_object("delrefdia")
+        self.addnodedia = self.builder.get_object("addnodedia")
+        self.delnodedia = self.builder.get_object("delnodedia")
+        self.managehashdia = self.builder.get_object("managehashdia")
+        self.enternodedia = self.builder.get_object("enternodedia")
+        self.renameentitydia = self.builder.get_object("renameentitydia")
         
-        
-        self.debug_wintoggle=self.builder.get_object("debugme")
-        self.cmd_wintoggle=self.builder.get_object("cmdme")
-        self.client_wintoggle=self.builder.get_object("useremoteclient")
+        self.debug_wintoggle = self.builder.get_object("debugme")
+        self.cmd_wintoggle = self.builder.get_object("cmdme")
+        self.client_wintoggle = self.builder.get_object("useremoteclient")
         
         
         addnodecombo = self.builder.get_object("addnodecombo")
-        addnodecomborender=Gtk.CellRendererText()
-        addnodecombo.pack_start(addnodecomborender, True)
-        addnodecombo.add_attribute(addnodecomborender, "text", 0)
+        addnodecomborenderer = Gtk.CellRendererText()
+        addnodecombo.pack_start(addnodecomborenderer, True)
+        addnodecombo.add_attribute(addnodecomborenderer, "text", 0)
         
         
         addnodetypecombo = self.builder.get_object("addnodetypecombo")
-        addnodetypecomborender=Gtk.CellRendererText()
-        addnodetypecombo.pack_start(addnodetypecomborender, True)
-        addnodetypecombo.add_attribute(addnodetypecomborender, "text", 1)
+        addnodetypecomborenderer=Gtk.CellRendererText()
+        addnodetypecombo.pack_start(addnodetypecomborenderer, True)
+        addnodetypecombo.add_attribute(addnodetypecomborenderer, "text", 1)
         
         col0 = Gtk.TreeViewColumn("Nodes", Gtk.CellRendererText(), text=0)
         localview.append_column(col0)
@@ -170,6 +170,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.delnodedia.connect('delete-event',self.close_delnodedia)
         self.managehashdia.connect('delete-event',self.close_managehashdia)
         self.enternodedia.connect('delete-event',self.close_enternodedia)
+        self.renameentitydia.connect('delete-event',self.close_renameentitydia)
+        self.win.connect('delete-event',self.close)
         
         
         #overstore.append("Unknown",unstore)
@@ -205,7 +207,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 #
             
             elif elem[1]=="server":
-                self.server_dic+=[elem[0],]
+                self.update_serverlist(elem[0])
+                self.server_dic+=elem[0]
                 self.localstore.insert_with_values(self.serverit,-1,[0,],[elem[0],])
             elif elem[1]=="client":
                 self.friend_dic+=[elem[0],]
@@ -231,10 +234,29 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         for elem in _names[1]:
             localnames.append((elem,))
         
-        
-        
-        #if self.empty_dic
-            
+    def update_serverlist_hash(self, _hash):
+        serverlist=self.builder.get_object("serverlist")
+        _serverrefs=self.do_requestdo("getreferences",_hash,self.param_client)
+        if _serverrefs[0]== False:
+            return
+        for elem in _serverrefs[1]:
+            if elem not in self.serverlist_dic:
+                if elem[1] == "name":
+                    serverlist.append((elem[0],True))
+                    self.serverlist_dic.append(elem[0])
+                elif elem[1] == "url":
+                    serverlist.append((elem[0],False))
+                    self.serverlist_dic.append(elem[0])
+            else:
+                logging.error(_serverhashes[1])
+                
+    def update_serverlist(self, _localname):
+        _serverhashes=self.do_requestdo("listhashes",_localname,self.param_client)
+        if _serverhashes[0]==True:
+            for _hash in _serverhashes[1]:
+                self.update_serverlist_hash(_hash[0])
+        else:
+            logging.error(_serverhashes[1])
     #ugly
     """def do_request(self,requeststr, parse=-1):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
@@ -371,7 +393,9 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         serverurl=self.builder.get_object("servercomboentry").get_text()
         servlist=self.builder.get_object("serverlist")
         if self._verifyserver(serverurl) is not None:
-            servlist.append(())
+            if serverurl not in self.serverlist_dic:
+                servlist.append((serverurl,False))
+                self.serverlist_dic.append(serverurl)
     
     def set_curnode(self, _clientaddress,_name,_hash,_serveraddress=None):
         if self.curnode is not None and self.curnode[0]!=isself:
@@ -384,7 +408,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
                 
         cnode=self.builder.get_object("curnode")
         cnodeorigin=self.builder.get_object("nodeorigin")
-        _ask=self.do_requestdo("ask",_address,self.param_server)
+        _ask=self.do_requestdo("ask",_clientaddress,self.param_server)
         if _ask[0]==False:
             cnodeorigin.set_text("")
             cnode.set_text("invalid")
@@ -938,6 +962,66 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def client_help(self, args):
         pass
     
+    
+    
+    def cmd_do(self,*args):
+        cmdveri=self.builder.get_object("cmdverify")
+        inp=self.builder.get_object("cmdenter")
+        out=self.builder.get_object("cmdbuffer")
+        dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
+        unparsed=inp.get_text().strip(" ").rstrip(" ")
+        if unparsed[:5]=="hash/":
+            out.insert(out.get_end_iter(),str(dhash(unparsed[6:]))+"\n")
+            return
+        if unparsed[:4]=="set/":
+            keyvalue=unparsed[5:].split(1)
+            if len(keyvalue)==1:
+                out.insert(out.get_end_iter(),"invalid\n")
+                return
+            self.links["configmanager"].set(keyvalue[0],keyvalue[1])
+            return
+        if unparsed[:4]=="help":
+            out.insert(out.get_end_iter(),client.cmdhelp())
+            return
+        pos_param=unparsed.find("?")
+        if pos_param!=-1:
+            parsed=unparsed[:pos_param].split("/")
+            tparam=unparsed[pos_param+1:].split("&")
+            for elem in tparam:
+                elem=elem.split("=")
+                if len(elem)==1 and elem[0]!="":
+                    dparam[elem[0]]=""
+                elif len(elem)==2:
+                    dparam[elem[0]]=elem[1]
+                else:
+                    out.insert(out.get_end_iter(),"invalid key/value pair\n{}".format(elem))
+                    return
+                        
+        else:
+            parsed=unparsed.split("/")
+        parsed+=[dparam,]
+        try:
+            func=type(self.links["client"]).__dict__[str(parsed[0])]
+            resp=func(self.links["client"],*parsed[1:])
+            if resp[0]==False:
+                out.insert(out.get_end_iter(),"Error:\n{}\n".format(resp[1]))
+            else:
+                if resp[2] is None:
+                    cmdveri.set_text("Unverified")
+                elif resp[2] is isself:
+                    cmdveri.set_text("Is own client")
+                else:
+                    cmdveri.set_text("Verified as: "+resp[2])
+                out.insert(out.get_end_iter(),"Success:\n{}\n".format(resp[1]))
+        except KeyError as e:
+            out.insert(out.get_end_iter(),"Command does not exist?\n{}\n".format(parsed))
+                
+        except Exception as e:
+            out.insert(out.get_end_iter(),"Error\ntype: {}\nparsed: {}\n".format(type(e).__name__,parsed))
+        
+    
+    ##### etc
+    
     def addentity(self,*args):
         self.builder.get_object("addentityentry").set_text("")
         
@@ -1114,61 +1198,38 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             self.delrefdia.hide()
             self.update_refs()
     
-    def cmd_do(self,*args):
-        cmdveri=self.builder.get_object("cmdverify")
-        inp=self.builder.get_object("cmdenter")
-        out=self.builder.get_object("cmdbuffer")
-        dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
-        unparsed=inp.get_text().strip(" ").rstrip(" ")
-        if unparsed[:5]=="hash/":
-            out.insert(out.get_end_iter(),str(dhash(unparsed[6:]))+"\n")
-            return
-        if unparsed[:4]=="set/":
-            keyvalue=unparsed[5:].split(1)
-            if len(keyvalue)==1:
-                out.insert(out.get_end_iter(),"invalid\n")
-                return
-            self.links["configmanager"].set(keyvalue[0],keyvalue[1])
-            return
-        if unparsed[:4]=="help":
-            out.insert(out.get_end_iter(),client.cmdhelp())
-            return
-        pos_param=unparsed.find("?")
-        if pos_param!=-1:
-            parsed=unparsed[:pos_param].split("/")
-            tparam=unparsed[pos_param+1:].split("&")
-            for elem in tparam:
-                elem=elem.split("=")
-                if len(elem)==1 and elem[0]!="":
-                    dparam[elem[0]]=""
-                elif len(elem)==2:
-                    dparam[elem[0]]=elem[1]
-                else:
-                    out.insert(out.get_end_iter(),"invalid key/value pair\n{}".format(elem))
-                    return
-                        
-        else:
-            parsed=unparsed.split("/")
-        parsed+=[dparam,]
-        try:
-            func=type(self.links["client"]).__dict__[str(parsed[0])]
-            resp=func(self.links["client"],*parsed[1:])
-            if resp[0]==False:
-                out.insert(out.get_end_iter(),"Error:\n{}\n".format(resp[1]))
-            else:
-                if resp[2] is None:
-                    cmdveri.set_text("Unverified")
-                elif resp[2] is isself:
-                    cmdveri.set_text("Is own client")
-                else:
-                    cmdveri.set_text("Verified as: "+resp[2])
-                out.insert(out.get_end_iter(),"Success:\n{}\n".format(resp[1]))
-        except KeyError as e:
-            out.insert(out.get_end_iter(),"Command does not exist?\n{}\n".format(parsed))
-                
-        except Exception as e:
-            out.insert(out.get_end_iter(),"Error\ntype: {}\nparsed: {}\n".format(type(e).__name__,parsed))
+    def renameentity(self, *args):
+        oldnameo = self.builder.get_object("oldname")
+        newnameentryo = self.builder.get_object("newnameentry")
+        self.close_managehashdia()
         
+        localview=self.builder.get_object("localview")
+        _sel=localview.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _name = _sel[0][_sel[1]][0]
+        parentit = _sel[0].iter_parent(_sel[1])
+        if parentit is None:
+            return
+        oldnameo.set_text(_name)
+        newnameentryo.set_text("")
+        self.renameentitydia.show()
+        
+        
+    def renameentity_confirm(self, *args):
+        oldname = self.builder.get_object("oldname").get_text()
+        newnameentryo = self.builder.get_object("newnameentry")
+        
+        if newnameentryo.get_text()=="":
+            return
+        
+        ret=self.do_requestdo("renameentity", oldname, newnameentryo.get_text(),self.param_client)
+        if ret[0]==True:
+            self.close_renameentitydia()
+            self.update_storage()
+        else:
+            logging.info(ret[1])
+    ### close
     
     def close_debug(self,*args):
         self.debug_wintoggle.set_active(False)
@@ -1217,6 +1278,10 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.enternodedia.hide()
         return True
     
+    def close_renameentitydia(self,*args):
+        self.renameentitydia.hide()
+        return True
+        
     def close(self,*args):
         global run
         run=False

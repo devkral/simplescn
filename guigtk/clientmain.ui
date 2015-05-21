@@ -278,8 +278,9 @@
                 <property name="hexpand">True</property>
                 <property name="model">serverlist</property>
                 <property name="has_entry">True</property>
+                <property name="entry_text_column">0</property>
                 <property name="popup_fixed_width">False</property>
-                <property name="active_id">1</property>
+                <property name="active_id">0</property>
                 <child internal-child="entry">
                   <object class="GtkEntry" id="servercomboentry">
                     <property name="can_focus">True</property>
@@ -354,6 +355,47 @@
                         <property name="label" translatable="yes">Manage _services</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="manageservices" swapped="no"/>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="entitymenuout">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">_Entity</property>
+                <property name="use_underline">True</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="entitymenu">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <child>
+                      <object class="GtkMenuItem" id="addentitym">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Add Entity</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="addentity" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="delentitym">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Delete Entity</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="delentity" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="renameentity">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Rename Entity</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="renameentity" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -473,14 +515,6 @@
                     </child>
                   </object>
                 </child>
-              </object>
-            </child>
-            <child>
-              <object class="GtkMenuItem" id="viewmenuout">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">_View</property>
-                <property name="use_underline">True</property>
               </object>
             </child>
             <child>
@@ -1548,7 +1582,8 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="column_spacing">6</property>
             <child>
               <object class="GtkButton" id="button6">
-                <property name="label" translatable="yes">Delete Friend	 </property>
+                <property name="label" translatable="yes">Delete
+Entity</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -1567,7 +1602,22 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="halign">end</property>
+                <property name="valign">center</property>
                 <signal name="clicked" handler="close_managehashdia" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">2</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="button10">
+                <property name="label" translatable="yes">Rename
+Entity</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="renameentity" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -1788,6 +1838,110 @@ reference type</property>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">2</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkApplicationWindow" id="renameentitydia">
+    <property name="can_focus">False</property>
+    <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
+    <property name="type_hint">dialog</property>
+    <property name="transient_for">mainwin</property>
+    <property name="attached_to">mainwin</property>
+    <child>
+      <object class="GtkGrid" id="grid14">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <property name="row_spacing">3</property>
+        <property name="column_spacing">5</property>
+        <child>
+          <object class="GtkGrid" id="grid15">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="hexpand">True</property>
+            <property name="column_spacing">3</property>
+            <child>
+              <object class="GtkButton" id="button8">
+                <property name="label" translatable="yes">_Ok</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_underline">True</property>
+                <signal name="clicked" handler="renameentity_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="button9">
+                <property name="label" translatable="yes">_Cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_underline">True</property>
+                <signal name="clicked" handler="close_renameentitydia" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">2</property>
+            <property name="width">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label12">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">Old entity name:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="label13">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="label" translatable="yes">New entity name:</property>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkEntry" id="newnameentry">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="oldname">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
           </packing>
         </child>
       </object>

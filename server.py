@@ -104,9 +104,9 @@ class server(commonscn):
     
     def get(self,_name,_hash,_addr):
         if _name not in self.nhipmap:
-            return "{}/name".format(error)
+            return "{}/name not exist".format(error)
         if _hash not in self.nhipmap[_name]:
-            return "{}/certhash".format(error)
+            return "{}/certhash not exist".format(error)
         return "{}/{}:{}".format(success,*self.nhipmap[_name][_hash][:2])
     
     def listnames(self,_addr):

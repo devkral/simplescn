@@ -37,7 +37,7 @@ class client_client(object):
     links=None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","gethash", "show","addhash","delhash","movehash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "updateentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref"}
+    validactions={"register","get","connect","gethash", "show","addhash","delhash","movehash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "renameentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -300,8 +300,8 @@ class client_client(object):
         else:
             return (False,error)
 
-    def updateentity(self,_name,_newname,dparam):
-        temp=self.hashdb.updateentity(_name,_newname)
+    def renameentity(self,_name,_newname,dparam):
+        temp=self.hashdb.renameentity(_name,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:

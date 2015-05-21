@@ -2,12 +2,7 @@
 
 import os,sys
 
-sharedir=None
-if sharedir is None:
-    sharedir=os.path.dirname(os.path.realpath(__file__))
-
-if sharedir[-1] == os.sep:
-    sharedir = sharedir[:-1]
+sharedir=os.path.dirname(os.path.realpath(__file__))
 
 
 
@@ -601,7 +596,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def updateentity(self,dbcon,_name,_newname):
+    def renameentity(self,dbcon,_name,_newname):
         cur = dbcon.cursor()
         cur.execute('SELECT name FROM certs WHERE name=?;',(_name,))
         if cur.fetchone() is None:

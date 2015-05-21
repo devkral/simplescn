@@ -14,7 +14,9 @@ import logging
 class gtkclient_remoteservice(gtkclient_template):
     name=None
     def __init__(self,links,_address,dparam,name=""):
-        gtkclient_template.__init__(self,os.path.join(sharedir, "guigtk", "clientservice.ui"),links,_address,dparam)
+        gtkclient_template.__init__(self, links,_address,dparam)
+        if self.init2(os.path.join(sharedir, "guigtk", "clientservice.ui"))==False:
+            return
         self.win=self.get_object("servicewin")
         self.win.set_title(name)
         
@@ -25,6 +27,7 @@ class gtkclient_remoteservice(gtkclient_template):
         serviceview.append_column(servicecol2)
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.connect_signals(self)
+        self.win.connect('delete-event',self.close)
         self.update()
         
     def update(self,*args):
@@ -45,7 +48,8 @@ class gtkclient_remoteservice(gtkclient_template):
             return
         service="{address}:{port}".format(address=self.address,port=_sel[0][_sel[1]][1])
         self.clip.set_text(service,-1)
-        self.close()
+        self.win.destroy()
         
     def close(self,*args):
-        self.win.destroy()
+        
+        return True
