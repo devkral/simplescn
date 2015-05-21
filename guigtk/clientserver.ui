@@ -34,7 +34,10 @@
   </object>
   <object class="GtkApplicationWindow" id="serverwin">
     <property name="visible">True</property>
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
+    <property name="has_focus">True</property>
+    <property name="is_focus">True</property>
+    <property name="can_default">True</property>
     <property name="icon">icon.png</property>
     <signal name="delete-event" handler="close" swapped="no"/>
     <child>

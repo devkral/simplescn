@@ -208,7 +208,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             
             elif elem[1]=="server":
                 self.update_serverlist(elem[0])
-                self.server_dic+=elem[0]
+                self.server_dic+=[elem[0],]
                 self.localstore.insert_with_values(self.serverit,-1,[0,],[elem[0],])
             elif elem[1]=="client":
                 self.friend_dic+=[elem[0],]

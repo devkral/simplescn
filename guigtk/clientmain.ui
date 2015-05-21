@@ -90,6 +90,7 @@
   <object class="GtkApplicationWindow" id="mainwin">
     <property name="visible">True</property>
     <property name="can_focus">True</property>
+    <property name="can_default">True</property>
     <property name="title" translatable="yes">Simple Communication Nodes</property>
     <property name="icon">icon.png</property>
     <property name="show_menubar">False</property>
@@ -577,7 +578,8 @@
     </child>
   </object>
   <object class="GtkApplicationWindow" id="addentitydia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
+    <property name="can_default">True</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Add name</property>
     <property name="modal">True</property>
@@ -659,7 +661,7 @@
     </child>
   </object>
   <object class="GtkApplicationWindow" id="addnodedia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="title" translatable="yes">Add node</property>
     <property name="modal">True</property>
     <property name="window_position">center-on-parent</property>
@@ -788,7 +790,7 @@
     </child>
   </object>
   <object class="GtkApplicationWindow" id="clientdia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="title" translatable="yes">Client:</property>
     <property name="modal">True</property>
     <property name="window_position">center</property>
@@ -917,7 +919,7 @@
     </child>
   </object>
   <object class="GtkApplicationWindow" id="cmdwin">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="title" translatable="yes">cmd:</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
@@ -994,7 +996,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     </child>
   </object>
   <object class="GtkApplicationWindow" id="debugwin">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="title" translatable="yes">Debug:</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
@@ -1020,7 +1022,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     </child>
   </object>
   <object class="GtkApplicationWindow" id="delentitydia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Delete name</property>
     <property name="modal">True</property>
@@ -1104,7 +1106,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     </child>
   </object>
   <object class="GtkApplicationWindow" id="delnodedia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="hexpand">True</property>
     <property name="vexpand">True</property>
     <property name="border_width">3</property>
@@ -1217,7 +1219,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     </child>
   </object>
   <object class="GtkApplicationWindow" id="delrefdia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Delete name</property>
     <property name="modal">True</property>
@@ -1331,7 +1333,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     </child>
   </object>
   <object class="GtkApplicationWindow" id="enternodedia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Enter node</property>
     <property name="destroy_with_parent">True</property>
@@ -1437,7 +1439,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     </child>
   </object>
   <object class="GtkApplicationWindow" id="managehashdia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="modal">True</property>
     <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
@@ -1721,7 +1723,7 @@ reference type</property>
     </child>
   </object>
   <object class="GtkApplicationWindow" id="manageserviceswin">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Manage Services</property>
     <property name="destroy_with_parent">True</property>
@@ -1844,7 +1846,7 @@ reference type</property>
     </child>
   </object>
   <object class="GtkApplicationWindow" id="renameentitydia">
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
     <property name="modal">True</property>
     <property name="window_position">center-on-parent</property>
     <property name="type_hint">dialog</property>

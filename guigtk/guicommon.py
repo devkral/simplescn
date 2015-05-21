@@ -21,7 +21,6 @@ class gtkclient_template(Gtk.Builder):
     #autoclose=0 #closes window after a timeperiod
     
     def __init__(self,links,_address,dparam):
-        Gtk.Builder.__init__(self)
         self.links=links
         self.dparam=dparam
         self.address=_address
@@ -30,12 +29,15 @@ class gtkclient_template(Gtk.Builder):
         classname=type(self).__name__
         if self.address not in open_addresses:
             open_addresses[self.address]=[classname, self]
-        elif open_addresses[self.address]==classname:
-            open_addresses[self.address][1].grab_focus()
+        elif open_addresses[self.address][0] is classname:
+            open_addresses[self.address][1].win.grab_focus()
+            open_addresses[self.address][1].win.activate_focus()
+            open_addresses[self.address][1].win.set_focus()
             return False
         else:
             open_addresses[self.address][1].close()
             open_addresses[self.address]=[classname, self]
+        Gtk.Builder.__init__(self)
         
         self.set_application(self.links["gtkclient"])
         self.add_from_file(_file)

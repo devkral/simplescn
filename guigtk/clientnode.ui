@@ -8,7 +8,9 @@
   </object>
   <object class="GtkApplicationWindow" id="nodewin">
     <property name="visible">True</property>
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
+    <property name="has_focus">True</property>
+    <property name="can_default">True</property>
     <child>
       <object class="GtkGrid" id="grid1">
         <property name="visible">True</property>

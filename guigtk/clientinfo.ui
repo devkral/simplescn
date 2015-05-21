@@ -8,13 +8,16 @@
     <property name="icon_name">view-refresh</property>
   </object>
   <object class="GtkApplicationWindow" id="infowin">
-    <property name="can_focus">False</property>
+    <property name="visible">True</property>
+    <property name="can_focus">True</property>
+    <property name="has_focus">True</property>
+    <property name="can_default">True</property>
     <property name="window_position">center-on-parent</property>
     <property name="icon">icon.png</property>
     <child>
       <object class="GtkGrid" id="grid1">
         <property name="visible">True</property>
-        <property name="can_focus">False</property>
+        <property name="can_focus">True</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
         <child>

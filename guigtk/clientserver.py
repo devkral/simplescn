@@ -37,7 +37,10 @@ class gtkclient_server(gtkclient_template):
         col2 = Gtk.TreeViewColumn("Hash", col2renderer, text=2)
         view.append_column(col2)
         
-        self.win.set_title(name)
+        if name is isself:
+            self.win.set_title("This client")
+        else:
+            self.win.set_title(name)
         
         self.filter.set_visible_func(self.visible_func)
         

@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
 
+
+import os
 from common import sharedir,isself
 
 from gi.repository import Gtk
@@ -17,7 +19,13 @@ class gtkclient_info(gtkclient_template):
         self.col=self.get_object("col")
         self.win=self.get_object("infowin")
         self.win.set_visible(True)
-        self.win.set_title(name)
+
+        
+        if name is isself:
+            self.win.set_title("This client")
+        else:
+            self.win.set_title(name)
+
         self.connect_signals(self)
         self.win.connect('delete-event',self.close)
         self.update()

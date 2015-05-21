@@ -13,7 +13,10 @@ class gtkclient_node(gtkclient_template):
         if self.init2(os.path.join(sharedir, "guigtk", "clientnode.ui"))==False:
             return
         self.win=self.get_object("nodewin")
-        self.win.set_title(name)
+        if name is isself:
+            self.win.set_title("This client")
+        else:
+            self.win.set_title(name)
         self.win.connect('delete-event',self.close)
         
         self.update()
