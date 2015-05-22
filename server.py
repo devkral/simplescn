@@ -297,13 +297,19 @@ class server_handler(BaseHTTPRequestHandler):
         redin.run()
         redout.run()
         redin.join()
-        
     def do_POST(self):
         plugin,action=self.path[1:].split("/",1)
-        try:
-            self.links["server_server"].pluginmanager.__dict__["p_{}".format(plugin)](action)
-        except Exception as e:
-            logger().error(e)
+        pluginm=self.links["client_server"].pluginmanager
+        if pluginm.redirect_addr in ["",None]:
+            if "receive" in pluginm.plugins[plugin].__dict__:
+                try:
+                    pluginm.plugins[plugin].receive(action, self.rfile, self.wfile)
+                except Exception as e:
+                    logger().error(e)
+                    return
+        else:
+            self.links["server_server"].do_request(pluginm.redirect_addr, \
+                                            self.path, requesttype = "POST")
             return
         
 def inputw():

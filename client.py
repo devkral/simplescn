@@ -780,11 +780,12 @@ class client_handler(BaseHTTPRequestHandler):
         plugin,action=self.path[1:].split("/",1)
         pluginm=self.links["client_server"].pluginmanager
         if pluginm.redirect_addr in ["",None]:
-            try:
-                pluginm.plugins[plugin].receive(action, self.rfile, self.wfile)
-            except Exception as e:
-                logger().error(e)
-                return
+            if "receive" in pluginm.plugins[plugin].__dict__:
+                try:
+                    pluginm.plugins[plugin].receive(action, self.rfile, self.wfile)
+                except Exception as e:
+                    logger().error(e)
+                    return
         else:
             self.links["client_client"].do_request(pluginm.redirect_addr, \
                                             self.path, requesttype = "POST")

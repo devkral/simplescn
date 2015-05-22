@@ -441,8 +441,9 @@ class pluginmanager(object):
                         st = str(e)
                     logger().error(st)
                 #receive is a function to overload, it get connections from handler
-                if ret == True and "receive" in pload.__dict__:
+                if ret == True:
                     self.plugins[plugin] = pload
+                
     def register_remote(self,_addr):
         self.redirect_addr=_addr
 
