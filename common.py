@@ -215,10 +215,12 @@ def gen_sslcont(path):
 
 
 def parse_response(response):
-    if response.status==client.OK:
-        return (True,response.read().decode("utf8"))
-    return (False,response.read().decode("utf8"))
-
+    try:
+        if response.status==client.OK:
+            return (True,response.read().decode("utf8"))
+        return (False,response.read().decode("utf8"))
+    except Exception as e:
+        return (False, "reading response failed, reason: {}".format(e))
 
 
 re_parse_url=re.compile("\\[?(.*)\\]?:([0-9]+)")
@@ -277,8 +279,13 @@ class configmanager(object):
         if self.db_path is None:
             return
         if self.db_path is not None and self.imported == False:
-            import sqlite3
-            self.imported = True
+            try:
+                import sqlite3
+                self.imported = True
+            except ImportError as e:
+                logger().error("import sqlite for user settings failed, reason:{}".format(e))
+                self.db_path=None
+            
         self.lock.acquire()
         if self.dbcon is not None:
             self.dbcon.close()
@@ -413,12 +420,14 @@ class pluginmanager(object):
             pspec = importlib.machinery.PathFinder.find_spec(plugin[0],plugin[1])
             if pspec is not None:
                 #init sys pathes
-                pspec.submodule_search_locations = self.pluginenv
+                newenv=self.pluginenv.copy()
+                newenv.append(os.path.join(plugin[1], plugin[0]))
+                pspec.submodule_search_locations = newenv
                 #load module
                 pload=pspec.loader.load_module()
                 pconf.update(pload.defaults)
                 pload.config = pconf
-                pload.resources = self.resources.copy()
+                pload.resources = self.resources # no copy because they can change
                 pload.interfaces = self.interfaces.copy()
                 #load interfaces
                 ret = False
@@ -431,7 +440,7 @@ class pluginmanager(object):
                     else:
                         st = str(e)
                     logger().error(st)
-                #receive is function, which get connections from handler
+                #receive is a function to overload, it get connections from handler
                 if ret == True and "receive" in pload.__dict__:
                     self.plugins[plugin] = pload
     def register_remote(self,_addr):

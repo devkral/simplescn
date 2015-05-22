@@ -62,7 +62,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
 
     clargs = client.client_args.copy()
-    pluginpathes = ["{}{}plugins".format(sharedir, os.sep)]
+    pluginpathes = [os.path.join(sharedir, "plugins")]
 
     if len(sys.argv) > 1:
         tparam = ()
@@ -76,7 +76,7 @@ if __name__ == "__main__":
                 if len(tparam) == 1:
                     tparam = elem.split(":")
                 if len(tparam) == 1:
-                    clargs[tparam[0]] = ""
+                    clargs[tparam[0]] = "True"
                     continue
                 if tparam[0] in ["pluginpath", "pp"]:
                     pluginpathes += [tparam[1],]
@@ -88,18 +88,20 @@ if __name__ == "__main__":
     if configpath[-1] == os.sep:
         configpath = configpath[:-1]
     clargs["config"] = configpath
-    pluginpathes.insert(1, "{}{}plugins".format(configpath, os.sep))
+    pluginpathes.insert(1,os.path.join(configpath, "plugins"))
+    
+    plugins_config = os.path.join(configpath, "config", "plugins")
 
-    os.makedirs("{}{}config".format(configpath, os.sep), 0o750, True)
-    os.makedirs("{}{}config{}plugins".format(configpath, os.sep, os.sep), 0o750, True)
-    confm = configmanager("{}{}config{}{}".format(configpath, os.sep, os.sep, "clientgtkgui.conf"))
+    os.makedirs(os.path.join(configpath, "config"), 0o750, True)
+    os.makedirs(plugins_config, 0o750, True)
+    confm = configmanager(os.path.join(configpath, "config", "clientgtkgui.conf"))
     confm.update(dclargs, clargs)
 
     config_path = path.expanduser(clargs["config"])
     if config_path[-1] == os.sep:
         config_path = config_path[:-1]
-
-    plugins_config = "{}{}config{}plugins".format(configpath, os.sep, os.sep)
+    
+    
     if confm.getb("noplugins") == False:
         pluginm = pluginmanager(pluginpathes, plugins_config)
         if confm.getb("webgui") != False:

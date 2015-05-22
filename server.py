@@ -330,10 +330,8 @@ class server_init(object):
     links=None
     sthread=None
     
-    def __init__(self,**kwargs):
-        self.config_path=os.path.expanduser(kwargs["config"])
-        if self.config_path[-1]==os.sep:
-            self.config_path=self.config_path[:-1]
+    def __init__(self,_configpath, **kwargs):
+        self.config_path=_configpath
         _spath=os.path.join(self.config_path,"server")
         port=kwargs["port"]
         init_config_folder(self.config_path,"server")
@@ -396,9 +394,6 @@ class server_init(object):
         
         self.links["server_server"]=server(serverd) 
         #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
-        plugconf=configmanager(os.path.join(self.config_path, "plugins.config"))
-        if kwargs["noplugins"] is None:
-            self.links["server_server"].pluginmanager=pluginmanager(sys.path,plugconf)
             #self.links["server_server"].pluginmanager.interfaces+=["server"]
             
         server_handler.links=self.links
@@ -445,7 +440,7 @@ server_args={"config":default_configdir,
              "tpwhash":None,
              "tpwfile":None,
              "webgui":None,
-             "noplugins":None,
+             "useplugins":None,
              "priority":"20",
              "expire":"30",
              "ttimeout":"300",
@@ -469,10 +464,13 @@ if __name__ == "__main__":
                 if len(tparam) == 1:
                     tparam=elem.split(":")
                 if len(tparam) == 1:
-                    server_args[tparam[0]] = ""
+                    server_args[tparam[0]] = "True"
                     continue
                 server_args[tparam[0]] = tparam[1]
-
+    
+    configpath=os.path.expanduser(server_args["config"])
+    if configpath[-1]==os.sep:
+        configpath=configpath[:-1]
     #should be gui agnostic so specify here
     if server_args["webgui"] is not None:
         server_handler.webgui=True
@@ -485,7 +483,20 @@ if __name__ == "__main__":
                     server_handler.statics[elem]=b" "
     else:
         server_handler.webgui=False
+    
+    cm=server_init(configpath ,**server_args)
+    if server_args["useplugins"] is not None:
+        pluginpathes=[os.path.join(sharedir, "plugins")]
+        pluginpathes.insert(1, os.path.join(configpath, "plugins"))
+        plugins_config = os.path.join(configpath, "config", "plugins")
 
-    cm=server_init(**server_args)
+        os.makedirs(plugins_config, 0o750, True)
+    
+        pluginm=pluginmanager(pluginpathes, plugins_config)
+        if server_args["webgui"] is not None:
+            pluginm.interfaces+=["web",]
+        cm.links["server_server"].pluginmanager=pluginm
+        pluginm.init_plugins()
+        
     logger().debug("server started. Enter mainloop")
     cm.serve_forever_block()

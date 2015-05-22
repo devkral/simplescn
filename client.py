@@ -791,7 +791,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         
         
-class http_client_server(socketserver.ThreadingMixIn,HTTPServer, client_server):
+class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
     """server part of client; inheritates client_server to provide
         client information"""
     #address_family = socket.AF_INET6
@@ -1038,7 +1038,7 @@ if __name__ ==  "__main__":
     logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
     
-    pluginpathes=["{}{}plugins".format(sharedir,os.sep)]
+    pluginpathes=[os.path.join(sharedir, "plugins")]
     
     if len(sys.argv) > 1:
         tparam=()
@@ -1052,7 +1052,7 @@ if __name__ ==  "__main__":
                 if len(tparam) == 1:
                     tparam = elem.split(":")
                 if len(tparam) == 1:
-                    client_args[tparam[0]] = ""
+                    client_args[tparam[0]] = "True"
                     continue
                 if tparam[0] in ["pluginpath", "pp"]:
                     pluginpathes += [tparam[1], ]
@@ -1064,20 +1064,20 @@ if __name__ ==  "__main__":
     if configpath[-1]==os.sep:
         configpath=configpath[:-1]
     client_args["config"]=configpath
-    pluginpathes.insert(1,"{}{}plugins".format(configpath,os.sep))
+    pluginpathes.insert(1,os.path.join(configpath, "plugins"))
     #if configpath[:-1]==os.sep:
     #    configpath=configpath[:-1]
+    
+    pluginpathes.insert(1,os.path.join(configpath, "plugins"))
+    plugins_config = os.path.join(configpath, "config", "plugins")
 
-    os.makedirs("{}{}config".format(configpath,os.sep),0o750,True)
-    os.makedirs("{}{}config{}plugins".format(configpath,os.sep,os.sep),0o750,True)
-
-    confm=configmanager("{}{}config{}{}".format(configpath,os.sep,os.sep,"clientcmdmain.conf"))
+    os.makedirs(os.path.join(configpath, "config"), 0o750, True)
+    os.makedirs(plugins_config, 0o750, True)
+    confm = configmanager(os.path.join(configpath, "config", "clientmain.conf"))
     confm.update(default_client_args,client_args)
 
-    plugins_config="{}{}config{}plugins".format(configpath,os.sep,os.sep)
-
     if confm.getb("noplugins")==False:
-        pluginm=pluginmanager(pluginpathes,plugins_config)
+        pluginm=pluginmanager(pluginpathes, plugins_config)
         if confm.getb("webgui")!=False:
             pluginm.interfaces+=["web",]
         if confm.getb("cmd")!=False:
