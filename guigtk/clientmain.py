@@ -550,12 +550,14 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def enternode_confirm(self,*args):
         tparam=self.param_node.copy()
         _address=self.builder.get_object("enternodeurl").get_text().strip(" ").rstrip(" ")
-        _hash=self.builder.get_object("enternodehash").get_text().strip(" ").rstrip(" ")
+        _hasho=self.builder.get_object("enternodehash")
+        _hash=_hasho.get_text().strip(" ").rstrip(" ")
         if _hash=="":
             ret=self.do_requestdo("gethash",_address,tparam)
             if logger().check(ret,logging.INFO)==False:
                 return
-            _hash=ret[1][0]
+            _hasho.set_text(ret[1][0])
+            return
         if check_hash(_hash)==False:
             logger().info("hash wrong")
             return
@@ -567,7 +569,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         if logger().check(ret,logging.ERROR)==False:
             return
         self.set_curnode(_address,ret[1][1],_hash, None)
-        self.close_enternode()
+        self.close_enternodedia()
     
     def opennode(self,*args):
         tdparam=self.param_node.copy()
