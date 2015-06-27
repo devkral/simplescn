@@ -125,9 +125,9 @@ class client_client(object):
         try:
             temp2=(temp[0],(address,int(port)),temp[2],temp[3])
         except ValueError:
-            return (False,"port not a number",temp[1])
+            return (False,"port not a number:\n{}".format(temp[1]))
         if temp2[1][1]<1:
-            return (False,"port <1",temp[1])
+            return (False,"port <1:\n{}".format(temp[1][1]))
         return temp2
         
     
