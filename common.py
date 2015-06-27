@@ -239,7 +239,7 @@ class configmanager(object):
     defaults = {}
     def __init__(self, _dbpath):
         self.db_path = _dbpath
-        self.lock = threading.BoundedSemaphore(1)
+        self.lock = threading.Lock()
         self.reload()
 
     def __del__(self):
@@ -574,7 +574,7 @@ class certhash_db(object):
     def __init__(self,dbpath):
         import sqlite3
         self.db_path = dbpath
-        self.lock = threading.BoundedSemaphore(1)
+        self.lock = threading.Lock()
         try:
             con = sqlite3.connect(self.db_path)
         except Exception as e:

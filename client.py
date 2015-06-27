@@ -468,89 +468,95 @@ class client_client(object):
 ###server on client
     
 class client_server(commonscn):
-    capabilities=["basic",]
-    scn_type="client"
-    spmap={}
-    validactions={"info","getservice","listservices","cap","prioty","registerservice","delservice"}
-    local_client_service_control=False
-    def __init__(self,_name,_priority,_cert_hash,_message):
-        if len(_name)==0:
+    capabilities = ["basic",]
+    scn_type = "client"
+    spmap = {}
+    validactions = {"info", "getservice", "listservices", "cap", "prioty", "registerservice", "delservice"}
+    local_client_service_control = False
+    wlock = None
+    def __init__(self, _name, _priority, _cert_hash, _message):
+        self.wlock = threading.Lock()
+        if len(_name) == 0:
             logger().debug("Name empty")
-            _name="<noname>"
-        
-        if len(_message)==0:
+            _name = "<noname>"
+
+        if len(_message) == 0:
             logger().debug("Message empty")
-            _message="<empty>"
+            _message = "<empty>"
             
-        self.name=_name
-        self.message=_message
-        self.priority=_priority
-        self.cert_hash=_cert_hash
+        self.name = _name
+        self.message = _message
+        self.priority = _priority
+        self.cert_hash = _cert_hash
         
         self.update_cache()
     ### the primary way to add or remove a service
     ### can be called by every application on same client, maybe add additional protection
-    def registerservice(self,_service,_port,_addr):
-        if _addr[0] in ["localhost","127.0.0.1","::1"]:
-            self.spmap[_service]=_port
+    def registerservice(self, _service, _port, _addr):
+        if _addr[0] in ["localhost", "127.0.0.1", "::1"]:
+            self.wlock.acquire()
+            self.spmap[_service] = _port
+            self.wlock.release()
             return "{}/registered".format(success)
         return error
 
-    def delservice(self,_service,_addr):
-        if _addr[0] in ["localhost","127.0.0.1","::1"]:
+    def delservice(self, _service, _addr):
+        if _addr[0] in ["localhost", "127.0.0.1", "::1"]:
+            self.wlock.acquire()
             if _service in self.spmap:
                 del self.spmap[_service]
+            self.wlock.release()
             return "{}/removed".format(success)
         return error
         
     ### management section - end ###
     
-    def getservice(self,_service,_addr):
+    def getservice(self, _service, _addr):
         if _service not in self.spmap:
             return "{}/service".format(error)
-        return "{}/{}".format(success,self.spmap[_service])
-    def listservices(self,_addr):
-        temp=""
-        for _service in self.spmap:
-            temp="{}\n{}&{}".format(temp,_service,self.spmap[_service])
-        if len(temp)==0:
-            return "{}/empty".format(success)
-        return "{}/{}".format(success,temp[1:])
+        return "{}/{}".format(success, self.spmap[_service])
 
-    def info(self,_addr):
+    def listservices(self, _addr):
+        temp = ""
+        for _service in self.spmap:
+            temp = "{}\n{}&{}".format(temp, _service, self.spmap[_service])
+        if len(temp) == 0:
+            return "{}/empty".format(success)
+        return "{}/{}".format(success, temp[1:])
+
+    def info(self, _addr):
         return self.cache["info"]
 
-    def cap(self,_addr):
+    def cap(self, _addr):
         return self.cache["cap"]
     
-    def prioty(self,_addr):
+    def prioty(self, _addr):
         return self.cache["prioty"]
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
-    
-    #
+
     links = None
     handle_localhost = False
     handle_remote = False
     cpwhash = None
     spwhash = None
     salt = None
-    statics={}
-    webgui=False
+    statics = {}
+    webgui = False
         
-    def html(self,page,lang="en"):
-        if self.webgui==False:
-            self.send_error(404,"no webgui")
+    def html(self, page, lang = "en"):
+        if self.webgui == False:
+            self.send_error(404, "no webgui")
             return
-        _ppath=os.path.join(sharedir,"html",lang,page)
-        if os.path.exists(_ppath)==False:
-            self.send_error(404,"file not exist")
+        _ppath = os.path.join(sharedir, "html", lang, page)
+        if os.path.exists(_ppath) == False:
+            self.send_error(404, "file not exist")
             return
         self.send_response(200)
-        self.send_header('Content-type',"text/html")
+        self.send_header('Content-type', "text/html")
         self.end_headers()
-        with open(_ppath,"rb") as rob:
+        with open(_ppath, "rb") as rob:
             self.wfile.write(rob.read())
             #.format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
     """
@@ -560,7 +566,7 @@ class client_handler(BaseHTTPRequestHandler):
                         nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
                         opaque="5ccc069c403ebaf9f0171e9517f40e41"
                         """
-    def check_cpw(self,dparam):
+    def check_cpw(self, dparam):
         if self.cpwhash is None:
             return True
         if "cpwhash" in self.headers:
@@ -580,33 +586,33 @@ class client_handler(BaseHTTPRequestHandler):
         
         return False
     
-    def handle_client(self,_cmdlist,dparam):
+    def handle_client(self, _cmdlist, dparam):
         if _cmdlist[0] not in self.links["client"].validactions:
-            self.send_error(400,"invalid action - client")
+            self.send_error(400, "invalid action - client")
             return
-        _cmdlist+=[dparam,]
-        if self.handle_remote==False and not self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-            self.send_error(403,"no permission - client")
+        _cmdlist += [dparam,]
+        if self.handle_remote == False and not self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
+            self.send_error(403, "no permission - client")
             return
-        if self.check_cpw(dparam)==False:
-            self.send_error(406,self.salt) #"no permission - client")
+        if self.check_cpw(dparam) == False:
+            self.send_error(406, self.salt) #"no permission - client")
             return
         
         try:
-            func=type(self.links["client"]).__dict__[_cmdlist[0]]
-            response=func(self.links["client"],*_cmdlist[1:])
+            func = type(self.links["client"]).__dict__[_cmdlist[0]]
+            response = func(self.links["client"], *_cmdlist[1:])
         except AddressFail as e:
-            self.send_error(500,e.msg)
+            self.send_error(500, e.msg)
             return
         except Exception as e:
-            if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
+            if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 if "tb_frame" in e.__dict__:
                     st=str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
                     st=str(e)
                 #helps against ssl failing about empty string (EOF)
-                if len(st)>0:
-                    self.send_error(500,st)
+                if len(st) > 0:
+                    self.send_error(500, st)
                 else:
                     self.send_error(500, "unknown")
             return
@@ -623,7 +629,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_header('Content-type', "text")
             self.end_headers()
             #have beginning trailing "" for indicating list
-            if type(response[1]).__name__ in ["tuple","list"]:
+            if type(response[1]).__name__ in ["tuple", "list"]:
                 sumelem = ""
                 for listelem in response[1]:
                     if type(listelem).__name__ in ["tuple", "list"]:
@@ -659,47 +665,47 @@ class client_handler(BaseHTTPRequestHandler):
          # add address to _cmdlist
         _cmdlist += [self.client_address,]
         
-        if self.check_spw()==False:
-            self.send_error(401,self.salt)
+        if self.check_spw() == False:
+            self.send_error(401, self.salt)
             return
         try:
             func = type(self.links["client_server"]).__dict__[_cmdlist[0]]
-            response = func(self.links["client_server"],*_cmdlist[1:])
+            response = func(self.links["client_server"], *_cmdlist[1:])
         except Exception as e:
-            if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
+            if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 if "tb_frame" in e.__dict__:
                     st = str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
                     st = str(e)
                 #helps against ssl failing about empty string (EOF)
-                if len(st)>0:
-                    self.send_error(500,st)
+                if len(st) > 0:
+                    self.send_error(500, st)
                 else:
-                    self.send_error(500,"unknown")
+                    self.send_error(500, "unknown")
             else:
-                self.send_error(500,"server error")
+                self.send_error(500, "server error")
             return
         
-        respparse = response.split("/",1)
+        respparse = response.split("/", 1)
         if respparse[0] == error:
             #helps against ssl failing about empty string (EOF)
-            if len(respparse)>1 and len(respparse[1])>0:
-                self.send_error(400,respparse[1])
+            if len(respparse) > 1 and len(respparse[1]) > 0:
+                self.send_error(400, respparse[1])
             else:
-                self.send_error(400,"unknown")
+                self.send_error(400, "unknown")
         else:
             self.send_response(200)
             self.send_header("Cache-Control", "no-cache")
-            self.send_header('Content-type',"text")
+            self.send_header('Content-type', "text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
-            if len(respparse)>1 and len(respparse[1])>0:
-                self.wfile.write(bytes(respparse[1],"utf8"))
+            if len(respparse) > 1 and len(respparse[1]) > 0:
+                self.wfile.write(bytes(respparse[1], "utf8"))
             else:
                 self.wfile.write(bytes("success","utf8"))
             
     def do_GET(self):
-        if self.path=="/favicon.ico":
+        if self.path == "/favicon.ico":
             if "favicon.ico" in self.statics:
                 self.send_response(200)
                 self.end_headers()
@@ -708,8 +714,8 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         
-        dparam={"certname":None,"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
-        pos_param=self.path.find("?")
+        dparam={"certname":None, "certhash": None, "cpwhash": None, "spwhash": None, "tpwhash":None, "tdestname": None, "tdesthash": None, "nohashdb": None}
+        pos_param = self.path.find("?")
         if pos_param != -1:
             _cmdlist = self.path[1:pos_param].split("/")
             tparam = self.path[pos_param+1:].split("&")
@@ -724,19 +730,18 @@ class client_handler(BaseHTTPRequestHandler):
                     self.send_error(400, "invalid key/value pair\n{}".format(elem))
                     return
         else:
-            _cmdlist=self.path[1:].split("/")
+            _cmdlist = self.path[1:].split("/")
 
-
-        action=_cmdlist[0]
+        action = _cmdlist[0]
 
         if action == "do":
-            self.handle_client(_cmdlist[1:],dparam) #remove do
+            self.handle_client(_cmdlist[1:], dparam) #remove do
             return
         elif action in self.links["client_server"].validactions:
             self.handle_server(_cmdlist)
             return
         if self.webgui == False:
-            self.send_error(400,"no webgui")
+            self.send_error(400, "no webgui")
             return
         #client 
         if action in ("", "client", "html", "index"):
