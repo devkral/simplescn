@@ -1469,7 +1469,6 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="halign">end</property>
                 <signal name="clicked" handler="addnodehash" swapped="no"/>
               </object>
               <packing>
@@ -1483,12 +1482,40 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="halign">end</property>
                 <signal name="clicked" handler="delhash" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
                 <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="button6">
+                <property name="label" translatable="yes">Delete
+Entity</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="halign">center</property>
+                <signal name="clicked" handler="delentity" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="button10">
+                <property name="label" translatable="yes">Rename
+Entity</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="renameentity" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">1</property>
               </packing>
             </child>
           </object>
@@ -1536,7 +1563,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="halign">end</property>
-                <signal name="clicked" handler="addreference_confirm1" swapped="no"/>
+                <signal name="clicked" handler="addreference_action" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -1544,7 +1571,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="button4">
+              <object class="GtkButton" id="delrefb">
                 <property name="label" translatable="yes">Delete</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
@@ -1562,10 +1589,23 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="can_focus">True</property>
                 <property name="hexpand">True</property>
                 <property name="placeholder_text" translatable="yes">e.g.: url:something.foo.com</property>
-                <signal name="activate" handler="addreference_confirm1" swapped="no"/>
+                <signal name="activate" handler="addrefentry_confirm" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="updatereftb">
+                <property name="label" translatable="yes">Update</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="toggled" handler="updatereference_action" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">3</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -1573,124 +1613,6 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <packing>
             <property name="left_attach">1</property>
             <property name="top_attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkGrid" id="grid12">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="halign">start</property>
-            <property name="valign">end</property>
-            <property name="column_spacing">6</property>
-            <child>
-              <object class="GtkButton" id="button6">
-                <property name="label" translatable="yes">Delete
-Entity</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="halign">center</property>
-                <signal name="clicked" handler="delentity" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="button7">
-                <property name="label" translatable="yes">Close</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="halign">end</property>
-                <property name="valign">center</property>
-                <signal name="clicked" handler="close_managehashdia" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="button10">
-                <property name="label" translatable="yes">Rename
-Entity</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="renameentity" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">2</property>
-            <property name="width">3</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkGrid" id="refactiongrid1">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="valign">end</property>
-            <property name="row_spacing">3</property>
-            <child>
-              <object class="GtkButton" id="getnodebut">
-                <property name="label" translatable="yes">Get</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="halign">center</property>
-                <property name="valign">end</property>
-                <signal name="clicked" handler="get_node" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkToggleButton" id="togglechangereftype">
-                <property name="label" translatable="yes">Update
-reference type</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="halign">center</property>
-                <property name="hexpand">True</property>
-                <signal name="toggled" handler="toggleutype" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="comboreftype">
-                <property name="can_focus">False</property>
-                <property name="has_entry">True</property>
-                <child internal-child="entry">
-                  <object class="GtkEntry" id="comboreftypeentry">
-                    <property name="can_focus">False</property>
-                    <property name="editable">False</property>
-                  </object>
-                </child>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">2</property>
-            <property name="top_attach">0</property>
-            <property name="height">2</property>
           </packing>
         </child>
         <child>
@@ -1717,6 +1639,40 @@ reference type</property>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="getnodebut">
+            <property name="label" translatable="yes">Get</property>
+            <property name="height_request">50</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <property name="halign">center</property>
+            <property name="valign">center</property>
+            <property name="margin_left">13</property>
+            <signal name="clicked" handler="get_node" swapped="no"/>
+          </object>
+          <packing>
+            <property name="left_attach">2</property>
+            <property name="top_attach">0</property>
+            <property name="height">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="button7">
+            <property name="label" translatable="yes">Close</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <property name="halign">end</property>
+            <property name="valign">center</property>
+            <signal name="clicked" handler="close_managehashdia" swapped="no"/>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">2</property>
+            <property name="width">3</property>
           </packing>
         </child>
       </object>
