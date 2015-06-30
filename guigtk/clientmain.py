@@ -921,17 +921,17 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         addrefentry=self.builder.get_object("addrefentry")
         
         
+        updatereftb.set_active(False)
         _sel=view.get_selection().get_selected()
         if _sel[1] is None:
             getnodebut.hide()
             delrefb.set_sensitive(False)
-            updatereftb.set_active(False)
             updatereftb.set_sensitive(False)
             return
         #updaterefentry.set_text(_sel[0][_sel[1]][1])
         getnodebut.show()
         delrefb.set_sensitive(True)
-        updatereftb.set_active(True)
+        updatereftb.set_sensitive(True)
         
         addrefentry.hide()
         addrefb.show()
@@ -1021,34 +1021,6 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
         self.addentitydia.show()
     
-    """def toggleutype(self,tbutton):
-        updaterefentry=self.builder.get_object("updaterefentry")
-        rview=self.builder.get_object("refview")
-        hview=self.builder.get_object("hashview")
-        
-        _selr=rview.get_selection().get_selected()
-        if _selr[1] is None:
-            return
-        _selh=hview.get_selection().get_selected()
-        if _selh[1] is None:
-            return
-            
-        _hash=_selh[0][_selh[1]][0]
-        _ref,_oldtype=_selr[0][_selr[1]]
-        if tbutton.get_active()==True:
-            updaterefentry.set_text("{}:{}".format(_oldtype))
-            comboreftype.show()
-        else:
-            _newtype=comboreftypee.get_text().strip(" ").rstrip(" ")
-            if _newtype=="":
-                return
-            res=self.do_requestdo("addreference", self.curlocal[1], _hash, _ref, _newtype, self.param_client)
-            if res[0]==True:
-                comboreftype.hide()
-                _selr[0][_selr[1]][1]=_newtype
-            else:
-                logger().error(res[1])"""
-            
     def addentity_confirm(self,*args):
         addentity=self.builder.get_object("addentityentry")
         localnames=self.builder.get_object("localnames")
@@ -1119,34 +1091,43 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
         _selr=refview.get_selection().get_selected()
         if _selr[1] is None:
+            logger().debug("invalid reference selection")
+            updatereftb.set_active(True)
             return
         _ref_sel=_selr[0][_selr[1]][0]
         
         _selh = hview.get_selection().get_selected()
         if _selh[1] is None:
+            logger().debug("invalid hash selection")
+            updatereftb.set_active(True)
             return
         ref_hash = _selh[0][_selh[1]][0]
         
         
-        if updatereftb.get_active() == False:
-            addrefentry.set_text(_ref_sel)
-            return
+        #if updatereftb.get_active() == False:
+        #    addrefentry.
+        #    addrefentry.set_text("{}:{}".format(_selr[0][_selr[1]][1],_selr[0][_selr[1]][0]))
+        #    updatereftb.set_active(True)
+        #    return
         
         _ref_entry=addrefentry.get_text().strip(" ").rstrip(" ")
         if _ref_entry=="":
+            
             updatereftb.set_active(False)
-            addrefb.set_visible(True)
+            addrefb.show()
             addrefentry.hide()
             return
         
-        if _ref.find(":") == -1:
+        if _ref_entry.find(":") == -1:
             logger().debug("invalid input")
+            updatereftb.set_active(True)
             return
-        _type, _ref=_ref.split(":", 1)
+        _type, _ref=_ref_entry.split(":", 1)
         
         
         if not _type in implementedrefs:
             logger().debug("invalid type")
+            updatereftb.set_active(True)
             return
         
         #if _type=="shash":
@@ -1155,18 +1136,24 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         #        logger().error("invalid name")
         #        return
         
+        res=self.do_requestdo("delreference", ref_hash, _ref, self.param_client)
+        
+        if res[0]==False:
+            logger().error(res[1])
+            updatereftb.set_active(True)
+            return
+            
         res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.param_client)
         if res[0]==True:
-            addrefb.set_visible(True)
+            addrefb.show()
             addrefentry.hide()
-            it=reflist.prepend((_ref,_type))
-            refview.get_selection().select_iter(it)
-            comboreftypee.set_text(self.curlocal[0])
+            _selr[0][_selr[1]][0]=_ref
+            _selr[0][_selr[1]][1]=_type
             updatereftb.set_active(False)
-            comboreftype.show()
             
         else:
             logger().error(res[1])
+            updatereftb.set_active(True)
         
     def addreference_action(self,*args):
         addrefentry=self.builder.get_object("addrefentry")
@@ -1176,7 +1163,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         refview=self.builder.get_object("refview")
         
         if addrefentry.is_visible()==False:
-            updatereftb.set_visible(False)
+            updatereftb.hide()
             updatereftb.set_sensitive(False)
             addrefentry.set_text("")
             addrefentry.show()
@@ -1184,6 +1171,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         
         _ref=addrefentry.get_text().strip(" ").rstrip(" ")
         if _ref=="":
+            updatereftb.show()
             addrefentry.hide()
             return
         
@@ -1219,7 +1207,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
             it=reflist.prepend((_ref,_type))
             refview.get_selection().select_iter(it)
             updatereftb.set_sensitive(True)
-            updatereftb.set_visible(True)
+            updatereftb.show()
             updatereftb.set_active(False)
             
         else:
@@ -1228,12 +1216,19 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def updatereference_action(self,*args):
         updatereftb=self.builder.get_object("updatereftb")
         addrefb=self.builder.get_object("addrefb")
+        addrefentry=self.builder.get_object("addrefentry")
         
         if updatereftb.get_active() == True:
-            self.addrefentry_confirm()
+            addrefb.hide()
+            refview=self.builder.get_object("refview")
+            _selr=refview.get_selection().get_selected()
+            if _selr[1] is None:
+                return
+            addrefentry.show()
+            addrefentry.set_text("{}:{}".format(_selr[0][_selr[1]][1],_selr[0][_selr[1]][0]))
         else:
-            addrefb.set_visible(False)
-            
+            self.addrefentry_confirm()
+
     def delreference(self,*args):
         rview=self.builder.get_object("refview")
         dia=self.builder.get_object("delrefdia")

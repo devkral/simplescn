@@ -429,8 +429,18 @@ class client_client(object):
             return (False,"adding a reference failed")
         return (True,_reftype,isself,self.cert_hash)
         
-    def delreference(self,_localname,_certhash,_reference,dparam):
-        _tref=self.hashdb.get(_localname,_certhash)
+    def delreference(self,*args):
+        if len(args)==4:
+            _name,_certhash,_reference,dparam=args
+        elif len(args)==3:
+            _certhash,_reference,dparam=args
+            _name=self.hashdb.certhash_as_name(_certhash)
+            if _name is None:
+                return (False,"name not in db")
+        else:
+            return (False,("wrong amount arguments (delreference): {}".format(args)))
+            
+        _tref=self.hashdb.get(_name,_certhash)
         if _tref is None:
             return (False,"name,hash not exist")
         if self.hashdb.delreference(_tref[2],_reference) is None:
