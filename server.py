@@ -300,6 +300,8 @@ class server_handler(BaseHTTPRequestHandler):
     def do_POST(self):
         plugin,action=self.path[1:].split("/",1)
         pluginm=self.links["client_server"].pluginmanager
+        if pluginm is None:
+            return
         if pluginm.redirect_addr in ["",None]:
             if "receive" in pluginm.plugins[plugin].__dict__:
                 try:

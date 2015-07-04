@@ -21,7 +21,6 @@ from guigtk import clientmain
 from guigtk.clientmain import gtkclient_init, do_gtkiteration
 
 import client
-from client import default_client_args as dclargs
 
 import common
 from common import configmanager, pluginmanager
@@ -60,8 +59,10 @@ if __name__ == "__main__":
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-
+    dclargs = client.default_client_args.copy()
+    #del dclargs["cmd"]
     clargs = client.client_args.copy()
+    #del clargs["cmd"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
 
     if len(sys.argv) > 1:
@@ -100,20 +101,19 @@ if __name__ == "__main__":
     config_path = path.expanduser(clargs["config"])
     if config_path[-1] == os.sep:
         config_path = config_path[:-1]
-    
-    
+
     if confm.getb("noplugins") == False:
         pluginm = pluginmanager(pluginpathes, plugins_config)
         if confm.getb("webgui") != False:
             pluginm.interfaces += ["web",]
-        if confm.getb("cmd") != False:
-            pluginm.interfaces += ["cmd",]
+        pluginm.interfaces += ["cmd","gui"]
     else:
         pluginm = None
     #logger().debug("start client")
     #global cm
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
+        pluginm.resources["client"] = cm.links["client"] #very permissive; restrict
         pluginm.init_plugins()
     do_gtkiteration()
     #del cm

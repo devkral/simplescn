@@ -22,11 +22,16 @@ class gtkclient_node(gtkclient_template):
         self.update()
     
     def update(self,*args):
-        pass
+        for plugin in self.links["client_server"].pluginmanager.plugins:
+            if "gtk_node_iface" in plugin.__dict__:
+                pass
     
-    def update_actions(self):
-        pass
-        
+    def update_actions(self,*args):
+        for plugin in self.links["client_server"].pluginmanager.plugins:
+            if "gui_node_actions" in plugin.__dict__:
+                for action in gui_node_actions:
+                    moo=action["text"]
+                    #mooicon=action["icon"]
     
     def activate_action(self,*args):
         pass

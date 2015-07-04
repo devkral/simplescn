@@ -17,7 +17,9 @@ from guigtk.clientservice import gtkclient_remoteservice
 
 
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \
-init_config_folder, generate_certs, isself, default_sslcont, check_hash, scnparse_url, AddressEmptyFail
+init_config_folder, generate_certs, isself, default_sslcont, check_hash, \
+scnparse_url, AddressEmptyFail
+#, replace_logger
 
 from common import logger
 #logger=getlogger()
@@ -35,7 +37,7 @@ run=True
 implementedrefs=["surl", "url", "name"]
 #,"sname"
 
-class gtkclient_main(logging.NullHandler,Gtk.Application):
+class gtkclient_main(logging.Handler,Gtk.Application):
     links=None
 
     curnode=None
@@ -90,6 +92,7 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.localstore=self.builder.get_object("localstore")
         self.recentstore=self.builder.get_object("recentstore")
         self.statusbar=self.builder.get_object("mainstatusbar")
+        self.hashstatusbar=self.builder.get_object("hashstatusbar")
         
         recentview=self.builder.get_object("recentview")
         localview=self.builder.get_object("localview")
@@ -330,8 +333,13 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         return (temp[0],_finish1,temp[2],temp[3])"""
         
     def do_requestdo(self,action,*requeststrs,parse=-1):
-        if True: #self.use_remote_client==False:
-            return client.client_client.__dict__[action](self.links["client"],*requeststrs)
+        try:
+            if True: #self.use_remote_client==False:
+            
+                return client.client_client.__dict__[action](self.links["client"],*requeststrs)
+        except Exception as e:
+            #logger().error(str(e))
+            return [False, str(e)]
             #self.links["client"].__dict__[action](*requeststrs)
         """else:
             temp="/do/{}".format(action)
@@ -357,7 +365,8 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
     def pushint(self):
         time.sleep(5)
         #self.messagecount-=1
-        self.statusbar.pop(self.messageid)
+        self.statusbar.pop(messageid)
+        self.hashstatusbar.pop(messageid)
 
     def pushmanage(self,*args):
         #self.messagecount+=1
@@ -366,14 +375,13 @@ class gtkclient_main(logging.NullHandler,Gtk.Application):
         self.sb.daemon = True
         self.sb.start()
 
-    #def handle(self,record):
-    #self.statusbar.push(self.messageid,record)
     ###logging handling
-    def emit(self, record):
+    def emit(self, record): 
         self.backlog+=[record,]
         if len(self.backlog)>200:
             self.backlog=self.backlog[200:]
-        self.statusbar.push(messageid, record.message)
+        self.statusbar.push(messageid, record.msg)
+        self.hashstatusbar.push(messageid, record.msg)
         self.pushmanage()
     
     def _verifyserver(self,serverurl):
@@ -1368,6 +1376,7 @@ class gtkclient_init(client.client_init):
         self.serve_forever_nonblock()
         logger().debug("start gtkclient")
         self.links["gtkclient"]=gtkclient_main(self.links)
+        logger().replaceHandler(self.links["gtkclient"])
 
 def do_gtkiteration():
     

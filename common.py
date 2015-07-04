@@ -7,6 +7,8 @@ sharedir = os.path.dirname(os.path.realpath(__file__))
 #if platform.python_implementation()=="PyPy":
 #    sys.path+=['', '/usr/lib/python34.zip', '/usr/lib/python3.4', '/usr/lib/python3.4/plat-linux', '/usr/lib/python3.4/lib-dynload', '/usr/lib/python3.4/site-packages', '/usr/lib/site-python']
 import importlib
+from types import ModuleType # needed for ModuleType
+
 import logging
 from OpenSSL import SSL, crypto
 import ssl
@@ -60,7 +62,7 @@ class scn_logger(logging.Logger):
 
     def __init__(self, _handler = logging.StreamHandler()):
         logging.Logger.__init__(self, "scn_logger")
-        self.lformat = logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s:: %(message)s')
+        self.lformat = logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s')
         _handler.setFormatter(self.lformat)
         self.replaceHandler(_handler)
         
@@ -100,6 +102,10 @@ def init_logger(_logger = scn_logger()):
     global loggerinst
     if loggerinst is None:
         loggerinst = _logger
+
+#def replace_logger(_logger):
+#    global loggerinst
+#    loggerinst = _logger
 
 ##### init ######
 
@@ -306,6 +312,9 @@ class configmanager(object):
         
     @dbaccess
     def set(self, dbcon, name, value):
+        if type(name).__name__ != "str":
+            logger.error("name not string")
+            return False
         if value is None:
             value="False"
         """if isinstance(value, bool)==True:
@@ -326,6 +335,9 @@ class configmanager(object):
         
     @dbaccess
     def get(self, dbcon, name):
+        if type(name).__name__ != "str":
+            logger.error("name not string")
+            return None
         if name in self.overlays:
             if self.overlays[name] is None:
                 return "False"
@@ -386,6 +398,8 @@ class pluginmanager(object):
     def list_plugins(self):
         temp = {}
         for path in self.pathes_plugins:
+            if path == "__pycache__":
+                continue
             if os.path.isdir(path) == True:
                 for plugin in os.listdir(path):
                     temp[plugin] = path
@@ -402,35 +416,67 @@ class pluginmanager(object):
     def init_plugins(self):
         for plugin in self.list_plugins().items():
             pconf = configmanager(os.path.join(self.path_plugins_config,plugin[0]))
+            pconf.defaults={"state": False}
             if pconf.getb("state") == False:
                 continue
-            pspec = importlib.machinery.PathFinder.find_spec(plugin[0],plugin[1])
-            if pspec is not None:
-                #init sys pathes
-                newenv = self.pluginenv.copy()
-                newenv.append(os.path.join(plugin[1], plugin[0]))
-                pspec.submodule_search_locations = newenv
-                #load module
+            # path is array with searchpathes
+            pspec = importlib.machinery.PathFinder.find_spec(plugin[0],[plugin[1],])
+            if pspec is None or pspec.loader is None:
+                logger().info("Plugin \"{}\" not loaded\nPath: {}".format(plugin[0],[plugin[1],]))
+                continue
+            
+            #init sys pathes
+            newenv = self.pluginenv.copy()
+            newenv.append(os.path.join(plugin[1], plugin[0]))
+            pspec.submodule_search_locations = newenv
+            #load module
+            if not hasattr(pspec.loader, 'exec_module'):
                 pload = pspec.loader.load_module()
-                pconf.update(pload.defaults)
-                pload.config = pconf
-                pload.resources = self.resources # no copy because they can change
-                pload.interfaces = self.interfaces.copy()
-                #load interfaces
-                ret = False
-                
+            else:
+                pload = None
+                if hasattr(pspec.loader, 'create_module'):
+                    pload = spec.loader.create_module(spec)
+                if pload is None:
+                    pload = ModuleType(pspec.name)
                 try:
-                    ret = pload.init()
+                    pspec.loader.exec_module(pload)
                 except Exception as e:
                     if "tb_frame" in e.__dict__:
                         st = "{}\n\n{}".format(e, traceback.format_tb(e))
                     else:
                         st = str(e)
-                    logger().error(st)
-                #receive is a function to overload, it get connections from handler
-                if ret == True:
-                    self.plugins[plugin] = pload
-                
+                    logger().error("Plugin \"{}\":\n{}".format(plugin[0], st))
+                    continue
+            if "defaults" not in pload.__dict__ or \
+                "init" not in pload.__dict__:
+                continue
+            try:
+                # not changeable default
+                pload.defaults["state"] = False
+            except Exception as e:
+                logger().error("Plugin \"{}\":\ndefaults is a dict?:\n{}".format(plugin[0],e))
+                continue
+            pconf.update(pload.defaults)
+            pload.config = pconf # no copy because it is the only user
+            pload.resources = self.resources # no copy because they can change
+            pload.interfaces = self.interfaces.copy()
+            ret = False
+            # load plugin init method
+            try:
+                # use return False if plugin does not fit
+                ret = pload.init()
+            except Exception as e:
+                if "tb_frame" in e.__dict__:
+                    st = "{}\n\n{}".format(e, traceback.format_tb(e))
+                else:
+                    st = str(e)
+                logger().error(st)
+            # receive is a function to overload, it get connections from handler
+            if ret == True:
+                self.plugins[plugin] = pload
+            else:
+                del pload # delete
+
     def register_remote(self, _addr):
         self.redirect_addr = _addr
 

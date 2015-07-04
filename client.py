@@ -59,9 +59,6 @@ class client_client(object):
             raise(VALHashError)
         else:
             val=self.hashdb.certhash_as_name(dhash(pcert))
-            #print(dparam)
-            #if dparam["certname"] is not None and dparam["certname"]!=val:
-            #    raise(VALNameError)
             if val=="isself":
                 raise(VALNameError)
 
@@ -794,6 +791,8 @@ class client_handler(BaseHTTPRequestHandler):
     def do_POST(self):
         plugin,action=self.path[1:].split("/",1)
         pluginm=self.links["client_server"].pluginmanager
+        if pluginm is None:
+            return
         if pluginm.redirect_addr in ["",None]:
             if "receive" in pluginm.plugins[plugin].__dict__:
                 try:
@@ -891,8 +890,6 @@ class client_init(object):
             print("Name has some restricted characters")
             sys.exit(1)
 
-
-                
         if confm.getb("port") == True:
             port = int(port)
         elif len(_name) >= 2:
@@ -902,13 +899,13 @@ class client_init(object):
 
         self.links["client_server"] = client_server(_name[0], confm.get("priority"), dhash(pub_cert), _message)
         self.links["configmanager"] = confm
-        self.links["client_server"].pluginmanager=pluginm
-        
-            
+
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
         self.links["client"]=client_client(_name[0],dhash(pub_cert),os.path.join(self.config_root, "certdb.sqlite"),self.links)
-
+        self.links["client_server"].pluginmanager=pluginm
+        
+        
     def serve_forever_block(self):
         self.links["server"].serve_forever()
     def serve_forever_nonblock(self):
@@ -916,6 +913,73 @@ class client_init(object):
         self.sthread.daemon = True
         self.sthread.start()
 
+    # returns ret
+    # output=None if inp is empty
+    def command(self,inp):
+        dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
+        ret = {"success": False, "output": None, "hash": self.links["client"].certhash, "certname": isself }
+        if inp == "":
+            #ret[output] =
+            return ret
+        unparsed=inp.strip(" ").rstrip(" ")
+        if unparsed[:5]=="hash/":
+            ret["success"] = True
+            ret["output"] = "Hash: {}".format(dhash(unparsed[6:]))
+            return ret
+        if unparsed[:4]=="set/":
+            keyvalue=unparsed[5:].split(1)
+            if len(keyvalue)==1:
+                ret["success"] = False
+                ret["output"] = "Error: no value"
+                return ret
+            self.links["configmanager"].set(keyvalue[0],keyvalue[1])
+            ret["success"] = True
+            ret["output"] = "key set"
+            return ret
+        if unparsed[:4]=="help":
+            ret["success"] = True
+            ret["output"] = cmdhelp()
+            return ret
+        pos_param=unparsed.find("?")
+        if pos_param!=-1:
+            parsed=unparsed[:pos_param].split("/")
+            tparam=unparsed[pos_param+1:].split("&")
+            for elem in tparam:
+                elem=elem.split("=")
+                if len(elem)==1 and elem[0]!="":
+                    dparam[elem[0]]=""
+                elif len(elem)==2:
+                    dparam[elem[0]]=elem[1]
+                else:
+                    ret["success"] = False
+                    ret["output"] = "Error: invalid key/value pair\n{}".format(elem)
+                    return ret
+        else:
+            parsed=unparsed.split("/")
+        parsed+=[dparam,]
+        
+        if str(parsed[0]) not in type(self.links["client"]).__dict__:
+            ret["sucess"] = False
+            ret["output"] = "Error: Command does not exist: {}".format(parsed[0])
+            return ret
+        try:
+            func=type(self.links["client"]).__dict__[str(parsed[0])]
+            resp=func(self.links["client"],*parsed[1:])
+            ret["sucess"] = resp[0]
+            ret["output"] = resp[1]
+            if resp[0] == True:
+                ret["certname"] = resp[2]
+                ret["hash"] = resp[3]
+        except AddressFail as e:
+            ret["sucess"] = False
+            ret["output"] = "Addresserror:\n{}".format(e.msg)
+        except Exception as e:
+            st="Error: {}\n".format(e)
+            if "tb_frame" in e.__dict__:
+                st="{}\n{}\n\n".format(st,traceback.format_tb(e))
+            st = "{}Errortype:{}\nCommandline: {}".format(st, type(e).__name__, parsed)
+        
+    
     def cmd_cmd(self):
         dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
         print(*self.links["client"].show(dparam)[1],sep="/")
@@ -1080,20 +1144,18 @@ if __name__ ==  "__main__":
     if configpath[-1]==os.sep:
         configpath=configpath[:-1]
     client_args["config"]=configpath
-    pluginpathes.insert(1,os.path.join(configpath, "plugins"))
+    configpath_plugins=os.path.join(configpath, "config", "plugins")
+    pluginpathes.insert(1,configpath_plugins)
     #if configpath[:-1]==os.sep:
     #    configpath=configpath[:-1]
     
-    pluginpathes.insert(1,os.path.join(configpath, "plugins"))
-    plugins_config = os.path.join(configpath, "config", "plugins")
-
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
-    os.makedirs(plugins_config, 0o750, True)
+    os.makedirs(configpath_plugins, 0o750, True)
     confm = configmanager(os.path.join(configpath, "config", "clientmain.conf"))
     confm.update(default_client_args,client_args)
 
     if confm.getb("noplugins")==False:
-        pluginm=pluginmanager(pluginpathes, plugins_config)
+        pluginm=pluginmanager(pluginpathes, configpath_plugins)
         if confm.getb("webgui")!=False:
             pluginm.interfaces+=["web",]
         if confm.getb("cmd")!=False:
@@ -1104,13 +1166,23 @@ if __name__ ==  "__main__":
     cm=client_init(confm,pluginm)
 
     if confm.getb("noplugins")==False:
+        # needs nothing as resources as spoken via post
+        # pluginm.resources["links"] = cm.links
+        # function
+        #pluginm.resources["client"] = cm.links["client"].request_plugins()
         pluginm.init_plugins()
 
     if confm.getb("cmd")!=False:
         logger().debug("start server")
         cm.serve_forever_nonblock()
         logger().debug("start console")
-        cm.cmd_cmd()
+        print(*cm.links["client"].show({})[1],sep="/")
+        while True:
+            ret=cm.command(input("Enter command, seperate by \"/\"\nEnter parameters by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n"))
+            if ret["success"] == True:
+                print("{} with hash:\n{}\n answers:".format(ret["certname"],ret["hash"]))
+            print(ret["output"])
+        #cm.cmd_cmd()
     else:
         logger().debug("start server")
         cm.serve_forever_block()
