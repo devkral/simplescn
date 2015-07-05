@@ -91,19 +91,15 @@ if __name__ == "__main__":
     clargs["config"] = configpath
     pluginpathes.insert(1,os.path.join(configpath, "plugins"))
     
-    plugins_config = os.path.join(configpath, "config", "plugins")
+    configpath_plugins = os.path.join(configpath, "config", "plugins")
 
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
-    os.makedirs(plugins_config, 0o750, True)
+    os.makedirs(configpath_plugins, 0o750, True)
     confm = configmanager(os.path.join(configpath, "config", "clientgtkgui.conf"))
     confm.update(dclargs, clargs)
 
-    config_path = path.expanduser(clargs["config"])
-    if config_path[-1] == os.sep:
-        config_path = config_path[:-1]
-
     if confm.getb("noplugins") == False:
-        pluginm = pluginmanager(pluginpathes, plugins_config)
+        pluginm = pluginmanager(pluginpathes, configpath_plugins)
         if confm.getb("webgui") != False:
             pluginm.interfaces += ["web",]
         pluginm.interfaces += ["cmd","gui"]

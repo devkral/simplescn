@@ -242,7 +242,7 @@ class configmanager(object):
     lock = None
     imported = False
     overlays = {}
-    defaults = {}
+    defaults = {"state": "False"}
     def __init__(self, _dbpath):
         self.db_path = _dbpath
         self.lock = threading.Lock()
@@ -287,12 +287,15 @@ class configmanager(object):
         self.dbcon = sqlite3.connect(self.db_path)
         cur = self.dbcon.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS main(name TEXT, val TEXT,PRIMARY KEY(name));''')
-        cur.execute('''INSERT OR IGNORE INTO main(name,val) values ("state","false");''')
+        # initialise with "False"
+        cur.execute('''INSERT OR IGNORE INTO main(name,val) values ("state","False");''')
         self.dbcon.commit()
         self.lock.release()
 
     @dbaccess
     def update(self, dbcon, _defaults, _overlays = {}):
+        # insert False, don't let it change
+        _defaults["state"] = "False"
         self.defaults = _defaults
         self.overlays = _overlays
         if dbcon is None:
@@ -315,6 +318,11 @@ class configmanager(object):
         if type(name).__name__ != "str":
             logger.error("name not string")
             return False
+        if name not in self.defaults:
+            logger.error("not in defaults")
+            return False
+            
+        
         if value is None:
             value="False"
         """if isinstance(value, bool)==True:
@@ -322,8 +330,9 @@ class configmanager(object):
                 value="true"
             else:
                 value="false" """
+        
         if name in self.overlays or dbcon is None:
-            self.overlays[name] = value
+            self.overlays[name] = str(value)
         if dbcon is not None:
             cur = dbcon.cursor()
             cur.execute('''UPDATE main SET val=? WHERE name=?;''', (str(value), name))
@@ -342,28 +351,27 @@ class configmanager(object):
             if self.overlays[name] is None:
                 return "False"
             else:
-                return self.overlays[name]
+                return str(self.overlays[name])
         if dbcon is None:
-            if name in self.overlays:
-                if self.defaults[name] is None:
-                    return "False"
-                else:
-                    return self.defaults[name]
+            if self.defaults[name] is None:
+                return "False"
             else:
-                return None
+                return self.defaults[name]
         
         cur = dbcon.cursor()
         cur.execute('''SELECT val FROM main WHERE name=?;''', (name,))
         temp = cur.fetchone()
         if temp is None:
             return None
-        if temp[0] in [None,"False"]:
+        if temp[0] in [None,"False", "false"]:
             return "False"
+        if temp[0] in ["True", "true"]:
+            return "True"
         return temp[0]
     
     def getb(self, name):
         temp = self.get(name)
-        if temp in [None,"","False"]:
+        if temp in [None,"","False", "false"]:
             return False
         return True
     
@@ -398,7 +406,7 @@ class pluginmanager(object):
     def list_plugins(self):
         temp = {}
         for path in self.pathes_plugins:
-            if path == "__pycache__":
+            if path in ["__pycache__", ""] or path[0] == " " or path[-1] == " ":
                 continue
             if os.path.isdir(path) == True:
                 for plugin in os.listdir(path):
@@ -416,7 +424,6 @@ class pluginmanager(object):
     def init_plugins(self):
         for plugin in self.list_plugins().items():
             pconf = configmanager(os.path.join(self.path_plugins_config,plugin[0]))
-            pconf.defaults={"state": False}
             if pconf.getb("state") == False:
                 continue
             # path is array with searchpathes

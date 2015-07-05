@@ -15,7 +15,7 @@ from guigtk.clientnode import gtkclient_node
 from guigtk.clientserver import gtkclient_server
 from guigtk.clientservice import gtkclient_remoteservice
 
-
+from client import reference_header
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \
 init_config_folder, generate_certs, isself, default_sslcont, check_hash, \
 scnparse_url, AddressEmptyFail
@@ -67,9 +67,9 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     remoteclient_url=""
     remoteclient_hash=""
     use_localclient=True
-    param_client={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":True}
-    param_server={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
-    param_node={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None}
+    header_client = None
+    header_server = None
+    header_node = None
     
 
     cert_hash=None
@@ -77,6 +77,9 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     _old_serverurl=""
     
     def __init__(self,_links):
+        self.header_client = reference_header.copy()
+        self.header_server = reference_header.copy()
+        self.header_node = reference_header.copy()
         self.links=_links
         logging.Handler.__init__(self)
         Gtk.Application.__init__(self)
@@ -189,7 +192,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.update_storage()
 
     def update_storage(self):
-        _storage=self.do_requestdo("listnodenametypes",self.param_client)
+        _storage=self.do_requestdo("listnodenametypes",self.header_client)
         if logger().check(_storage)==False:
             return
         
@@ -234,7 +237,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         localnames=self.builder.get_object("localnames")
         localnames.clear()
         localnames.append(("",))
-        _names=self.do_requestdo("listnodenames",self.param_client)
+        _names=self.do_requestdo("listnodenames",self.header_client)
         if logger().check(_names)==False:
             return
         
@@ -243,7 +246,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         
     def update_serverlist_hash(self, _hash):
         serverlist=self.builder.get_object("serverlist")
-        _serverrefs=self.do_requestdo("getreferences",_hash,self.param_client)
+        _serverrefs=self.do_requestdo("getreferences",_hash,self.header_client)
         if logger().check(_serverrefs)== False:
             return
         for elem in _serverrefs[1]:
@@ -258,7 +261,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
                 logger().error(_serverhashes[1])
                 
     def update_serverlist(self, _localname):
-        _serverhashes=self.do_requestdo("listhashes",_localname,self.param_client)
+        _serverhashes=self.do_requestdo("listhashes",_localname,self.header_client)
         if logger().check(_serverhashes)==True:
             for _hash in _serverhashes[1]:
                 if _hash[0]!="default":
@@ -268,13 +271,13 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
         params=""
         for elem in ["certhash","certname"]:
-            if self.param_node[elem] is not None:
-                params="{}&{}".format(params,self.param_node[elem])
+            if self.header_node[elem] is not None:
+                params="{}&{}".format(params,self.header_node[elem])
 
         if len(params)>0 and params[0] in ["?","&"]:
             params="?"+params[1:]
         try:
-            temp=client.client_client.__dict__["do_request"](self,clienturl,requeststr+params,self.param_client,usecache=False,forceport=False)
+            temp=client.client_client.__dict__["do_request"](self,clienturl,requeststr+params,self.header_client,usecache=False,forceport=False)
         except AddressFail:
             #logger().error(requeststr)
             return (False, "address failed")
@@ -353,7 +356,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             _treqstr="{}/{}".format(_treqstr,elem)
         #serverurl=self.builder.get_object("servercomboentry").get_text().strip().rstrip()
         try:
-            return client.client_client.__dict__["do_request"](self,serverurl,_treqstr,self.param_node,usecache=False,forceport=False)
+            return client.client_client.__dict__["do_request"](self,serverurl,_treqstr,self.header_node,usecache=False,forceport=False)
         except Exception as e:
             if "tb_frame" in e.__dict__:
                     st="{}\n\n{}".format(e,traceback.format_tb(e))
@@ -387,7 +390,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     def _verifyserver(self,serverurl):
         _veri=self.builder.get_object("veristateserver")
         
-        _hash=self.do_requestdo("ask",serverurl,self.param_server)
+        _hash=self.do_requestdo("ask",serverurl,self.header_server)
         if _hash[0]==False:
             _veri.set_text("")
             return None
@@ -419,7 +422,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
                 
         cnode=self.builder.get_object("curnode")
         cnodeorigin=self.builder.get_object("nodeorigin")
-        _ask=self.do_requestdo("ask",_clientaddress,self.param_server)
+        _ask=self.do_requestdo("ask",_clientaddress,self.header_server)
         if _ask[0]==False:
             cnodeorigin.set_text("")
             cnode.set_text("invalid")
@@ -443,7 +446,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     def server_info(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
         temp=self._verifyserver(serverurl)
-        tdparam=self.param_server.copy()
+        tdparam=self.header_server.copy()
         if temp is not None:
             tdparam["certhash"]=temp[1]
             if temp[0] is None:
@@ -463,7 +466,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         temp=self._verifyserver(serverurl)
         if temp is None:
             return
-        tdparam=self.param_server.copy()
+        tdparam=self.header_server.copy()
         tdparam["certhash"]=temp[1]
         if temp[0] is None:
             name=serverurl[:20]
@@ -525,7 +528,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         if check_hash(_hash) == False:
             logger().debug("invalid hash")
             return
-        res = self.do_requestdo("addhash",_name,_hash,_type,self.param_client)
+        res = self.do_requestdo("addhash",_name,_hash,_type,self.header_client)
         if logger().check(res) == True:
             self.update_storage()
             if self.curlocal is not None and _type==self.curlocal[0]:
@@ -533,7 +536,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
                 hashview.get_selection().select_iter(it)
             #self.update_hashes()
             for elem in self._intern_refstoadd:
-                self.do_requestdo("addreference",_hash,elem[1],elem[0],self.param_client)
+                self.do_requestdo("addreference",_hash,elem[1],elem[0],self.header_client)
             
             self.close_addnodedia()
         else:
@@ -556,7 +559,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.enternodedia.grab_focus()
     
     def enternode_confirm(self,*args):
-        tparam=self.param_node.copy()
+        tparam=self.header_node.copy()
         _address=self.builder.get_object("enternodeurl").get_text().strip(" ").rstrip(" ")
         _hasho=self.builder.get_object("enternodehash")
         _hash=_hasho.get_text().strip(" ").rstrip(" ")
@@ -580,7 +583,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.close_enternodedia()
     
     def opennode(self,*args):
-        tdparam=self.param_node.copy()
+        tdparam=self.header_node.copy()
         if self.curnode is not None:
             tdparam["certhash"]=self.curnode[3]
             gtkclient_node(self.links,self.curnode[1],tdparam,self.curnode[0])
@@ -608,13 +611,13 @@ class gtkclient_main(logging.Handler,Gtk.Application):
                 logger().info("no server selected")
                 return
             
-            turl=self.do_requestdo("get",serverurl,_ref,_hash,self.param_server)
+            turl=self.do_requestdo("get",serverurl,_ref,_hash,self.header_server)
             if logger().check(turl, logging.INFO)==False:
                 return
             _url="{}:{}".format(*turl[1])
         elif _type == "surl":
             serverurl=_ref
-            namesret=self.do_requestdo("getreferences",_hash, "name",self.param_server)
+            namesret=self.do_requestdo("getreferences",_hash, "name",self.header_server)
             if namesret[0]==False:
                 logger().info("getrefences failed")
                 return
@@ -623,8 +626,8 @@ class gtkclient_main(logging.Handler,Gtk.Application):
                 if elem[0] in ["", None]:
                     logger().warn("references type name contain invalid element: {}".format(elem[0]))
                 else:
-                    #print("get",serverurl,elem[0],_hash,self.param_server)
-                    tempret=self.do_requestdo("get",serverurl,elem[0],_hash,self.param_server)
+                    #print("get",serverurl,elem[0],_hash,self.header_server)
+                    tempret=self.do_requestdo("get",serverurl,elem[0],_hash,self.header_server)
                     if tempret[0]==True:
                         break
             if tempret is None or logger().check(tempret, logging.INFO)==False:
@@ -639,7 +642,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             logger().info("invalid url: {}".format(_url))
             return
         
-        tdparam=self.param_node.copy()
+        tdparam=self.header_node.copy()
         tdparam["certhash"]=_hash
         
         ret=self.do_requestdo("check_direct", _url, self.curlocal[0], _hash,tdparam)
@@ -651,7 +654,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         
     def infonode(self,*args):
         #serverurl=self.builder.get_object("servercomboentry").get_text()
-        tdparam=self.param_node.copy()
+        tdparam=self.header_node.copy()
         if self.curnode is not None:
             tdparam["certhash"]=self.curnode[3]
             gtkclient_info(self.links,"{}:{}".format(*scnparse_url(self.curnode[1])),tdparam,self.curnode[0])
@@ -667,7 +670,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.set_curnode(_address,_name,_hash, None)
     
     def listservices(self,*args):
-        tdparam=self.param_node.copy()
+        tdparam=self.header_node.copy()
         if self.curnode is not None:
             tdparam["certhash"]=self.curnode[3]
             gtkclient_remoteservice(self.links,"{}:{}".format(*scnparse_url(self.curnode[1])),tdparam,self.curnode[0])
@@ -749,7 +752,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         localservicelist.clear()
         but=self.builder.get_object("deleteserviceb")
         but.hide()
-        services=self.do_requestdo("listservices",self.param_client)
+        services=self.do_requestdo("listservices",self.header_client)
         if services[0]==False:
             return
         for elem in services[1]:
@@ -767,7 +770,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         if port=="" or port.isdecimal()==False:
             logger().debug("port invalid")
             return
-        ret=self.do_requestdo("registerservice",service,port,self.param_client)
+        ret=self.do_requestdo("registerservice",service,port,self.header_client)
         if ret[0]==False:
             logger().debug(ret[1])
             return
@@ -791,7 +794,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         service=_sel[0][_sel[1]][0]
         if service=="":
             return
-        ret=self.do_requestdo("delservice",service,self.param_client)
+        ret=self.do_requestdo("delservice",service,self.header_client)
         if ret[0]==False:
             return
         self.update_services()
@@ -824,7 +827,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         
     def checkserver(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
-        temp=self.do_requestdo("listhashes",_name,self.param_client)
+        temp=self.do_requestdo("listhashes",_name,self.header_client)
         if temp[0]==False:
             logger().debug("Exist?")
                 
@@ -834,12 +837,12 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         except AddressEmptyFail:
             logger().debug("Address Empty")
             return
-        if self.do_requestdo("prioty_direct",serverurl,self.param_server)==False:
+        if self.do_requestdo("prioty_direct",serverurl,self.header_server)==False:
             logger().debug("Server address invalid")
             return
         for elem in temp[1]:
             if elem[1]=="unknown":
-                self.do_requestdo("check",serverurl,_name,elem[0],self.param_server)
+                self.do_requestdo("check",serverurl,_name,elem[0],self.header_server)
         self.update_storage()
         
     def activate_local(self,*args):
@@ -877,7 +880,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.managehashdia.show()
         
     def update_hashes(self,*args):
-        temp=self.do_requestdo("listhashes",self.curlocal[1],self.param_client)
+        temp=self.do_requestdo("listhashes",self.curlocal[1],self.header_client)
         hashlist=self.builder.get_object("hashlist")
         hashlist.clear()
         if temp[0]==False:
@@ -952,7 +955,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             return
         _hash=_sel[0][_sel[1]][0]
     
-        temp=self.do_requestdo("getreferences",_hash,self.param_client)
+        temp=self.do_requestdo("getreferences",_hash,self.header_client)
         reflist=self.builder.get_object("reflist")
         reflist.clear()
         if temp[0]==False:
@@ -967,59 +970,19 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     
     
     def cmd_do(self,*args):
-        cmdveri=self.builder.get_object("cmdverify")
+        cmdveri=self.builder.get_object("cmdveri")
         inp=self.builder.get_object("cmdenter")
         out=self.builder.get_object("cmdbuffer")
-        dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
-        unparsed=inp.get_text().strip(" ").rstrip(" ")
-        if unparsed[:5]=="hash/":
-            out.insert(out.get_end_iter(),str(dhash(unparsed[6:]))+"\n")
-            return
-        if unparsed[:4]=="set/":
-            keyvalue=unparsed[5:].split(1)
-            if len(keyvalue)==1:
-                out.insert(out.get_end_iter(),"invalid\n")
-                return
-            self.links["configmanager"].set(keyvalue[0],keyvalue[1])
-            return
-        if unparsed[:4]=="help":
-            out.insert(out.get_end_iter(),client.cmdhelp())
-            return
-        pos_param=unparsed.find("?")
-        if pos_param!=-1:
-            parsed=unparsed[:pos_param].split("/")
-            tparam=unparsed[pos_param+1:].split("&")
-            for elem in tparam:
-                elem=elem.split("=")
-                if len(elem)==1 and elem[0]!="":
-                    dparam[elem[0]]=""
-                elif len(elem)==2:
-                    dparam[elem[0]]=elem[1]
-                else:
-                    out.insert(out.get_end_iter(),"invalid key/value pair\n{}".format(elem))
-                    return
-                        
-        else:
-            parsed=unparsed.split("/")
-        parsed+=[dparam,]
-        try:
-            func=type(self.links["client"]).__dict__[str(parsed[0])]
-            resp=func(self.links["client"],*parsed[1:])
-            if resp[0]==False:
-                out.insert(out.get_end_iter(),"Error:\n{}\n".format(resp[1]))
+        resp = self.links["client"].command(inp.get_text().strip(" ").rstrip(" "))
+        if resp["success"] == True:
+            if resp["certname"] is None:
+                cmdveri.set_text("Unverified")
+            elif resp["certname"] is isself:
+                cmdveri.set_text("Is own client")
             else:
-                if resp[2] is None:
-                    cmdveri.set_text("Unverified")
-                elif resp[2] is isself:
-                    cmdveri.set_text("Is own client")
-                else:
-                    cmdveri.set_text("Verified as: "+resp[2])
-                out.insert(out.get_end_iter(),"Success:\n{}\n".format(resp[1]))
-        except KeyError as e:
-            out.insert(out.get_end_iter(),"Command does not exist?\n{}\n".format(parsed))
-                
-        except Exception as e:
-            out.insert(out.get_end_iter(),"Error\ntype: {}\nparsed: {}\n".format(type(e).__name__,parsed))
+                cmdveri.set_text("Verified as: "+resp["certname"])
+            inp.set_text("")
+        out.insert(out.get_end_iter(),resp["output"])
         
     
     ##### etc
@@ -1033,7 +996,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         addentity=self.builder.get_object("addentityentry")
         localnames=self.builder.get_object("localnames")
         _entity=addentity.get_text()
-        res=self.do_requestdo("addentity",_entity,self.param_client)
+        res=self.do_requestdo("addentity",_entity,self.header_client)
         if res[0]==True:
             self.addentitydia.hide()
             self.empty_dic+=[_entity,]
@@ -1045,7 +1008,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.delentitydia.show()
         
     def delentity_confirm(self,*args):
-        res=self.do_requestdo("delentity",self.curlocal[1],self.param_client)
+        res=self.do_requestdo("delentity",self.curlocal[1],self.header_client)
         if res[0]==True:
             self.update_storage()
             self.delentitydia.hide()
@@ -1062,7 +1025,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             return
         _hash=_selh[0][_selh[1]][0]
         showhash.set_text(_hash)
-        refsl=self.do_requestdo("getreferences",_hash,self.param_client)
+        refsl=self.do_requestdo("getreferences",_hash,self.header_client)
         
         if refsl[0]==True:
             referencecount.set_text(str(len(refsl[1])))
@@ -1074,7 +1037,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         if _selh[1] is None:
             return
         _hash=_selh[0][_selh[1]][0]
-        res=self.do_requestdo("delhash",_hash,self.param_client)
+        res=self.do_requestdo("delhash",_hash,self.header_client)
         if res[0]==True:
             self.delnodedia.hide()
             self.update_hashes()
@@ -1139,19 +1102,19 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             return
         
         #if _type=="shash":
-        #    ressname=self.do_requestdo("ask", _ref, self.param_client)
+        #    ressname=self.do_requestdo("ask", _ref, self.header_client)
         #    if ressname[0]==False or ressname[1][0] is None:
         #        logger().error("invalid name")
         #        return
         
-        res=self.do_requestdo("delreference", ref_hash, _ref, self.param_client)
+        res=self.do_requestdo("delreference", ref_hash, _ref, self.header_client)
         
         if res[0]==False:
             logger().error(res[1])
             updatereftb.set_active(True)
             return
             
-        res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.param_client)
+        res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.header_client)
         if res[0]==True:
             addrefb.show()
             addrefentry.hide()
@@ -1196,7 +1159,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         ref_hash=_selh[0][_selh[1]][0]
         
         
-        #tparam=self.param_client.copy()
+        #tparam=self.header_client.copy()
         #tparam["certhash"]=ref_hash
         
         if not _type in implementedrefs:
@@ -1204,12 +1167,12 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             return
         
         #if _type=="shash":
-        #    ressname=self.do_requestdo("ask", _ref, self.param_client)
+        #    ressname=self.do_requestdo("ask", _ref, self.header_client)
         #    if ressname[0]==False or ressname[1][0] is None:
         #        logger().error("invalid name")
         #        return
         
-        res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.param_client)
+        res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.header_client)
         if res[0]==True:
             addrefentry.hide()
             it=reflist.prepend((_ref,_type))
@@ -1262,7 +1225,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             return
         _ref = _selr[0][_selr[1]][0]
         
-        res = self.do_requestdo("delreference", self.curlocal[1], _hash, _ref, self.param_client)
+        res = self.do_requestdo("delreference", self.curlocal[1], _hash, _ref, self.header_client)
         if res[0]==True:
             self.delrefdia.hide()
             self.update_refs()
@@ -1292,7 +1255,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         if newnameentryo.get_text()=="":
             return
         
-        ret=self.do_requestdo("renameentity", oldname, newnameentryo.get_text(),self.param_client)
+        ret=self.do_requestdo("renameentity", oldname, newnameentryo.get_text(),self.header_client)
         if ret[0]==True:
             self.close_renameentitydia()
             self.update_storage()

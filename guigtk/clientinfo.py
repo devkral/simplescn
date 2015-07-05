@@ -14,8 +14,8 @@ def clearme(widget):
 class gtkclient_info(gtkclient_template):
     name=None
     col=None
-    def __init__(self,links,_address,dparam,name=""):
-        gtkclient_template.__init__(self, links, _address,dparam)
+    def __init__(self,links,_address,dheader,name=""):
+        gtkclient_template.__init__(self, links, _address,dheader)
         if self.init2(os.path.join(sharedir, "guigtk", "clientinfo.ui"))==False:
             return
         #self.get_object("col1").set_orientation(Gtk.Orientation.VERTICAL)
@@ -43,8 +43,8 @@ class gtkclient_info(gtkclient_template):
         else:
             self.col_entry("Name: ",self.name)
         self.col_entry("Address: ",self.address)
-        if self.dparam["certhash"] is not None:
-            self.col_entry("Hash: ",self.dparam["certhash"])
+        if self.dheader["certhash"] is not None:
+            self.col_entry("Hash: ",self.dheader["certhash"])
         else:
             self.col_entry("Hash: ", "<empty>")
         
@@ -69,5 +69,5 @@ class gtkclient_info(gtkclient_template):
         self.col.pack_end(grid,False,False,0)
         
     def openservices(self,*args):
-        gtkclient_remoteservice(self.links, self.address, self.dparam, self.name)
+        gtkclient_remoteservice(self.links, self.address, self.dheader, self.name)
 

@@ -29,6 +29,15 @@ from common import success, error, server_port, check_certs, generate_certs, ini
 
 from common import logger
 
+reference_header = \
+{
+"certhash": None,
+"cpwhash": None,
+"spwhash": None,
+"tpwhash":None,
+"tdestname":None,
+"tdesthash": None
+}
 class client_client(object):
     name=None
     cert_hash=None
@@ -36,53 +45,55 @@ class client_client(object):
     sslcontc=None
     hashdb=None
     links=None
+    _cache_help = None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","gethash", "show","addhash","delhash","movehash","get","getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "renameentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref"}
+    validactions={"register","get","connect","gethash", "help", "show","addhash", "delhash", "movehash", "get", "getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "renameentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref", "setconfig", "setpluginconfig"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
+        self._cache_help = cmdhelp()
         self.name=_name
         self.cert_hash=pub_cert_hash
         self.hashdb=certhash_db(_certdbpath)
         self.sslcont=default_sslcont()
         self.links=_links
 
-    def do_request(self,_addr,requeststr,dparam,usecache=False,forceport=False,requesttype="GET"):
+    def do_request(self, _addr, requeststr, dheader,usecache=False,forceport=False,requesttype="GET"):
         _addr=scnparse_url(_addr,force_port=forceport)
         con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         if dhash(pcert)==self.cert_hash:
             val=isself
-        elif dparam["certhash"] is not None and dparam["certhash"]!=dhash(pcert):
+        elif dheader["certhash"] is not None and dheader["certhash"]!=dhash(pcert):
             raise(VALHashError)
         else:
             val=self.hashdb.certhash_as_name(dhash(pcert))
             if val=="isself":
                 raise(VALNameError)
 
-        if dparam["tdestname"] is not None and dparam["tdesthash"] is not None:
+        if dheader["tdestname"] is not None and dheader["tdesthash"] is not None:
             
-            con.putrequest("CONNECT", "/{}/{}".format(dparam["tdestname"],dparam["tdesthash"]))
+            con.putrequest("CONNECT", "/{}/{}".format(dheader["tdestname"],dheader["tdesthash"]))
             pheaders={}
-            if dparam["tpwhash"] is not None:
-                pheaders["tpwhash"]=dparam["tpwhash"]
-            #con.putheader("tdestname",dparam["tdestname"])
-            #con.putheader("tdesthash",dparam["tdesthash"])
+            if dheader["tpwhash"] is not None:
+                pheaders["tpwhash"]=dheader["tpwhash"]
+            #con.putheader("tdestname",dheader["tdestname"])
+            #con.putheader("tdesthash",dheader["tdesthash"])
 
-            if dparam["spwhash"] is not None:
-                pheaders["spwhash"]=dparam["spwhash"]
-            if dparam["cpwhash"] is not None:
-                con.putheader("cpwhash",dparam["cpwhash"])
+            if dheader["spwhash"] is not None:
+                pheaders["spwhash"]=dheader["spwhash"]
+            if dheader["cpwhash"] is not None:
+                con.putheader("cpwhash",dheader["cpwhash"])
             con.set_tunnel(requeststr,pheaders)
         else:
             con.putrequest(requesttype, requeststr)
             
-            if dparam["spwhash"] is not None:
-                con.putheader("spwhash",dparam["spwhash"])
-            if dparam["cpwhash"] is not None:
-                con.putheader("cpwhash",dparam["cpwhash"])
+            if dheader["spwhash"] is not None:
+                con.putheader("spwhash",dheader["spwhash"])
+            if dheader["cpwhash"] is not None:
+                con.putheader("cpwhash",dheader["cpwhash"])
         if usecache==False:
             con.putheader("Cache-Control", "no-cache")
         
@@ -90,12 +101,12 @@ class client_client(object):
         r=con.getresponse()
         if r.status in [401,406,407]:
             if r.status in [401,]:
-                dparam["spwhash"]=dhash(self.pwcallmethod("Please enter password for server"),r.read())
+                dheader["spwhash"]=dhash(self.pwcallmethod("Please enter password for server"),r.read())
             if r.status in [406,]:
-                dparam["cpwhash"]=dhash(self.pwcallmethod("Please enter password for client"),r.read())
+                dheader["cpwhash"]=dhash(self.pwcallmethod("Please enter password for client"),r.read())
             if r.status in [407,]:
-                dparam["tpwhash"]=dhash(self.pwcallmethod("Please enter password for proxy"),r.read())
-            return self.do_request(_addr, requeststr, dparam, usecache, forceport, requesttype)
+                dheader["tpwhash"]=dhash(self.pwcallmethod("Please enter password for proxy"),r.read())
+            return self.do_request(_addr, requeststr, dheader, usecache, forceport, requesttype)
         else:
             resp=parse_response(r)
             con.close()
@@ -103,16 +114,19 @@ class client_client(object):
                 return resp[0],resp[1],val,dhash(pcert)
             else:
                 return False, "invalid amount of return values:\n" ,val,dhash(pcert)
-
-    def show(self,dparam):
+    
+    def help(self, dheader): 
+        return (True,self._cache_help,isself,self.cert_hash)
+        
+    def show(self,dheader):
         return (True,(self.name,self.cert_hash,
                 str(self.links["server"].socket.getsockname()[1])),isself,self.cert_hash)
     
-    def register(self,server_addr,dparam):
-        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dparam)
+    def register(self,server_addr,dheader):
+        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dheader)
     
-    def get(self, server_addr, _name, _hash, dparam):
-        temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dparam)
+    def get(self, server_addr, _name, _hash, dheader):
+        temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dheader)
         if temp[0]==False:
             return temp
         if temp[1].find(":") == -1:
@@ -128,7 +142,7 @@ class client_client(object):
         return temp2
         
     
-    def gethash(self,_addr,dparam):
+    def gethash(self,_addr,dheader):
         _addr=_addr.split(":")
         if len(_addr)==1:
             _addr=(_addr[0],server_port)
@@ -143,8 +157,8 @@ class client_client(object):
         except Exception:
             return (False,"server does not exist")
 
-    def ask(self,_address,dparam):
-        _ha=self.gethash(_address,dparam)
+    def ask(self,_address,dheader):
+        _ha=self.gethash(_address,dheader)
         if _ha[0]==False:
             return _ha
         if _ha[1][0]==self.cert_hash:
@@ -152,11 +166,11 @@ class client_client(object):
         temp=self.hashdb.certhash_as_name(_ha[1][0])
         return (True,(temp,_ha[1][0]),isself,self.cert_hash)
 
-    def unparsedlistnames(self,server_addr,dparam):
-        return self.do_request(server_addr, "/listnames",dparam,usecache=True)
+    def unparsedlistnames(self,server_addr,dheader):
+        return self.do_request(server_addr, "/listnames",dheader,usecache=True)
 
-    def listnames(self,server_addr,dparam):
-        temp=self.unparsedlistnames(server_addr,dparam)
+    def listnames(self,server_addr,dheader):
+        temp=self.unparsedlistnames(server_addr,dheader)
         if temp[0]==False:
             return temp
         temp2=[]
@@ -175,28 +189,28 @@ class client_client(object):
                     temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
         return (temp[0],temp2,temp[2],temp[3])
     
-    def getservice(self,client_addr,_service,dparam):
-        return self.do_request(client_addr, "/getservice/{}".format(_service),dparam)
+    def getservice(self,client_addr,_service,dheader):
+        return self.do_request(client_addr, "/getservice/{}".format(_service),dheader)
 
     #### second way to add or remove a service
-    def registerservice(self,_servicename,_port,dparam):
+    def registerservice(self,_servicename,_port,dheader):
         self.links["client_server"].spmap[_servicename]=_port
         return (True,"service registered",isself,self.cert_hash)
 
-    def delservice(self,_servicename,dparam):
+    def delservice(self,_servicename,dheader):
         if _servicename in self.links["client_server"].spmap:
             del self.links["client_server"].spmap[_servicename]
         return (True,"service deleted",isself,self.cert_hash)
         
     def listservices(self,*args):
         if len(args)==1:
-            dparam=args[0]
+            dheader=args[0]
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         elif len(args)==2:
-            client_addr,dparam=args
+            client_addr,dheader=args
         else:
             return (False,("wrong amount arguments (listservices): {}".format(args)))
-        temp=self.do_request(client_addr, "/listservices",dparam,forceport=True)
+        temp=self.do_request(client_addr, "/listservices",dheader,forceport=True)
         if temp[0]==False:
             return temp
         temp2=[]
@@ -207,13 +221,13 @@ class client_client(object):
     
     def info(self,*args):
         if len(args)==1:
-            dparam=args[0]
+            dheader=args[0]
             _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         elif len(args)==2:
-            _addr,dparam=args
+            _addr,dheader=args
         else:
             return (False,("wrong amount arguments (info): {}".format(args)))
-        _tinfo=self.do_request(_addr,  "/info",dparam,forceport=True)
+        _tinfo=self.do_request(_addr,  "/info",dheader,forceport=True)
         if _tinfo[0]==True:
             _tinfolist=_tinfo[1].split("/",2)
             return (True,_tinfolist,_tinfo[2],_tinfo[3])
@@ -223,24 +237,24 @@ class client_client(object):
 
     def prioty_direct(self,*args):
         if len(args)==1:
-            dparam=args[0]
+            dheader=args[0]
             _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         elif len(args)==2:
-            _addr,dparam=args
+            _addr,dheader=args
         else:
             return (False,("wrong amount arguments (priority_direct): {}".format(args)),isself)
-        temp=self.do_request(_addr,  "/prioty",dparam,forceport=True)
+        temp=self.do_request(_addr,  "/prioty",dheader,forceport=True)
         return temp
 
-    def prioty(self,server_addr,_name,_hash,dparam):
-        temp=self.get(server_addr,_name,_hash,dparam)
+    def prioty(self,server_addr,_name,_hash,dheader):
+        temp=self.get(server_addr,_name,_hash,dheader)
         if temp[0]==False:
             return temp
         return self.prioty_direct(temp[1])
 
     def setpriority(self,*args):
         if len(args)==2:
-            _priority,dparam=args
+            _priority,dheader=args
         else:
             return (False,("wrong amount arguments (setpriority): {}".format(args)))
         if type(_priority).__name__=="str" and _priority.isdecimal()==False:
@@ -256,18 +270,18 @@ class client_client(object):
         self.links["server"].update_prioty()
         return (True,"priority",isself,self.cert_hash)
 
-    def capabilities(self,_addr,dparam):
-        temp=self.do_request(_addr,  "/cap",dparam,forceport=True)
+    def capabilities(self,_addr,dheader):
+        temp=self.do_request(_addr,  "/cap",dheader,forceport=True)
         if temp[0]==True:
             return temp[0],temp[1].split(",",3),temp[2],temp[3]
         else:
             return temp
 
     #check if _addr is reachable and update priority
-    def check_direct(self,_addr,_namelocal,_hash,dparam):
-        dparam["certhash"]=_hash #ensure this
+    def check_direct(self,_addr,_namelocal,_hash,dheader):
+        dheader["certhash"]=_hash #ensure this
         
-        temp=self.prioty_direct(_addr,dparam)
+        temp=self.prioty_direct(_addr,dheader)
         if temp[0]==False:
             return temp
         
@@ -277,28 +291,28 @@ class client_client(object):
         return temp
     
     #check if node is reachable and update priority
-    def check(self,server_addr,_name,_namelocal,_hash,dparam):
-        temp=self.get(server_addr,_name,_hash,dparam)
+    def check(self,server_addr,_name,_namelocal,_hash,dheader):
+        temp=self.get(server_addr,_name,_hash,dheader)
         if temp[0]==False:
             return temp
-        return self.check_direct(temp[1],_namelocal,_hash,dparam)
+        return self.check_direct(temp[1],_namelocal,_hash,dheader)
     
     #local management
-    def addentity(self,_name,dparam):
+    def addentity(self,_name,dheader):
         temp=self.hashdb.addentity(_name)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error)
 
-    def delentity(self,_name,dparam):
+    def delentity(self,_name,dheader):
         temp=self.hashdb.delentity(_name)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error)
 
-    def renameentity(self,_name,_newname,dparam):
+    def renameentity(self,_name,_newname,dheader):
         temp=self.hashdb.renameentity(_name,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
@@ -307,10 +321,10 @@ class client_client(object):
 
     def addhash(self,*args):
         if len(args)==3:
-            _name, _certhash, dparam=args
+            _name, _certhash, dheader=args
             _type=None
         elif len(args)==4:
-            _name, _certhash, _type, dparam=args
+            _name, _certhash, _type, dheader=args
         else:
             return (False,("wrong amount arguments (addhash): {}".format(args)))
         if self.hashdb.addhash(_name,_certhash,_type) == False:
@@ -318,21 +332,21 @@ class client_client(object):
         else:
             return (True, success, isself, self.cert_hash)
 
-    #def deljusthash(self,_certhash,dparam):
+    #def deljusthash(self,_certhash,dheader):
     #    temp=self.hashdb.delhash(_certhash)
     #    if temp==True:
     #        return (True,success,isself,self.cert_hash)
     #    else:
     #        return (False,error)
         
-    def delhash(self,_certhash,dparam):
+    def delhash(self,_certhash,dheader):
         temp=self.hashdb.delhash(_certhash)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error)
             
-    def movehash(self,_certhash,_newname,dparam):
+    def movehash(self,_certhash,_newname,dheader):
         temp=self.hashdb.movehash(_certhash,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
@@ -340,14 +354,14 @@ class client_client(object):
             return (False,error)
 
     #search
-    def searchhash(self,_certhash,dparam):
+    def searchhash(self,_certhash,dheader):
         temp=self.hashdb.certhash_as_name(_certhash)
         if temp is None:
             return(False, error)
         else:
             return (True,temp,isself,self.cert_hash)
             
-    def getlocal(self,_name,_certhash,_dparam):
+    def getlocal(self,_name,_certhash,_dheader):
         temp=self.hashdb.get(_name,_certhash)
         if temp is None:
             return(False, error)
@@ -356,9 +370,9 @@ class client_client(object):
     
     def listhashes(self, *args):
         if len(args) == 3:
-            _name, _nodetypefilter, dparam = args
+            _name, _nodetypefilter, dheader = args
         elif len(args) == 2:
-            _name, dparam=args
+            _name, dheader=args
             _nodetypefilter = None
         else:
             return (False,("wrong amount arguments (listhashes): {}".format(args)))
@@ -368,7 +382,7 @@ class client_client(object):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    def listnodenametypes(self,dparam):
+    def listnodenametypes(self,dheader):
         temp=self.hashdb.listnodenametypes()
         if temp is None:
             return(False, error)
@@ -377,9 +391,9 @@ class client_client(object):
     
     def listnodenames(self,*args):
         if len(args)==2:
-            _nodetypefilter,dparam=args
+            _nodetypefilter,dheader=args
         elif len(args)==1:
-            dparam=args[0]
+            dheader=args[0]
             _nodetypefilter=None
         else:
             return (False,("wrong amount arguments (listnodenames): {}".format(args)))
@@ -391,9 +405,9 @@ class client_client(object):
 
     def listnodeall(self, *args):
         if len(args)==2:
-            _nodetypefilter,dparam=args
+            _nodetypefilter,dheader=args
         elif len(args)==1:
-            dparam=args[0]
+            dheader=args[0]
             _nodetypefilter=None
         else:
             return (False,("wrong amount arguments (listnodeall): {}".format(args)))
@@ -405,9 +419,9 @@ class client_client(object):
     
     def addreference(self,*args):
         if len(args)==5:
-            _name,_certhash,_reference,_reftype,dparam=args
+            _name,_certhash,_reference,_reftype,dheader=args
         elif len(args)==4:
-            _certhash,_reference,_reftype,dparam=args
+            _certhash,_reference,_reftype,dheader=args
             _name=self.hashdb.certhash_as_name(_certhash)
             if _name is None:
                 return (False,"name not in db")
@@ -428,9 +442,9 @@ class client_client(object):
         
     def delreference(self,*args):
         if len(args)==4:
-            _name,_certhash,_reference,dparam=args
+            _name,_certhash,_reference,dheader=args
         elif len(args)==3:
-            _certhash,_reference,dparam=args
+            _certhash,_reference,dheader=args
             _name=self.hashdb.certhash_as_name(_certhash)
             if _name is None:
                 return (False,"name not in db")
@@ -446,9 +460,9 @@ class client_client(object):
         
     def getreferences(self,*args):
         if len(args) == 3:
-            _certhash,_reftypefilter,dparam=args
+            _certhash,_reftypefilter,dheader=args
         elif len(args) == 2:
-            _certhash,dparam=args
+            _certhash,dheader=args
             _reftypefilter=None
         else:
             return (False,("wrong amount arguments (getreferences): {}".format(args)))
@@ -466,11 +480,112 @@ class client_client(object):
             return (False,error)
         return (True,temp,isself,self.cert_hash)
         
-    def findbyref(self,_reference,dparam):
+    def findbyref(self,_reference,dheader):
         temp=self.hashdb.findbyref(_reference)
         if temp is None:
             return (False,error)
         return (True,temp,isself,self.cert_hash)
+    
+    def setconfig(self, _key, _value,dheader):
+        ret = self.links["configmanager"].set(_key, _value)
+        if ret == True:
+            return (True, success,isself,self.cert_hash)
+        else:
+            return (False, error)
+    
+    def setpluginconfig(self, _plugin, _key, _value, dheader):
+        pluginm=self.links["client_server"].pluginmanager
+        listplugin = pluginm.list_plugins()
+        if _plugin not in listplugin:
+            return (False, "plugin does not exist")
+        if _plugin not in pluginm.plugins:
+            config = configmanager(os.path.join(self.links["config_root"],"config","plugins",_plugin))
+        else:
+            config = pluginm.plugins.config
+        config.set(_key, _value)
+        return (True,success,isself,self.cert_hash)
+    
+    
+    # command wrapper for cmd interfaces
+    def command(self,inp):
+        reqheader=reference_header.copy()
+        ret = {"success": False, "output": None, "hash": self.cert_hash, "certname": isself }
+        if inp == "":
+            #ret[output] =
+            return ret
+        unparsed=inp.strip(" ").rstrip(" ")
+        if unparsed[:5]=="hash/":
+            ret["success"] = True
+            ret["output"] = "Hash: {}".format(dhash(unparsed[6:]))
+            return ret
+        
+        pos_header=unparsed.find("?")
+        if pos_header!=-1:
+            parsed=unparsed[:pos_header].split("/")
+            tparam=unparsed[pos_header+1:].split("&")
+            for elem in tparam:
+                elem=elem.split("=")
+                if len(elem)==1 and elem[0]!="":
+                    reqheader[elem[0]]=""
+                elif len(elem)==2:
+                    reqheader[elem[0]]=elem[1]
+                else:
+                    ret["success"] = False
+                    ret["output"] = "Error: invalid key/value pair\n{}".format(elem)
+                    return ret
+        else:
+            parsed=unparsed.split("/")
+        
+        #call functions in plugins
+        if str(parsed[0]) == "plugin":
+            plugins=self.links["client_server"].pluginmanager.plugins
+            if plugins is None:
+                return
+            if parsed[1] not in plugins:
+                ret["success"] = False
+                ret["output"] = "Error: plugin does not exist"
+                return ret
+            try:
+                func=plugins[parsed[1]].__dict__[str(parsed[2])]
+                resp = func(*parsed[2:])
+                ret["success"] = True
+                ret["output"] = str(resp)
+            except Exception as e:
+                st="Error: {}\n".format(e)
+                if "tb_frame" in e.__dict__:
+                    st="{}\n{}\n\n".format(st,traceback.format_tb(e))
+                st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, parsed)
+                ret["success"] = False
+                ret["output"] = "Error:\n{}".format(st)
+            return ret
+        
+        # call functions in client
+        parsed+=[reqheader,]
+        
+        if str(parsed[0]) not in self.validactions:
+            ret["success"] = False
+            ret["output"] = "Error: Command does not exist/is not public: {}".format(parsed[0])
+            return ret
+        try:
+            func=type(self).__dict__[str(parsed[0])]
+            resp=func(self,*parsed[1:])
+            ret["success"] = resp[0]
+            ret["output"] = str(resp[1])
+            if resp[0] == True:
+                ret["certname"] = resp[2]
+                ret["hash"] = resp[3]
+        except AddressFail as e:
+            ret["success"] = False
+            ret["output"] = "Addresserror:\n{}".format(e.msg)
+        except Exception as e:
+            st="Error: {}\n".format(e)
+            if "tb_frame" in e.__dict__:
+                st="{}\n{}\n\n".format(st,traceback.format_tb(e))
+            st = "{}Errortype:{}\nCommandline: {}".format(st, type(e).__name__, parsed)
+            ret["success"] = False
+            ret["output"] = "Error:\n{}".format(st)
+        return ret
+
 
 ###server on client
     
@@ -573,14 +688,14 @@ class client_handler(BaseHTTPRequestHandler):
                         nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
                         opaque="5ccc069c403ebaf9f0171e9517f40e41"
                         """
-    def check_cpw(self, dparam):
+    def check_cpw(self, dheader):
         if self.cpwhash is None:
             return True
         if "cpwhash" in self.headers:
             if dhash_salt(self.headers["cpwhash"], self.salt) == self.cpwhash:
                 return True
-        elif "cpwhash" in dparam:
-            if dhash_salt(dparam["cpwhash"], self.salt) == self.cpwhash:
+        elif "cpwhash" in dheader:
+            if dhash_salt(dheader["cpwhash"], self.salt) == self.cpwhash:
                 return True
         return False
 
@@ -593,15 +708,15 @@ class client_handler(BaseHTTPRequestHandler):
         
         return False
     
-    def handle_client(self, _cmdlist, dparam):
+    def handle_client(self, _cmdlist, reqheader):
         if _cmdlist[0] not in self.links["client"].validactions:
             self.send_error(400, "invalid action - client")
             return
-        _cmdlist += [dparam,]
+        _cmdlist += [reqheader,]
         if self.handle_remote == False and not self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
             self.send_error(403, "no permission - client")
             return
-        if self.check_cpw(dparam) == False:
+        if self.check_cpw(reqheader) == False:
             self.send_error(406, self.salt) #"no permission - client")
             return
         
@@ -721,18 +836,18 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         
-        dparam={"certname":None, "certhash": None, "cpwhash": None, "spwhash": None, "tpwhash":None, "tdestname": None, "tdesthash": None, "nohashdb": None}
-        pos_param = self.path.find("?")
-        if pos_param != -1:
-            _cmdlist = self.path[1:pos_param].split("/")
-            tparam = self.path[pos_param+1:].split("&")
+        reqheader=reference_header.copy()
+        pos_header = self.path.find("?")
+        if pos_header != -1:
+            _cmdlist = self.path[1:pos_header].split("/")
+            tparam = self.path[pos_header+1:].split("&")
             for elem in tparam:
                 elem = elem.split("=")
 
                 if len(elem) == 1 and elem[0] != "":
-                    dparam[elem[0]] = ""
+                    reqheader[elem[0]] = ""
                 elif len(elem) == 2:
-                    dparam[elem[0]] = elem[1]
+                    reqheader[elem[0]] = elem[1]
                 else:
                     self.send_error(400, "invalid key/value pair\n{}".format(elem))
                     return
@@ -742,7 +857,7 @@ class client_handler(BaseHTTPRequestHandler):
         action = _cmdlist[0]
 
         if action == "do":
-            self.handle_client(_cmdlist[1:], dparam) #remove do
+            self.handle_client(_cmdlist[1:], reqheader) #remove do
             return
         elif action in self.links["client_server"].validactions:
             self.handle_server(_cmdlist)
@@ -766,17 +881,18 @@ class client_handler(BaseHTTPRequestHandler):
         self.send_error(400, "invalid action")
     
     def do_PUT(self):
-        pos_param = self.path.find("?")
-        if pos_param != -1:
-            _cmdlist = self.path[1:pos_param].split("/")
-            tparam = self.path[pos_param+1:].split("&")
+        reqheader=reference_header.copy()
+        pos_header = self.path.find("?")
+        if pos_header != -1:
+            _cmdlist = self.path[1:pos_header].split("/")
+            tparam = self.path[pos_header+1:].split("&")
             for elem in tparam:
                 elem = elem.split("=")
 
                 if len(elem) == 1 and elem[0] != "":
-                    dparam[elem[0]] = ""
+                    reqheader[elem[0]] = ""
                 elif len(elem) == 2:
-                    dparam[elem[0]] = elem[1]
+                    reqheader[elem[0]] = elem[1]
                 else:
                     self.send_error(400,"invalid key/value pair\n{}".format(elem))
                     return
@@ -785,12 +901,12 @@ class client_handler(BaseHTTPRequestHandler):
 
         action = _cmdlist[0]
         if action == "do":
-            self.handle_client(_cmdlist[1:], dparam) #removes do
+            self.handle_client(_cmdlist[1:], reqheader) #removes do
 
 
     def do_POST(self):
-        plugin,action=self.path[1:].split("/",1)
-        pluginm=self.links["client_server"].pluginmanager
+        plugin, action=self.path[1:].split("/",1)
+        pluginm = self.links["client_server"].pluginmanager
         if pluginm is None:
             return
         if pluginm.redirect_addr in ["",None]:
@@ -828,10 +944,10 @@ class client_init(object):
     
     def __init__(self,confm,pluginm):
         self.links["config"]=confm
-        self.config_root=confm.get("config")
+        self.links["config_root"]=confm.get("config")
         
-        _cpath=os.path.join(self.config_root,"client")
-        init_config_folder(self.config_root,"client")
+        _cpath=os.path.join(self.links["config_root"],"client")
+        init_config_folder(self.links["config_root"],"client")
         
         if confm.getb("webgui")!=False:
             logger().debug("webgui enabled")
@@ -902,7 +1018,7 @@ class client_init(object):
 
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
-        self.links["client"]=client_client(_name[0],dhash(pub_cert),os.path.join(self.config_root, "certdb.sqlite"),self.links)
+        self.links["client"]=client_client(_name[0],dhash(pub_cert),os.path.join(self.links["config_root"], "certdb.sqlite"),self.links)
         self.links["client_server"].pluginmanager=pluginm
         
         
@@ -912,164 +1028,32 @@ class client_init(object):
         self.sthread = threading.Thread(target=self.serve_forever_block)
         self.sthread.daemon = True
         self.sthread.start()
-
-    # returns ret
-    # output=None if inp is empty
-    def command(self,inp):
-        dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
-        ret = {"success": False, "output": None, "hash": self.links["client"].certhash, "certname": isself }
-        if inp == "":
-            #ret[output] =
-            return ret
-        unparsed=inp.strip(" ").rstrip(" ")
-        if unparsed[:5]=="hash/":
-            ret["success"] = True
-            ret["output"] = "Hash: {}".format(dhash(unparsed[6:]))
-            return ret
-        if unparsed[:4]=="set/":
-            keyvalue=unparsed[5:].split(1)
-            if len(keyvalue)==1:
-                ret["success"] = False
-                ret["output"] = "Error: no value"
-                return ret
-            self.links["configmanager"].set(keyvalue[0],keyvalue[1])
-            ret["success"] = True
-            ret["output"] = "key set"
-            return ret
-        if unparsed[:4]=="help":
-            ret["success"] = True
-            ret["output"] = cmdhelp()
-            return ret
-        pos_param=unparsed.find("?")
-        if pos_param!=-1:
-            parsed=unparsed[:pos_param].split("/")
-            tparam=unparsed[pos_param+1:].split("&")
-            for elem in tparam:
-                elem=elem.split("=")
-                if len(elem)==1 and elem[0]!="":
-                    dparam[elem[0]]=""
-                elif len(elem)==2:
-                    dparam[elem[0]]=elem[1]
-                else:
-                    ret["success"] = False
-                    ret["output"] = "Error: invalid key/value pair\n{}".format(elem)
-                    return ret
-        else:
-            parsed=unparsed.split("/")
-        parsed+=[dparam,]
-        
-        if str(parsed[0]) not in type(self.links["client"]).__dict__:
-            ret["sucess"] = False
-            ret["output"] = "Error: Command does not exist: {}".format(parsed[0])
-            return ret
-        try:
-            func=type(self.links["client"]).__dict__[str(parsed[0])]
-            resp=func(self.links["client"],*parsed[1:])
-            ret["sucess"] = resp[0]
-            ret["output"] = resp[1]
-            if resp[0] == True:
-                ret["certname"] = resp[2]
-                ret["hash"] = resp[3]
-        except AddressFail as e:
-            ret["sucess"] = False
-            ret["output"] = "Addresserror:\n{}".format(e.msg)
-        except Exception as e:
-            st="Error: {}\n".format(e)
-            if "tb_frame" in e.__dict__:
-                st="{}\n{}\n\n".format(st,traceback.format_tb(e))
-            st = "{}Errortype:{}\nCommandline: {}".format(st, type(e).__name__, parsed)
-        
-    
-    def cmd_cmd(self):
-        dparam={"certhash":None,"cpwhash":None,"spwhash":None,"tpwhash":None,"tdestname":None,"tdesthash":None,"nohashdb":None}
-        print(*self.links["client"].show(dparam)[1],sep="/")
-        while True:
-            inp=input("Enter command, seperate by \"/\"\nEnter parameters by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n")
-            if inp=="":
-                break
-
-            unparsed=inp.strip(" ").rstrip(" ")
-            if unparsed[:5]=="hash/":
-                print(dhash(unparsed[6:]))
-                continue
-            if unparsed[:4]=="set/":
-                keyvalue=unparsed[5:].split(1)
-                if len(keyvalue)==1:
-                    continue
-                self.links["configmanager"].set(keyvalue[0],keyvalue[1])
-                continue
-            if unparsed[:4]=="help":
-                print(cmdhelp())
-                continue
-            pos_param=unparsed.find("?")
-            if pos_param!=-1:
-                parsed=unparsed[:pos_param].split("/")
-                tparam=unparsed[pos_param+1:].split("&")
-                for elem in tparam:
-                    elem=elem.split("=")
-                    if len(elem)==1 and elem[0]!="":
-                        dparam[elem[0]]=""
-                    elif len(elem)==2:
-                        dparam[elem[0]]=elem[1]
-                    else:
-                        logger().error("invalid key/value pair\n{}".format(elem))
-                        return
-                        
-            else:
-                parsed=unparsed.split("/")
-            parsed+=[dparam,]
-            try:
-                func=type(self.links["client"]).__dict__[str(parsed[0])]
-                resp=func(self.links["client"],*parsed[1:])
-                if resp[2] is None:
-                    print("Unverified")
-                elif resp[2] is isself:
-                    print("Is own client")
-                else:
-                    print("Verified as: "+resp[2])
-                if resp[0]==False:
-                    print("Error:\n{}".format(resp[1]))
-                else:
-                    print("Success:\n{}".format(resp[1]))
-            except AddressFail as e:
-                print("Address error")
-                print(e.msg)
-                
-            except KeyError as e:
-                print("Command does not exist?")
-                print(e)
-                print(parsed)
-                
-            except Exception as e:
-                print("Error: ")
-                #print(url)
-                print(type(e).__name__)
-                print(e)
-                print(parsed)
-                #print(e.printstacktrace())
-    
         
 cmdanot={
-    "show": "general info about client",
-    "register": "<serverurl>: register ip on server",
-    "registerservice": "[clientname:port/]<servicename>/<serviceport>: register service on client\n    (server accepts localhost only by default)",
-    "get": "<serverurl>/<name>/<hash>: retrieve ip from client from server"
+    "help": ("", "open help"),
+    "show": ("","general info about client"),
+    "setconfig": (" <key>/<value>", "set key of main config to value"),
+    "setpluginconfig": (" <plugin>/<key>/<value>", "set key of plugin config to value"),
+    "register": (" <serverurl>", "register ip on server"),
+    "registerservice": (" [clientname:port/]<servicename>/<serviceport>", "register service on client\n    (server accepts only localhost by default)"),
+    "get": (" <serverurl>/<name>/<hash>", "retrieve ip from client from server")
 
     }
                 
 def cmdhelp():
-    out="""
-### cmd-commands ###\n
+    out="""### cmd-commands ###
+hash <pw>: calculate hash for pw
+plugin <plugin>/<...>: speak with plugin
 """
     for elem in client_client.validactions:
         if elem in cmdanot:
-            out+="{}:{}".format(elem,cmdanot[elem])+"\n"
+            out+="{}{}: {}".format(elem,*cmdanot[elem])+"\n"
         else:
-            out+=elem+"\n"
+            out+="{}: {}".format(elem,"<undocumented>")+"\n"
 
     out+="""
-### cmd-parameters ###
-parameters annoted with <cmd>?<parameter1>=?&<parameter2>=?
+### cmd-headers ###
+headers defined this way: ...?<header1>=<value1>&<header2>=<value2>...
 TODO
 """
     return out
@@ -1144,8 +1128,11 @@ if __name__ ==  "__main__":
     if configpath[-1]==os.sep:
         configpath=configpath[:-1]
     client_args["config"]=configpath
+    # path  to plugins in config folder
+    pluginpathes.insert(1,os.path.join(configpath, "plugins"))
+    
+    # path to config folder of plugins
     configpath_plugins=os.path.join(configpath, "config", "plugins")
-    pluginpathes.insert(1,configpath_plugins)
     #if configpath[:-1]==os.sep:
     #    configpath=configpath[:-1]
     
@@ -1178,9 +1165,12 @@ if __name__ ==  "__main__":
         logger().debug("start console")
         print(*cm.links["client"].show({})[1],sep="/")
         while True:
-            ret=cm.command(input("Enter command, seperate by \"/\"\nEnter parameters by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n"))
+            ret=cm.links["client"].command(input("Enter command, seperate by \"/\"\nEnter headers by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n"))
             if ret["success"] == True:
-                print("{} with hash:\n{}\n answers:".format(ret["certname"],ret["hash"]))
+                if ret["certname"] is isself:
+                    print("This client:")
+                else:
+                    print("{} with hash:\n{}\n answers:".format(ret["certname"],ret["hash"]))
             print(ret["output"])
         #cm.cmd_cmd()
     else:

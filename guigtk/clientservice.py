@@ -13,8 +13,8 @@ import logging
 
 class gtkclient_remoteservice(gtkclient_template):
     name=None
-    def __init__(self,links,_address,dparam,name=""):
-        gtkclient_template.__init__(self, links,_address,dparam)
+    def __init__(self,links,_address,dheader,name=""):
+        gtkclient_template.__init__(self, links,_address,dheader)
         if self.init2(os.path.join(sharedir, "guigtk", "clientservice.ui"))==False:
             return
         self.win=self.get_object("servicewin")

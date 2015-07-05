@@ -16,13 +16,13 @@ class gtkclient_template(Gtk.Builder):
     #builder=None
     links=None
     win=None
-    dparam=None
+    dheader=None
     address=None
     #autoclose=0 #closes window after a timeperiod
     
-    def __init__(self,links,_address,dparam):
+    def __init__(self,links,_address,dheader):
         self.links=links
-        self.dparam=dparam
+        self.dheader=dheader
         self.address=_address
         
     def init2(self, _file):
@@ -44,7 +44,7 @@ class gtkclient_template(Gtk.Builder):
         return True
         
     def do_requestdo(self,action,*requeststrs,parse=-1):
-        requeststrs+=(self.dparam,)
+        requeststrs+=(self.dheader,)
         return self.links["gtkclient"].do_requestdo(action,*requeststrs,parse=parse)
     
     def close(self,*args):
