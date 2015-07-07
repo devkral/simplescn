@@ -396,9 +396,9 @@ class server_init(object):
             _port=int(_name[1])
         else:
             _port=server_port
-        serverd={"name":_name[0],"certhash":dhash(pub_cert),
-                "priority":kwargs["priority"],"message":_message,
-                "expire":kwargs["expire"]}
+        serverd={"name": _name[0], "certhash": dhash(pub_cert),
+                "priority": kwargs["priority"], "message":_message,
+                "expire": kwargs["expire"]}
         
         self.links["server_server"]=server(serverd) 
         #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
@@ -500,7 +500,7 @@ if __name__ == "__main__":
 
         os.makedirs(plugins_config, 0o750, True)
     
-        pluginm=pluginmanager(pluginpathes, plugins_config)
+        pluginm=pluginmanager(pluginpathes, plugins_config, "server")
         if server_args["webgui"] is not None:
             pluginm.interfaces+=["web",]
         cm.links["server_server"].pluginmanager=pluginm

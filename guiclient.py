@@ -99,7 +99,7 @@ if __name__ == "__main__":
     confm.update(dclargs, clargs)
 
     if confm.getb("noplugins") == False:
-        pluginm = pluginmanager(pluginpathes, configpath_plugins)
+        pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
         if confm.getb("webgui") != False:
             pluginm.interfaces += ["web",]
         pluginm.interfaces += ["cmd","gui"]
@@ -109,7 +109,8 @@ if __name__ == "__main__":
     #global cm
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
-        pluginm.resources["client"] = cm.links["client"] #very permissive; restrict
+        # TODO: improve command
+        pluginm.resources["command"] = cm.links["client"].command
         pluginm.init_plugins()
     do_gtkiteration()
     #del cm

@@ -100,7 +100,9 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         recentview=self.builder.get_object("recentview")
         localview=self.builder.get_object("localview")
         
-        
+        cmdbuffer = self.builder.get_object("cmdbuffer")
+        cmdbuffer.create_mark("scroll",cmdbuffer.get_end_iter(),True)
+        #self.builder.get_object("cmdscrollwin").get_vscrollbar().set_range(0, 300)
         #comboreftype=self.builder.get_object("comboreftype")
         #for elem in implementedrefs:
         #    comboreftype.append_text(elem)
@@ -973,6 +975,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         cmdveri=self.builder.get_object("cmdveri")
         inp=self.builder.get_object("cmdenter")
         out=self.builder.get_object("cmdbuffer")
+        cmdview=self.builder.get_object("cmdview")
         resp = self.links["client"].command(inp.get_text().strip(" ").rstrip(" "))
         if resp["success"] == True:
             if resp["certname"] is None:
@@ -982,7 +985,14 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             else:
                 cmdveri.set_text("Verified as: "+resp["certname"])
             inp.set_text("")
-        out.insert(out.get_end_iter(),resp["output"])
+        else:
+            out.insert(out.get_end_iter(),"Error:\n")
+        out.insert(out.get_end_iter(),resp["output"]+"\n")
+        out.move_mark_by_name("scroll", out.get_end_iter())
+        #out.place_cursor(out.get_end_iter())
+        cmdview.scroll_to_mark(out.get_mark("scroll"),0.4,True,0,1)
+        #place_cursor_onscreen()
+        #cmdwinscrolla.set_value(0) #100)
         
     
     ##### etc
@@ -1335,7 +1345,7 @@ class gtkclient_init(client.client_init):
         client.client_init.__init__(self,confm,pluginpathes)
             
         #_client="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        logger().debug("start server")
+        logger().debug("start client server")
         self.serve_forever_nonblock()
         logger().debug("start gtkclient")
         self.links["gtkclient"]=gtkclient_main(self.links)

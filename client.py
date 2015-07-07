@@ -1142,7 +1142,7 @@ if __name__ ==  "__main__":
     confm.update(default_client_args,client_args)
 
     if confm.getb("noplugins")==False:
-        pluginm=pluginmanager(pluginpathes, configpath_plugins)
+        pluginm=pluginmanager(pluginpathes, configpath_plugins, "client")
         if confm.getb("webgui")!=False:
             pluginm.interfaces+=["web",]
         if confm.getb("cmd")!=False:
@@ -1160,7 +1160,7 @@ if __name__ ==  "__main__":
         pluginm.init_plugins()
 
     if confm.getb("cmd")!=False:
-        logger().debug("start server")
+        logger().debug("start client server")
         cm.serve_forever_nonblock()
         logger().debug("start console")
         print(*cm.links["client"].show({})[1],sep="/")
@@ -1174,5 +1174,5 @@ if __name__ ==  "__main__":
             print(ret["output"])
         #cm.cmd_cmd()
     else:
-        logger().debug("start server")
+        logger().debug("start client server")
         cm.serve_forever_block()

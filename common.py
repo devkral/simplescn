@@ -393,15 +393,16 @@ class pluginmanager(object):
     path_plugins_config = None
     resources = None
     redirect_addr = ""
-    interfaces = ["main"]
+    interfaces = []
     plugins = {}
     
-    def __init__(self, _pathes_plugins, _path_plugins_config, pluginenv = sys.path, resources = {}):
+    def __init__(self, _pathes_plugins, _path_plugins_config, scn_type, pluginenv = sys.path, resources = {}):
         self.pluginenv = pluginenv.copy()
         self.pathes_plugins = _pathes_plugins
         self.path_plugins_config = _path_plugins_config
         self.pluginenv = pluginenv
         self.resources = resources
+        self.interfaces.append(scn_type)
         
     def list_plugins(self):
         temp = {}
@@ -431,7 +432,7 @@ class pluginmanager(object):
             if pspec is None or pspec.loader is None:
                 logger().info("Plugin \"{}\" not loaded\nPath: {}".format(plugin[0],[plugin[1],]))
                 continue
-            
+
             #init sys pathes
             newenv = self.pluginenv.copy()
             newenv.append(os.path.join(plugin[1], plugin[0]))
@@ -466,7 +467,7 @@ class pluginmanager(object):
             pconf.update(pload.defaults)
             pload.config = pconf # no copy because it is the only user
             pload.resources = self.resources # no copy because they can change
-            pload.interfaces = self.interfaces.copy()
+            pload.interfaces = self.interfaces.copy() # copy because of isolation
             ret = False
             # load plugin init method
             try:
