@@ -154,7 +154,6 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="model">localstore</property>
-                    <property name="reorderable">True</property>
                     <property name="search_column">0</property>
                     <signal name="row-activated" handler="activate_local" swapped="no"/>
                     <child internal-child="selection">

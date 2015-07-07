@@ -248,19 +248,20 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         
     def update_serverlist_hash(self, _hash):
         serverlist=self.builder.get_object("serverlist")
+        
         _serverrefs=self.do_requestdo("getreferences",_hash,self.header_client)
         if logger().check(_serverrefs)== False:
             return
         for elem in _serverrefs[1]:
-            if elem not in self.serverlist_dic:
+            if elem[0] not in self.serverlist_dic:
                 if elem[1] == "name":
                     serverlist.append((elem[0],True))
                     self.serverlist_dic.append(elem[0])
                 elif elem[1] == "url":
                     serverlist.append((elem[0],False))
                     self.serverlist_dic.append(elem[0])
-            else:
-                logger().error(_serverhashes[1])
+            #else:
+            #    logger().error(_serverhashes[1])
                 
     def update_serverlist(self, _localname):
         _serverhashes=self.do_requestdo("listhashes",_localname,self.header_client)
@@ -537,6 +538,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
                 it=hashlist.prepend((_hash,))
                 hashview.get_selection().select_iter(it)
             #self.update_hashes()
+            #?????TODO: DOCUMENTATION
             for elem in self._intern_refstoadd:
                 self.do_requestdo("addreference",_hash,elem[1],elem[0],self.header_client)
             
@@ -1117,15 +1119,17 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         #        logger().error("invalid name")
         #        return
         
-        res=self.do_requestdo("delreference", ref_hash, _ref, self.header_client)
+        res=self.do_requestdo("delreference", self.curlocal[1], ref_hash, _ref, self.header_client)
         
         if res[0]==False:
             logger().error(res[1])
             updatereftb.set_active(True)
             return
             
-        res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.header_client)
+        res=self.do_requestdo("addreference", self.curlocal[1], ref_hash, _ref, _type, self.header_client)
         if res[0]==True:
+            if _type in ["url", "name"]:
+                self.update_storage()
             addrefb.show()
             addrefentry.hide()
             _selr[0][_selr[1]][0]=_ref
@@ -1182,11 +1186,13 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         #        logger().error("invalid name")
         #        return
         
-        res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.header_client)
+        res=self.do_requestdo("addreference", self.curlocal[1], ref_hash, _ref, _type, self.header_client)
         if res[0]==True:
             addrefentry.hide()
             it=reflist.prepend((_ref,_type))
             refview.get_selection().select_iter(it)
+            if _type in ["url", "name"] and self.curlocal[0] == "server":
+                self.update_serverlist(self.curlocal[1])
             updatereftb.set_sensitive(True)
             updatereftb.show()
             updatereftb.set_active(False)
@@ -1237,6 +1243,8 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         
         res = self.do_requestdo("delreference", self.curlocal[1], _hash, _ref, self.header_client)
         if res[0]==True:
+            if _selr[0][_selr[1]][1] in ["url", "name"]:
+                self.update_storage()
             self.delrefdia.hide()
             self.update_refs()
     
