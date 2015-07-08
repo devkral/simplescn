@@ -4,7 +4,7 @@
   <requires lib="gtk+" version="3.12"/>
   <object class="GtkMenu" id="actions">
     <property name="visible">True</property>
-    <property name="can_focus">False</property>
+    <property name="can_focus">True</property>
   </object>
   <object class="GtkApplicationWindow" id="nodewin">
     <property name="visible">True</property>
@@ -38,10 +38,9 @@
             <child>
               <object class="GtkMenuButton" id="nodeactionbutton">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
+                <property name="can_focus">False</property>
                 <property name="receives_default">True</property>
                 <property name="popup">actions</property>
-                <signal name="toggled" handler="activate_action" swapped="no"/>
                 <child>
                   <object class="GtkLabel" id="label2">
                     <property name="visible">True</property>

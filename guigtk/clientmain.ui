@@ -69,6 +69,8 @@
       <column type="gchararray"/>
       <!-- column-name intern_hash -->
       <column type="gchararray"/>
+      <!-- column-name intern_server -->
+      <column type="gchararray"/>
     </columns>
   </object>
   <object class="GtkListStore" id="reflist">
@@ -232,6 +234,22 @@
                         <property name="top_attach">0</property>
                       </packing>
                     </child>
+                    <child>
+                      <object class="GtkButton" id="opennodeb">
+                        <property name="label" translatable="yes">_Open</property>
+                        <property name="can_focus">True</property>
+                        <property name="receives_default">True</property>
+                        <property name="halign">start</property>
+                        <property name="margin_right">3</property>
+                        <property name="margin_bottom">3</property>
+                        <property name="use_underline">True</property>
+                        <signal name="clicked" handler="opennode" swapped="no"/>
+                      </object>
+                      <packing>
+                        <property name="left_attach">2</property>
+                        <property name="top_attach">0</property>
+                      </packing>
+                    </child>
                   </object>
                 </child>
                 <child type="label">
@@ -355,6 +373,15 @@
                         <property name="label" translatable="yes">Manage _services</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="manageservices" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="openownnode">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Open own node</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="opennode_self" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -958,7 +985,10 @@
             <property name="can_focus">True</property>
             <property name="has_focus">True</property>
             <property name="is_focus">True</property>
+            <property name="can_default">True</property>
+            <property name="receives_default">True</property>
             <property name="hexpand">True</property>
+            <property name="shadow_type">none</property>
             <property name="secondary_icon_name">system-run</property>
             <signal name="activate" handler="cmd_do" swapped="no"/>
           </object>
@@ -1009,7 +1039,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         <property name="min_content_width">250</property>
         <property name="min_content_height">300</property>
         <child>
-          <object class="GtkTextView" id="textview1">
+          <object class="GtkTextView" id="debugview">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="editable">False</property>

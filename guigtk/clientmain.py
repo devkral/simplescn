@@ -58,11 +58,14 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     #use_remote_client=False
     
     debugwin=None
+    debugbuffer = None
+    debugview = None
     cmdwin=None
     clientwin=None
     debug_wintoggle=None
     cmd_wintoggle=None
     client_wintoggle=None
+    
     
     remoteclient_url=""
     remoteclient_hash=""
@@ -96,12 +99,16 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.recentstore=self.builder.get_object("recentstore")
         self.statusbar=self.builder.get_object("mainstatusbar")
         self.hashstatusbar=self.builder.get_object("hashstatusbar")
+        self.debugbuffer = self.builder.get_object("debugbuffer")
+        self.debugview = self.builder.get_object("debugview")
         
         recentview=self.builder.get_object("recentview")
         localview=self.builder.get_object("localview")
         
         cmdbuffer = self.builder.get_object("cmdbuffer")
         cmdbuffer.create_mark("scroll",cmdbuffer.get_end_iter(),True)
+        
+        self.debugbuffer.create_mark("scroll",self.debugbuffer.get_end_iter(),True)
         #self.builder.get_object("cmdscrollwin").get_vscrollbar().set_range(0, 300)
         #comboreftype=self.builder.get_object("comboreftype")
         #for elem in implementedrefs:
@@ -386,8 +393,19 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.backlog+=[record,]
         if len(self.backlog)>200:
             self.backlog=self.backlog[200:]
-        self.statusbar.push(messageid, record.msg)
-        self.hashstatusbar.push(messageid, record.msg)
+        self.statusbar.push(messageid, str(record.msg))
+        self.hashstatusbar.push(messageid, str(record.msg))
+        
+        
+        st="{}\n".format(record.msg)
+        if record.stack_info is not None:
+            st="{}\n{}\n".format(st,record.stack_info)
+        # TODO: fix by getting position from iter
+        if self.debugbuffer.get_end_iter() != self.debugbuffer.get_start_iter():
+            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"-----------------------\n")
+        self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n".format(st))
+        self.debugbuffer.move_mark_by_name("scroll", self.debugbuffer.get_end_iter())
+        self.debugview.scroll_to_mark(self.debugbuffer.get_mark("scroll"),0.4,True,0,1)
         self.pushmanage()
     
     def _verifyserver(self,serverurl):
@@ -416,33 +434,40 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     
     def set_curnode(self, _clientaddress,_name,_hash,_serveraddress=None):
         if self.curnode is not None and self.curnode[0]!=isself:
+            self.recentstore.prepend(self.curnode)
             if self.recentcount<20:
                 self.recentcount+=1
-                self.recentstore.prepend(self.curnode)
             else:
-                self.recentstore.prepend(self.curnode)
                 self.recentstore.remove(self.recentstore.iter_n_children(20))
                 
         cnode=self.builder.get_object("curnode")
         cnodeorigin=self.builder.get_object("nodeorigin")
+        opennodeb=self.builder.get_object("opennodeb")
         _ask=self.do_requestdo("ask",_clientaddress,self.header_server)
         if _ask[0]==False:
             cnodeorigin.set_text("")
             cnode.set_text("invalid")
+            opennodeb.set_sensitive(False)
             self.curnode=None
         elif _ask[1][0] is None:
             cnodeorigin.set_text("remote:")
             cnode.set_text(_name)
+            opennodeb.show()
+            opennodeb.set_sensitive(True)
             self.curnode=(_name,_clientaddress,_name,_hash,_serveraddress)
         elif _ask[1][0] is isself:
             cnodeorigin.set_text("")
             cnode.set_text("This client")
+            opennodeb.show()
+            opennodeb.set_sensitive(True)
             self.curnode=(isself,_clientaddress,_name,_hash,_serveraddress)
             #self.curnode=(_name,_address,_name,_hash)
         else:
             cnodeorigin.set_text("verified:")
             cnode.set_text(_ask[1][0])
-            self.curnode=(_ask[1][0],_address,_name,_hash,_serveraddress)
+            opennodeb.show()
+            opennodeb.set_sensitive(True)
+            self.curnode=(_ask[1][0],_clientaddress,_name,_hash,_serveraddress)
         
         
         
@@ -591,6 +616,13 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         if self.curnode is not None:
             tdparam["certhash"]=self.curnode[3]
             gtkclient_node(self.links,self.curnode[1],tdparam,self.curnode[0])
+    
+    def opennode_self(self,*args):
+        tdparam=self.header_node.copy()
+        ret=self.do_requestdo("show",tdparam)
+        if ret[0] == True:
+            tdparam["certhash"]=ret[1][1]
+            gtkclient_node(self.links,"localhost:{}".format(ret[1][2]),tdparam,isself)
     
     # update node type then open node 
     def get_node(self,*args):
@@ -985,13 +1017,12 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             elif resp["certname"] is isself:
                 cmdveri.set_text("Is own client")
             else:
-                cmdveri.set_text("Verified as: "+resp["certname"])
+                cmdveri.set_text("Verified as: "+resp[2])
             inp.set_text("")
         else:
             out.insert(out.get_end_iter(),"Error:\n")
-        out.insert(out.get_end_iter(),resp["output"]+"\n")
+        out.insert(out.get_end_iter(),resp[1]+"\n")
         out.move_mark_by_name("scroll", out.get_end_iter())
-        #out.place_cursor(out.get_end_iter())
         cmdview.scroll_to_mark(out.get_mark("scroll"),0.4,True,0,1)
         #place_cursor_onscreen()
         #cmdwinscrolla.set_value(0) #100)

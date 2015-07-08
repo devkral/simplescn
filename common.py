@@ -19,7 +19,6 @@ import re
 import threading
 from http import client
 
-#from subprocess import Popen,PIPE
 key_size = 4096
 server_port = 4040
 #client_port=4041
@@ -88,15 +87,6 @@ loggerinst=None
 
 def logger():
     return loggerinst
-#class logger(scn_logger):
-#    @classmethod
-#    def __prepare__(metacls, name, bases, **kwds):
-#        return loggerinst
-#    
-#    def __new__(cls, name, bases, namespace, **kwds):
-#        result = type.__new__(cls, name, bases, dict(namespace))
-#        result.members = tuple(namespace)
-#        return result
 
 def init_logger(_logger = scn_logger()):
     global loggerinst
@@ -430,12 +420,13 @@ class pluginmanager(object):
             # path is array with searchpathes
             pspec = importlib.machinery.PathFinder.find_spec(plugin[0],[plugin[1],])
             if pspec is None or pspec.loader is None:
-                logger().info("Plugin \"{}\" not loaded\nPath: {}".format(plugin[0],[plugin[1],]))
+                logger().info("Plugin \"{}\" not loaded\nPath: {}".format(plugin[0],plugin[1]))
                 continue
 
             #init sys pathes
             newenv = self.pluginenv.copy()
-            newenv.append(os.path.join(plugin[1], plugin[0]))
+            pluginpath = os.path.join(plugin[1], plugin[0])
+            newenv.append(pluginpath)
             pspec.submodule_search_locations = newenv
             #load module
             if not hasattr(pspec.loader, 'exec_module'):
@@ -468,6 +459,7 @@ class pluginmanager(object):
             pload.config = pconf # no copy because it is the only user
             pload.resources = self.resources # no copy because they can change
             pload.interfaces = self.interfaces.copy() # copy because of isolation
+            pload.path = pluginpath # no copy because it is the only user
             ret = False
             # load plugin init method
             try:
@@ -481,7 +473,7 @@ class pluginmanager(object):
                 logger().error(st)
             # receive is a function to overload, it get connections from handler
             if ret == True:
-                self.plugins[plugin] = pload
+                self.plugins[plugin[0]] = pload
             else:
                 del pload # delete
 

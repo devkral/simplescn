@@ -175,23 +175,16 @@ class server_handler(BaseHTTPRequestHandler):
     def check_spw(self):
         if self.spwhash is None:
             return True
-        if "spwhash" in self.headers:
-            if dhash_salt(self.headers["spwhash"],self.salt)==self.spwhash:
+        if "spwauth" in self.headers and "nonce" in self.headers:
+            if dhash_salt(self.headers["spwauth"],self.headers["nonce"])==self.spwhash:
                 return True
         return False
-    """
-    WWW-Authenticate: Digest realm="testrealm@host.com",
-                        qop="auth,auth-int",
-                        algorithm="SHA256", or should I use SHA256session
-                        nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
-                        opaque="5ccc069c403ebaf9f0171e9517f40e41"
-                        """
     #check server password
     def check_tpw(self):
         if self.tpwhash is None:
             return True
-        if "tpwhash" in self.headers:
-            if dhash_salt(self.headers["tpwhash"],self.salt)==self.tpwhash:
+        if "tpwauth" in self.headers and "nonce" in self.headers:
+            if dhash_salt(self.headers["tpwauth"],self.headers["nonce"])==self.tpwhash:
                 return True
         return False
 
@@ -346,18 +339,24 @@ class server_init(object):
         
         server_handler.salt = os.urandom(8)
         if kwargs["spwhash"] is not None:
-            server_handler.spwhash = dhash_salt(kwargs["spwhash"],server_handler.salt)
+            server_handler.spwhash = kwargs["spwhash"]
         elif kwargs["spwfile"] is not None:
-            op=open("r")
-            server_handler.spwhash = gen_passwd_hash(op.readline())
+            op=open(kwargs["spwfile"], "r")
+            pw=op.readline()
+            if pw[-1] == "\n":
+                pw = pw[:-1]
+            server_handler.spwhash = dhash(pw)
             op.close()
         if kwargs["tunnel"] is not None:
             server_handler.istunnel = True
         if kwargs["tpwhash"] is not None:
-            server_handler.tpwhash = dhash_salt(kwargs["tpwhash"],server_handler.salt)
+            server_handler.tpwhash = kwargs["tpwhash"]
         elif kwargs["tpwfile"] is not None:
-            op=open("r")
-            server_handler.tpwhash=gen_passwd_hash(op.readline())
+            op=open(kwargs["tpwfile"], "r")
+            pw=op.readline()
+            if pw[-1] == "\n":
+                pw = pw[:-1]
+            server_handler.tpwhash = dhash(pw)
             op.close()
         server_handler.ttimeout=int(kwargs["ttimeout"])
         server_handler.stimeout=int(kwargs["stimeout"])
@@ -388,7 +387,6 @@ class server_init(object):
             print("should be: <name>/<port>")
             print("Name has some restricted characters")
             
-
         
         if port is not None:
             port=int(port)
