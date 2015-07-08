@@ -9,7 +9,6 @@ from common import sharedir,isself, logger
 
 
 class gtkclient_node(gtkclient_template):
-    
     def __init__(self,links,_address,dheader,name=""):
         gtkclient_template.__init__(self, links,_address,dheader)
         if self.init2(os.path.join(sharedir, "guigtk", "clientnode.ui"))==False:
@@ -38,15 +37,17 @@ class gtkclient_node(gtkclient_template):
             if "gui_node_actions" in plugin.__dict__:
                 try:
                     for action in plugin.gui_node_actions:
+                        if "action" not in action or "text" not in action:
+                            continue
                         item = Gtk.MenuItem()
                         itemb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
                         item.add(itemb)
-                        itemb.pack_end(Gtk.Label(action[0]), True, True,0)
-                        if len(action)==3:
-                            itemb.pack_end(Gtk.Image.new_from_file(action[2]), True, True,0)
+                        itemb.pack_end(Gtk.Label(action["text"]), True, True,0)
+                        if "icon" in action:
+                            itemb.pack_end(Gtk.Image.new_from_file(action["icon"]), True, True,0)
                         itemb.show_all()
                         item.show()
-                        item.connect('activate',activate_shielded(action[1],action[0]))
+                        item.connect('activate',activate_shielded(action["action"],self.address,self.dheader))
                         menu.append(item)
                 except Exception as e:
                     logger().error(e)

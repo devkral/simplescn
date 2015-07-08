@@ -13,9 +13,9 @@ run=True
 open_addresses={}
 
 
-def activate_shielded(action,name):
+def activate_shielded(action, url, header):
     def shielded(widget):
-        action(name)
+        action(url, header.copy())
     return shielded
 
 class gtkclient_template(Gtk.Builder):
