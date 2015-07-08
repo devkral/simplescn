@@ -109,8 +109,7 @@ if __name__ == "__main__":
     #global cm
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
-        # TODO: improve command
-        pluginm.resources["command"] = cm.links["client"].command
+        pluginm.resources["access"] = cm.links["client"].access
         pluginm.init_plugins()
     do_gtkiteration()
     #del cm

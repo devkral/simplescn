@@ -54,7 +54,7 @@ class client_client(object):
     _cache_help = None
     pwcallmethod=input
     #isself=isself
-    validactions={"register","get","connect","gethash", "help", "show","addhash", "delhash", "movehash", "get", "getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "renameentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref", "setconfig", "setpluginconfig", "access"}
+    validactions={"register", "get", "connect", "gethash", "help", "show","addhash", "delhash", "movehash", "getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "renameentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref", "setconfig", "setpluginconfig", "access"}
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
@@ -1172,10 +1172,8 @@ if __name__ ==  "__main__":
     cm=client_init(confm,pluginm)
 
     if confm.getb("noplugins")==False:
-        # needs nothing as resources as spoken via post
-        # pluginm.resources["links"] = cm.links
-        # function
-        #pluginm.resources["client"] = cm.links["client"].request_plugins()
+        # needs not much as ressource (interfaces)
+        pluginm.resources["access"] = cm.links["client"].access
         pluginm.init_plugins()
 
     if confm.getb("cmd")!=False:
