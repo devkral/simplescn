@@ -3,14 +3,10 @@
 import os
 from gi.repository import Gtk
 
-from guigtk.guicommon import gtkclient_template
+from guigtk.guicommon import gtkclient_template, activate_shielded
 from common import sharedir,isself, logger
 
 
-def activate_shield(action,name):
-    def shielded(widget):
-        action(name)
-    return shielded
 
 class gtkclient_node(gtkclient_template):
     
@@ -42,7 +38,7 @@ class gtkclient_node(gtkclient_template):
             if "gui_node_actions" in plugin.__dict__:
                 try:
                     for action in plugin.gui_node_actions:
-                        item = Gtk.MenuItem() #(label=action[0])
+                        item = Gtk.MenuItem()
                         itemb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
                         item.add(itemb)
                         itemb.pack_end(Gtk.Label(action[0]), True, True,0)
@@ -50,10 +46,8 @@ class gtkclient_node(gtkclient_template):
                             itemb.pack_end(Gtk.Image.new_from_file(action[2]), True, True,0)
                         itemb.show_all()
                         item.show()
-                        item.connect('activate',activate_shield(action[1],action[0]))
-                        #
+                        item.connect('activate',activate_shielded(action[1],action[0]))
                         menu.append(item)
-                        #Gtk.MenuItem()
                 except Exception as e:
                     logger().error(e)
     

@@ -400,8 +400,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         st="{}\n".format(record.msg)
         if record.stack_info is not None:
             st="{}\n{}\n".format(st,record.stack_info)
-        # TODO: fix by getting position from iter
-        if self.debugbuffer.get_end_iter() != self.debugbuffer.get_start_iter():
+        if self.debugbuffer.get_end_iter().is_start()==False:
             self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"-----------------------\n")
         self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n".format(st))
         self.debugbuffer.move_mark_by_name("scroll", self.debugbuffer.get_end_iter())

@@ -3,7 +3,7 @@
 import os
 
 from gi.repository import Gtk
-from guigtk.guicommon import gtkclient_template
+from guigtk.guicommon import gtkclient_template, activate_shielded
 from common import sharedir,isself
 
 class gtkclient_server(gtkclient_template):
@@ -47,7 +47,8 @@ class gtkclient_server(gtkclient_template):
         self.connect_signals(self)
         self.win.connect('delete-event',self.close)
         self.update()
-    
+        self.update_actions()
+
     def update(self,*args):
         namestore=self.get_object("servernodelist")
         registerb=self.get_object("registerbutton")
@@ -69,14 +70,27 @@ class gtkclient_server(gtkclient_template):
             registerb.set_label("Register")
         else:
             registerb.set_label("Update Address")
-            
 
+
+    def update_actions(self,*args):
+        menu = self.get_object("actions")
+        for plugin in self.links["client_server"].pluginmanager.plugins.values():
+            if "gui_server_actions" in plugin.__dict__:
+                try:
+                    for action in plugin.gui_server_actions:
+                        item = Gtk.MenuItem()
+                        itemb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+                        item.add(itemb)
+                        itemb.pack_end(Gtk.Label(action[0]), True, True,0)
+                        if len(action)==3:
+                            itemb.pack_end(Gtk.Image.new_from_file(action[2]), True, True,0)
+                        itemb.show_all()
+                        item.show()
+                        item.connect('activate',activate_shielded(action[1],action[0]))
+                        menu.append(item)
+                except Exception as e:
+                    logger().error(e)
     
-    def update_plugins(self,*args):
-        pass
-    
-    def activate_action(self,*args):
-        pass
     
     
     def snode_get(self,*args):

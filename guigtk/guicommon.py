@@ -12,6 +12,12 @@ run=True
 
 open_addresses={}
 
+
+def activate_shielded(action,name):
+    def shielded(widget):
+        action(name)
+    return shielded
+
 class gtkclient_template(Gtk.Builder):
     #builder=None
     links=None
