@@ -23,7 +23,8 @@ defaults={}
 
 # initialises plugin. Returns False or Exception for not loading  (needed)
 def init():
-    print("Hello World")
+    print("Hello "+interfaces[0])
+    print("I offer: {}".format(interfaces[1:]))
     return True
 
 
