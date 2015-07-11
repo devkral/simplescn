@@ -1,14 +1,16 @@
 
+
+
+
 ## Alpha
-* rewrite cmd interface e.g.: input: input returns: out, pluginout, valid
-* passwords: client generates salt for pw and append it seperated with ":"
-* plugin handling
 * tests, documentation
 * windows compatibility
 * usability
+*
 
 
-## Future:
+## Future
 * plugin sandboxing
 * announce client/server
 * filesockets
+* 

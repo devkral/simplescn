@@ -54,6 +54,7 @@ class client_client(object):
     _cache_help = None
     pwcallmethod=input
     #isself=isself
+    #TODO: split validactions POST and GET
     validactions={"register", "get", "connect", "gethash", "help", "show","addhash", "delhash", "movehash", "getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "renameentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref", "setconfig", "setpluginconfig", "access"}
     #pwcache={}
     
@@ -127,7 +128,8 @@ class client_client(object):
     
     def help(self, dheader): 
         return (True,self._cache_help,isself,self.cert_hash)
-        
+    
+    #returns name,certhash,ownsocket
     def show(self,dheader):
         return (True,(self.name,self.cert_hash,
                 str(self.links["server"].socket.getsockname()[1])),isself,self.cert_hash)
@@ -517,6 +519,7 @@ class client_client(object):
     
     
     # command wrapper for cmd interfaces
+    # TODO: do_Post make available from remote
     def command(self,inp):
         reqheader=reference_header.copy()
         ret = [False, None, self.cert_hash, isself ]

@@ -1379,10 +1379,7 @@ class gtkclient_init(client.client_init):
             logger().debug("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
             logger().debug("Certificate generation complete")
-        
-        client.client_init.__init__(self,confm,pluginpathes)
-            
-        #_client="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        client.client_init.__init__(self, confm, pluginpathes)
         logger().debug("start client server")
         self.serve_forever_nonblock()
         logger().debug("start gtkclient")

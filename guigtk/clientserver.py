@@ -56,7 +56,7 @@ class gtkclient_server(gtkclient_template):
         namestore.clear()
         _names=self.do_requestdo("listnames",self.address)
         if _names[0]==False:
-            logging.error(_names[1])
+            logger().error(_names[1])
             return
         for elem in _names[1]:
             if elem[2] is None:
@@ -134,9 +134,14 @@ class gtkclient_server(gtkclient_template):
         namestore=self.get_object("servernodelist")
         res=self.do_requestdo("register",self.address)
         if res[0]==False:
-            logging.error(res[1])
+            logger().error(res[1])
+            return
         if self.isregistered==False:
+            res_show=self.do_requestdo("show")
+            if res_show==False:
+                logger().error(res[1])
+                return
             self.isregistered=True
-            namestore.prepend((self.links["client_server"].name,self.links["client"].cert_hash,"This client","{}/{}".format(self.links["client_server"].name,self.links["client"].cert_hash)))
+            namestore.prepend(("self", res_show[1][0], res_show[1][1], "{}/{}".format(res_show[1][0], res_show[1][1])))
             registerb.set_label("Update Address")
 
