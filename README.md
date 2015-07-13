@@ -1,10 +1,11 @@
-Simple replacement for dyndns.
+Simple, secure, with plugins enhanceable, communication platform.
+This includes the management of dynamic ips and ports
 Just register your clients with their own new generated keys
-nodes are not permanent, a restart deletes the entries on the server
+Nodes are not permanent, a restart deletes the entries on the server
 
 Features:
 * passwordprotection
-* entirely controllable by webbrowser
+* entirely controllable by a webbrowser (frontend not finished)
 
 Dependencies:
 * python-openssl (python3 version)

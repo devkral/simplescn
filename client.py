@@ -1,16 +1,22 @@
 #! /usr/bin/env python3
 
-
 import sys,os
 
-sharedir=None
-if sharedir is None:
-    sharedir=os.path.dirname(os.path.realpath(__file__))
+sharedir = None
+if "__file__" not in globals():
+    __file__ = sys.argv[0]
 
+if sharedir is None:
+    # use sys
+    sharedir = os.path.dirname(os.path.realpath(__file__))
+
+# append to pathes
 if sharedir[-1] == os.sep:
     sharedir = sharedir[:-1]
 if sharedir not in sys.path:
     sys.path.append(sharedir)
+
+
 
 #import SSL as ssln
 #from OpenSSL import SSL,crypto

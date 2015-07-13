@@ -1,18 +1,45 @@
 #! /usr/bin/env python3
 
-import os, sys, platform
+# preamble, recommended for portability
+#import os, sys
+#sharedir = None
+#if "__file__" not in globals():
+#    __file__ = sys.argv[0]
+#
+#if sharedir is None:
+#    # use sys
+#    sharedir = os.path.dirname(os.path.realpath(__file__))
+#
+## append to pathes
+#if sharedir[-1] == os.sep:
+#    sharedir = sharedir[:-1]
+#if sharedir not in sys.path:
+#    sys.path.append(sharedir)
 
+# not preamble used by sharedir files
+import os, sys
+if "__file__" not in globals():
+    __file__ = sys.argv[0]
 sharedir = os.path.dirname(os.path.realpath(__file__))
+
+# append to pathes
+if sharedir[-1] == os.sep:
+    sharedir = sharedir[:-1]
+if sharedir not in sys.path:
+    sys.path.append(sharedir)
+
 
 #if platform.python_implementation()=="PyPy":
 #    sys.path+=['', '/usr/lib/python34.zip', '/usr/lib/python3.4', '/usr/lib/python3.4/plat-linux', '/usr/lib/python3.4/lib-dynload', '/usr/lib/python3.4/site-packages', '/usr/lib/site-python']
+
 import importlib
 from types import ModuleType # needed for ModuleType
 
-import logging
+import logging, platform
 from OpenSSL import SSL, crypto
 import ssl
 import socket
+import traceback
 
 import hashlib
 import re
@@ -36,7 +63,7 @@ class AddressFail(Exception):
 class EnforcedPortFail(AddressFail):
     msg = 'address is lacking":<port>"\n{}'.format(AddressFail.msg)
 class AddressEmptyFail(AddressFail):
-    msg = 'address is empty\n'.format(AddressFail.msg)
+    msg = 'address is empty\n{}'.format(AddressFail.msg)
 
 
 class VALError(Exception):
@@ -82,10 +109,11 @@ class scn_logger(logging.Logger):
             return False
 
 
-global loggerinst
+#global loggerinst
 loggerinst=None
 
 def logger():
+    global loggerinst
     return loggerinst
 
 def init_logger(_logger = scn_logger()):
@@ -434,7 +462,7 @@ class pluginmanager(object):
             else:
                 pload = None
                 if hasattr(pspec.loader, 'create_module'):
-                    pload = spec.loader.create_module(spec)
+                    pload = pspec.loader.create_module(pspec)
                 if pload is None:
                     pload = ModuleType(pspec.name)
                 try:
@@ -921,8 +949,8 @@ class certhash_db(object):
     def findbyref(self, dbcon, _reference):
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE reference=?;''', (_reference,))
-        temp = cur.fetchone()
-        if temp is None:
+        _referenceid = cur.fetchone()
+        if _referenceid is None:
             return None
         cur.execute('''SELECT name,certhash,type,priority FROM certs WHERE certreferenceid=?;''', (_referenceid,))
         return cur.fetchall()
