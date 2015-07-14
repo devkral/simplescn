@@ -7,7 +7,8 @@ from guigtk.guicommon import gtkclient_template, activate_shielded
 from common import sharedir,isself, logger
 
 class gtkclient_server(gtkclient_template):
-    isregistered=False
+    isregistered = False
+    sfilter = None
     
     def visible_func (self,_model,_iter,_data):
         _entry=self.get_object("servernodeentry")
@@ -23,7 +24,7 @@ class gtkclient_server(gtkclient_template):
             return
         
         self.win=self.get_object("serverwin")
-        self.filter=self.get_object("snodefilter")
+        self.sfilter=self.get_object("snodefilter")
         view=self.get_object("servernodeview")
         col0renderer=Gtk.CellRendererText()
         col0 = Gtk.TreeViewColumn("state", col0renderer, text=0)
@@ -42,7 +43,7 @@ class gtkclient_server(gtkclient_template):
         else:
             self.win.set_title(name)
         
-        self.filter.set_visible_func(self.visible_func)
+        self.sfilter.set_visible_func(self.visible_func)
         
         self.connect_signals(self)
         self.win.connect('delete-event',self.close)
@@ -127,7 +128,7 @@ class gtkclient_server(gtkclient_template):
         
     
     def snode_filter(self,*args):
-        self.filter.refilter()
+        self.sfilter.refilter()
     
     def register(self,*args):
         registerb=self.get_object("registerbutton")

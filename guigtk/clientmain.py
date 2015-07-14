@@ -14,6 +14,8 @@ from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node
 from guigtk.clientserver import gtkclient_server
 from guigtk.clientservice import gtkclient_remoteservice
+from guigtk.clientmain_sub import services_stuff, cmd_stuff, debug_stuff
+from guigtk.clientmain_managehash import hashmanagement
 
 from client import reference_header
 from common import init_config_folder, check_certs,default_sslcont, sharedir, \
@@ -37,7 +39,7 @@ run=True
 implementedrefs=["surl", "url", "name"]
 #,"sname"
 
-class gtkclient_main(logging.Handler,Gtk.Application):
+class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, debug_stuff, hashmanagement):
     links=None
 
     curnode=None
@@ -57,13 +59,8 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     remote_client=None
     #use_remote_client=False
     
-    debugwin=None
-    debugbuffer = None
-    debugview = None
-    cmdwin=None
+
     clientwin=None
-    debug_wintoggle=None
-    cmd_wintoggle=None
     client_wintoggle=None
     
     
@@ -90,6 +87,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.builder=Gtk.Builder()
         self.builder.set_application(self)
         self.builder.add_from_file(os.path.join(sharedir, "guigtk", "clientmain.ui"))
+        self.builder.add_from_file(os.path.join(sharedir, "guigtk", "clientmain_sub.ui"))
         self.builder.connect_signals(self)
         
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
@@ -99,41 +97,30 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.recentstore=self.builder.get_object("recentstore")
         self.statusbar=self.builder.get_object("mainstatusbar")
         self.hashstatusbar=self.builder.get_object("hashstatusbar")
-        self.debugbuffer = self.builder.get_object("debugbuffer")
-        self.debugview = self.builder.get_object("debugview")
         
         recentview=self.builder.get_object("recentview")
         localview=self.builder.get_object("localview")
         
-        cmdbuffer = self.builder.get_object("cmdbuffer")
-        cmdbuffer.create_mark("scroll",cmdbuffer.get_end_iter(),True)
-        
-        self.debugbuffer.create_mark("scroll",self.debugbuffer.get_end_iter(),True)
-        #self.builder.get_object("cmdscrollwin").get_vscrollbar().set_range(0, 300)
-        #comboreftype=self.builder.get_object("comboreftype")
-        #for elem in implementedrefs:
-        #    comboreftype.append_text(elem)
+        debug_stuff.__init__(self)
+        services_stuff.__init__(self)
+        cmd_stuff.__init__(self)
+        hashmanagement.__init__(self)
         
         listnodetypes=self.builder.get_object("listnodetypes")
         listnodetypes.append(("server","Server"))
         listnodetypes.append(("client","Friend"))
         listnodetypes.append(("unknown","Unknown"))
         
-        self.debugwin=self.builder.get_object("debugwin")
-        self.cmdwin=self.builder.get_object("cmdwin")
+        
         self.clientwin=self.builder.get_object("clientdia")
-        self.mswin = self.builder.get_object("manageserviceswin")
         self.addentitydia = self.builder.get_object("addentitydia")
         self.delentitydia = self.builder.get_object("delentitydia")
         self.delrefdia = self.builder.get_object("delrefdia")
         self.addnodedia = self.builder.get_object("addnodedia")
         self.delnodedia = self.builder.get_object("delnodedia")
-        self.managehashdia = self.builder.get_object("managehashdia")
         self.enternodedia = self.builder.get_object("enternodedia")
         self.renameentitydia = self.builder.get_object("renameentitydia")
         
-        self.debug_wintoggle = self.builder.get_object("debugme")
-        self.cmd_wintoggle = self.builder.get_object("cmdme")
         self.client_wintoggle = self.builder.get_object("useremoteclient")
         
         
@@ -156,14 +143,6 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         recentcol2 = Gtk.TreeViewColumn("Url", Gtk.CellRendererText(), text=1)
         recentview.append_column(recentcol2)
         
-        serviceview=self.builder.get_object("localserviceview")
-        servicecol = Gtk.TreeViewColumn("Service", Gtk.CellRendererText(), text=0)
-        serviceview.append_column(servicecol)
-        servicecol2 = Gtk.TreeViewColumn("Port", Gtk.CellRendererText(), text=1)
-        serviceview.append_column(servicecol2)
-        
-        
-        
         hview=self.builder.get_object("hashview")
         rview=self.builder.get_object("refview")
         
@@ -178,25 +157,18 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         
         self.localstore=self.builder.get_object("localstore")
         
-        self.debugwin.connect('delete-event',self.close_debug)
-        self.cmdwin.connect('delete-event',self.close_cmd)
+        
+        
         self.clientwin.connect('delete-event',self.close_clientdia)
-        self.mswin.connect('delete-event',self.close_manages)
+        
         self.addentitydia.connect('delete-event',self.close_addentitydia)
         self.delentitydia.connect('delete-event',self.close_delentitydia)
         self.delrefdia.connect('delete-event',self.close_delrefdia)
         self.addnodedia.connect('delete-event',self.close_addnodedia)
         self.delnodedia.connect('delete-event',self.close_delnodedia)
-        self.managehashdia.connect('delete-event',self.close_managehashdia)
         self.enternodedia.connect('delete-event',self.close_enternodedia)
         self.renameentitydia.connect('delete-event',self.close_renameentitydia)
         self.win.connect('delete-event',self.close)
-        
-        
-        #overstore.append("Unknown",unstore)
-        
-        
-        #self.clientwin.connect('delete-event',self.close_client)
         
         self.update_storage()
 
@@ -404,7 +376,8 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"-----------------------\n")
         self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n".format(st))
         self.debugbuffer.move_mark_by_name("scroll", self.debugbuffer.get_end_iter())
-        self.debugview.scroll_to_mark(self.debugbuffer.get_mark("scroll"),0.4,True,0,1)
+        scrollmark = self.debugbuffer.get_mark("scroll")
+        self.debugview.scroll_to_mark(scrollmark,0.4,True,0,1)
         self.pushmanage()
     
     def _verifyserver(self,serverurl):
@@ -467,8 +440,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             opennodeb.show()
             opennodeb.set_sensitive(True)
             self.curnode=(_ask[1][0],_clientaddress,_name,_hash,_serveraddress)
-        
-        
+
         
     def server_info(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
@@ -483,9 +455,6 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             else:
                 name=temp[0]
             gtkclient_info(self.links,"{}:{}".format(*scnparse_url(serverurl)),tdparam,name)
-
-        
-
 
     
     def retrieve_server(self,*args):
@@ -768,7 +737,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         self.remoteclient_url=clurl.get_text()
         self.remoteclient_hash=self.builder.get_object("clienthash").get_text()
         self.use_localclient=self.builder.get_object("uselocal").get_active()
-        self.close_client()
+        self.close_clientdia()
         
     def client_localtoggle(self,*args):
         toggle=self.builder.get_object("uselocal")
@@ -780,82 +749,10 @@ class gtkclient_main(logging.Handler,Gtk.Application):
         else:
             clurl.set_sensitive(True)
             clhash.set_sensitive(True)
-    
-    
-    def update_services(self,*args):
-        localservicelist=self.builder.get_object("localservicelist")
-        localservicelist.clear()
-        but=self.builder.get_object("deleteserviceb")
-        but.hide()
-        services=self.do_requestdo("listservices",self.header_client)
-        if services[0]==False:
-            return
-        for elem in services[1]:
-            localservicelist.append((elem[0],elem[1]))
         
-    def add_service(self,*args):
-        localservicelist=self.builder.get_object("localservicelist")
-        servicee=self.builder.get_object("newservicenameentry")
-        porte=self.builder.get_object("newserviceportentry")
-        service=servicee.get_text().strip(" ").rstrip(" ")
-        port=porte.get_text().strip(" ").rstrip(" ")
-        if service=="":
-            logger().debug("service invalid")
-            return
-        if port=="" or port.isdecimal()==False:
-            logger().debug("port invalid")
-            return
-        ret=self.do_requestdo("registerservice",service,port,self.header_client)
-        if ret[0]==False:
-            logger().debug(ret[1])
-            return
-        servicee.set_text("")
-        porte.set_text("")
-        
-        localservicelist.append((service,port))
-    def sel_service(self,*args):
-        view=self.builder.get_object("localserviceview")
-        but=self.builder.get_object("deleteserviceb")
-        _sel=view.get_selection().get_selected()
-        if _sel[1] is None:
-            but.hide()
-        else:
-            but.show()
-    def del_service(self,*args):
-        view=self.builder.get_object("localserviceview")
-        _sel=view.get_selection().get_selected()
-        if _sel[1] is None:
-            return
-        service=_sel[0][_sel[1]][0]
-        if service=="":
-            return
-        ret=self.do_requestdo("delservice",service,self.header_client)
-        if ret[0]==False:
-            return
-        self.update_services()
-        
-    def manageservices(self,*args):
-        self.update_services()
-        self.mswin.show()
-        self.mswin.grab_focus()
     
     #### misc actions ####
-    
-    def debugme(self,*args):
-        if self.debug_wintoggle.get_active()==True:
-            self.debugwin.show()
-            self.debugwin.grab_focus()
-        else:
-            self.debugwin.hide()
-        
-    def cmdme(self,*args):
-        if self.cmd_wintoggle.get_active()==True:
-            self.cmdwin.show()
-            self.cmdwin.grab_focus()
-            
-        else:
-            self.cmdwin.hide()
-            
+
         
     def aboutme(self, args):
         pass
@@ -880,151 +777,11 @@ class gtkclient_main(logging.Handler,Gtk.Application):
                 self.do_requestdo("check",serverurl,_name,elem[0],self.header_server)
         self.update_storage()
         
-    def activate_local(self,*args):
-        serverurl=self.builder.get_object("servercomboentry").get_text()
-        getnodebut=self.builder.get_object("getnodebut")
-        action_sub=self.builder.get_object("refactiongrid_sub")
-        refactiongrid_sub=self.builder.get_object("refactiongrid_sub")
-        refscrollwin=self.builder.get_object("refscrollwin")
-        
-        localview=self.builder.get_object("localview")
-        _sel=localview.get_selection().get_selected()
-        if _sel[1] is None:
-            return
-        _name=_sel[0][_sel[1]][0]
-        
-        parentit=_sel[0].iter_parent(_sel[1])
-        if parentit is None:
-            self.addentity()
-            return
-        _type=_sel[0][parentit][0]
-        
-        if _type=="Server":
-            self.curlocal=("server",_name)
-        elif _type=="Friend":
-            self.curlocal=("client",_name)
-        else:
-            self.curlocal=("unknown",_name)
-        self._intern_node_type="unknown"
-        self.update_hashes()
-        self.managehashdia.set_title(_name)
-        
-        getnodebut.hide()
-        refactiongrid_sub.hide()
-        refscrollwin.hide()
-        self.managehashdia.show()
-        
-    def update_hashes(self,*args):
-        temp=self.do_requestdo("listhashes",self.curlocal[1],self.header_client)
-        hashlist=self.builder.get_object("hashlist")
-        hashlist.clear()
-        if temp[0]==False:
-            logger().debug("Exist?")
-            return
-        for elem in temp[1]:
-            if elem[1] is None:
-                if elem[0]!="default":
-                    logger().info("invalid element: {}".format(elem))
-            elif elem[1]==self.curlocal[0]:
-                hashlist.append((elem[0],))
-        
-    def select_hash(self,*args):
-        view=self.builder.get_object("hashview")
-        action_sub=self.builder.get_object("refactiongrid_sub")
-        refscrollwin=self.builder.get_object("refscrollwin")
-        
-        updatereftb=self.builder.get_object("updatereftb")
-        addrefb=self.builder.get_object("addrefb")
-        addrefentry=self.builder.get_object("addrefentry")
-        
-        
-        _sel=view.get_selection().get_selected()
-        reflist=self.builder.get_object("reflist")
-        reflist.clear()
-        
-        
-        if _sel[1] is None:
-            action_sub.hide()
-            refscrollwin.hide()
-            return
-        
-        action_sub.show()
-        
-        addrefentry.hide()
-        addrefb.show()
-        refscrollwin.show()
-        self.update_refs()
     
-    def select_ref(self,*args):
-        view=self.builder.get_object("refview")
-        getnodebut=self.builder.get_object("getnodebut")
-        
-        
-        addrefb=self.builder.get_object("addrefb")
-        delrefb=self.builder.get_object("delrefb")
-        updatereftb=self.builder.get_object("updatereftb")
-        
-        addrefentry=self.builder.get_object("addrefentry")
-        
-        
-        updatereftb.set_active(False)
-        _sel=view.get_selection().get_selected()
-        if _sel[1] is None:
-            getnodebut.hide()
-            delrefb.set_sensitive(False)
-            updatereftb.set_sensitive(False)
-            return
-        #updaterefentry.set_text(_sel[0][_sel[1]][1])
-        getnodebut.show()
-        delrefb.set_sensitive(True)
-        updatereftb.set_sensitive(True)
-        
-        addrefentry.hide()
-        addrefb.show()
-        
-        
-    def update_refs(self,*args):
-        hview=self.builder.get_object("hashview")
-        _sel=hview.get_selection().get_selected()
-        if _sel[1] is None:
-            return
-        _hash=_sel[0][_sel[1]][0]
-    
-        temp=self.do_requestdo("getreferences",_hash,self.header_client)
-        reflist=self.builder.get_object("reflist")
-        reflist.clear()
-        if temp[0]==False:
-            logger().debug("Exist?")
-            return
-        for elem in temp[1]:
-            reflist.append((elem[0],elem[1]))
         
     def client_help(self, args):
         pass
     
-    
-    
-    def cmd_do(self,*args):
-        cmdveri=self.builder.get_object("cmdveri")
-        inp=self.builder.get_object("cmdenter")
-        out=self.builder.get_object("cmdbuffer")
-        cmdview=self.builder.get_object("cmdview")
-        resp = self.links["client"].command(inp.get_text().strip(" ").rstrip(" "))
-        if resp["success"] == True:
-            if resp["certname"] is None:
-                cmdveri.set_text("Unverified")
-            elif resp["certname"] is isself:
-                cmdveri.set_text("Is own client")
-            else:
-                cmdveri.set_text("Verified as: "+resp[2])
-            inp.set_text("")
-        else:
-            out.insert(out.get_end_iter(),"Error:\n")
-        out.insert(out.get_end_iter(),resp[1]+"\n")
-        out.move_mark_by_name("scroll", out.get_end_iter())
-        cmdview.scroll_to_mark(out.get_mark("scroll"),0.4,True,0,1)
-        #place_cursor_onscreen()
-        #cmdwinscrolla.set_value(0) #100)
         
     
     ##### etc
@@ -1046,7 +803,8 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             self.localstore.insert_with_values(self.emptyit,-1,[0,],[_entity,])
             
     def delentity(self,*args):
-        self.builder.get_object("showentity")
+        entity = self.builder.get_object("showentity")
+        entity.set_text(self.curlocal[1])
         self.delentitydia.show()
         
     def delentity_confirm(self,*args):
@@ -1311,22 +1069,10 @@ class gtkclient_main(logging.Handler,Gtk.Application):
             logger().info(ret[1])
     ### close
     
-    def close_debug(self,*args):
-        self.debug_wintoggle.set_active(False)
-        self.debugwin.hide()
-        return True
     
-    def close_cmd(self,*args):
-        self.cmd_wintoggle.set_active(False)
-        self.cmdwin.hide()
-        return True
         
     def close_clientdia(self,*args):
         self.clientwin.hide()
-        return True
-    
-    def close_manages(self,*args):
-        self.mswin.hide()
         return True
     
     def close_addentitydia(self,*args):
@@ -1345,11 +1091,7 @@ class gtkclient_main(logging.Handler,Gtk.Application):
     def close_delrefdia(self,*args):
         self.delrefdia.hide()
         return True
-        
-    def close_managehashdia(self,*args):
-        self.managehashdia.hide()
-        return True
-        
+
     def close_addnodedia(self,*args):
         self.addnodedia.hide()
         return True

@@ -2,18 +2,6 @@
 <!-- Generated with glade 3.18.3 -->
 <interface>
   <requires lib="gtk+" version="3.12"/>
-  <object class="GtkTextBuffer" id="cmdbuffer"/>
-  <object class="GtkImage" id="confirmsimg">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="icon_name">document-save</property>
-  </object>
-  <object class="GtkTextBuffer" id="debugbuffer"/>
-  <object class="GtkImage" id="deletesimg">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="icon_name">edit-delete</property>
-  </object>
   <object class="GtkListStore" id="hashlist">
     <columns>
       <!-- column-name hash -->
@@ -33,21 +21,6 @@
       <!-- column-name name -->
       <column type="gchararray"/>
     </columns>
-  </object>
-  <object class="GtkListStore" id="localservicelist">
-    <columns>
-      <!-- column-name name -->
-      <column type="gchararray"/>
-      <!-- column-name port -->
-      <column type="gchararray"/>
-    </columns>
-  </object>
-  <object class="GtkEntryCompletion" id="localservicecomp">
-    <property name="model">localservicelist</property>
-    <property name="text_column">0</property>
-  </object>
-  <object class="GtkTreeModelFilter" id="localservicefilter">
-    <property name="child_model">localservicelist</property>
   </object>
   <object class="GtkTreeStore" id="localstore">
     <columns>
@@ -105,7 +78,7 @@
         <property name="margin_right">5</property>
         <property name="margin_bottom">1</property>
         <property name="hexpand">True</property>
-        <property name="row_spacing">2</property>
+        <property name="row_spacing">3</property>
         <child>
           <object class="GtkStatusbar" id="mainstatusbar">
             <property name="visible">True</property>
@@ -141,7 +114,7 @@
             <property name="can_focus">False</property>
             <property name="vexpand">True</property>
             <property name="row_spacing">3</property>
-            <property name="column_spacing">5</property>
+            <property name="column_spacing">3</property>
             <child>
               <object class="GtkScrolledWindow" id="scrolledwindow1">
                 <property name="visible">True</property>
@@ -256,7 +229,7 @@
                   <object class="GtkLabel" id="label8">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="label" translatable="yes">Current node:</property>
+                    <property name="label" translatable="yes">Current node</property>
                   </object>
                 </child>
               </object>
@@ -281,7 +254,7 @@
               <object class="GtkLabel" id="labels1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Server:</property>
+                <property name="label" translatable="yes">Server</property>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -309,7 +282,7 @@
                 </child>
               </object>
               <packing>
-                <property name="left_attach">1</property>
+                <property name="left_attach">2</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -323,7 +296,7 @@
                 <signal name="clicked" handler="retrieve_server" swapped="no"/>
               </object>
               <packing>
-                <property name="left_attach">2</property>
+                <property name="left_attach">3</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -333,7 +306,18 @@
                 <property name="can_focus">False</property>
               </object>
               <packing>
-                <property name="left_attach">3</property>
+                <property name="left_attach">4</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkArrow" id="arrow10">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">center</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
                 <property name="top_attach">0</property>
               </packing>
             </child>
@@ -620,8 +604,7 @@
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
-        <property name="row_spacing">2</property>
-        <property name="column_spacing">5</property>
+        <property name="row_spacing">3</property>
         <child>
           <object class="GtkGrid" id="addnamebgrid">
             <property name="visible">True</property>
@@ -658,14 +641,14 @@
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">1</property>
-            <property name="width">2</property>
+            <property name="width">3</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel" id="label3">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="label" translatable="yes">Entityname:</property>
+            <property name="label" translatable="yes">Entityname</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -677,6 +660,17 @@
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="hexpand">True</property>
+          </object>
+          <packing>
+            <property name="left_attach">2</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow11">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -702,13 +696,12 @@
         <property name="vexpand">True</property>
         <property name="border_width">3</property>
         <property name="row_spacing">3</property>
-        <property name="column_spacing">5</property>
         <child>
           <object class="GtkGrid" id="grid11">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="column_spacing">5</property>
+            <property name="column_spacing">3</property>
             <child>
               <object class="GtkButton" id="button3">
                 <property name="label" translatable="yes">Ok</property>
@@ -739,15 +732,16 @@
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">3</property>
-            <property name="width">2</property>
+            <property name="width">3</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel" id="label2">
+            <property name="height_request">20</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Type:</property>
+            <property name="label" translatable="yes">Type</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -756,10 +750,11 @@
         </child>
         <child>
           <object class="GtkLabel" id="label4">
+            <property name="height_request">20</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Name:</property>
+            <property name="label" translatable="yes">Name</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -768,10 +763,11 @@
         </child>
         <child>
           <object class="GtkLabel" id="label11">
+            <property name="height_request">20</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Hash:</property>
+            <property name="label" translatable="yes">Hash</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -782,11 +778,12 @@
           <object class="GtkComboBox" id="addnodecombo">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">start</property>
             <property name="model">localnames</property>
             <property name="id_column">0</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">0</property>
           </packing>
         </child>
@@ -794,9 +791,10 @@
           <object class="GtkEntry" id="addnodehashentry">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">1</property>
           </packing>
         </child>
@@ -804,12 +802,46 @@
           <object class="GtkComboBox" id="addnodetypecombo">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">start</property>
             <property name="model">listnodetypes</property>
             <property name="id_column">0</property>
           </object>
           <packing>
+            <property name="left_attach">2</property>
+            <property name="top_attach">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow12">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow13">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
             <property name="left_attach">1</property>
             <property name="top_attach">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow14">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
           </packing>
         </child>
       </object>
@@ -832,7 +864,6 @@
         <property name="can_focus">False</property>
         <property name="border_width">3</property>
         <property name="row_spacing">3</property>
-        <property name="column_spacing">3</property>
         <child>
           <object class="GtkGrid" id="clientbgrid">
             <property name="visible">True</property>
@@ -888,7 +919,7 @@
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">2</property>
-            <property name="width">2</property>
+            <property name="width">3</property>
           </packing>
         </child>
         <child>
@@ -900,7 +931,7 @@
             <property name="input_hints">GTK_INPUT_HINT_NO_SPELLCHECK | GTK_INPUT_HINT_NONE</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">0</property>
           </packing>
         </child>
@@ -913,7 +944,7 @@
             <property name="input_hints">GTK_INPUT_HINT_NO_SPELLCHECK | GTK_INPUT_HINT_NONE</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">1</property>
           </packing>
         </child>
@@ -922,7 +953,7 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Url:</property>
+            <property name="label" translatable="yes">Url</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -934,45 +965,7 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Hash:</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-  </object>
-  <object class="GtkApplicationWindow" id="cmdwin">
-    <property name="can_focus">True</property>
-    <property name="title" translatable="yes">cmd:</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
-    <property name="transient_for">mainwin</property>
-    <property name="show_menubar">False</property>
-    <child>
-      <object class="GtkGrid" id="grid4">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="border_width">4</property>
-        <child>
-          <object class="GtkScrolledWindow" id="cmdscrollwin">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <property name="shadow_type">in</property>
-            <property name="min_content_width">350</property>
-            <property name="min_content_height">300</property>
-            <child>
-              <object class="GtkTextView" id="cmdview">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="editable">False</property>
-                <property name="buffer">cmdbuffer</property>
-              </object>
-            </child>
+            <property name="label" translatable="yes">Hash</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -980,72 +973,26 @@
           </packing>
         </child>
         <child>
-          <object class="GtkEntry" id="cmdenter">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="has_focus">True</property>
-            <property name="is_focus">True</property>
-            <property name="can_default">True</property>
-            <property name="receives_default">True</property>
-            <property name="hexpand">True</property>
-            <property name="shadow_type">none</property>
-            <property name="secondary_icon_name">system-run</property>
-            <signal name="activate" handler="cmd_do" swapped="no"/>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">3</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="cmdhelplabel">
+          <object class="GtkArrow" id="arrow15">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="halign">start</property>
-            <property name="label" translatable="yes">Enter command, seperate by "/"
-Enter parameters by closing command with "?" and
-adding key1=value1&amp;key2=value2 key/value pairs:</property>
+            <property name="halign">center</property>
           </object>
           <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">2</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkLabel" id="cmdveri">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
+            <property name="left_attach">1</property>
             <property name="top_attach">0</property>
           </packing>
         </child>
-      </object>
-    </child>
-  </object>
-  <object class="GtkApplicationWindow" id="debugwin">
-    <property name="can_focus">True</property>
-    <property name="title" translatable="yes">Debug:</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.png</property>
-    <property name="transient_for">mainwin</property>
-    <property name="show_menubar">False</property>
-    <child>
-      <object class="GtkScrolledWindow" id="scrolledwindow2">
-        <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <property name="shadow_type">in</property>
-        <property name="min_content_width">250</property>
-        <property name="min_content_height">300</property>
         <child>
-          <object class="GtkTextView" id="debugview">
+          <object class="GtkArrow" id="arrow16">
             <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="editable">False</property>
-            <property name="wrap_mode">word</property>
-            <property name="buffer">debugbuffer</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
           </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
+          </packing>
         </child>
       </object>
     </child>
@@ -1068,12 +1015,16 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
+        <property name="row_spacing">3</property>
         <child>
           <object class="GtkGrid" id="delnamebgrid">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
+            <property name="valign">end</property>
+            <property name="hexpand">True</property>
             <property name="vexpand">True</property>
+            <property name="column_spacing">3</property>
             <child>
               <object class="GtkButton" id="okbuttonname1">
                 <property name="label" translatable="yes">Ok</property>
@@ -1104,15 +1055,16 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">1</property>
-            <property name="width">2</property>
+            <property name="width">3</property>
           </packing>
         </child>
         <child>
           <object class="GtkLabel" id="delentityla">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="label" translatable="yes">Delete Entity
-(and all hashes with their references):</property>
+            <property name="label" translatable="yes">Delete Entity (and all hashes with their references)</property>
+            <property name="wrap">True</property>
+            <property name="max_width_chars">12</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -1123,8 +1075,21 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <object class="GtkLabel" id="showentity">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">start</property>
+            <property name="hexpand">True</property>
             <property name="selectable">True</property>
             <property name="track_visited_links">False</property>
+          </object>
+          <packing>
+            <property name="left_attach">2</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -1155,14 +1120,14 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
-        <property name="column_spacing">7</property>
+        <property name="row_spacing">3</property>
         <child>
           <object class="GtkLabel" id="delnodela">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
             <property name="label" translatable="yes">Delete Node
-(with all references):</property>
+(with all references)</property>
             <property name="justify">right</property>
           </object>
           <packing>
@@ -1175,9 +1140,10 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="hexpand">True</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">0</property>
           </packing>
         </child>
@@ -1186,7 +1152,10 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
+            <property name="valign">end</property>
+            <property name="hexpand">True</property>
             <property name="vexpand">True</property>
+            <property name="column_spacing">3</property>
             <child>
               <object class="GtkButton" id="okbuttonnode2">
                 <property name="label" translatable="yes">Ok</property>
@@ -1217,7 +1186,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">2</property>
-            <property name="width">2</property>
+            <property name="width">3</property>
           </packing>
         </child>
         <child>
@@ -1225,7 +1194,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">References:</property>
+            <property name="label" translatable="yes">References</property>
             <property name="lines">0</property>
           </object>
           <packing>
@@ -1238,6 +1207,29 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="hexpand">True</property>
+          </object>
+          <packing>
+            <property name="left_attach">2</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow2">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow3">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
@@ -1265,7 +1257,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
-        <property name="column_spacing">3</property>
+        <property name="row_spacing">3</property>
         <child>
           <object class="GtkGrid" id="delrefbgrid">
             <property name="visible">True</property>
@@ -1305,7 +1297,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">2</property>
-            <property name="width">2</property>
+            <property name="width">3</property>
           </packing>
         </child>
         <child>
@@ -1313,7 +1305,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Delete Reference:</property>
+            <property name="label" translatable="yes">Delete Reference</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -1325,11 +1317,12 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">start</property>
+            <property name="hexpand">True</property>
             <property name="selectable">True</property>
             <property name="track_visited_links">False</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">0</property>
           </packing>
         </child>
@@ -1337,12 +1330,13 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <object class="GtkLabel" id="showreferencetype">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="halign">center</property>
+            <property name="halign">start</property>
+            <property name="hexpand">True</property>
             <property name="selectable">True</property>
             <property name="track_visited_links">False</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">1</property>
           </packing>
         </child>
@@ -1351,10 +1345,32 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Reference type:</property>
+            <property name="label" translatable="yes">Reference type</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow6">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow7">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
             <property name="top_attach">1</property>
           </packing>
         </child>
@@ -1377,14 +1393,13 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
-        <property name="row_spacing">2</property>
-        <property name="column_spacing">5</property>
+        <property name="row_spacing">3</property>
         <child>
           <object class="GtkLabel" id="label9">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Url:</property>
+            <property name="label" translatable="yes">Url</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -1396,7 +1411,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Hash:</property>
+            <property name="label" translatable="yes">Hash</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -1410,7 +1425,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="hexpand">True</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">0</property>
           </packing>
         </child>
@@ -1421,7 +1436,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
             <property name="hexpand">True</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">1</property>
           </packing>
         </child>
@@ -1461,7 +1476,29 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">2</property>
-            <property name="width">2</property>
+            <property name="width">3</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow8">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow9">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
           </packing>
         </child>
       </object>
@@ -1485,12 +1522,13 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         <property name="vexpand">True</property>
         <property name="border_width">3</property>
         <property name="row_spacing">2</property>
-        <property name="column_spacing">5</property>
+        <property name="column_spacing">3</property>
         <child>
           <object class="GtkGrid" id="grid10">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="hexpand">True</property>
+            <property name="row_spacing">3</property>
             <property name="column_spacing">3</property>
             <child>
               <object class="GtkButton" id="button1">
@@ -1677,7 +1715,7 @@ Entity</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
-            <property name="halign">center</property>
+            <property name="halign">start</property>
             <property name="valign">center</property>
             <property name="margin_left">13</property>
             <signal name="clicked" handler="get_node" swapped="no"/>
@@ -1736,129 +1774,6 @@ Entity</property>
       </object>
     </child>
   </object>
-  <object class="GtkApplicationWindow" id="manageserviceswin">
-    <property name="can_focus">True</property>
-    <property name="border_width">3</property>
-    <property name="title" translatable="yes">Manage Services</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="transient_for">mainwin</property>
-    <child>
-      <object class="GtkGrid" id="maingridserviceswin">
-        <property name="name">maingrid</property>
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <property name="border_width">2</property>
-        <property name="row_spacing">2</property>
-        <child>
-          <object class="GtkSeparator" id="servicessep">
-            <property name="name">seperator</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkScrolledWindow" id="localservicewindow1">
-            <property name="name">servicesscrollwindow</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <property name="shadow_type">in</property>
-            <property name="min_content_width">250</property>
-            <property name="min_content_height">300</property>
-            <child>
-              <object class="GtkTreeView" id="localserviceview">
-                <property name="name">serviceview</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="model">localservicefilter</property>
-                <property name="search_column">0</property>
-                <signal name="cursor-changed" handler="sel_service" swapped="no"/>
-                <child internal-child="selection">
-                  <object class="GtkTreeSelection" id="treeview-selection8"/>
-                </child>
-              </object>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkGrid" id="servicebuttonsgrid">
-            <property name="height_request">20</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="column_spacing">2</property>
-            <child>
-              <object class="GtkEntry" id="newservicenameentry">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="hexpand">True</property>
-                <property name="secondary_icon_activatable">False</property>
-                <property name="secondary_icon_sensitive">False</property>
-                <property name="placeholder_text" translatable="yes">&lt;new servicename&gt;</property>
-                <signal name="activate" handler="add_service" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkEntry" id="newserviceportentry">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="width_chars">6</property>
-                <property name="max_width_chars">6</property>
-                <property name="placeholder_text" translatable="yes">&lt;port&gt;</property>
-                <property name="input_purpose">number</property>
-                <signal name="activate" handler="add_service" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="newserviceconfirm">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="image">confirmsimg</property>
-                <signal name="clicked" handler="add_service" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="deleteserviceb">
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="image">deletesimg</property>
-                <signal name="clicked" handler="del_service" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">3</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">2</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-  </object>
   <object class="GtkApplicationWindow" id="renameentitydia">
     <property name="can_focus">True</property>
     <property name="modal">True</property>
@@ -1872,8 +1787,7 @@ Entity</property>
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
-        <property name="row_spacing">3</property>
-        <property name="column_spacing">5</property>
+        <property name="row_spacing">4</property>
         <child>
           <object class="GtkGrid" id="grid15">
             <property name="visible">True</property>
@@ -1913,7 +1827,7 @@ Entity</property>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">2</property>
-            <property name="width">2</property>
+            <property name="width">3</property>
           </packing>
         </child>
         <child>
@@ -1921,7 +1835,7 @@ Entity</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">Old entity name:</property>
+            <property name="label" translatable="yes">Old entity name</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -1933,7 +1847,7 @@ Entity</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="halign">end</property>
-            <property name="label" translatable="yes">New entity name:</property>
+            <property name="label" translatable="yes">New entity name</property>
           </object>
           <packing>
             <property name="left_attach">0</property>
@@ -1944,9 +1858,10 @@ Entity</property>
           <object class="GtkEntry" id="newnameentry">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="hexpand">True</property>
           </object>
           <packing>
-            <property name="left_attach">1</property>
+            <property name="left_attach">2</property>
             <property name="top_attach">1</property>
           </packing>
         </child>
@@ -1954,10 +1869,33 @@ Entity</property>
           <object class="GtkLabel" id="oldname">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="halign">start</property>
+          </object>
+          <packing>
+            <property name="left_attach">2</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow4">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
           </object>
           <packing>
             <property name="left_attach">1</property>
             <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkArrow" id="arrow5">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">1</property>
           </packing>
         </child>
       </object>
