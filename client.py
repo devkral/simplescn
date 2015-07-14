@@ -237,7 +237,7 @@ class client_client(client_admin, client_safe):
     def access(self, func, *args, dheader=reference_header.copy()):
         if func in self.validactions and func != "access":
             args.append(dheader)
-            return client_client.__dict__[func](self, *args)
+            return self.__getattribute__(str(parsed[0]))(*args)
 
 
 

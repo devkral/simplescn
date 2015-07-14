@@ -326,8 +326,9 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         try:
             if True: #self.use_remote_client==False:
             
-                return client.client_client.__dict__[action](self.links["client"],*requeststrs)
+                return self.links["client"].__getattribute__(action)(*requeststrs)
         except Exception as e:
+            raise(e)
             #logger().error(str(e))
             return [False, str(e)]
             #self.links["client"].__dict__[action](*requeststrs)
