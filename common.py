@@ -945,6 +945,12 @@ class certhash_db(object):
             cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? and type=?;''', (_referenceid, _reftype))
         return cur.fetchall()
     
+    #@connecttodb
+    #def listreferences(self, dbcon, _reftype = None):
+    #    cur = dbcon.cursor()
+    #    cur.execute('''SELECT DISTINCT name,type FROM certs ORDER BY name ASC;''')
+    #    return cur.fetchall()
+    
     @connecttodb
     def findbyref(self, dbcon, _reference):
         cur = dbcon.cursor()

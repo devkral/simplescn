@@ -76,6 +76,11 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
     #start_url_hash=(None,None)
     _old_serverurl=""
     
+    #
+    #debugbuffer = debug_stuff.debugbuffer
+    #debugview = debug_stuff.debugview
+    #managehashdia = hashmanagement.managehashdia
+    
     def __init__(self,_links):
         self.header_client = reference_header.copy()
         self.header_server = reference_header.copy()
@@ -702,9 +707,9 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         
         _sel=localview.get_selection().get_selected()
         if _sel[1] is None:
-            _name=""
+            _name = ""
         else:
-            _name=_sel[0][_sel[1]][0]
+            _name = _sel[0][_sel[1]][0]
         
         self.managehashdia.hide()
         serverurl.find("")
@@ -759,11 +764,10 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         
     def checkserver(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
-        temp=self.do_requestdo("listhashes",_name,self.header_client)
-        if temp[0]==False:
-            logger().debug("Exist?")
-                
-            return
+        #temp=self.do_requestdo("listnodenametypes",self.header_client)
+        #if temp[0]==False:
+        #    logger().debug("Exist?")
+        #    return
         try:
             serverurl="{}:{}".format(*scnparse_url(serverurl))
         except AddressEmptyFail:
@@ -772,9 +776,9 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         if self.do_requestdo("prioty_direct",serverurl,self.header_server)==False:
             logger().debug("Server address invalid")
             return
-        for elem in temp[1]:
-            if elem[1]=="unknown":
-                self.do_requestdo("check",serverurl,_name,elem[0],self.header_server)
+        #for elem in temp[1]:
+        #    if elem[1]=="unknown":
+        #        self.do_requestdo("check",serverurl,_name,elem[0],self.header_server)
         self.update_storage()
         
     
@@ -840,7 +844,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         res=self.do_requestdo("delhash",_hash,self.header_client)
         if res[0]==True:
             self.delnodedia.hide()
-            self.update_hashes()
+            #self.update_hashes()
             self.update_storage()
         #self.update()
         
@@ -1069,7 +1073,6 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
             logger().info(ret[1])
     ### close
     
-    
         
     def close_clientdia(self,*args):
         self.clientwin.hide()
@@ -1111,7 +1114,9 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
 
 
 class gtkclient_init(client.client_init):
-
+    #links = client.client_init.links
+    #serve_forever_nonblock = client.client_init.serve_forever_nonblock
+    
     def __init__(self,confm,pluginpathes):
         self.config_path=confm.get("config")
         _cpath="{}{}{}".format(self.config_path,os.sep,"client")

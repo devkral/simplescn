@@ -17,6 +17,8 @@ if sharedir not in sys.path:
     sys.path.append(sharedir)
 
 
+from client_admin import client_admin
+from client_safe import client_safe
 
 #import SSL as ssln
 #from OpenSSL import SSL,crypto
@@ -30,7 +32,7 @@ import sys,signal,threading
 import socket
 from os import path
 
-from common import success, error, server_port, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
+from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
 
 
 from common import logger
@@ -44,33 +46,42 @@ reference_header = \
 {
 "certhash": None,
 "cpwauth": None,
+"apwauth": None,
 "spwauth": None,
 "tpwauth":None,
 "tdestname":None,
 "tdestauth": None,
 "nonce":None
 }
-class client_client(object):
+class client_client(client_admin, client_safe):
     name=None
     cert_hash=None
-    sslconts=None
-    sslcontc=None
-    hashdb=None
-    links=None
-    _cache_help = None
+    sslcont=None
+    hashdb = None
+    links = None
     pwcallmethod=input
     #isself=isself
     #TODO: split validactions POST and GET
-    validactions={"register", "get", "connect", "gethash", "help", "show","addhash", "delhash", "movehash", "getlocal","listhashes","listnodenametypes", "searchhash", "addentity", "delentity", "renameentity", "listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "setpriority", "delservice", "ask", "addreference","delreference","getreferences", "findbyref", "setconfig", "setpluginconfig", "access"}
+    validactions=set()
+    #_cache_help = None
+    # "access"
     #pwcache={}
     
     def __init__(self,_name,pub_cert_hash,_certdbpath,_links):
+        #client_admin.__init__(self)
+        #client_safe.__init__(self)
+        #print(type(self).__dict__)
+        #client_client.__dict__.update(client_admin.__dict__)
+        #client_client.__dict__.update(client_safe.__dict__)
         self._cache_help = cmdhelp()
         self.name=_name
         self.cert_hash=pub_cert_hash
         self.hashdb=certhash_db(_certdbpath)
         self.sslcont=default_sslcont()
         self.links=_links
+        self.validactions.update(client_admin.validactions_admin)
+        self.validactions.update(client_safe.validactions_safe)
+        self._cache_help = cmdhelp()
 
     def do_request(self, _addr, requeststr, dheader,usecache=False,forceport=False,requesttype="GET"):
         _addr=scnparse_url(_addr,force_port=forceport)
@@ -131,399 +142,7 @@ class client_client(object):
                 return resp[0],resp[1],val,dhash(pcert)
             else:
                 return False, "invalid amount of return values:\n" ,val,dhash(pcert)
-    
-    def help(self, dheader): 
-        return (True,self._cache_help,isself,self.cert_hash)
-    
-    #returns name,certhash,ownsocket
-    def show(self,dheader):
-        return (True,(self.name,self.cert_hash,
-                str(self.links["server"].socket.getsockname()[1])),isself,self.cert_hash)
-    
-    def register(self,server_addr,dheader):
-        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dheader)
-    
-    def get(self, server_addr, _name, _hash, dheader):
-        temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dheader)
-        if temp[0]==False:
-            return temp
-        if temp[1].find(":") == -1:
-            return (False,"splitting not possible",temp[1])
-        address,port=temp[1].rsplit(":",1)
-            
-        try:
-            temp2=(temp[0],(address,int(port)),temp[2],temp[3])
-        except ValueError:
-            return (False,"port not a number:\n{}".format(temp[1]))
-        if temp2[1][1]<1:
-            return (False,"port <1:\n{}".format(temp[1][1]))
-        return temp2
-        
-    
-    def gethash(self,_addr,dheader):
-        _addr=_addr.split(":")
-        if len(_addr)==1:
-            _addr=(_addr[0],server_port)
-        try:
-            con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
-            con.connect()
-            pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-            con.close()
-            return (True,(dhash(pcert),pcert),isself,self.cert_hash)
-        except ssl.SSLError:
-            return (False,"server speaks no tls 1.2")
-        except Exception:
-            return (False,"server does not exist")
 
-    def ask(self,_address,dheader):
-        _ha=self.gethash(_address,dheader)
-        if _ha[0]==False:
-            return _ha
-        if _ha[1][0]==self.cert_hash:
-            return (True,(isself,self.cert_hash),isself,self.cert_hash)
-        temp=self.hashdb.certhash_as_name(_ha[1][0])
-        return (True,(temp,_ha[1][0]),isself,self.cert_hash)
-
-    def unparsedlistnames(self,server_addr,dheader):
-        return self.do_request(server_addr, "/listnames",dheader,usecache=True)
-
-    def listnames(self,server_addr,dheader):
-        temp=self.unparsedlistnames(server_addr,dheader)
-        if temp[0]==False:
-            return temp
-        temp2=[]
-        if temp[1]!="empty":
-            for line in temp[1].split("\n"):
-                _split=line.split("/")
-                if len(_split)!=2:
-                    logger().debug("invalid element:\n{}".format(line))
-                    continue
-                if _split[0]=="isself":
-                    logger().debug("invalid name:\n{}".format(line))
-                    continue
-                if _split[1]==self.cert_hash:
-                    temp2+=[(_split[0],_split[1],isself),] 
-                else:
-                    temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
-        return (temp[0],temp2,temp[2],temp[3])
-    
-    def getservice(self,client_addr,_service,dheader):
-        return self.do_request(client_addr, "/getservice/{}".format(_service),dheader)
-
-    #### second way to add or remove a service
-    def registerservice(self,_servicename,_port,dheader):
-        self.links["client_server"].spmap[_servicename]=_port
-        return (True,"service registered",isself,self.cert_hash)
-
-    def delservice(self,_servicename,dheader):
-        if _servicename in self.links["client_server"].spmap:
-            del self.links["client_server"].spmap[_servicename]
-        return (True,"service deleted",isself,self.cert_hash)
-        
-    def listservices(self,*args):
-        if len(args)==1:
-            dheader=args[0]
-            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            client_addr,dheader=args
-        else:
-            return (False,("wrong amount arguments (listservices): {}".format(args)))
-        temp=self.do_request(client_addr, "/listservices",dheader,forceport=True)
-        if temp[0]==False:
-            return temp
-        temp2=[]
-        if temp[1]!="empty":
-            for elem in temp[1].split("\n"):
-                temp2+=[elem.rsplit("&",1),]
-        return (temp[0],temp2,temp[2],temp[3])
-    
-    def info(self,*args):
-        if len(args)==1:
-            dheader=args[0]
-            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            _addr,dheader=args
-        else:
-            return (False,("wrong amount arguments (info): {}".format(args)))
-        _tinfo=self.do_request(_addr, "/info", dheader, forceport=True)
-        if _tinfo[0]==True:
-            _tinfolist=_tinfo[1].split("/",2)
-            return (True,_tinfolist,_tinfo[2],_tinfo[3])
-            
-        else:
-            return _tinfo
-
-    def prioty_direct(self,*args):
-        if len(args)==1:
-            dheader=args[0]
-            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            _addr,dheader=args
-        else:
-            return (False,("wrong amount arguments (priority_direct): {}".format(args)),isself)
-        temp=self.do_request(_addr,  "/prioty",dheader,forceport=True)
-        return temp
-
-    def prioty(self,server_addr,_name,_hash,dheader):
-        temp=self.get(server_addr,_name,_hash,dheader)
-        if temp[0]==False:
-            return temp
-        return self.prioty_direct(temp[1])
-
-    def setpriority(self,*args):
-        if len(args)==2:
-            _priority,dheader=args
-        else:
-            return (False,("wrong amount arguments (setpriority): {}".format(args)))
-        if type(_priority).__name__=="str" and _priority.isdecimal()==False:
-            return (False,"no integer")
-        elif type(_priority).__name__=="str":
-            _priority=int(_priority)
-        elif type(_priority).__name__!="int":
-            return (False,"unsupported datatype")
-        if _priority<0 or _priority>100:
-            return (False,"out of range")
-        
-        self.links["server"].priority=_priority
-        self.links["server"].update_prioty()
-        return (True,"priority",isself,self.cert_hash)
-
-    def capabilities(self,_addr,dheader):
-        temp=self.do_request(_addr,  "/cap",dheader,forceport=True)
-        if temp[0]==True:
-            return temp[0],temp[1].split(",",3),temp[2],temp[3]
-        else:
-            return temp
-
-    #check if _addr is reachable and update priority
-    def check_direct(self,_addr,_namelocal,_hash,dheader):
-        dheader["certhash"]=_hash #ensure this
-        
-        temp=self.prioty_direct(_addr,dheader)
-        if temp[0]==False:
-            return temp
-        
-        if self.hashdb.exist(_namelocal,_hash)==True:
-            self.hashdb.changepriority(_namelocal,_hash,temp[1][0])
-            self.hashdb.changetype(_namelocal,_hash,temp[1][1])
-        return temp
-    
-    #check if node is reachable and update priority
-    def check(self,server_addr,_name,_namelocal,_hash,dheader):
-        temp=self.get(server_addr,_name,_hash,dheader)
-        if temp[0]==False:
-            return temp
-        return self.check_direct(temp[1],_namelocal,_hash,dheader)
-    
-    #local management
-    def addentity(self,_name,dheader):
-        temp=self.hashdb.addentity(_name)
-        if temp==True:
-            return (True,success,isself,self.cert_hash)
-        else:
-            return (False,error)
-
-    def delentity(self,_name,dheader):
-        temp=self.hashdb.delentity(_name)
-        if temp==True:
-            return (True,success,isself,self.cert_hash)
-        else:
-            return (False,error)
-
-    def renameentity(self,_name,_newname,dheader):
-        temp=self.hashdb.renameentity(_name,_newname)
-        if temp==True:
-            return (True,success,isself,self.cert_hash)
-        else:
-            return (False,error)
-
-    def addhash(self,*args):
-        if len(args)==3:
-            _name, _certhash, dheader=args
-            _type=None
-        elif len(args)==4:
-            _name, _certhash, _type, dheader=args
-        else:
-            return (False,("wrong amount arguments (addhash): {}".format(args)))
-        if self.hashdb.addhash(_name,_certhash,_type) == False:
-            return (False,"addhash failed")
-        else:
-            return (True, success, isself, self.cert_hash)
-
-    #def deljusthash(self,_certhash,dheader):
-    #    temp=self.hashdb.delhash(_certhash)
-    #    if temp==True:
-    #        return (True,success,isself,self.cert_hash)
-    #    else:
-    #        return (False,error)
-        
-    def delhash(self,_certhash,dheader):
-        temp=self.hashdb.delhash(_certhash)
-        if temp==True:
-            return (True,success,isself,self.cert_hash)
-        else:
-            return (False,error)
-            
-    def movehash(self,_certhash,_newname,dheader):
-        temp=self.hashdb.movehash(_certhash,_newname)
-        if temp==True:
-            return (True,success,isself,self.cert_hash)
-        else:
-            return (False,error)
-
-    #search
-    def searchhash(self,_certhash,dheader):
-        temp=self.hashdb.certhash_as_name(_certhash)
-        if temp is None:
-            return(False, error)
-        else:
-            return (True,temp,isself,self.cert_hash)
-            
-    def getlocal(self,_name,_certhash,_dheader):
-        temp=self.hashdb.get(_name,_certhash)
-        if temp is None:
-            return(False, error)
-        else:
-            return (True,temp,isself,self.cert_hash)
-    
-    def listhashes(self, *args):
-        if len(args) == 3:
-            _name, _nodetypefilter, dheader = args
-        elif len(args) == 2:
-            _name, dheader=args
-            _nodetypefilter = None
-        else:
-            return (False,("wrong amount arguments (listhashes): {}".format(args)))
-        temp=self.hashdb.listhashes(_name,_nodetypefilter)
-        if temp is None:
-            return(False, error)
-        else:
-            return (True,temp,isself,self.cert_hash)
-    
-    def listnodenametypes(self,dheader):
-        temp=self.hashdb.listnodenametypes()
-        if temp is None:
-            return(False, error)
-        else:
-            return (True,temp,isself,self.cert_hash)
-    
-    def listnodenames(self,*args):
-        if len(args)==2:
-            _nodetypefilter,dheader=args
-        elif len(args)==1:
-            dheader=args[0]
-            _nodetypefilter=None
-        else:
-            return (False,("wrong amount arguments (listnodenames): {}".format(args)))
-        temp=self.hashdb.listnodenames(_nodetypefilter)
-        if temp is None:
-            return(False, error)
-        else:
-            return (True,temp,isself,self.cert_hash)
-
-    def listnodeall(self, *args):
-        if len(args)==2:
-            _nodetypefilter,dheader=args
-        elif len(args)==1:
-            dheader=args[0]
-            _nodetypefilter=None
-        else:
-            return (False,("wrong amount arguments (listnodeall): {}".format(args)))
-        temp=self.hashdb.listnodeall(_nodetypefilter)
-        if temp is None:
-            return (False, error)
-        else:
-            return (True,temp,isself,self.cert_hash)
-    
-    def addreference(self,*args):
-        if len(args)==5:
-            _name,_certhash,_reference,_reftype,dheader=args
-        elif len(args)==4:
-            _certhash,_reference,_reftype,dheader=args
-            _name=self.hashdb.certhash_as_name(_certhash)
-            if _name is None:
-                return (False,"name not in db")
-        else:
-            return (False,("wrong amount arguments (addreference): {}".format(args)))
-        
-        if check_reference(_reference)==False:
-            return (False,"reference invalid")
-        if check_reference_type(_reftype)==False:
-            return (False,"reference type invalid")
-            
-        _tref=self.hashdb.get(_name,_certhash)
-        if _tref is None:
-            return (False,"name,hash not exist")
-        if self.hashdb.addreference(_tref[2],_reference,_reftype) is None:
-            return (False,"adding a reference failed")
-        return (True,_reftype,isself,self.cert_hash)
-        
-    def delreference(self,*args):
-        if len(args)==4:
-            _name,_certhash,_reference,dheader=args
-        elif len(args)==3:
-            _certhash,_reference,dheader=args
-            _name=self.hashdb.certhash_as_name(_certhash)
-            if _name is None:
-                return (False,"name not in db")
-        else:
-            return (False,("wrong amount arguments (delreference): {}".format(args)))
-            
-        _tref=self.hashdb.get(_name,_certhash)
-        if _tref is None:
-            return (False,"name,hash not exist")
-        if self.hashdb.delreference(_tref[2],_reference) is None:
-            return (False,error)
-        return (True,success,isself,self.cert_hash)
-        
-    def getreferences(self,*args):
-        if len(args) == 3:
-            _certhash,_reftypefilter,dheader=args
-        elif len(args) == 2:
-            _certhash,dheader=args
-            _reftypefilter=None
-        else:
-            return (False,("wrong amount arguments (getreferences): {}".format(args)))
-        if check_hash(_certhash)==True:
-            _localname=self.hashdb.certhash_as_name(_certhash) #can return None to sort out invalid hashes
-        else:
-            _localname=None
-        if _localname is None:
-            return (False, "certhash does not exist: {}".format(_certhash))
-        _tref=self.hashdb.get(_localname, _certhash)
-        if _tref is None:
-            return (False,"error in hashdb")
-        temp=self.hashdb.getreferences(_tref[2], _reftypefilter)
-        if temp is None:
-            return (False,error)
-        return (True,temp,isself,self.cert_hash)
-        
-    def findbyref(self,_reference,dheader):
-        temp=self.hashdb.findbyref(_reference)
-        if temp is None:
-            return (False,error)
-        return (True,temp,isself,self.cert_hash)
-    
-    def setconfig(self, _key, _value,dheader):
-        ret = self.links["configmanager"].set(_key, _value)
-        if ret == True:
-            return (True, success,isself,self.cert_hash)
-        else:
-            return (False, error)
-    
-    def setpluginconfig(self, _plugin, _key, _value, dheader):
-        pluginm=self.links["client_server"].pluginmanager
-        listplugin = pluginm.list_plugins()
-        if _plugin not in listplugin:
-            return (False, "plugin does not exist")
-        if _plugin not in pluginm.plugins:
-            config = configmanager(os.path.join(self.links["config_root"],"config","plugins",_plugin))
-        else:
-            config = pluginm.plugins.config
-        config.set(_key, _value)
-        return (True,success,isself,self.cert_hash)
-    
-    
     # command wrapper for cmd interfaces
     # TODO: do_Post make available from remote
     def command(self,inp):
@@ -590,14 +209,13 @@ class client_client(object):
         
         # call functions in client
         parsed+=[reqheader,]
-        
         if str(parsed[0]) not in self.validactions:
             ret[0] = False
             ret[1] = "Error: Command does not exist/is not public: {}".format(parsed[0])
             return ret
         try:
-            func=type(self).__dict__[str(parsed[0])]
-            resp=func(self,*parsed[1:])
+            func=self.__getattribute__(str(parsed[0]))
+            resp=func(*parsed[1:])
             ret[0] = resp[0]
             ret[1] = str(resp[1])
             if resp[0] == True:
@@ -610,7 +228,7 @@ class client_client(object):
             st="Error: {}\n".format(e)
             if "tb_frame" in e.__dict__:
                 st="{}\n{}\n\n".format(st,traceback.format_tb(e))
-            st = "{}Errortype:{}\nCommandline: {}".format(st, type(e).__name__, parsed)
+            st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, parsed)
             ret[0] = False
             ret[1] = "Error:\n{}".format(st)
         return ret
@@ -620,6 +238,7 @@ class client_client(object):
         if func in self.validactions and func != "access":
             args.append(dheader)
             return client_client.__dict__[func](self, *args)
+
 
 
 ###server on client
@@ -694,9 +313,9 @@ class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
 
     links = None
-    handle_localhost = False
     handle_remote = False
-    cpwauth = None
+    cpwhash = None
+    apwhash = None
     spwhash = None
     statics = {}
     webgui = False
@@ -723,6 +342,14 @@ class client_handler(BaseHTTPRequestHandler):
             if dhash_salt(self.headers["cpwauth"], self.headers["nonce"]) == self.cpwhash:
                 return True
         return False
+    
+    def check_apw(self):
+        if self.cpwhash is None:
+            return True
+        if "apwauth" in self.headers and "nonce" in self.headers:
+            if dhash_salt(self.headers["apwauth"], self.headers["nonce"]) == self.apwhash:
+                return True
+        return False
 
     def check_spw(self):
         if self.spwhash is None:
@@ -741,9 +368,14 @@ class client_handler(BaseHTTPRequestHandler):
         if self.handle_remote == False and not self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
             self.send_error(403, "no permission - client")
             return
-        if self.check_cpw() == False:
-            self.send_error(406, "client - auth fail") #"no permission - client")
-            return
+        if self.links["client"].validactions_admin:
+            if self.check_apw() == False:
+                self.send_error(406, "admin - auth fail") #"no permission - client")
+                return
+        else:
+            if self.check_cpw() == False:
+                self.send_error(406, "client - auth fail") #"no permission - client")
+                return
         
         try:
             func = type(self.links["client"]).__dict__[_cmdlist[0]]
@@ -982,22 +614,26 @@ class client_init(object):
             client_handler.webgui=False
         
         client_handler.salt = os.urandom(8)
-        if confm.getb("local") == True:
-            client_handler.handle_localhost=True
-        elif confm.getb("cpwhash") == True:
-            if confm.getb("remote") == True:
-                client_handler.handle_remote = True
-            client_handler.handle_localhost = True
+        if confm.getb("remote") == True:
+            client_handler.handle_remote = True
+        if confm.getb("cpwhash") == True:
             client_handler.cpwhash=confm.get("cpwhash")
         elif confm.getb("cpwfile") == True:
-            if confm.getb("remote") == True:
-                client_handler.handle_remote=True
-            client_handler.handle_localhost=True
             op=open("r")
             pw=op.readline()
             if pw[-1] == "\n":
                 pw = pw[:-1]
             client_handler.cpwhash=dhash(pw)
+            op.close()
+        
+        if confm.getb("apwhash") == True:
+            client_handler.apwhash=confm.get("apwhash")
+        elif confm.getb("apwfile") == True:
+            op=open("r")
+            pw=op.readline()
+            if pw[-1] == "\n":
+                pw = pw[:-1]
+            client_handler.apwhash=dhash(pw)
             op.close()
             
         if confm.getb("spwhash") == True:
@@ -1074,10 +710,14 @@ hash <pw>: calculate hash for pw
 plugin <plugin>/<...>: speak with plugin
 """
     for elem in client_client.validactions:
-        if elem in cmdanot:
-            out+="{}{}: {}".format(elem,*cmdanot[elem])+"\n"
+        if elem in client_admin.validactions_admin:
+            eperm="{}(admin)".format(elem)
         else:
-            out+="{}: {}".format(elem,"<undocumented>")+"\n"
+            eperm=elem
+        if elem in cmdanot:
+            out+="{}{}: {}".format(eperm,*cmdanot[elem])+"\n"
+        else:
+            out+="{}: {}".format(eperm,"<undocumented>")+"\n"
 
     out+="""
 ### cmd-headers ###
@@ -1093,7 +733,6 @@ config=<dir>: path to config dir
 port=<number>: Port
 (s/c)pwhash=<hash>: sha256 hash of pw, higher preference than pwfile
 (s/c)pwfile=<file>: file with password (cleartext)
-local: local reachable
 remote: remote reachable
 priority=<number>: set priority
 timeout=<number>: #########not implemented yet ###############
@@ -1112,9 +751,10 @@ def signal_handler(_signal, frame):
 default_client_args={"noplugins":None,
              "cpwhash":None,
              "cpwfile":None,
+             "apwhash":None,
+             "apwfile":None,
              "spwhash":None,
              "spwfile":None,
-             "local":None,
              "remote":None,
              "priority":"20",
              "timeout":"300", # not implemented yet

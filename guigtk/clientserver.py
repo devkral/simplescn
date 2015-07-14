@@ -28,8 +28,6 @@ class gtkclient_server(gtkclient_template):
         view=self.get_object("servernodeview")
         col0renderer=Gtk.CellRendererText()
         col0 = Gtk.TreeViewColumn("state", col0renderer, text=0)
-        #col0.props.align_set = True
-        #col0.props.alignment=Pango.Alignment.CENTER
         view.append_column(col0)
         col1renderer=Gtk.CellRendererText()
         col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
