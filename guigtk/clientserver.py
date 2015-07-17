@@ -36,7 +36,7 @@ class gtkclient_server(gtkclient_template):
         col2 = Gtk.TreeViewColumn("Hash", col2renderer, text=2)
         view.append_column(col2)
         
-        if name is isself:
+        if name == isself:
             self.win.set_title("This client")
         else:
             self.win.set_title(name)
@@ -100,6 +100,7 @@ class gtkclient_server(gtkclient_template):
         _name,_hash=_entry.get_text().split("/",1)
         _node=self.do_requestdo("get",self.address,_name,_hash)
         if _node[0]==False:
+            logger().error(_node[1])
             return
         
         self.links["gtkclient"].set_curnode("{}:{}".format(*_node[1]), _name, _hash, self.address)

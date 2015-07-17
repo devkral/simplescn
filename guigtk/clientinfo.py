@@ -22,7 +22,7 @@ class gtkclient_info(gtkclient_template):
         self.col=self.get_object("col")
         self.win=self.get_object("infowin")
                 
-        if name is isself:
+        if name == isself:
             self.win.set_title("This client")
         else:
             self.win.set_title(name)

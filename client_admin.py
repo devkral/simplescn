@@ -13,15 +13,15 @@ class client_admin(object): #"register",
         if len(args)==2:
             _priority,dheader=args
         else:
-            return (False,("wrong amount arguments (setpriority): {}".format(args)))
+            return (False,"wrong amount arguments (setpriority): {}".format(args),isself,self.cert_hash)
         if type(_priority).__name__=="str" and _priority.isdecimal()==False:
-            return (False,"no integer")
+            return (False,"no integer",isself,self.cert_hash)
         elif type(_priority).__name__=="str":
             _priority=int(_priority)
         elif type(_priority).__name__!="int":
-            return (False,"unsupported datatype")
+            return (False,"unsupported datatype",isself,self.cert_hash)
         if _priority<0 or _priority>100:
-            return (False,"out of range")
+            return (False,"out of range",isself,self.cert_hash)
         
         self.links["server"].priority=_priority
         self.links["server"].update_prioty()
@@ -33,21 +33,21 @@ class client_admin(object): #"register",
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
-            return (False,error)
+            return (False,error,isself,self.cert_hash)
 
     def delentity(self,_name,dheader):
         temp=self.hashdb.delentity(_name)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
-            return (False,error)
+            return (False,error,isself,self.cert_hash)
 
     def renameentity(self,_name,_newname,dheader):
         temp=self.hashdb.renameentity(_name,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
-            return (False,error)
+            return (False,error,isself,self.cert_hash)
 
     def addhash(self,*args):
         if len(args)==3:
@@ -56,9 +56,9 @@ class client_admin(object): #"register",
         elif len(args)==4:
             _name, _certhash, _type, dheader=args
         else:
-            return (False,("wrong amount arguments (addhash): {}".format(args)))
+            return (False,"wrong amount arguments (addhash): {}".format(args),isself,self.cert_hash)
         if self.hashdb.addhash(_name,_certhash,_type) == False:
-            return (False,"addhash failed")
+            return (False,"addhash failed",isself,self.cert_hash)
         else:
             return (True, success, isself, self.cert_hash)
 
@@ -74,14 +74,14 @@ class client_admin(object): #"register",
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
-            return (False,error)
+            return (False,error,isself,self.cert_hash)
             
     def movehash(self,_certhash,_newname,dheader):
         temp=self.hashdb.movehash(_certhash,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
-            return (False,error)
+            return (False,error,isself,self.cert_hash)
     def addreference(self,*args):
         if len(args)==5:
             _name,_certhash,_reference,_reftype,dheader=args
@@ -89,20 +89,20 @@ class client_admin(object): #"register",
             _certhash,_reference,_reftype,dheader=args
             _name=self.hashdb.certhash_as_name(_certhash)
             if _name is None:
-                return (False,"name not in db")
+                return (False,"name not in db",isself,self.cert_hash)
         else:
-            return (False,("wrong amount arguments (addreference): {}".format(args)))
+            return (False,"wrong amount arguments (addreference): {}".format(args),isself,self.cert_hash)
         
         if check_reference(_reference)==False:
-            return (False,"reference invalid")
+            return (False,"reference invalid",isself,self.cert_hash)
         if check_reference_type(_reftype)==False:
-            return (False,"reference type invalid")
+            return (False,"reference type invalid",isself,self.cert_hash)
             
         _tref=self.hashdb.get(_name,_certhash)
         if _tref is None:
-            return (False,"name,hash not exist")
+            return (False,"name,hash not exist",isself,self.cert_hash)
         if self.hashdb.addreference(_tref[2],_reference,_reftype) is None:
-            return (False,"adding a reference failed")
+            return (False,"adding a reference failed",isself,self.cert_hash)
         return (True,_reftype,isself,self.cert_hash)
         
     def delreference(self,*args):
@@ -112,15 +112,15 @@ class client_admin(object): #"register",
             _certhash,_reference,dheader=args
             _name=self.hashdb.certhash_as_name(_certhash)
             if _name is None:
-                return (False,"name not in db")
+                return (False,"name not in db",isself,self.cert_hash)
         else:
-            return (False,("wrong amount arguments (delreference): {}".format(args)))
+            return (False,"wrong amount arguments (delreference): {}".format(args),isself,self.cert_hash)
             
         _tref=self.hashdb.get(_name,_certhash)
         if _tref is None:
-            return (False,"name,hash not exist")
+            return (False,"name,hash not exist",isself,self.cert_hash)
         if self.hashdb.delreference(_tref[2],_reference) is None:
-            return (False,error)
+            return (False,error,isself,self.cert_hash,isself,self.cert_hash)
         return (True,success,isself,self.cert_hash)
 
     def setconfig(self, _key, _value,dheader):
@@ -128,13 +128,13 @@ class client_admin(object): #"register",
         if ret == True:
             return (True, success,isself,self.cert_hash)
         else:
-            return (False, error)
+            return (False, error,isself,self.cert_hash)
     
     def setpluginconfig(self, _plugin, _key, _value, dheader):
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if _plugin not in listplugin:
-            return (False, "plugin does not exist")
+            return (False, "plugin does not exist",isself,self.cert_hash)
         if _plugin not in pluginm.plugins:
             config = configmanager(os.path.join(self.links["config_root"],"config","plugins",_plugin))
         else:

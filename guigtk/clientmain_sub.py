@@ -6,18 +6,6 @@ from gi.repository import Gtk
 class services_stuff(object):
     mswin = None
     builder = None
-    sfilter = None
-    #do_requestdo = None
-    #header_client = None
-    #
-    def visible_name_func (self,_model,_iter,_data):
-        _entry=self.builder.get_object("newservicenameentry")
-        _val=_entry.get_text()
-        if _val==_model[_iter][0][:len(_val)]:
-            return True
-        else:
-            return False
-
     
     def __init__(self):
         self.mswin = self.builder.get_object("manageserviceswin")
@@ -26,9 +14,7 @@ class services_stuff(object):
         serviceview.append_column(servicecol)
         servicecol2 = Gtk.TreeViewColumn("Port", Gtk.CellRendererText(), text=1)
         serviceview.append_column(servicecol2)
-        self.sfilter = self.builder.get_object("localservicefilter")
         
-        self.sfilter.set_visible_func(self.visible_name_func)
         self.mswin.connect('delete-event',self.close_manages)
     
     def manageservices(self,*args):
@@ -47,8 +33,6 @@ class services_stuff(object):
         for elem in services[1]:
             localservicelist.append((elem[0],elem[1]))
     
-    def service_filter(self,*args):
-        self.filter.refilter()
         
     def add_service(self,*args):
         localservicelist=self.builder.get_object("localservicelist")
@@ -119,7 +103,7 @@ class cmd_stuff(object):
         if resp["success"] == True:
             if resp["certname"] is None:
                 cmdveri.set_text("Unverified")
-            elif resp["certname"] is isself:
+            elif resp["certname"] == isself:
                 cmdveri.set_text("Is own client")
             else:
                 cmdveri.set_text("Verified as: "+resp[2])

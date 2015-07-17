@@ -23,7 +23,7 @@ import socketserver #,socket
 import traceback
 import socket
 import logging
-
+import json
 
 from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, logger
 
@@ -34,6 +34,7 @@ from common import success, error, server_port, check_certs,generate_certs,init_
 class server(commonscn):
     capabilities=["basic",]
     nhipmap=None
+    nhipmap_etime=None
     nhipmap_cache=""
     nhipmap_len=0
     sleep_time=1
@@ -46,8 +47,9 @@ class server(commonscn):
     validactions={"register","get","listnames","info","cap","prioty","num_nodes"}
     
     def __init__(self,d):
-        self.expire_time=int(d["expire"])*60 #in minutes        
+        self.expire_time=int(d["expire"])*60 #in minutes
         self.nhipmap={}
+        self.nhipmap_etime={}
         self.nhipmap_cond=threading.Event()
         self.changeip_sem=threading.Semaphore(1)
         self.refreshthread=threading.Thread(target=self.refresh_nhipmap)
@@ -81,16 +83,18 @@ class server(commonscn):
     def refresh_nhipmap(self):
         while self.isactive:
             self.changeip_sem.acquire()
-            self.nhipmap_len=len(self.nhipmap)
             e_time=int(time.time())-self.expire_time
-            tnhlist=""
-            for _name in self.nhipmap:
-                for _hash in self.nhipmap[_name]:
-                    if self.nhipmap[_name][_hash][2]<e_time:
+            for _name in self.nhipmap_etime:
+                for _hash in self.nhipmap_etime[_name]:
+                    if self.nhipmap_etime[_name][_hash]<e_time:
                         del self.nhipmap[_name][_hash]
-                    else:
-                        tnhlist="{}\n{}/{}".format(tnhlist,_name,_hash)
-            self.nhipmap_cache=tnhlist[1:]
+                        del self.nhipmap_etime[_name][_hash]
+                if len(self.nhipmap[_name])==0:
+                    del self.nhipmap[_name]
+                    del self.nhipmap_etime[_name]
+            
+            self.nhipmap_len=len(self.nhipmap)
+            self.nhipmap_cache=json.dumps(self.nhipmap)
             self.changeip_sem.release()
             self.nhipmap_cond.clear()
             time.sleep(self.sleep_time)
@@ -99,37 +103,41 @@ class server(commonscn):
 
     def register(self,_name,_hash,_port,_addr):
         if check_name(_name)==False:
-            return "{}/invalid name".format(error)
+            return False, "invalid name"
         self.changeip_sem.acquire(False)
-        self.nhipmap[_name]={_hash: (_addr[0],_port,int(time.time()))}
+        if _name not in self.nhipmap:
+            self.nhipmap[_name]={}
+            self.nhipmap_etime[_name]={}
+        self.nhipmap[_name][_hash]=(_addr[0],_port)
+        self.nhipmap_etime[_name][_hash]=int(time.time())
+            
         self.changeip_sem.release()
         self.nhipmap_cond.set()
-        return "{}/registered".format(success)
+        print(json.dumps(self.nhipmap))
+        return True, "registered"
     
     
     def get(self,_name,_hash,_addr):
         if _name not in self.nhipmap:
-            return "{}/name not exist".format(error)
+            return False, "name not exist"
         if _hash not in self.nhipmap[_name]:
-            return "{}/certhash not exist".format(error)
-        return "{}/{}:{}".format(success,*self.nhipmap[_name][_hash][:2])
+            return False, "certhash not exist"
+        return True, json.dumps(self.nhipmap[_name][_hash])
     
     def listnames(self,_addr):
-        if len(self.nhipmap_cache)==0:
-            return "{}/empty".format(success)
-        return "{}/{}".format(success,self.nhipmap_cache)
+        return True, self.nhipmap_cache
     
     def info(self,_addr):
-        return self.cache["info"]
+        return True, self.cache["info"]
     
     def cap(self,_addr):
-        return self.cache["cap"]
+        return True, self.cache["cap"]
     
     def prioty(self,_addr):
-        return self.cache["prioty"]
+        return True, self.cache["prioty"]
 
     def num_nodes(self,_addr):
-        return "{}/{}".format(success,self.nhipmap_len)
+        return True, str(self.nhipmap_len)
     
     
 class server_handler(BaseHTTPRequestHandler):
@@ -194,7 +202,6 @@ class server_handler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         if self.path=="/favicon.ico":
-            #print(server_handler.statics)
             if "favicon.ico" in self.statics:
                 self.send_response(200)
                 self.end_headers()
@@ -226,8 +233,8 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(400,"invalid action")
             return
         try:
-            func=type(self.links["server_server"]).__dict__[action]
-            response=func(self.links["server_server"],*_path[1:])
+            func=self.links["server_server"].__getattribute__(action)
+            response=func(*_path[1:])
         except Exception as e:
             if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
                 if "tb_frame" in e.__dict__:
@@ -240,11 +247,10 @@ class server_handler(BaseHTTPRequestHandler):
                 else:
                     self.send_error(500,"unknown")
             return
-        respparse=response.split("/",1)
-        if respparse[0]==error:
+        if response[0] == False:
             #helps against ssl failing about empty string (EOF)
-            if len(respparse)>=1 and len(respparse[1])>0:
-                self.send_error(400,respparse[1])
+            if len(response)>=1 and len(response[1])>0:
+                self.send_error(400,response[1])
             else:
                 self.send_error(400,"unknown")
         else:
@@ -253,11 +259,8 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_header('Content-type',"text")
             self.end_headers()
             #helps against ssl failing about empty string (EOF)
-            if len(respparse)>=1 and len(respparse[1])>0:
-                self.wfile.write(bytes(respparse[1],"utf8"))
-            else:
-                self.wfile.write(bytes(success,"utf8"))
-
+            self.wfile.write(bytes(response[1],"utf8"))
+            
     def do_CONNECT(self):
         if self.istunnel==False:
             self.send_error(400,"no tunnel/proxy")
@@ -288,11 +291,8 @@ class server_handler(BaseHTTPRequestHandler):
         self.end_headers()
         redout=threading.Thread(target=rw_socket,args=(self.socket,sockd))
         redout.daemon=True
-        redin=threading.Thread(target=rw_socket,args=(sockd,self.socket))
-        redin.daemon=True
-        redin.run()
         redout.run()
-        redin.join()
+        rw_socket(sockd,self.socket)
     def do_POST(self):
         plugin,action=self.path[1:].split("/",1)
         pluginm=self.links["client_server"].pluginmanager
@@ -306,8 +306,12 @@ class server_handler(BaseHTTPRequestHandler):
                     logger().error(e)
                     return
         else:
-            self.links["server_server"].do_request(pluginm.redirect_addr, \
+            sockd = self.links["server_server"].do_request(pluginm.redirect_addr, \
                                             self.path, requesttype = "POST")
+            redout=threading.Thread(target=rw_socket,args=(self.socket,sockd))
+            redout.daemon=True
+            redout.run()
+            rw_socket(sockd,self.socket)
             return
         
 def inputw():
@@ -386,10 +390,7 @@ class server_init(object):
         
         _name=_name.split("/")
         if len(_name)>2 or check_name(_name[0])==False:
-            print("Configuration error in {}".format(_spath+"_name"))
-            print("should be: <name>/<port>")
-            print("Name has some restricted characters")
-            
+            logger().error("Configuration error in {}\nshould be: <name>/<port>\nName has some restricted characters".format(_spath+"_name"))
         
         if port is not None:
             port=int(port)

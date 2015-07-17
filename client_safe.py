@@ -3,10 +3,11 @@ import ssl
 #import abc
 from common import logger, success, error, isself, check_hash, server_port, dhash
 from http import client
+import json
 
 class client_safe(object): #abc.ABC):
     
-    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "searchhash","listnames", "listnodenames", "listnodeall", "unparsedlistnames", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref"}
+    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "searchhash","listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref"}
 
     hashdb = None
     links = None
@@ -46,16 +47,16 @@ class client_safe(object): #abc.ABC):
         temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dheader)
         if temp[0]==False:
             return temp
-        if temp[1].find(":") == -1:
-            return (False,"splitting not possible",temp[1])
-        address,port=temp[1].rsplit(":",1)
-            
+        try:
+            address,port=json.loads(temp[1])
+        except Exception as e:
+            return (False, "splitting failed: {}".format(e), isself, self.cert_hash)
         try:
             temp2=(temp[0],(address,int(port)),temp[2],temp[3])
         except ValueError:
-            return (False,"port not a number:\n{}".format(temp[1]))
+            return (False,"port not a number:\n{}".format(temp[1]),isself,self.cert_hash)
         if temp2[1][1]<1:
-            return (False,"port <1:\n{}".format(temp[1][1]))
+            return (False,"port <1:\n{}".format(temp[1][1]),isself,self.cert_hash)
         return temp2
         
     
@@ -70,9 +71,9 @@ class client_safe(object): #abc.ABC):
             con.close()
             return (True,(dhash(pcert),pcert),isself,self.cert_hash)
         except ssl.SSLError:
-            return (False,"server speaks no tls 1.2")
+            return (False,"server speaks no tls 1.2",isself,self.cert_hash)
         except Exception:
-            return (False,"server does not exist")
+            return (False,"server does not exist",isself,self.cert_hash)
 
     def ask(self,_address,dheader):
         _ha=self.gethash(_address,dheader)
@@ -83,28 +84,28 @@ class client_safe(object): #abc.ABC):
         temp=self.hashdb.certhash_as_name(_ha[1][0])
         return (True,(temp,_ha[1][0]),isself,self.cert_hash)
 
-    def unparsedlistnames(self,server_addr,dheader):
-        return self.do_request(server_addr, "/listnames",dheader,usecache=True)
-
     def listnames(self,server_addr,dheader):
-        temp=self.unparsedlistnames(server_addr,dheader)
+        temp=self.do_request(server_addr, "/listnames",dheader)
         if temp[0]==False:
             return temp
-        temp2=[]
-        if temp[1]!="empty":
-            for line in temp[1].split("\n"):
-                _split=line.split("/")
-                if len(_split)!=2:
-                    logger().debug("invalid element:\n{}".format(line))
+        out=[]
+        try:
+            temp2 = json.loads(temp[1])
+            for name in sorted(temp2):
+                if name == isself:
+                    logging.debug("Scamming attempt: SKIP")
                     continue
-                if _split[0]=="isself":
-                    logger().debug("invalid name:\n{}".format(line))
-                    continue
-                if _split[1]==self.cert_hash:
-                    temp2+=[(_split[0],_split[1],isself),] 
-                else:
-                    temp2+=[(_split[0],_split[1],self.hashdb.certhash_as_name(_split[1])),]
-        return (temp[0],temp2,temp[2],temp[3])
+                    
+                for _hash in sorted(temp2[name]):
+                    if _hash == self.cert_hash:
+                        out.append((name, _hash, isself))
+                    else:
+                        certname = self.hashdb.certhash_as_name(_hash)
+                        out.append((name, _hash, certname))
+                        
+        except Exception as e:
+            return False, "{}: {}".format(type(e).__name__, e),isself,self.cert_hash
+        return (temp[0],out,temp[2],temp[3])
     
     def getservice(self,client_addr,_service,dheader):
         return self.do_request(client_addr, "/getservice/{}".format(_service),dheader)
@@ -116,15 +117,16 @@ class client_safe(object): #abc.ABC):
         elif len(args)==2:
             client_addr,dheader=args
         else:
-            return (False,("wrong amount arguments (listservices): {}".format(args)))
+            return (False,("wrong amount arguments (listservices): {}".format(args)),isself,self.cert_hash)
         temp=self.do_request(client_addr, "/listservices",dheader,forceport=True)
         if temp[0]==False:
             return temp
-        temp2=[]
-        if temp[1]!="empty":
-            for elem in temp[1].split("\n"):
-                temp2+=[elem.rsplit("&",1),]
-        return (temp[0],temp2,temp[2],temp[3])
+        temp2={}
+        try:
+            temp2 = json.loads(temp[1])
+        except Exception as e:
+            return False, "{}: {}".format(type(e).__name__, e)
+        return temp[0],temp2,temp[2],temp[3]
     
     def info(self,*args):
         if len(args)==1:
@@ -133,22 +135,29 @@ class client_safe(object): #abc.ABC):
         elif len(args)==2:
             _addr,dheader=args
         else:
-            return (False,("wrong amount arguments (info): {}".format(args)))
+            return (False,("wrong amount arguments (info): {}".format(args)),isself,self.cert_hash)
         _tinfo=self.do_request(_addr, "/info", dheader, forceport=True)
-        if _tinfo[0]==True:
-            _tinfolist=_tinfo[1].split("/",2)
-            return (True,_tinfolist,_tinfo[2],_tinfo[3])
-            
-        else:
+        if _tinfo[0]==False:
             return _tinfo
+        temp2={}
+        try:
+            temp2 = json.loads(_tinfo[1])
+        except Exception as e:
+            return False, "{}: {}".format(type(e).__name__, e)
+        return True, temp2, _tinfo[2], _tinfo[3]
 
     def cap(self,_addr,dheader):
-        temp=self.do_request(_addr,  "/cap",dheader,forceport=True)
-        if temp[0]==True:
-            return temp[0],temp[1].split(",",3),temp[2],temp[3]
-        else:
+        temp=self.do_request(_addr, "/cap",dheader,forceport=True)
+        if temp[0]==False:
             return temp
-    
+        
+        temp2={}
+        try:
+            temp2 = json.loads(_tinfo[1])
+        except Exception as e:
+            return False, "{}: {}".format(type(e).__name__, e),isself,self.cert_hash
+        return True, temp2, temp[2], temp[3]
+        
     def prioty_direct(self,*args):
         if len(args)==1:
             dheader=args[0]
@@ -156,9 +165,8 @@ class client_safe(object): #abc.ABC):
         elif len(args)==2:
             _addr,dheader=args
         else:
-            return (False,("wrong amount arguments (priority_direct): {}".format(args)),isself)
-        temp=self.do_request(_addr,  "/prioty",dheader,forceport=True)
-        return temp
+            return (False,("wrong amount arguments (priority_direct): {}".format(args)),isself,self.cert_hash)
+        return self.do_request(_addr,  "/prioty",dheader,forceport=True)
 
     def prioty(self,server_addr,_name,_hash,dheader):
         temp=self.get(server_addr,_name,_hash,dheader)
@@ -191,14 +199,14 @@ class client_safe(object): #abc.ABC):
     def searchhash(self,_certhash,dheader):
         temp=self.hashdb.certhash_as_name(_certhash)
         if temp is None:
-            return(False, error)
+            return(False, error,isself,self.cert_hash)
         else:
             return (True,temp,isself,self.cert_hash)
             
     def getlocal(self,_name,_certhash,_dheader):
         temp=self.hashdb.get(_name,_certhash)
         if temp is None:
-            return(False, error)
+            return(False, error,isself,self.cert_hash)
         else:
             return (True,temp,isself,self.cert_hash)
     
@@ -212,14 +220,14 @@ class client_safe(object): #abc.ABC):
             return (False,("wrong amount arguments (listhashes): {}".format(args)))
         temp=self.hashdb.listhashes(_name,_nodetypefilter)
         if temp is None:
-            return(False, error)
+            return(False, error,isself,self.cert_hash)
         else:
             return (True,temp,isself,self.cert_hash)
     
     def listnodenametypes(self,dheader):
         temp=self.hashdb.listnodenametypes()
         if temp is None:
-            return(False, error)
+            return(False, error,isself,self.cert_hash)
         else:
             return (True,temp,isself,self.cert_hash)
     
@@ -233,7 +241,7 @@ class client_safe(object): #abc.ABC):
             return (False,("wrong amount arguments (listnodenames): {}".format(args)))
         temp=self.hashdb.listnodenames(_nodetypefilter)
         if temp is None:
-            return(False, error)
+            return(False, error,isself,self.cert_hash)
         else:
             return (True,temp,isself,self.cert_hash)
 
@@ -244,10 +252,10 @@ class client_safe(object): #abc.ABC):
             dheader=args[0]
             _nodetypefilter=None
         else:
-            return (False,("wrong amount arguments (listnodeall): {}".format(args)))
+            return (False,"wrong amount arguments (listnodeall): {}".format(args),isself,self.cert_hash)
         temp=self.hashdb.listnodeall(_nodetypefilter)
         if temp is None:
-            return (False, error)
+            return (False, error,isself,self.cert_hash)
         else:
             return (True,temp,isself,self.cert_hash)
     
@@ -259,25 +267,25 @@ class client_safe(object): #abc.ABC):
             _certhash,dheader=args
             _reftypefilter=None
         else:
-            return (False,("wrong amount arguments (getreferences): {}".format(args)))
+            return (False,"wrong amount arguments (getreferences): {}".format(args),isself,self.cert_hash)
         if check_hash(_certhash)==True:
             _localname=self.hashdb.certhash_as_name(_certhash) #can return None to sort out invalid hashes
         else:
             _localname=None
         if _localname is None:
-            return (False, "certhash does not exist: {}".format(_certhash))
+            return (False, "certhash does not exist: {}".format(_certhash),isself,self.cert_hash)
         _tref=self.hashdb.get(_localname, _certhash)
         if _tref is None:
-            return (False,"error in hashdb")
+            return (False,"error in hashdb",isself,self.cert_hash)
         temp=self.hashdb.getreferences(_tref[2], _reftypefilter)
         if temp is None:
-            return (False,error)
+            return (False,error,isself,self.cert_hash)
         return (True,temp,isself,self.cert_hash)
         
     def findbyref(self,_reference,dheader):
         temp=self.hashdb.findbyref(_reference)
         if temp is None:
-            return (False,error)
+            return (False,error,isself,self.cert_hash)
         return (True,temp,isself,self.cert_hash)
     
     

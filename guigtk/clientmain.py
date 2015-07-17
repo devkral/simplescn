@@ -322,11 +322,11 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         #temp[0]==True
         return (temp[0],_finish1,temp[2],temp[3])"""
         
-    def do_requestdo(self,action,*requeststrs,parse=-1):
+    def do_requestdo(self,action,*requeststrs):
         try:
             if True: #self.use_remote_client==False:
             
-                return self.links["client"].__getattribute__(action)(*requeststrs)
+                return self.links["client"].access(action, *requeststrs)
         except Exception as e:
             raise(e)
             #logger().error(str(e))
@@ -396,7 +396,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
             
         if _hash[1][0] is None:
             _veri.set_text("Unknown server")
-        elif _hash[1][0] is isself:
+        elif _hash[1][0] == isself:
             _veri.set_text("This client")
         else:
             _veri.set_text("Verified as:\n{}".format(_hash[1][0]))
@@ -433,7 +433,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
             opennodeb.show()
             opennodeb.set_sensitive(True)
             self.curnode=(_name,_clientaddress,_name,_hash,_serveraddress)
-        elif _ask[1][0] is isself:
+        elif _ask[1][0] == isself:
             cnodeorigin.set_text("")
             cnode.set_text("This client")
             opennodeb.show()
@@ -456,7 +456,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
             tdparam["certhash"]=temp[1]
             if temp[0] is None:
                 name=serverurl[:20]
-            elif temp[0] is isself:
+            elif temp[0] == isself:
                 name="Own server"
             else:
                 name=temp[0]
@@ -472,7 +472,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         tdparam["certhash"]=temp[1]
         if temp[0] is None:
             name=serverurl[:20]
-        elif temp[0] is isself:
+        elif temp[0] == isself:
             name="Own server"
         else:
             name=temp[0]
@@ -636,7 +636,6 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
                 if elem[0] in ["", None]:
                     logger().warn("references type name contain invalid element: {}".format(elem[0]))
                 else:
-                    #print("get",serverurl,elem[0],_hash,self.header_server)
                     tempret=self.do_requestdo("get",serverurl,elem[0],_hash,self.header_server)
                     if tempret[0]==True:
                         break

@@ -44,14 +44,17 @@ import traceback
 import hashlib
 import re
 import threading
+import json
 from http import client
 
 key_size = 4096
 server_port = 4040
+default_buffer_size=1400
 #client_port=4041
 
 error = 'error'
 success = 'success'
+isself = 'isself'
 default_configdir = '~/.simplescn/'
 
 
@@ -73,12 +76,6 @@ class VALNameError(VALError):
 class VALHashError(VALError):
     msg = 'Hash does not match'
     
-
-class isself(object):
-    def __str__(*args): #does this exist?
-        return 'isself'
-    def __repr__(*args): #this exist but why doesn't it work
-        return 'isself'
 
 #### logging ####
 
@@ -528,14 +525,12 @@ class commonscn(object):
     #,"hash":"","name":"","message":""
     
     def update_cache(self):
-        self.cache["cap"] = "{}/{}".format(success, self.scn_type)
-        for elem in self.capabilities:
-            self.cache["cap"] = "{}/{}".format(self.cache["cap"], elem)
-        self.cache["info"] = "{}/{}/{}/{}".format(success, self.scn_type, self.name, self.message)
-        self.cache["prioty"] = "{}/{}/{}".format(success, self.priority, self.scn_type)
+        self.cache["cap"] = json.dumps(self.capabilities)
+        self.cache["info"] = json.dumps([self.scn_type, self.name, self.message])
+        self.cache["prioty"] = json.dumps([self.priority, self.scn_type])
 
     def update_prioty(self):
-        self.cache["prioty"] = "{}/{}/{}".format(success, self.priority, self.scn_type)
+        self.cache["prioty"] = json.dumps([self.priority, self.scn_type])
 
 def dhash(ob):
     if type(ob).__name__ == "str":
@@ -596,7 +591,7 @@ def check_name(_name, maxlength = 64):
     if all(c not in " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
         all(c not in ".:[]" for c in _name) and \
         len(_name) <= maxlength and \
-        _name != "isself":
+        _name != isself:
         return True
     #logger().debug("invalid name (maxlength: {}): {}".format(maxlength, _name))
     return False
@@ -607,12 +602,12 @@ def check_typename(_name, maxlength = 15):
     #name shouldn't be isself as it is used
     if _name.isalpha() == True and \
         len(_name) <= maxlength and \
-        _name != "isself":
+        _name != isself:
         return True
     #logger().debug("invalid type: {}".format(_name))
     return False
 
-def rw_socket(sockr, sockw, buffersize):
+def rw_socket(sockr, sockw):
     while True:
         if bool(sockr.getsockopt(socket.SO_TCP_CLOSE)) == False and \
            bool(sockr.getsockopt(socket.SO_TCP_CLOSING)) == False:
@@ -624,7 +619,7 @@ def rw_socket(sockr, sockw, buffersize):
             break
         
         try:
-            sockw.sendall(sockr.read(buffersize))
+            sockw.sendall(sockr.read(default_buffer_size))
         except socket.timeout:
             sockw.close()
             break

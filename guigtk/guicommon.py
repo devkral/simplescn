@@ -49,9 +49,9 @@ class gtkclient_template(Gtk.Builder):
         self.add_from_file(_file)
         return True
         
-    def do_requestdo(self,action,*requeststrs,parse=-1):
+    def do_requestdo(self,action,*requeststrs):
         requeststrs+=(self.dheader,)
-        return self.links["gtkclient"].do_requestdo(action,*requeststrs,parse=parse)
+        return self.links["gtkclient"].do_requestdo(action,*requeststrs)
     
     def close(self,*args):
         self.win.destroy()

@@ -1,4 +1,4 @@
-from common import isself, logger
+from common import logger
 from gi.repository import Gtk
 
 

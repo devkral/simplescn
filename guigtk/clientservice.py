@@ -18,7 +18,7 @@ class gtkclient_remoteservice(gtkclient_template):
         if self.init2(os.path.join(sharedir, "guigtk", "clientservice.ui"))==False:
             return
         self.win=self.get_object("servicewin")
-        if name is isself:
+        if name == isself:
             self.win.set_title("This client")
         else:
             self.win.set_title(name)

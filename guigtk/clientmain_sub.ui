@@ -8,7 +8,6 @@
     <property name="title" translatable="yes">cmd:</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
-    <property name="transient_for">mainwin</property>
     <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid4">
@@ -92,7 +91,6 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="title" translatable="yes">Debug:</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.png</property>
-    <property name="transient_for">mainwin</property>
     <property name="show_menubar">False</property>
     <child>
       <object class="GtkScrolledWindow" id="scrolledwindow2">
@@ -129,15 +127,11 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
       <column type="gchararray"/>
     </columns>
   </object>
-  <object class="GtkTreeModelFilter" id="localservicefilter">
-    <property name="child_model">localservicelist</property>
-  </object>
   <object class="GtkApplicationWindow" id="manageserviceswin">
     <property name="can_focus">False</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Manage Services</property>
     <property name="destroy_with_parent">True</property>
-    <property name="transient_for">mainwin</property>
     <child>
       <object class="GtkGrid" id="maingridserviceswin">
         <property name="name">maingrid</property>
@@ -171,7 +165,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="name">serviceview</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="model">localservicefilter</property>
+                <property name="model">localservicelist</property>
                 <property name="search_column">0</property>
                 <signal name="cursor-changed" handler="sel_service" swapped="no"/>
                 <child internal-child="selection">
@@ -200,7 +194,6 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="secondary_icon_sensitive">False</property>
                 <property name="placeholder_text" translatable="yes">&lt;servicename&gt;</property>
                 <signal name="activate" handler="add_service" swapped="no"/>
-                <signal name="changed" handler="service_filter" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">0</property>

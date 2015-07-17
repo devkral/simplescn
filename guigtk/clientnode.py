@@ -15,7 +15,7 @@ class gtkclient_node(gtkclient_template):
             return
         self.win=self.get_object("nodewin")
         veristate=self.get_object("veristate")
-        if name is isself:
+        if name == isself:
             self.win.set_title("This client")
             veristate.set_text("This client")
         else:
