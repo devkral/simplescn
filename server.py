@@ -25,54 +25,54 @@ import socket
 import logging
 import json
 
-from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, logger
+from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, logger, pwcallmethod
 
 
 
 
 
 class server(commonscn):
-    capabilities=["basic",]
-    nhipmap=None
-    nhipmap_etime=None
-    nhipmap_cache=""
-    nhipmap_len=0
-    sleep_time=1
-    refreshthread=None
-    isactive=True
-    links=None
-    expire_time=100
-    scn_type="server"
+    capabilities = ["basic",]
+    nhipmap = None
+    nhipmap_etime = None
+    nhipmap_cache = ""
+    nhipmap_len = 0
+    sleep_time = 1
+    refreshthread = None
+    isactive = True
+    links = None
+    expire_time = 100
+    scn_type = "server"
 
-    validactions={"register","get","listnames","info","cap","prioty","num_nodes"}
+    validactions={"register", "get", "listnames", "info", "cap", "prioty", "num_nodes"}
     
     def __init__(self,d):
-        self.expire_time=int(d["expire"])*60 #in minutes
-        self.nhipmap={}
-        self.nhipmap_etime={}
-        self.nhipmap_cond=threading.Event()
-        self.changeip_sem=threading.Semaphore(1)
-        self.refreshthread=threading.Thread(target=self.refresh_nhipmap)
-        self.refreshthread.daemon=True
+        self.expire_time = int(d["expire"])*60 #in minutes
+        self.nhipmap = {}
+        self.nhipmap_etime = {}
+        self.nhipmap_cond = threading.Event()
+        self.changeip_sem = threading.Semaphore(1)
+        self.refreshthread = threading.Thread(target=self.refresh_nhipmap)
+        self.refreshthread.daemon = True
         self.refreshthread.start()
         
-        if d["name"] is None or len(d["name"])==0:
+        if d["name"] is None or len(d["name"]) == 0:
             logger().debug("Name empty")
-            d["name"]="<noname>"
+            d["name"] = "<noname>"
         
         #self.msg=_msg
-        if d["message"] is None or len(d["message"])==0:
+        if d["message"] is None or len(d["message"]) == 0:
             logger().debug("Message empty")
-            d["message"]="<empty>"
+            d["message"] = "<empty>"
         
-        self.priority=int(d["priority"])
-        self.cert_hash=d["certhash"]
-        self.name=d["name"]
-        self.message=d["message"]
+        self.priority = int(d["priority"])
+        self.cert_hash = d["certhash"]
+        self.name = d["name"]
+        self.message = d["message"]
         self.update_cache()
 
     def __del__(self):
-        self.isactive=False
+        self.isactive = False
         self.nhipmap_cond.set()
         try:
             self.refreshthread.join(4)
@@ -83,27 +83,29 @@ class server(commonscn):
     def refresh_nhipmap(self):
         while self.isactive:
             self.changeip_sem.acquire()
-            e_time=int(time.time())-self.expire_time
+            e_time = int(time.time())-self.expire_time
             for _name in self.nhipmap_etime:
                 for _hash in self.nhipmap_etime[_name]:
-                    if self.nhipmap_etime[_name][_hash]<e_time:
+                    if self.nhipmap_etime[_name][_hash] < e_time:
                         del self.nhipmap[_name][_hash]
                         del self.nhipmap_etime[_name][_hash]
                 if len(self.nhipmap[_name])==0:
                     del self.nhipmap[_name]
                     del self.nhipmap_etime[_name]
             
-            self.nhipmap_len=len(self.nhipmap)
-            self.nhipmap_cache=json.dumps(self.nhipmap)
+            self.nhipmap_len = len(self.nhipmap)
+            self.nhipmap_cache = json.dumps(self.nhipmap)
             self.changeip_sem.release()
             self.nhipmap_cond.clear()
             time.sleep(self.sleep_time)
             self.nhipmap_cond.wait()
   
 
-    def register(self,_name,_hash,_port,_addr):
+    def register(self,_name,_hash,_port,_addr, _cert):
         if check_name(_name)==False:
             return False, "invalid name"
+        if dhash(_cert) != _hash:
+            return False, "hash does not match"
         self.changeip_sem.acquire(False)
         if _name not in self.nhipmap:
             self.nhipmap[_name]={}
@@ -113,30 +115,29 @@ class server(commonscn):
             
         self.changeip_sem.release()
         self.nhipmap_cond.set()
-        print(json.dumps(self.nhipmap))
         return True, "registered"
     
     
-    def get(self,_name,_hash,_addr):
+    def get(self,_name,_hash):
         if _name not in self.nhipmap:
             return False, "name not exist"
         if _hash not in self.nhipmap[_name]:
             return False, "certhash not exist"
         return True, json.dumps(self.nhipmap[_name][_hash])
     
-    def listnames(self,_addr):
+    def listnames(self):
         return True, self.nhipmap_cache
     
-    def info(self,_addr):
+    def info(self):
         return True, self.cache["info"]
     
-    def cap(self,_addr):
+    def cap(self):
         return True, self.cache["cap"]
     
-    def prioty(self,_addr):
+    def prioty(self):
         return True, self.cache["prioty"]
 
-    def num_nodes(self,_addr):
+    def num_nodes(self):
         return True, str(self.nhipmap_len)
     
     
@@ -144,6 +145,7 @@ class server_handler(BaseHTTPRequestHandler):
 
     server_version = 'simple scn server 0.5'
     
+    need_address_cert = ["register",]
     
     links=None
     salt=None
@@ -228,7 +230,10 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         
-        _path=_path+[self.client_address,]
+        if action in self.need_address_cert:
+            _path=_path+[self.client_address, self.socket.getpeercert(True)]
+            
+            
         if action not in self.links["server_server"].validactions:
             self.send_error(400,"invalid action")
             return
@@ -314,9 +319,6 @@ class server_handler(BaseHTTPRequestHandler):
             rw_socket(sockd,self.socket)
             return
         
-def inputw():
-    input("Please enter passphrase:\n")
-    
 class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     sslcont=None
     #address_family = socket.AF_INET6
@@ -329,7 +331,7 @@ class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
         #self.crappyssl=workaround_ssl(certs[1])
 
         self.sslcont=default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv")
+        self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv", pwcallmethod)
         self.socket=self.sslcont.wrap_socket(self.socket)
 
 

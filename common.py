@@ -34,6 +34,7 @@ if sharedir not in sys.path:
 
 import importlib
 from types import ModuleType # needed for ModuleType
+from getpass import getpass
 
 import logging, platform
 from OpenSSL import SSL, crypto
@@ -117,6 +118,17 @@ def init_logger(_logger = scn_logger()):
     global loggerinst
     if loggerinst is None:
         loggerinst = _logger
+
+
+def inp_passw_cmd(msg):
+    def func(*args):
+        return getpass(msg)
+    return func
+pwcallmethodinst=inp_passw_cmd
+
+# returns func which asks the user for the password with message
+def pwcallmethod(msg):
+    return pwcallmethodinst(msg)
 
 #def replace_logger(_logger):
 #    global loggerinst

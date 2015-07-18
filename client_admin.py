@@ -9,11 +9,7 @@ class client_admin(object): #"register",
     links = None
     cert_hash = None
     
-    def setpriority(self,*args):
-        if len(args)==2:
-            _priority,dheader=args
-        else:
-            return (False,"wrong amount arguments (setpriority): {}".format(args),isself,self.cert_hash)
+    def setpriority(self, _priority):
         if type(_priority).__name__=="str" and _priority.isdecimal()==False:
             return (False,"no integer",isself,self.cert_hash)
         elif type(_priority).__name__=="str":
@@ -28,21 +24,21 @@ class client_admin(object): #"register",
         return (True,"priority",isself,self.cert_hash)
         
     #local management
-    def addentity(self,_name,dheader):
+    def addentity(self,_name):
         temp=self.hashdb.addentity(_name)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error,isself,self.cert_hash)
 
-    def delentity(self,_name,dheader):
+    def delentity(self,_name):
         temp=self.hashdb.delentity(_name)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error,isself,self.cert_hash)
 
-    def renameentity(self,_name,_newname,dheader):
+    def renameentity(self, _name, _newname):
         temp=self.hashdb.renameentity(_name,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
@@ -50,11 +46,11 @@ class client_admin(object): #"register",
             return (False,error,isself,self.cert_hash)
 
     def addhash(self,*args):
-        if len(args)==3:
-            _name, _certhash, dheader=args
+        if len(args)==2:
+            _name, _certhash=args
             _type=None
-        elif len(args)==4:
-            _name, _certhash, _type, dheader=args
+        elif len(args)==3:
+            _name, _certhash, _type=args
         else:
             return (False,"wrong amount arguments (addhash): {}".format(args),isself,self.cert_hash)
         if self.hashdb.addhash(_name,_certhash,_type) == False:
@@ -69,24 +65,24 @@ class client_admin(object): #"register",
     #    else:
     #        return (False,error)
         
-    def delhash(self,_certhash,dheader):
+    def delhash(self,_certhash):
         temp=self.hashdb.delhash(_certhash)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error,isself,self.cert_hash)
             
-    def movehash(self,_certhash,_newname,dheader):
+    def movehash(self,_certhash,_newname):
         temp=self.hashdb.movehash(_certhash,_newname)
         if temp==True:
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error,isself,self.cert_hash)
     def addreference(self,*args):
-        if len(args)==5:
-            _name,_certhash,_reference,_reftype,dheader=args
-        elif len(args)==4:
-            _certhash,_reference,_reftype,dheader=args
+        if len(args)==4:
+            _name,_certhash,_reference,_reftype=args
+        elif len(args)==3:
+            _certhash,_reference,_reftype=args
             _name=self.hashdb.certhash_as_name(_certhash)
             if _name is None:
                 return (False,"name not in db",isself,self.cert_hash)
@@ -106,10 +102,10 @@ class client_admin(object): #"register",
         return (True,_reftype,isself,self.cert_hash)
         
     def delreference(self,*args):
-        if len(args)==4:
-            _name,_certhash,_reference,dheader=args
-        elif len(args)==3:
-            _certhash,_reference,dheader=args
+        if len(args)==3:
+            _name, _certhash, _reference=args
+        elif len(args)==2:
+            _certhash,_reference=args
             _name=self.hashdb.certhash_as_name(_certhash)
             if _name is None:
                 return (False,"name not in db",isself,self.cert_hash)
@@ -123,14 +119,14 @@ class client_admin(object): #"register",
             return (False,error,isself,self.cert_hash,isself,self.cert_hash)
         return (True,success,isself,self.cert_hash)
 
-    def setconfig(self, _key, _value,dheader):
+    def setconfig(self, _key, _value):
         ret = self.links["configmanager"].set(_key, _value)
         if ret == True:
             return (True, success,isself,self.cert_hash)
         else:
             return (False, error,isself,self.cert_hash)
     
-    def setpluginconfig(self, _plugin, _key, _value, dheader):
+    def setpluginconfig(self, _plugin, _key, _value):
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if _plugin not in listplugin:
@@ -141,3 +137,4 @@ class client_admin(object): #"register",
             config = pluginm.plugins.config
         config.set(_key, _value)
         return (True,success,isself,self.cert_hash)
+

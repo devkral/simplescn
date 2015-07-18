@@ -17,28 +17,25 @@ class client_safe(object): #abc.ABC):
     name = None
     sslcont = None
     
-    #@abc.abstractmethod
-    #def do_request(self, _addr, requeststr, dheader,usecache=False,forceport=False,requesttype="GET"):
-    #    pass
-        
-    def help(self, dheader): 
+    
+    def help(self): 
         return (True,self._cache_help,isself,self.cert_hash)
     
+    def register(self,server_addr,dheader):
+        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dheader, context = self.links["server"].sslcont)
+    
     #returns name,certhash,own socket
-    def show(self,dheader):
+    def show(self):
         return (True,(self.name,self.cert_hash,
                 str(self.links["server"].socket.getsockname()[1])),isself,self.cert_hash)
     
-    def register(self,server_addr,dheader):
-        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dheader)
-    
-    #### indirect way to add a service ####
-    def registerservice(self,_servicename,_port,dheader):
+    #### second way to add a service ####
+    def registerservice(self,_servicename,_port):
         self.links["client_server"].spmap[_servicename]=_port
         return (True,"service registered",isself,self.cert_hash)
     
-    #### indirect way to delete a service ####
-    def delservice(self,_servicename,dheader):
+    #### second way to delete a service ####
+    def delservice(self,_servicename):
         if _servicename in self.links["client_server"].spmap:
             del self.links["client_server"].spmap[_servicename]
         return (True,"service deleted",isself,self.cert_hash)
@@ -60,7 +57,7 @@ class client_safe(object): #abc.ABC):
         return temp2
         
     
-    def gethash(self,_addr,dheader):
+    def gethash(self,_addr):
         _addr=_addr.split(":")
         if len(_addr)==1:
             _addr=(_addr[0],server_port)
@@ -75,8 +72,8 @@ class client_safe(object): #abc.ABC):
         except Exception:
             return (False,"server does not exist",isself,self.cert_hash)
 
-    def ask(self,_address,dheader):
-        _ha=self.gethash(_address,dheader)
+    def ask(self,_address):
+        _ha=self.gethash(_address)
         if _ha[0]==False:
             return _ha
         if _ha[1][0]==self.cert_hash:
@@ -85,7 +82,7 @@ class client_safe(object): #abc.ABC):
         return (True,(temp,_ha[1][0]),isself,self.cert_hash)
 
     def listnames(self,server_addr,dheader):
-        temp=self.do_request(server_addr, "/listnames",dheader)
+        temp=self.do_request(server_addr, "/listnames", dheader)
         if temp[0]==False:
             return temp
         out=[]
@@ -107,7 +104,14 @@ class client_safe(object): #abc.ABC):
             return False, "{}: {}".format(type(e).__name__, e),isself,self.cert_hash
         return (temp[0],out,temp[2],temp[3])
     
-    def getservice(self,client_addr,_service,dheader):
+    def getservice(self, *args):
+        if len(args)==1:
+            dheader=args[0]
+            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        elif len(args)==2:
+            client_addr,dheader=args
+        else:
+            return (False,("wrong amount arguments (getservice): {}".format(args)),isself,self.cert_hash)
         return self.do_request(client_addr, "/getservice/{}".format(_service),dheader)
     
     def listservices(self,*args):
@@ -129,7 +133,7 @@ class client_safe(object): #abc.ABC):
         return temp[0],temp2,temp[2],temp[3]
     
     def info(self,*args):
-        if len(args)==1:
+        if len(args) == 1:
             dheader=args[0]
             _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         elif len(args)==2:
@@ -146,7 +150,15 @@ class client_safe(object): #abc.ABC):
             return False, "{}: {}".format(type(e).__name__, e)
         return True, temp2, _tinfo[2], _tinfo[3]
 
-    def cap(self,_addr,dheader):
+    def cap(self,*args):
+        if len(args)==1:
+            dheader=args[0]
+            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        elif len(args)==2:
+            _addr,dheader=args
+        else:
+            return (False,("wrong amount arguments (cap): {}".format(args)),isself,self.cert_hash)
+            
         temp=self.do_request(_addr, "/cap",dheader,forceport=True)
         if temp[0]==False:
             return temp
@@ -196,14 +208,14 @@ class client_safe(object): #abc.ABC):
     #local management
 
     #search
-    def searchhash(self,_certhash,dheader):
+    def searchhash(self,_certhash):
         temp=self.hashdb.certhash_as_name(_certhash)
         if temp is None:
             return(False, error,isself,self.cert_hash)
         else:
             return (True,temp,isself,self.cert_hash)
             
-    def getlocal(self,_name,_certhash,_dheader):
+    def getlocal(self,_name,_certhash):
         temp=self.hashdb.get(_name,_certhash)
         if temp is None:
             return(False, error,isself,self.cert_hash)
@@ -211,10 +223,10 @@ class client_safe(object): #abc.ABC):
             return (True,temp,isself,self.cert_hash)
     
     def listhashes(self, *args):
-        if len(args) == 3:
-            _name, _nodetypefilter, dheader = args
-        elif len(args) == 2:
-            _name, dheader=args
+        if len(args) == 2:
+            _name, _nodetypefilter = args
+        elif len(args) == 1:
+            _name=args[0]
             _nodetypefilter = None
         else:
             return (False,("wrong amount arguments (listhashes): {}".format(args)))
@@ -224,7 +236,7 @@ class client_safe(object): #abc.ABC):
         else:
             return (True,temp,isself,self.cert_hash)
     
-    def listnodenametypes(self,dheader):
+    def listnodenametypes(self):
         temp=self.hashdb.listnodenametypes()
         if temp is None:
             return(False, error,isself,self.cert_hash)
@@ -232,10 +244,9 @@ class client_safe(object): #abc.ABC):
             return (True,temp,isself,self.cert_hash)
     
     def listnodenames(self,*args):
-        if len(args)==2:
-            _nodetypefilter,dheader=args
-        elif len(args)==1:
-            dheader=args[0]
+        if len(args)==1:
+            _nodetypefilter=args[0]
+        elif len(args)==0:
             _nodetypefilter=None
         else:
             return (False,("wrong amount arguments (listnodenames): {}".format(args)))
@@ -246,10 +257,9 @@ class client_safe(object): #abc.ABC):
             return (True,temp,isself,self.cert_hash)
 
     def listnodeall(self, *args):
-        if len(args)==2:
-            _nodetypefilter,dheader=args
-        elif len(args)==1:
-            dheader=args[0]
+        if len(args)==1:
+            _nodetypefilter=args[0]
+        elif len(args)==0:
             _nodetypefilter=None
         else:
             return (False,"wrong amount arguments (listnodeall): {}".format(args),isself,self.cert_hash)
@@ -261,10 +271,10 @@ class client_safe(object): #abc.ABC):
     
         
     def getreferences(self,*args):
-        if len(args) == 3:
-            _certhash,_reftypefilter,dheader=args
-        elif len(args) == 2:
-            _certhash,dheader=args
+        if len(args) == 2:
+            _certhash,_reftypefilter=args
+        elif len(args) == 1:
+            _certhash=args[0]
             _reftypefilter=None
         else:
             return (False,"wrong amount arguments (getreferences): {}".format(args),isself,self.cert_hash)
@@ -282,11 +292,10 @@ class client_safe(object): #abc.ABC):
             return (False,error,isself,self.cert_hash)
         return (True,temp,isself,self.cert_hash)
         
-    def findbyref(self,_reference,dheader):
+    def findbyref(self,_reference):
         temp=self.hashdb.findbyref(_reference)
         if temp is None:
             return (False,error,isself,self.cert_hash)
         return (True,temp,isself,self.cert_hash)
-    
-    
+
 

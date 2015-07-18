@@ -33,7 +33,7 @@ import socket
 import json
 from os import path
 
-from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type
+from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod
 
 
 from common import logger
@@ -61,28 +61,27 @@ class client_client(client_admin, client_safe):
     sslcont=None
     hashdb = None
     links = None
-    pwcallmethod=input
-    #TODO: split validactions POST and GET
+    
     validactions=set()
-    validactions_PUT={"command",}
+    validactions_data={"command",}
     #_cache_help = None
     # "access"
     #pwcache={}
     
-    def __init__(self, _name, pub_cert_hash, _certdbpath, _links):
+    def __init__(self, _name, _pub_cert_hash, _certdbpath, _links):
+        self.links = _links
         self._cache_help = cmdhelp()
         self.name = _name
-        self.cert_hash = pub_cert_hash
+        self.cert_hash = _pub_cert_hash # dhash(_pub_cert)
         self.hashdb = certhash_db(_certdbpath)
-        self.sslcont = default_sslcont()
-        self.links = _links
+        #self.sslcont_register = links["server"].sslcont
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
         self._cache_help = cmdhelp()
 
-    def do_request(self, _addr, requeststr, dheader, body=None, forceport=False,requesttype="GET"):
+    def do_request(self, _addr, requeststr, dheader, body=None, forceport=False,requesttype="GET", context=self.sslcont):
         _addr=scnparse_url(_addr,force_port=forceport)
-        con=client.HTTPSConnection(_addr[0],_addr[1], context=self.sslcont)
+        con=client.HTTPSConnection(_addr[0],_addr[1], context)
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         hashpcert=dhash(pcert)
@@ -105,7 +104,7 @@ class client_client(client_admin, client_safe):
                 if dheader[elem] is not None:
                     theaders[elem] = dheader[elem]
 
-            con.putrequest("CONNECT", "/{}/{}".format(dheader["tdestname"],dheader["tdesthash"]))
+            con.putrequest("CONNECT", "/{}/{}".format(dheader["tdestname"], dheader["tdesthash"]))
             
             con.set_tunnel(requeststr,theaders)
         else:
@@ -122,13 +121,13 @@ class client_client(client_admin, client_safe):
             dheader["nonce"] = os.urandom(10)
             dheader["tnonce"] = os.urandom(10)
             if "server" in r.response:
-                dheader["spwauth"]=dhash_salt(dhash(self.pwcallmethod("Please enter password for server")), dheader["nonce"])#r.read())
+                dheader["spwauth"]=dhash_salt(dhash(pwcallmethod("Please enter password for server")()), dheader["nonce"])
             if "client" in r.response:
-                dheader["cpwauth"]=dhash_salt(dhash(self.pwcallmethod("Please enter password for client")), dheader["nonce"])
+                dheader["cpwauth"]=dhash_salt(dhash(pwcallmethod("Please enter password for client")()), dheader["nonce"])
             if "admin" in r.response:
-                dheader["apwauth"]=dhash_salt(dhash(self.pwcallmethod("Please enter password for admin")), dheader["nonce"])
+                dheader["apwauth"]=dhash_salt(dhash(pwcallmethod("Please enter password for admin")()), dheader["nonce"])
             if "proxy" in r.response:
-                dheader["tpwauth"]=dhash_salt(dhash(self.pwcallmethod("Please enter password for proxy")),dheader["tnonce"])
+                dheader["tpwauth"]=dhash_salt(dhash(pwcallmethod("Please enter password for proxy")()),dheader["tnonce"])
             else:
                 dheader["tnonce"] = None
             return self.do_request(_addr, requeststr, dheader, body=None, forceport=forceport, requesttype=requesttype)
@@ -138,9 +137,13 @@ class client_client(client_admin, client_safe):
             return resp[0],resp[1],val,hashpcert
 
     # command wrapper for cmd interfaces
-    # TODO: do_PUT make available from remote
-    def command(self,inp):
-        reqheader=reference_header.copy()
+    def command(self, _data, reqheader=None):
+        if type(_data) is str:
+            inp = _data
+        else:
+            inp = str(_data, "utf8")
+        if reqheader is None:
+            reqheader=reference_header.copy()
         ret = [False, None, self.cert_hash, isself ]
         if inp == "":
             #ret[output] =
@@ -228,20 +231,24 @@ class client_client(client_admin, client_safe):
         return ret
     
     # for e.g. plugins
-    def access(self, func, *args): #, dheader=reference_header.copy()):
+    def access(self, func, *args, dheader=None):
+        if dheader is None:
+            dheader = reference_header.copy()
         if func in self.validactions and func != "access":
             #args2 = list(args)
             #args2.append(dheader)
             #print(args2)
             return self.__getattribute__(func)(*args)
+        else:
+            return None
     
-    
-    def access_post(self, func, *args): #, dheader=reference_header.copy()):
-        if func in self.validactions_POST and func != "access":
+    def access_data(self, func, _action, _data, dheader):
+        if func in self.validactions_data and func != "access_data":
             #args2 = list(args)
             #args2.append(dheader)
-            return self.__getattribute__(func)(*args)
-
+            return self.__getattribute__(func)(_data, dheader)
+        else:
+            return None
 
 
 ###server on client
@@ -290,26 +297,31 @@ class client_server(commonscn):
         
     ### management section - end ###
     
-    def getservice(self, _service, _addr):
+    def getservice(self, _service):
         if _service not in self.spmap:
             return False, "service"
         return True, self.spmap[_service]
 
-    def listservices(self, _addr):
+    def listservices(self):
         return True, json.dumps(self.spmap)
 
-    def info(self, _addr):
+    def info(self):
         return True, self.cache["info"]
 
-    def cap(self, _addr):
+    def cap(self):
         return True, self.cache["cap"]
     
-    def prioty(self, _addr):
+    def prioty(self):
         return True, self.cache["prioty"]
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simple scn client 0.5'
-
+    
+    need_address = ["registerservice", "delservice"]
+    
+    need_dheader = ["register", "get", "getservice", "listservices", "info", \
+    "cap", "prioty_direct", "prioty", "check_direct", "check"]
+    
     links = None
     handle_remote = False
     cpwhash = None
@@ -423,10 +435,11 @@ class client_handler(BaseHTTPRequestHandler):
         
     ### GET ###
     def handle_client(self, _cmdlist):
+        action = _cmdlist[0]
+        _cmdlist = _cmdlist[:1]
         if _cmdlist[0] not in self.links["client"].validactions:
             self.send_error(400, "invalid action - client")
             return
-        _cmdlist += [self.headers,]
         if self.handle_remote == False and not self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
             self.send_error(403, "no permission - client")
             return
@@ -439,10 +452,12 @@ class client_handler(BaseHTTPRequestHandler):
             if self.check_apw() == False:
                 self.send_error(401, self.needed_auth(["admin"])[1]) #"no permission - admin")
                 return
+        if action in self.need_dheader:
+            _cmdlist += [self.headers,]
         
         try:
-            func = self.links["client"].__getattribute__(_cmdlist[0])
-            response = func(*_cmdlist[1:])
+            func = self.links["client"].__getattribute__(action)
+            response = func(*_cmdlist)
         except AddressFail as e:
             self.send_error(500, e.msg)
             return
@@ -477,8 +492,9 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - server")
             return
         
-         # add address to _cmdlist
-        _cmdlist += [self.client_address,]
+        # add address to _cmdlist if needed
+        if action in self.need_address:
+            _cmdlist += [self.client_address,]
         
         if self.check_spw() == False:
             self.send_error(401, self.needed_auth(["server"])[1]) #"no permission - server")
@@ -720,12 +736,12 @@ class client_init(object):
             port = 0
 
         self.links["client_server"] = client_server(_name[0], confm.get("priority"), dhash(pub_cert), _message)
+        self.links["client_server"].pluginmanager=pluginm
         self.links["configmanager"] = confm
 
         client_handler.links=self.links
         self.links["server"]=http_client_server(("",port),_cpath+"_cert")
         self.links["client"]=client_client(_name[0],dhash(pub_cert),os.path.join(self.links["config_root"], "certdb.sqlite"),self.links)
-        self.links["client_server"].pluginmanager=pluginm
         
         
     def serve_forever_block(self):
