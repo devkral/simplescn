@@ -161,7 +161,11 @@ def notify(msg):
 def generate_certs(_path):
     _key = crypto.PKey()
     _key.generate_key(crypto.TYPE_RSA, key_size)
-    _passphrase = "" #input("(optional) Enter passphrase for encrypting key:\n")
+    _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key:\n")()
+    if _passphrase != "":
+        _passphrase2 = pwcallmethod("Retype:\n")()
+        if _passphrase != _passphrase2:
+            return False
     cert = crypto.X509()
     cert_name = cert.get_issuer()
     cert_name.countryName = "IA"
@@ -191,6 +195,7 @@ def generate_certs(_path):
         writeout.write(privkey)
     with open("{}.pub".format(_path), 'wb') as writeout:
         writeout.write(pubkey)
+    return True
 
 def check_certs(_path):
     if os.path.exists("{}.priv".format(_path)) == False or os.path.exists("{}.pub".format(_path)) == False:

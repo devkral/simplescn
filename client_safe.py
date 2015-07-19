@@ -19,10 +19,10 @@ class client_safe(object): #abc.ABC):
     
     
     def help(self): 
-        return (True,self._cache_help,isself,self.cert_hash)
+        return (True, self._cache_help, isself, self.cert_hash)
     
     def register(self,server_addr,dheader):
-        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name,self.cert_hash,self.links["server"].socket.getsockname()[1]),dheader, context = self.links["server"].sslcont)
+        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name, self.cert_hash, self.show()[2]), dheader, context = self.links["server"].sslcont)
     
     #returns name,certhash,own socket
     def show(self):
@@ -58,34 +58,34 @@ class client_safe(object): #abc.ABC):
         
     
     def gethash(self,_addr):
-        _addr=_addr.split(":")
-        if len(_addr)==1:
-            _addr=(_addr[0],server_port)
+        _addr = _addr.split(":")
+        if len(_addr) == 1:
+            _addr = (_addr[0],server_port)
         try:
-            con=client.HTTPSConnection(_addr[0],_addr[1],context=self.sslcont)
+            con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
             con.connect()
-            pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             con.close()
-            return (True,(dhash(pcert),pcert),isself,self.cert_hash)
+            return (True, (dhash(pcert), pcert), isself, self.cert_hash)
         except ssl.SSLError:
-            return (False,"server speaks no tls 1.2",isself,self.cert_hash)
+            return (False, "server speaks no tls 1.2", isself, self.cert_hash)
         except Exception:
-            return (False,"server does not exist",isself,self.cert_hash)
+            return (False, "server does not exist", isself, self.cert_hash)
 
     def ask(self,_address):
-        _ha=self.gethash(_address)
-        if _ha[0]==False:
+        _ha = self.gethash(_address)
+        if _ha[0] == False:
             return _ha
-        if _ha[1][0]==self.cert_hash:
-            return (True,(isself,self.cert_hash),isself,self.cert_hash)
-        temp=self.hashdb.certhash_as_name(_ha[1][0])
-        return (True,(temp,_ha[1][0]),isself,self.cert_hash)
+        if _ha[1][0] == self.cert_hash:
+            return (True, (isself, self.cert_hash), isself, self.cert_hash)
+        temp = self.hashdb.certhash_as_name(_ha[1][0])
+        return (True, (temp, _ha[1][0]), isself, self.cert_hash)
 
-    def listnames(self,server_addr,dheader):
-        temp=self.do_request(server_addr, "/listnames", dheader)
-        if temp[0]==False:
+    def listnames(self,server_addr, dheader):
+        temp = self.do_request(server_addr, "/listnames", dheader)
+        if temp[0] == False:
             return temp
-        out=[]
+        out = []
         try:
             temp2 = json.loads(temp[1])
             for name in sorted(temp2):

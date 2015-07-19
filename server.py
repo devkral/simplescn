@@ -104,8 +104,12 @@ class server(commonscn):
     def register(self,_name,_hash,_port,_addr, _cert):
         if check_name(_name)==False:
             return False, "invalid name"
-        if dhash(_cert) != _hash:
-            return False, "hash does not match"
+        
+        # TODO: fix self.request.getpeercert return None because no client certificate
+        #if _cert is None:
+        #    return False, "no cert"
+        #if dhash(_cert) != _hash:
+        #    return False, "hash does not match"
         self.changeip_sem.acquire(False)
         if _name not in self.nhipmap:
             self.nhipmap[_name]={}
@@ -177,13 +181,6 @@ class server_handler(BaseHTTPRequestHandler):
         
         with open(_ppath,"rb") as rob:
             self.wfile.write(rob.read())
-    """
-    WWW-Authenticate: Digest realm="testrealm@host.com",
-                        qop="auth,auth-int",
-                        algorithm="SHA256", or should I use SHA256session
-                        nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
-                        opaque="5ccc069c403ebaf9f0171e9517f40e41"
-                        """
     #check server password
     def check_spw(self):
         if self.spwhash is None:
@@ -231,7 +228,7 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         if action in self.need_address_cert:
-            _path=_path+[self.client_address, self.socket.getpeercert(True)]
+            _path=_path+[self.client_address, self.request.getpeercert(True)]
             
             
         if action not in self.links["server_server"].validactions:
@@ -246,14 +243,14 @@ class server_handler(BaseHTTPRequestHandler):
                     st=str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
                     st=str(e)
-                #helps against ssl failing about empty string (EOF)
+                # helps against ssl failing about empty string (EOF)
                 if len(st)>0:
                     self.send_error(500,st)
                 else:
                     self.send_error(500,"unknown")
             return
         if response[0] == False:
-            #helps against ssl failing about empty string (EOF)
+            # helps against ssl failing about empty string (EOF)
             if len(response)>=1 and len(response[1])>0:
                 self.send_error(400,response[1])
             else:
@@ -263,7 +260,7 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.send_header('Content-type',"text")
             self.end_headers()
-            #helps against ssl failing about empty string (EOF)
+            # helps against ssl failing about empty string (EOF)
             self.wfile.write(bytes(response[1],"utf8"))
             
     def do_CONNECT(self):
@@ -298,6 +295,7 @@ class server_handler(BaseHTTPRequestHandler):
         redout.daemon=True
         redout.run()
         rw_socket(sockd,self.socket)
+
     def do_POST(self):
         plugin,action=self.path[1:].split("/",1)
         pluginm=self.links["client_server"].pluginmanager
@@ -321,7 +319,6 @@ class server_handler(BaseHTTPRequestHandler):
         
 class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     sslcont = None
-    timeout = None
     #address_family = socket.AF_INET6
     
     #def __del__(self):
@@ -330,7 +327,6 @@ class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     def __init__(self, server_address,certfpath):
         socketserver.TCPServer.__init__(self, server_address, server_handler)
         #self.crappyssl=workaround_ssl(certs[1])
-        self.socket.settimeout(self.timeout)
         self.sslcont=default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv", pwcallmethod)
         self.socket=self.sslcont.wrap_socket(self.socket)
@@ -368,8 +364,6 @@ class server_init(object):
                 pw = pw[:-1]
             server_handler.tpwhash = dhash(pw)
             op.close()
-        #server_handler.ttimeout=int(kwargs["ttimeout"])
-        server_handler.timeout=int(kwargs["timeout"])
 
         
         self.links={}
@@ -405,14 +399,16 @@ class server_init(object):
                 "priority": kwargs["priority"], "message":_message,
                 "expire": kwargs["expire"]}
         
-        self.links["server_server"]=server(serverd) 
+        self.links["server_server"]=server(serverd)
         #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
             #self.links["server_server"].pluginmanager.interfaces+=["server"]
             
         server_handler.links=self.links
         
+        # use timeout argument of BaseServer
+        http_server_server.timeout = int(kwargs["timeout"])
         self.links["hserver"]=http_server_server(("",_port),_spath+"_cert")
-
+        
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
     def serve_forever_nonblock(self):

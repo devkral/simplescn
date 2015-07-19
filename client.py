@@ -33,7 +33,7 @@ import socket
 import json
 from os import path
 
-from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket
+from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket, notify
 
 
 from common import logger
@@ -62,7 +62,7 @@ class client_client(client_admin, client_safe):
     hashdb = None
     links = None
     
-    need_dheader = ["register", "get", "getservice", "listservices", "info", \
+    need_dheader = ["register", "get", "getservice", "listservices", "listnames", "info", \
     "cap", "prioty_direct", "prioty", "check_direct", "check"]
     
     validactions=set()
@@ -82,11 +82,11 @@ class client_client(client_admin, client_safe):
         self.validactions.update(client_safe.validactions_safe)
         self._cache_help = cmdhelp()
 
-    def do_request(self, _addr, requeststr, dheader, body=None, forceport=False,requesttype="GET", _context=None):
-        if _context is None:
-            _context = self.sslcont
+    def do_request(self, _addr, requeststr, dheader, body=None, forceport=False,requesttype="GET", context=None):
+        if context is None:
+            context = self.sslcont
         _addr=scnparse_url(_addr,force_port=forceport)
-        con=client.HTTPSConnection(_addr[0],_addr[1], context=_context)
+        con=client.HTTPSConnection(_addr[0],_addr[1], context=context)
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         hashpcert=dhash(pcert)
@@ -249,18 +249,20 @@ class client_client(client_admin, client_safe):
     # for plugins, e.g. untrusted
     # requester = None, don't allow asking
     def access_safe(self, action, args, dheader, requester=None ):
+        args = list(args)
         if action in self.validactions:
             if action not in self.validactions_safe:
                 if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
                     return False, "no permission", isself, self.cert_hash
             if action in self.need_dheader:
-                args.append(dheader)
+                args = args.append(dheader)
             return self.__getattribute__(action)(*args)
         else:
             return False, "not in validactions", isself, self.cert_hash
     
     # NEVER include in validactions
     def access_main(self, action, args, dheader):
+        args = list(args)
         if action in self.validactions:
             if action in self.need_dheader:
                 args.append(dheader)
@@ -661,12 +663,10 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
         client information"""
     #address_family = socket.AF_INET6
     sslcont = None
-    timeout_scn = None
     
     
     def __init__(self, _client_address, certfpath):
         HTTPServer.__init__(self, _client_address, client_handler)
-        #self.socket.settimeout(self.timeout_scn)
         self.sslcont = default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
         self.socket = self.sslcont.wrap_socket(self.socket)
@@ -765,8 +765,10 @@ class client_init(object):
         self.links["configmanager"] = confm
 
         client_handler.links=self.links
+        
+        # use timeout argument of BaseServer
+        http_client_server.timeout=confm.get("timeout")
         self.links["server"]=http_client_server(("", port), _cpath+"_cert")
-        self.links["server"].timeout_scn=confm.get("timeout")
         self.links["client"]=client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), self.links)
         
         
