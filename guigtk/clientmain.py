@@ -326,7 +326,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         try:
             if True: #self.use_remote_client==False:
             
-                return self.links["client"].access(action, *requeststrs)
+                return self.links["client"].access_main(action, requeststrs[:-1],requeststrs[-1])
         except Exception as e:
             raise(e)
             #logger().error(str(e))
@@ -910,15 +910,8 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         #    if ressname[0]==False or ressname[1][0] is None:
         #        logger().error("invalid name")
         #        return
-        
-        res=self.do_requestdo("delreference", self.curlocal[1], ref_hash, _ref, self.header_client)
-        
-        if res[0]==False:
-            logger().error(res[1])
-            updatereftb.set_active(True)
-            return
             
-        res=self.do_requestdo("addreference", self.curlocal[1], ref_hash, _ref, _type, self.header_client)
+        res=self.do_requestdo("updatereference", ref_hash, _ref,_ref, _type, self.header_client)
         if res[0]==True:
             if _type in ["url", "name"]:
                 self.update_storage()
@@ -978,7 +971,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         #        logger().error("invalid name")
         #        return
         
-        res=self.do_requestdo("addreference", self.curlocal[1], ref_hash, _ref, _type, self.header_client)
+        res=self.do_requestdo("addreference", ref_hash, _ref, _type, self.header_client)
         if res[0]==True:
             addrefentry.hide()
             it=reflist.prepend((_ref,_type))
@@ -1033,7 +1026,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
             return
         _ref = _selr[0][_selr[1]][0]
         
-        res = self.do_requestdo("delreference", self.curlocal[1], _hash, _ref, self.header_client)
+        res = self.do_requestdo("delreference", _hash, _ref, self.header_client)
         if res[0]==True:
             if _selr[0][_selr[1]][1] in ["url", "name"]:
                 self.update_storage()

@@ -33,7 +33,7 @@ import socket
 import json
 from os import path
 
-from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod
+from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket
 
 
 from common import logger
@@ -62,6 +62,9 @@ class client_client(client_admin, client_safe):
     hashdb = None
     links = None
     
+    need_dheader = ["register", "get", "getservice", "listservices", "info", \
+    "cap", "prioty_direct", "prioty", "check_direct", "check"]
+    
     validactions=set()
     validactions_data={"command",}
     #_cache_help = None
@@ -74,32 +77,34 @@ class client_client(client_admin, client_safe):
         self.name = _name
         self.cert_hash = _pub_cert_hash # dhash(_pub_cert)
         self.hashdb = certhash_db(_certdbpath)
-        #self.sslcont_register = links["server"].sslcont
+        self.sslcont = default_sslcont()
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
         self._cache_help = cmdhelp()
 
-    def do_request(self, _addr, requeststr, dheader, body=None, forceport=False,requesttype="GET", context=self.sslcont):
+    def do_request(self, _addr, requeststr, dheader, body=None, forceport=False,requesttype="GET", _context=None):
+        if _context is None:
+            _context = self.sslcont
         _addr=scnparse_url(_addr,force_port=forceport)
-        con=client.HTTPSConnection(_addr[0],_addr[1], context)
+        con=client.HTTPSConnection(_addr[0],_addr[1], context=_context)
         con.connect()
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         hashpcert=dhash(pcert)
         if hashpcert==self.cert_hash:
             val = isself
-        elif dheader["certhash"] is not None and dheader["certhash"]!=hashpcert:
+        elif dheader["certhash"] is not None and dheader["certhash"] != hashpcert:
             raise(VALHashError)
         else:
-            val=self.hashdb.certhash_as_name(hashpcert)
+            val = self.hashdb.certhash_as_name(hashpcert)
             if val == isself:
                 raise(VALNameError)
-        pheaders={}
+        pheaders = {}
         for elem in ["spwauth", "apwauth", "cpwauth", "nonce"]:
             if dheader[elem] is not None:
                 pheaders[elem] = dheader[elem]
 
         if dheader["tdestname"] is not None and dheader["tdesthash"] is not None:
-            theaders={}
+            theaders = {}
             for elem in ["tpwauth", "tnonce"]:
                 if dheader[elem] is not None:
                     theaders[elem] = dheader[elem]
@@ -204,20 +209,13 @@ class client_client(client_admin, client_safe):
                 ret[1] = "Error:\n{}".format(st)
             return ret
         
-        # call functions in client
-        parsed+=[reqheader,]
-        if str(parsed[0]) not in self.validactions:
-            ret[0] = False
-            ret[1] = "Error: Command does not exist/is not public: {}".format(parsed[0])
-            return ret
         try:
-            func=self.__getattribute__(str(parsed[0]))
-            resp=func(*parsed[1:])
-            ret[0] = resp[0]
-            ret[1] = str(resp[1])
-            if resp[0] == True:
-                ret[2] = resp[2]
-                ret[3] = resp[3]
+            resp = self.access_main(str(parsed[0]),parsed[1:],reqheader)
+            if resp is None:
+                ret[0] = False
+                ret[1] = "Error: Command does not exist/is not public: {}".format(parsed[0])
+                return ret
+            ret = resp
         except AddressFail as e:
             ret[0] = False
             ret[1] = "Addresserror:\n{}".format(e.msg)
@@ -235,9 +233,6 @@ class client_client(client_admin, client_safe):
         if dheader is None:
             dheader = reference_header.copy()
         if func in self.validactions and func != "access":
-            #args2 = list(args)
-            #args2.append(dheader)
-            #print(args2)
             return self.__getattribute__(func)(*args)
         else:
             return None
@@ -249,6 +244,29 @@ class client_client(client_admin, client_safe):
             return self.__getattribute__(func)(_data, dheader)
         else:
             return None
+    
+    # NEVER include in validactions
+    # for plugins, e.g. untrusted
+    # requester = None, don't allow asking
+    def access_safe(self, action, args, dheader, requester=None ):
+        if action in self.validactions:
+            if action not in self.validactions_safe:
+                if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
+                    return False, "no permission", isself, self.cert_hash
+            if action in self.need_dheader:
+                args.append(dheader)
+            return self.__getattribute__(action)(*args)
+        else:
+            return False, "not in validactions", isself, self.cert_hash
+    
+    # NEVER include in validactions
+    def access_main(self, action, args, dheader):
+        if action in self.validactions:
+            if action in self.need_dheader:
+                args.append(dheader)
+            return self.__getattribute__(action)(*args)
+        else:
+            return False, "not in validactions", isself, self.cert_hash
 
 
 ###server on client
@@ -319,8 +337,6 @@ class client_handler(BaseHTTPRequestHandler):
     
     need_address = ["registerservice", "delservice"]
     
-    need_dheader = ["register", "get", "getservice", "listservices", "info", \
-    "cap", "prioty_direct", "prioty", "check_direct", "check"]
     
     links = None
     handle_remote = False
@@ -350,6 +366,8 @@ class client_handler(BaseHTTPRequestHandler):
             return True
         if "cpwauth" in self.headers and "nonce" in self.headers:
             if dhash_salt(self.headers["cpwauth"], self.headers["nonce"]) == self.cpwhash:
+                # be sure that cpwauth isn't routed
+                del self.headers["cpwauth"]
                 return True
         return False
     
@@ -358,6 +376,8 @@ class client_handler(BaseHTTPRequestHandler):
             return True
         if "apwauth" in self.headers and "nonce" in self.headers:
             if dhash_salt(self.headers["apwauth"], self.headers["nonce"]) == self.apwhash:
+                # be sure that apwauth isn't routed
+                del self.headers["apwauth"]
                 return True
         return False
 
@@ -366,6 +386,8 @@ class client_handler(BaseHTTPRequestHandler):
             return True
         if "spwhash" in self.headers and "nonce" in self.headers:
             if dhash_salt(self.headers["spwhash"],self.headers["nonce"]) == self.spwhash:
+                # be sure that spwauth isn't routed (doesnn't happen yet, but be sure)
+                del self.headers["spwauth"]
                 return True
         return False
     
@@ -393,12 +415,12 @@ class client_handler(BaseHTTPRequestHandler):
             return
         
         if self.check_cpw() == False:
-            self.send_error(401, self.needed_auth(["client","admin"])[1]) #"no permission - client")
+            self.send_error(401, self.needed_auth(["client","admin"])[1]) # no permission - client
             return
             
         if self.links["client"].validactions_admin:
             if self.check_apw() == False:
-                self.send_error(401, self.needed_auth(["admin"])[1]) #"no permission - admin")
+                self.send_error(401, self.needed_auth(["admin"])[1]) # no permission - admin"
                 return
         try:
             func = self.links["client"].__getattribute__(_cmdlist[0])
@@ -412,14 +434,14 @@ class client_handler(BaseHTTPRequestHandler):
                     st=str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
                     st=str(e)
-                #helps against ssl failing about empty string (EOF)
+                # helps against ssl failing about empty string (EOF)
                 if len(st) > 0:
                     self.send_error(500, st)
                 else:
                     self.send_error(500, "unknown")
             return
         if response[0] == False:
-            #helps against ssl failing about empty string (EOF)
+            # helps against ssl failing about empty string (EOF)
             if len(response) >= 1 and len(response[1]) > 0:
                 self.send_error(400, str(response[1]))
             else:
@@ -436,7 +458,7 @@ class client_handler(BaseHTTPRequestHandler):
     ### GET ###
     def handle_client(self, _cmdlist):
         action = _cmdlist[0]
-        _cmdlist = _cmdlist[:1]
+        _cmdlist = _cmdlist[1:]
         if _cmdlist[0] not in self.links["client"].validactions:
             self.send_error(400, "invalid action - client")
             return
@@ -456,8 +478,7 @@ class client_handler(BaseHTTPRequestHandler):
             _cmdlist += [self.headers,]
         
         try:
-            func = self.links["client"].__getattribute__(action)
-            response = func(*_cmdlist)
+            response = self.links["client"].access_main(action, _cmdlist, self.headers)
         except AddressFail as e:
             self.send_error(500, e.msg)
             return
@@ -467,14 +488,14 @@ class client_handler(BaseHTTPRequestHandler):
                     st=str(e)+"\n\n"+str(traceback.format_tb(e))
                 else:
                     st=str(e)
-                #helps against ssl failing about empty string (EOF)
+                # helps against ssl failing about empty string (EOF)
                 if len(st) > 0:
                     self.send_error(500, st)
                 else:
                     self.send_error(500, "unknown")
             return
         if response[0] == False:
-            #helps against ssl failing about empty string (EOF)
+            # helps against ssl failing about empty string (EOF)
             if len(response) >= 1 and len(response[1]) > 0:
                 self.send_error(400, str(response[1]))
             else:
@@ -488,27 +509,28 @@ class client_handler(BaseHTTPRequestHandler):
             self.wfile.write(bytes(json.dumps(response), "utf8"))
 
     def handle_server(self, _cmdlist):
-        if _cmdlist[0] not in self.links["client_server"].validactions:
+        action = _cmdlist[0]
+        _cmdlist = _cmdlist[1:]
+        if action not in self.links["client_server"].validactions:
             self.send_error(400, "invalid action - server")
             return
         
         # add address to _cmdlist if needed
         if action in self.need_address:
             _cmdlist += [self.client_address,]
-        
         if self.check_spw() == False:
-            self.send_error(401, self.needed_auth(["server"])[1]) #"no permission - server")
+            self.send_error(401, self.needed_auth(["server"])[1]) # no permission - server
             return
         
         try:
-            func = self.links["client_server"].__getattribute__(_cmdlist[0])
-            response = func(*_cmdlist[1:])
+            func = self.links["client_server"].__getattribute__(action)
+            response = func(*_cmdlist)
         except Exception as e:
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 st = "{}:{}".format(type(e).__name__, e)
                 if "tb_frame" in e.__dict__:
                     st = "{}\n\n{}".format(st, traceback.format_tb(e))
-                #helps against ssl failing about empty string (EOF)
+                # helps against ssl failing about empty string (EOF)
                 if len(st) > 0:
                     self.send_error(500, st)
                 else:
@@ -518,7 +540,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         
         if response[0] == False:
-            #helps against ssl failing about empty string (EOF)
+            # helps against ssl failing about empty string (EOF)
             if len(response) > 1 and len(response[1]) > 0:
                 self.send_error(400, response[1])
             else:
@@ -532,7 +554,7 @@ class client_handler(BaseHTTPRequestHandler):
             if len(response) > 1 and len(response[1]) > 0:
                 self.wfile.write(bytes(response[1], "utf8"))
             else:
-                self.wfile.write(bytes("success","utf8"))
+                self.wfile.write(bytes("success", "utf8"))
             
     def do_GET(self):
         if self.path == "/favicon.ico":
@@ -627,7 +649,7 @@ class client_handler(BaseHTTPRequestHandler):
         else:
             sockd= self.links["client_client"].do_request(pluginm.redirect_addr, \
                                             self.path, requesttype = "POST")
-            redout=threading.Thread(target=rw_socket,args=(self.socket,sockd))
+            redout = threading.Thread(target=rw_socket, args=(self.socket,sockd))
             redout.daemon=True
             redout.run()
             rw_socket(sockd,self.socket)
@@ -639,10 +661,12 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
         client information"""
     #address_family = socket.AF_INET6
     sslcont = None
+    timeout_scn = None
     
     
     def __init__(self, _client_address, certfpath):
         HTTPServer.__init__(self, _client_address, client_handler)
+        #self.socket.settimeout(self.timeout_scn)
         self.sslcont = default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
         self.socket = self.sslcont.wrap_socket(self.socket)
@@ -671,12 +695,15 @@ class client_init(object):
         else:
             client_handler.webgui=False
         
-        client_handler.salt = os.urandom(8)
-        if confm.getb("remote") == True:
-            client_handler.handle_remote = True
         if confm.getb("cpwhash") == True:
+            # ensure that password is set when allowing remote
+            if confm.getb("remote") == True:
+                client_handler.handle_remote = True
             client_handler.cpwhash=confm.get("cpwhash")
         elif confm.getb("cpwfile") == True:
+            # ensure that password is set when allowing remote
+            if confm.getb("remote") == True:
+                client_handler.handle_remote = True
             op=open("r")
             pw=op.readline()
             if pw[-1] == "\n":
@@ -723,13 +750,11 @@ class client_init(object):
         
         _name = _name.split("/")
         if len(_name)>2 or check_name(_name[0]) == False:
-            print("Configuration error in {}".format(_cpath+"_name"))
-            print("should be: <name>/<port>")
-            print("Name has some restricted characters")
+            logger().error("Configuration error in {}\nshould be: <name>/<port>\nName has some restricted characters".format(_cpath+"_name"))
             sys.exit(1)
 
         if confm.getb("port") == True:
-            port = int(port)
+            port = int(confm.get("port"))
         elif len(_name) >= 2:
             port = int(_name[1])
         else:
@@ -740,8 +765,9 @@ class client_init(object):
         self.links["configmanager"] = confm
 
         client_handler.links=self.links
-        self.links["server"]=http_client_server(("",port),_cpath+"_cert")
-        self.links["client"]=client_client(_name[0],dhash(pub_cert),os.path.join(self.links["config_root"], "certdb.sqlite"),self.links)
+        self.links["server"]=http_client_server(("", port), _cpath+"_cert")
+        self.links["server"].timeout_scn=confm.get("timeout")
+        self.links["client"]=client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), self.links)
         
         
     def serve_forever_block(self):
@@ -769,15 +795,15 @@ plugin <plugin>/<...>: speak with plugin
 """
     for elem in client_client.validactions:
         if elem in client_admin.validactions_admin:
-            eperm="{}(admin)".format(elem)
+            eperm = "{}(admin)".format(elem)
         else:
-            eperm=elem
+            eperm = elem
         if elem in cmdanot:
-            out+="{}{}: {}".format(eperm,*cmdanot[elem])+"\n"
+            out += "{}{}: {}".format(eperm,*cmdanot[elem])+"\n"
         else:
-            out+="{}: {}".format(eperm,"<undocumented>")+"\n"
+            out += "{}: {}".format(eperm,"<undocumented>")+"\n"
 
-    out+="""
+    out += """
 ### cmd-headers ###
 headers defined this way: ...?<header1>=<value1>&<header2>=<value2>...
 TODO
@@ -789,15 +815,16 @@ def paramhelp():
 ### parameters ###
 config=<dir>: path to config dir
 port=<number>: Port
-(s/c)pwhash=<hash>: sha256 hash of pw, higher preference than pwfile
-(s/c)pwfile=<file>: file with password (cleartext)
-remote: remote reachable
+(c/a/s)pwhash=<hash>: sha256 hash of pw, higher preference than pwfile
+(c/a/s)pwfile=<file>: file with password (cleartext)
+remote: remote reachable (not localhost) (needs cpwhash/file)
 priority=<number>: set priority
-timeout=<number>: #########not implemented yet ###############
+timeout=<number>: socket timeout
 webgui: enables webgui
 cmd: opens cmd
-s: set password for contacting client
 c: set password for using client webcontrol
+a: set password for using client webcontrol admin panel
+s: set password for contacting client
 """
     
 def signal_handler(_signal, frame):
@@ -806,18 +833,18 @@ def signal_handler(_signal, frame):
 
 #specified seperately because of chicken egg problem
 #"config":default_configdir
-default_client_args={"noplugins":None,
-             "cpwhash":None,
-             "cpwfile":None,
-             "apwhash":None,
-             "apwfile":None,
-             "spwhash":None,
-             "spwfile":None,
-             "remote":None,
-             "priority":"20",
-             "timeout":"300", # not implemented yet
-             "webgui":None,
-             "cmd":None}
+default_client_args={"noplugins": None,
+             "cpwhash": None,
+             "cpwfile": None,
+             "apwhash": None,
+             "apwfile": None,
+             "spwhash": None,
+             "spwfile": None,
+             "remote": None,
+             "priority": "20",
+             "timeout": "30",
+             "webgui": None,
+             "cmd": None}
              
 client_args={"config":default_configdir,
              "port":None}
@@ -887,14 +914,14 @@ if __name__ ==  "__main__":
         logger().debug("start client server")
         cm.serve_forever_nonblock()
         logger().debug("start console")
-        print(*cm.links["client"].show({})[1],sep="/")
+        print(*cm.links["client"].show()[1],sep="/")
         while True:
             ret=cm.links["client"].command(input("Enter command, seperate by \"/\"\nEnter headers by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n"))
             if ret[0] == True:
                 if ret[2] == isself:
                     print("This client:")
                 else:
-                    print("{} with hash:\n{}\n answers:".format(ret["certname"],ret["hash"]))
+                    print("{} with hash:\n {}\n answers:".format(ret[2], ret[3]))
             print(ret[1])
         #cm.cmd_cmd()
     else:

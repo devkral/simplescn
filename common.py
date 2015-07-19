@@ -120,6 +120,12 @@ def init_logger(_logger = scn_logger()):
         loggerinst = _logger
 
 
+#def replace_logger(_logger):
+#    global loggerinst
+#    loggerinst = _logger
+
+
+
 def inp_passw_cmd(msg):
     def func(*args):
         return getpass(msg)
@@ -130,9 +136,23 @@ pwcallmethodinst=inp_passw_cmd
 def pwcallmethod(msg):
     return pwcallmethodinst(msg)
 
-#def replace_logger(_logger):
-#    global loggerinst
-#    loggerinst = _logger
+
+def notify_cmd(msg):
+    inp = input(msg)
+    if inp.lower() in ["y", "j"]:
+        return True
+    elif inp.lower() in ["n",]:
+        return False
+    else:
+        return None
+        
+notifyinst=notify_cmd
+
+# returns True, False, None
+def notify(msg):
+    return notifyinst(msg)
+
+
 
 ##### init ######
 
@@ -367,6 +387,8 @@ class configmanager(object):
         return True
     
     def set_default(self, dbcon, name):
+        if name not in self.defaults:
+            return False
         return self.set(self.defaults[name])
         
     @dbaccess
@@ -398,7 +420,7 @@ class configmanager(object):
     
     def getb(self, name):
         temp = self.get(name)
-        if temp in [None,"","False", "false"]:
+        if temp in [None, "", "False", "false"]:
             return False
         return True
     
@@ -526,6 +548,7 @@ class commonscn(object):
     info = None
     priority = None
     name = None
+    message = None
     cert_hash = None
     scn_type = "unknown"
     pluginmanager = None
@@ -685,11 +708,10 @@ class certhash_db(object):
                 temp = func(self, dbcon, *args, **kwargs)
                 dbcon.close()
             except Exception as e:
+                st = str(e)
                 if "tb_frame" in e.__dict__:
-                    st = str(e)+"\n\n"+str(traceback.format_tb(e))
-                else:
-                    st = str(e)
-                logger().error("{}\n{}".format(st, func.__name__))
+                    st = "{}\n\n{}".format(st, traceback.format_tb(e))
+                logger().error("{}\n{}".format(st, type(func).__name__))
             self.lock.release()
             return temp
         return funcwrap
@@ -735,7 +757,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def addhash(self, dbcon, _name, _certhash, nodetype="unknown", priority = 20):
+    def addhash(self, dbcon, _name, _certhash, nodetype="unknown", priority=20):
         if _name is None:
             logger().error("name None")
         if nodetype is None:
@@ -928,7 +950,11 @@ class certhash_db(object):
             logger().error("reference type invalid: {}".format(_reftype))
             return False
         cur = dbcon.cursor()
-        cur.execute('''INSERT OR REPLACE INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_referenceid, _reference, _reftype))
+        cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;', (_referenceid, _reference))
+        if cur.fetchone() is not None:
+            logger().info("certreferenceid exist: {}".format(_referenceid))
+            return False
+        cur.execute('''INSERT INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_referenceid, _reference, _reftype))
         dbcon.commit()
         return True
     
@@ -937,9 +963,28 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;', (_certreferenceid, _reference))
         if cur.fetchone() is None:
-            logger().info("certreferenceid/reference does not exist: {}".format(_certreferenceid, _reference))
+            logger().info("certreferenceid/reference does not exist: {}, {}".format(_certreferenceid, _reference))
             return False
         cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
+        dbcon.commit()
+        return True
+
+    @connecttodb
+    def updatereference(self, dbcon, _certreferenceid, _reference, _newreference, _newreftype):
+        cur = dbcon.cursor()
+        cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;', (_certreferenceid, _reference))
+        if cur.fetchone() is None:
+            logger().info("certreferenceid/reference does not exist:{}, {}".format(_certreferenceid, _reference))
+            return False
+        if _reference != _newreference:
+            cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;', (_certreferenceid, _newreference))
+            if cur.fetchone() is not None:
+                logger().info("new reference does exist: {}, {}".format(_certreferenceid, _reference))
+                return False
+        if _reference != _newreference:
+            cur.execute('''UPDATE certreferences SET certreference=?, type=? WHERE certreferenceid=? and certreference=?;''', (_newreference, _newreftype, _certreferenceid, _reference))
+        else:
+            cur.execute('''UPDATE certreferences SET type=? WHERE certreferenceid=? and certreference=?;''', (_newreftype, _certreferenceid, _reference))
         dbcon.commit()
         return True
 

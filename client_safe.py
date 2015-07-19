@@ -140,6 +140,7 @@ class client_safe(object): #abc.ABC):
             _addr,dheader=args
         else:
             return (False,("wrong amount arguments (info): {}".format(args)),isself,self.cert_hash)
+        
         _tinfo=self.do_request(_addr, "/info", dheader, forceport=True)
         if _tinfo[0]==False:
             return _tinfo

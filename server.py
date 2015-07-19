@@ -320,7 +320,8 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
 class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
-    sslcont=None
+    sslcont = None
+    timeout = None
     #address_family = socket.AF_INET6
     
     #def __del__(self):
@@ -329,7 +330,7 @@ class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     def __init__(self, server_address,certfpath):
         socketserver.TCPServer.__init__(self, server_address, server_handler)
         #self.crappyssl=workaround_ssl(certs[1])
-
+        self.socket.settimeout(self.timeout)
         self.sslcont=default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv", pwcallmethod)
         self.socket=self.sslcont.wrap_socket(self.socket)
@@ -367,8 +368,8 @@ class server_init(object):
                 pw = pw[:-1]
             server_handler.tpwhash = dhash(pw)
             op.close()
-        server_handler.ttimeout=int(kwargs["ttimeout"])
-        server_handler.stimeout=int(kwargs["stimeout"])
+        #server_handler.ttimeout=int(kwargs["ttimeout"])
+        server_handler.timeout=int(kwargs["timeout"])
 
         
         self.links={}
@@ -433,8 +434,7 @@ port=<number>: Port
 spwhash=<hash>: sha256 hash of pw, higher preference than pwfile
 spwfile=<file>: file with password (cleartext)
 priority=<number>: set priority
-ttimeout: tunneltimeout
-stimeout: server timeout
+timeout: socket timeout
 expire: time until client entry expires
 tunnel: enable tunnel
 webgui: enables webgui
@@ -455,8 +455,8 @@ server_args={"config":default_configdir,
              "useplugins":None,
              "priority":"20",
              "expire":"30",
-             "ttimeout":"300",
-             "stimeout":"30"}
+             #"ttimeout":"600",
+             "timeout":"30"}
     
 if __name__ == "__main__":
     from common import scn_logger, init_logger

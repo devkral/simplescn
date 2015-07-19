@@ -3,7 +3,7 @@ import os
 from common import logger, isself, success, error, configmanager, check_reference, check_reference_type
 
 class client_admin(object): #"register", 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "setconfig", "setpluginconfig", "addreference","delreference",}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "setconfig", "setpluginconfig", "addreference", "updatereference", "delreference",}
     #, "connect"
     hashdb = None
     links = None
@@ -78,16 +78,11 @@ class client_admin(object): #"register",
             return (True,success,isself,self.cert_hash)
         else:
             return (False,error,isself,self.cert_hash)
-    def addreference(self,*args):
-        if len(args)==4:
-            _name,_certhash,_reference,_reftype=args
-        elif len(args)==3:
-            _certhash,_reference,_reftype=args
-            _name=self.hashdb.certhash_as_name(_certhash)
-            if _name is None:
-                return (False,"name not in db",isself,self.cert_hash)
-        else:
-            return (False,"wrong amount arguments (addreference): {}".format(args),isself,self.cert_hash)
+    
+    def addreference(self, _certhash,_reference,_reftype):
+        _name=self.hashdb.certhash_as_name(_certhash)
+        if _name is None:
+            return (False,"hash not in db: {}".format(_certhash),isself,self.cert_hash)
         
         if check_reference(_reference)==False:
             return (False,"reference invalid",isself,self.cert_hash)
@@ -99,8 +94,28 @@ class client_admin(object): #"register",
             return (False,"name,hash not exist",isself,self.cert_hash)
         if self.hashdb.addreference(_tref[2],_reference,_reftype) is None:
             return (False,"adding a reference failed",isself,self.cert_hash)
-        return (True,_reftype,isself,self.cert_hash)
+        return (True,"reference added",isself,self.cert_hash)
+    
+    def updatereference(self, _certhash, _reference, _newreference, _newreftype):
+        _name=self.hashdb.certhash_as_name(_certhash)
+        if _name is None:
+            return (False,"hash not in db: {}".format(_certhash),isself,self.cert_hash)
+            
+        if check_reference(_newreference) == False:
+            return (False, "reference invalid", isself, self.cert_hash)
         
+        if check_reference_type(_newreftype) == False:
+            return (False, "reference type invalid", isself, self.cert_hash)
+            
+        _tref=self.hashdb.get(_name, _certhash)
+        if _tref is None:
+            return (False,"name, hash not exist", isself, self.cert_hash)
+        
+        if self.hashdb.updatereference(_tref[2],_reference,_newreference,_newreftype) is None:
+            return (False,"updating reference failed",isself,self.cert_hash)
+        return (True,"reference updated",isself,self.cert_hash)
+
+    
     def delreference(self,*args):
         if len(args)==3:
             _name, _certhash, _reference=args
@@ -117,14 +132,14 @@ class client_admin(object): #"register",
             return (False,"name,hash not exist",isself,self.cert_hash)
         if self.hashdb.delreference(_tref[2],_reference) is None:
             return (False,error,isself,self.cert_hash,isself,self.cert_hash)
-        return (True,success,isself,self.cert_hash)
+        return (True,"reference deleted",isself,self.cert_hash)
 
     def setconfig(self, _key, _value):
         ret = self.links["configmanager"].set(_key, _value)
         if ret == True:
-            return (True, success,isself,self.cert_hash)
+            return (True, "mainconfig: key set",isself,self.cert_hash)
         else:
-            return (False, error,isself,self.cert_hash)
+            return (False, "mainconfig: setting key failed",isself,self.cert_hash)
     
     def setpluginconfig(self, _plugin, _key, _value):
         pluginm=self.links["client_server"].pluginmanager
