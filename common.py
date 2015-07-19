@@ -238,7 +238,7 @@ def init_config_folder(_dir, prefix):
             e.write("{}/{}".format(os.uname()[1], server_port))
         e.close()
     if os.path.exists(_path+"_message") == False:
-        e=open(os.path.join(_path, "_message"), "w")
+        e=open("{}_message".format(_path), "w")
         e.write("<message>")
         e.close()
 
