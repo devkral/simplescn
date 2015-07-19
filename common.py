@@ -50,7 +50,8 @@ from http import client
 
 key_size = 4096
 server_port = 4040
-default_buffer_size=1400
+default_buffer_size = 1400
+confdb_ending=".confdb"
 #client_port=4041
 
 error = 'error'
@@ -472,13 +473,13 @@ class pluginmanager(object):
         lplugins = self.list_plugins()
         lconfig = os.listdir(self.path_plugins_config)
         for dbconf in lconfig:
-            #remove .conf
-            if dbconf[:-5] not in lplugins:
-                os.remove(os.path.join(self.path_plugins_config, "{}.conf".format(dbconf)))
+            #remove .confdb
+            if dbconf[:-len(confdb_ending)] not in lplugins:
+                os.remove(os.path.join(self.path_plugins_config, dbconf))
     
     def init_plugins(self):
         for plugin in self.list_plugins().items():
-            pconf = configmanager(os.path.join(self.path_plugins_config,plugin[0]))
+            pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
             if pconf.getb("state") == False:
                 continue
             # path is array with searchpathes

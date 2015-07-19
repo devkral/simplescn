@@ -3,7 +3,7 @@ import os
 from common import logger, isself, success, error, configmanager, check_reference, check_reference_type
 
 class client_admin(object): #"register", 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "setconfig", "setpluginconfig", "addreference", "updatereference", "delreference",}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "setconfig", "setpluginconfig", "addreference", "updatereference", "delreference","clean_plugin_conf"}
     #, "connect"
     hashdb = None
     links = None
@@ -152,4 +152,11 @@ class client_admin(object): #"register",
             config = pluginm.plugins.config
         config.set(_key, _value)
         return (True,success,isself,self.cert_hash)
+    
+    def clean_plugin_conf(self):
+        pluginm=self.links["client_server"].pluginmanager
+        pluginm.clean_plugin_conf()
+        return True, success, isself, self.cert_hash
+        
+        
 

@@ -244,115 +244,23 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
                 elif elem[1] == "url":
                     serverlist.append((elem[0],False))
                     self.serverlist_dic.append(elem[0])
-            #else:
-            #    logger().error(_serverhashes[1])
-                
+                    
     def update_serverlist(self, _localname):
         _serverhashes=self.do_requestdo("listhashes",_localname,self.header_client)
         if logger().check(_serverhashes)==True:
             for _hash in _serverhashes[1]:
                 if _hash[0]!="default":
                     self.update_serverlist_hash(_hash[0])
-    #ugly
-    """def do_request(self,requeststr, parse=-1):
-        clienturl=self.builder.get_object("clienturl").get_text().strip().rstrip()
-        params=""
-        for elem in ["certhash","certname"]:
-            if self.header_node[elem] is not None:
-                params="{}&{}".format(params,self.header_node[elem])
 
-        if len(params)>0 and params[0] in ["?","&"]:
-            params="?"+params[1:]
-        try:
-            temp=client.client_client.__dict__["do_request"](self,clienturl,requeststr+params,self.header_client,usecache=False,forceport=False)
-        except AddressFail:
-            #logger().error(requeststr)
-            return (False, "address failed")
-        except Exception as e:
-            if "tb_frame" in e.__dict__:
-                st=str(e)+"\n\n"+str(traceback.format_tb(e))
-            else:
-                st=str(e)
-
-            logger().error(st)
-            return (False, e)
-        if temp[0]==False:
-            return temp
-        if parse==-1:
-            rest=[]
-            temp1=temp[1].split("\n")
-        elif parse==0:
-            rest=[temp[1]]
-            temp1=[]
-        else:
-            temp1=temp[1].split("\n",parse)
-            if len(temp1)>2:
-                rest=[temp1[-1],]
-                temp1=temp1[:-1]
-            else:
-                return (False,"arglength")
-        _finish1=[]
-        #TODO: empty,[] causes artifact
-        for elem in temp1:
-            if elem=="%":
-                _finish1+=[None,]
-                continue
-                
-            _temp2=[]
-            for elem2 in elem.split("/"):
-                if elem2=="%":
-                    _temp2+=[None,]
-                else:
-                    _temp2+=[elem2,]
-            #remove array if just one element
-            if len(_temp2)==1:
-                _temp2=_temp2[0]
-            #remove trailing "" element
-            elif _temp2[0]=="":
-                _temp2=_temp2[1:]
-            _finish1+=[_temp2,]
-        
-        _finish1+=rest
-        #remove array if just one element
-        if len(_finish1)==1:
-            _finish1=_finish1[0]
-        #remove trailing "" element
-        elif _finish1[0]=="":
-            _finish1=_finish1[1:]
-        #temp[0]==True
-        return (temp[0],_finish1,temp[2],temp[3])"""
-        
     def do_requestdo(self,action,*requeststrs):
-        try:
-            if True: #self.use_remote_client==False:
-            
-                return self.links["client"].access_main(action, requeststrs[:-1],requeststrs[-1])
-        except Exception as e:
-            raise(e)
-            #logger().error(str(e))
-            return [False, str(e)]
-            #self.links["client"].__dict__[action](*requeststrs)
-        """else:
-            temp="/do/{}".format(action)
-            for elem in requeststrs:
-                temp="{}/{}".format(temp,elem)
-            return self.do_request(temp,parse)"""
-
-    """def do_requestdirect(self,*requeststrs):
-        _treqstr=""
-        for elem in requeststrs:
-            _treqstr="{}/{}".format(_treqstr,elem)
-        #serverurl=self.builder.get_object("servercomboentry").get_text().strip().rstrip()
-        try:
-            return client.client_client.__dict__["do_request"](self,serverurl,_treqstr,self.header_node,usecache=False,forceport=False)
-        except Exception as e:
-            if "tb_frame" in e.__dict__:
-                    st="{}\n\n{}".format(e,traceback.format_tb(e))
-                else:
-                    st=str(e)
-            logger().error(st)
-            return (False,)"""
-
+        uselocal=self.builder.get_object("uselocal")
+        if uselocal.get_active() == True:
+            return self.links["client"].access_main(action, requeststrs[:-1],requeststrs[-1])
+        else:
+            try:
+                self.links["client"].do_request(self, "127.0.0.1", "get", requeststrs[-1], body=json.dumps(requeststrs), forceport=True,requesttype="PUT")
+            except Exception :
+                pass
     def pushint(self):
         time.sleep(5)
         #self.messagecount-=1

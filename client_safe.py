@@ -22,7 +22,7 @@ class client_safe(object): #abc.ABC):
         return (True, self._cache_help, isself, self.cert_hash)
     
     def register(self,server_addr,dheader):
-        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name, self.cert_hash, self.show()[2]), dheader, context = self.links["server"].sslcont)
+        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name, self.cert_hash, self.show()[1][2]), dheader, context = self.links["server"].sslcont)
     
     #returns name,certhash,own socket
     def show(self):
@@ -69,8 +69,10 @@ class client_safe(object): #abc.ABC):
             return (True, (dhash(pcert), pcert), isself, self.cert_hash)
         except ssl.SSLError:
             return (False, "server speaks no tls 1.2", isself, self.cert_hash)
-        except Exception:
+        except ConnectionRefusedError:
             return (False, "server does not exist", isself, self.cert_hash)
+        except Exception as e:
+            return (False, "Other error: {}".format(e), isself, self.cert_hash)
 
     def ask(self,_address):
         _ha = self.gethash(_address)
@@ -130,7 +132,10 @@ class client_safe(object): #abc.ABC):
             temp2 = json.loads(temp[1])
         except Exception as e:
             return False, "{}: {}".format(type(e).__name__, e)
-        return temp[0],temp2,temp[2],temp[3]
+        temp3=[]
+        for elem in sorted(temp2.keys()):
+            temp3.append((elem,temp2[elem]))
+        return temp[0],temp3,temp[2],temp[3]
     
     def info(self,*args):
         if len(args) == 1:

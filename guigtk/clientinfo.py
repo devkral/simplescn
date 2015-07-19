@@ -50,7 +50,7 @@ class gtkclient_info(gtkclient_template):
         
         
     
-        _info=self.do_requestdo("info",self.address,parse=2)
+        _info=self.do_requestdo("info",self.address)
         if _info[0]==True:
             messagebuf.set_text(_info[1][2],-1)
     

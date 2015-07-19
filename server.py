@@ -15,7 +15,8 @@ if sharedir[-1] == os.sep:
 if sharedir not in sys.path:
     sys.path.append(sharedir)
 
-from http.server  import BaseHTTPRequestHandler,HTTPServer
+from http import client
+from http.server import BaseHTTPRequestHandler,HTTPServer
 import time
 #import socket
 import signal,threading
@@ -24,8 +25,9 @@ import traceback
 import socket
 import logging
 import json
+import ssl
 
-from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, logger, pwcallmethod
+from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, logger, pwcallmethod, confdb_ending
 
 
 
@@ -99,17 +101,20 @@ class server(commonscn):
             self.nhipmap_cond.clear()
             time.sleep(self.sleep_time)
             self.nhipmap_cond.wait()
-  
 
-    def register(self,_name,_hash,_port,_addr, _cert):
+    def register(self,_name,_hash,_port,_addr): # , _cert):
         if check_name(_name)==False:
             return False, "invalid name"
-        
+        try:
+            _cert = ssl.get_server_certificate((_addr[0], _port), ssl_version=ssl.PROTOCOL_TLSv1_2)
+        except ConnectionRefusedError:
+            return False, "use_stun"
         # TODO: fix self.request.getpeercert return None because no client certificate
-        #if _cert is None:
-        #    return False, "no cert"
-        #if dhash(_cert) != _hash:
-        #    return False, "hash does not match"
+        # verify that client doesn't fake a certificate
+        if _cert is None:
+            return False, "no cert"
+        if dhash(_cert) != _hash:
+            return False, "hash does not match"
         self.changeip_sem.acquire(False)
         if _name not in self.nhipmap:
             self.nhipmap[_name]={}
@@ -119,7 +124,7 @@ class server(commonscn):
             
         self.changeip_sem.release()
         self.nhipmap_cond.set()
-        return True, "registered"
+        return True, "registered_direct"
     
     
     def get(self,_name,_hash):
@@ -228,7 +233,7 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         if action in self.need_address_cert:
-            _path=_path+[self.client_address, self.request.getpeercert(True)]
+            _path=_path+[self.client_address,] #, self.request.getpeercert(True)]
             
             
         if action not in self.links["server_server"].validactions:
@@ -500,7 +505,7 @@ if __name__ == "__main__":
 
         os.makedirs(plugins_config, 0o750, True)
     
-        pluginm=pluginmanager(pluginpathes, plugins_config, "server")
+        pluginm=pluginmanager(pluginpathes, plugins_config, "server{}".format(confdb_ending))
         if server_args["webgui"] is not None:
             pluginm.interfaces+=["web",]
         cm.links["server_server"].pluginmanager=pluginm

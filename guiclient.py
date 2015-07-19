@@ -26,8 +26,8 @@ from guigtk.clientmain import gtkclient_init, do_gtkiteration
 
 import client
 
-import common
-from common import configmanager, pluginmanager
+
+from common import configmanager, pluginmanager, confdb_ending
 
 #VALError
 from common import logger
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
-    confm = configmanager(os.path.join(configpath, "config", "clientgtkgui.conf"))
+    confm = configmanager(os.path.join(configpath, "config", "clientgtkgui{}".format(confdb_ending)))
     confm.update(dclargs, clargs)
 
     if confm.getb("noplugins") == False:
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     #global cm
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
-        pluginm.resources["access"] = cm.links["client"].access
+        pluginm.resources["access"] = cm.links["client"].access_safe
         pluginm.init_plugins()
     do_gtkiteration()
     #del cm

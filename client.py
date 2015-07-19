@@ -33,7 +33,7 @@ import socket
 import json
 from os import path
 
-from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket, notify
+from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket, notify, confdb_ending
 
 
 from common import logger
@@ -66,7 +66,7 @@ class client_client(client_admin, client_safe):
     "cap", "prioty_direct", "prioty", "check_direct", "check"]
     
     validactions=set()
-    validactions_data={"command",}
+    validactions_put={"command",}
     #_cache_help = None
     # "access"
     #pwcache={}
@@ -142,16 +142,14 @@ class client_client(client_admin, client_safe):
             return resp[0],resp[1],val,hashpcert
 
     # command wrapper for cmd interfaces
-    def command(self, _data, reqheader=None):
+    def command(self, _data):
         if type(_data) is str:
             inp = _data
         else:
             inp = str(_data, "utf8")
-        if reqheader is None:
-            reqheader=reference_header.copy()
+        reqheader=reference_header.copy()
         ret = [False, None, self.cert_hash, isself ]
         if inp == "":
-            #ret[output] =
             return ret
         unparsed=inp.strip(" ").rstrip(" ")
         if unparsed[:5]=="hash/":
@@ -209,33 +207,8 @@ class client_client(client_admin, client_safe):
                 ret[1] = "Error:\n{}".format(st)
             return ret
         
-        try:
-            resp = self.access_main(str(parsed[0]),parsed[1:],reqheader)
-            if resp is None:
-                ret[0] = False
-                ret[1] = "Error: Command does not exist/is not public: {}".format(parsed[0])
-                return ret
-            ret = resp
-        except AddressFail as e:
-            ret[0] = False
-            ret[1] = "Addresserror:\n{}".format(e.msg)
-        except Exception as e:
-            st="Error: {}\n".format(e)
-            if "tb_frame" in e.__dict__:
-                st="{}\n{}\n\n".format(st,traceback.format_tb(e))
-            st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, parsed)
-            ret[0] = False
-            ret[1] = "Error:\n{}".format(st)
-        return ret
+        return self.access_main(str(parsed[0]),parsed[1:],reqheader)
     
-    # for e.g. plugins
-    def access(self, func, *args, dheader=None):
-        if dheader is None:
-            dheader = reference_header.copy()
-        if func in self.validactions and func != "access":
-            return self.__getattribute__(func)(*args)
-        else:
-            return None
     
     def access_data(self, func, _action, _data, dheader):
         if func in self.validactions_data and func != "access_data":
@@ -266,7 +239,18 @@ class client_client(client_admin, client_safe):
         if action in self.validactions:
             if action in self.need_dheader:
                 args.append(dheader)
-            return self.__getattribute__(action)(*args)
+            try:
+                return self.__getattribute__(action)(*args)
+            except AddressFail as e:
+                return False, "Addresserror:\n{}".format(e.msg), isself, self.cert_hash
+            except ConnectionRefusedError:
+                return False, "unreachable", isself, self.cert_hash
+            except Exception as e:
+                st="Error: {}\n".format(e)
+                if "tb_frame" in e.__dict__:
+                    st="{}\n{}\n\n".format(st,traceback.format_tb(e))
+                st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, parsed)
+                return False, "Error:\n{}".format(st), isself, self.cert_hash
         else:
             return False, "not in validactions", isself, self.cert_hash
 
@@ -408,7 +392,7 @@ class client_handler(BaseHTTPRequestHandler):
     
     ### PUT ###
     def handle_client_put(self, _cmdlist):
-        if _cmdlist[0] not in self.links["client"].validactions:
+        if _cmdlist[0] not in self.links["client"].validactions_put:
             self.send_error(400, "invalid action - client")
             return
         _cmdlist += [self.headers,]
@@ -552,7 +536,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.send_header('Content-type', "text")
             self.end_headers()
-            #helps against ssl failing about empty string (EOF)
+            # helps against ssl failing about empty string (EOF)
             if len(response) > 1 and len(response[1]) > 0:
                 self.wfile.write(bytes(response[1], "utf8"))
             else:
@@ -629,12 +613,11 @@ class client_handler(BaseHTTPRequestHandler):
             _cmdlist = self.path[1:].split("/")
         action = _cmdlist[0]
         _cmdlist = _cmdlist[1:]
-        if action == "do":
-            self.handle_client(_cmdlist)
+        if action == "get":
+            self.handle_client(json.load(self.rfile))
             return
         elif action == "put":
-            self.handle_client_post(_cmdlist) #removes do
-
+            self.handle_client_put(_cmdlist)
 
     def do_POST(self):
         plugin, action=self.path[1:].split("/",1)
@@ -893,7 +876,7 @@ if __name__ ==  "__main__":
     
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
-    confm = configmanager(os.path.join(configpath, "config", "clientmain.conf"))
+    confm = configmanager(os.path.join(configpath, "config", "clientmain{}".format(confdb_ending)))
     confm.update(default_client_args,client_args)
 
     if confm.getb("noplugins")==False:
@@ -909,7 +892,7 @@ if __name__ ==  "__main__":
 
     if confm.getb("noplugins")==False:
         # needs not much as ressource (interfaces)
-        pluginm.resources["access"] = cm.links["client"].access
+        pluginm.resources["access"] = cm.links["client"].access_safe
         pluginm.init_plugins()
 
     if confm.getb("cmd")!=False:
@@ -919,13 +902,14 @@ if __name__ ==  "__main__":
         print(*cm.links["client"].show()[1],sep="/")
         while True:
             ret=cm.links["client"].command(input("Enter command, seperate by \"/\"\nEnter headers by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n"))
-            if ret[0] == True:
-                if ret[2] == isself:
-                    print("This client:")
-                else:
-                    print("{} with hash:\n {}\n answers:".format(ret[2], ret[3]))
-            print(ret[1])
-        #cm.cmd_cmd()
+            if ret[1] is not None:
+                if ret[0] == True:
+                    if ret[2] == isself:
+                        print("This client:")
+                    else:
+                        print("{} with hash:\n {}\n answers:".format(ret[2], ret[3]))
+                print(ret[1])
     else:
         logger().debug("start client server")
         cm.serve_forever_block()
+
