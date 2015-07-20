@@ -51,7 +51,7 @@ from http import client
 key_size = 4096
 server_port = 4040
 default_buffer_size = 1400
-maxread = 1500
+#maxread = 1500
 maxnoncelen = 20
 confdb_ending=".confdb"
 #client_port=4041
@@ -273,7 +273,8 @@ def gen_sslcont(path):
 def parse_response(response):
     try:
         if response.status == client.OK:
-            re=response.read(maxread).decode("utf8")
+            #maxread
+            re=response.read().decode("utf8")
             if response.closed == False:
                 (False, "reading response failed, too big")
             return (True, re)
