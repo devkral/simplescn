@@ -392,10 +392,10 @@ class configmanager(object):
             dbcon.commit()
         return True
     
-    def set_default(self, dbcon, name):
+    def set_default(self, name):
         if name not in self.defaults:
             return False
-        return self.set(self.defaults[name])
+        return self.set(name, self.defaults[name])
         
     @dbaccess
     def get(self, dbcon, name):
@@ -469,7 +469,7 @@ class pluginmanager(object):
                     temp[plugin] = path
         return temp
     
-    def clean_plugin_conf(self):
+    def clean_plugin_config(self):
         lplugins = self.list_plugins()
         lconfig = os.listdir(self.path_plugins_config)
         for dbconf in lconfig:

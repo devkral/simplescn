@@ -249,7 +249,7 @@ class client_client(client_admin, client_safe):
                 st="Error: {}\n".format(e)
                 if "tb_frame" in e.__dict__:
                     st="{}\n{}\n\n".format(st,traceback.format_tb(e))
-                st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, parsed)
+                st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, st)
                 return False, "Error:\n{}".format(st), isself, self.cert_hash
         else:
             return False, "not in validactions", isself, self.cert_hash
@@ -901,7 +901,10 @@ if __name__ ==  "__main__":
         logger().debug("start console")
         print(*cm.links["client"].show()[1],sep="/")
         while True:
-            ret=cm.links["client"].command(input("Enter command, seperate by \"/\"\nEnter headers by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n"))
+            inp=input("Enter command, seperate by \"/\"\nEnter headers by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n")
+            if inp in ["exit", "close", "quit"]:
+                break
+            ret=cm.links["client"].command(inp)
             if ret[1] is not None:
                 if ret[0] == True:
                     if ret[2] == isself:

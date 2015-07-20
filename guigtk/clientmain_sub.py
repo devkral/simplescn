@@ -100,10 +100,10 @@ class cmd_stuff(object):
         out=self.builder.get_object("cmdbuffer")
         cmdview=self.builder.get_object("cmdview")
         resp = self.links["client"].command(inp.get_text().strip(" ").rstrip(" "))
-        if resp["success"] == True:
-            if resp["certname"] is None:
+        if resp[0] == True:
+            if resp[2] is None:
                 cmdveri.set_text("Unverified")
-            elif resp["certname"] == isself:
+            elif resp[2] == isself:
                 cmdveri.set_text("Is own client")
             else:
                 cmdveri.set_text("Verified as: "+resp[2])
