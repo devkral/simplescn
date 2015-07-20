@@ -28,9 +28,10 @@ import socketserver
 import logging
 import traceback
 import ssl
-import sys,signal,threading
+import signal,threading
 import socket
-import json
+import json, base64
+import time
 from os import path
 
 from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket, notify, confdb_ending
@@ -75,14 +76,14 @@ class client_client(client_admin, client_safe):
         self.links = _links
         self._cache_help = cmdhelp()
         self.name = _name
-        self.cert_hash = _pub_cert_hash # dhash(_pub_cert)
+        self.cert_hash = _pub_cert_hash
         self.hashdb = certhash_db(_certdbpath)
         self.sslcont = default_sslcont()
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
         self._cache_help = cmdhelp()
 
-    def do_request(self, _addr, requeststr, dheader, body=None, forceport=False,requesttype="GET", context=None):
+    def do_request(self, _addr, requeststr, dheader, body=None, forceport=False,requesttype="GET", context=None, pwhashes={}):
         if context is None:
             context = self.sslcont
         _addr=scnparse_url(_addr,force_port=forceport)
@@ -123,20 +124,35 @@ class client_client(client_admin, client_safe):
             return con.sock
         r=con.getresponse()
         if r.status == 401:
-            dheader["nonce"] = os.urandom(10)
-            dheader["tnonce"] = os.urandom(10)
+            newpwhashes={}
+            _time=int(time.time())
+            
+            dheader["nonce"] = "{}:{}".format(str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8"), _time)
+            dheader["tnonce"] = "{}:{}".format(str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8"), _time)
             if "server" in r.response:
-                dheader["spwauth"]=dhash_salt(dhash(pwcallmethod("Please enter password for server")()), dheader["nonce"])
+                newpwhashes["spwveri"] = dhash(pwcallmethod("Please enter password for server:\n")())
+                dheader["spwauth"]=dhash_salt(newpwhashes["spwveri"], dheader["nonce"])
             if "client" in r.response:
-                dheader["cpwauth"]=dhash_salt(dhash(pwcallmethod("Please enter password for client")()), dheader["nonce"])
+                newpwhashes["cpwveri"]=dhash(pwcallmethod("Please enter password for client:\n")())
+                dheader["cpwauth"]=dhash_salt(newpwhashes["cpwveri"], dheader["nonce"])
             if "admin" in r.response:
-                dheader["apwauth"]=dhash_salt(dhash(pwcallmethod("Please enter password for admin")()), dheader["nonce"])
-            if "proxy" in r.response:
-                dheader["tpwauth"]=dhash_salt(dhash(pwcallmethod("Please enter password for proxy")()),dheader["tnonce"])
+                newpwhashes["apwveri"]=dhash(pwcallmethod("Please enter password for admin:\n")())
+                dheader["apwauth"]=dhash_salt(newpwhashes["apwveri"], dheader["nonce"])
+            if "tunnel" in r.response:
+                newpwhashes["tpwveri"] = dhash(pwcallmethod("Please enter password for tunnel:\n")())
+                dheader["tpwauth"]=dhash_salt(newpwhashes["tpwveri"], dheader["tnonce"])
             else:
                 dheader["tnonce"] = None
-            return self.do_request(_addr, requeststr, dheader, body=None, forceport=forceport, requesttype=requesttype)
+            return self.do_request(_addr, requeststr, dheader, body=None, forceport=forceport, requesttype=requesttype, pwhashes=newpwhashes)
         else:
+            if len(pwhashes)>0:
+                if r.getheader("nonce") is None:
+                    raise(VALMITMError)
+                else:
+                    _nonce = r.getheader("nonce")
+                for elem in pwhashes.items():
+                    if r.getheader(elem[0], "") != dhash_salt(hashpcert, "{}:{}".format(_nonce,elem[1])):
+                        raise(VALMITMError)
             resp=parse_response(r)
             con.close()
             return resp[0],resp[1],val,hashpcert
@@ -264,20 +280,23 @@ class client_server(commonscn):
     validactions = {"info", "getservice", "listservices", "cap", "prioty", "registerservice", "delservice"}
     local_client_service_control = False
     wlock = None
-    def __init__(self, _name, _priority, _cert_hash, _message):
+    def __init__(self, dcserver):
         self.wlock = threading.Lock()
-        if len(_name) == 0:
+        if dcserver["name"] is None or len(dcserver["name"]) == 0:
             logger().debug("Name empty")
-            _name = "<noname>"
+            dcserver["name"] = "<noname>"
 
-        if len(_message) == 0:
+        if dcserver["message"] is None or len(dcserver["message"]) == 0:
             logger().debug("Message empty")
-            _message = "<empty>"
+            dcserver["message"] = "<empty>"
+        
+        if dcserver["nonces"] is True:
+            self.init_cleannonces()
             
-        self.name = _name
-        self.message = _message
-        self.priority = _priority
-        self.cert_hash = _cert_hash
+        self.name = dcserver["name"]
+        self.message = dcserver["message"]
+        self.priority = dcserver["priority"]
+        self.cert_hash = dcserver["certhash"]
         
         self.update_cache()
     ### the primary way to add or remove a service
@@ -331,7 +350,20 @@ class client_handler(BaseHTTPRequestHandler):
     spwhash = None
     statics = {}
     webgui = False
-        
+    
+    cpwveri = None
+    spwveri = None
+    tpwveri = None
+    waschecked = False
+    
+    def __init__(self, *args):
+        BaseHTTPRequestHandler.__init__(self, *args)
+        self.answernonce = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
+        self.cpwveri = None
+        self.spwveri = None
+        self.tpwveri = None
+        self.waschecked = False
+    
     def html(self, page, lang = "en"):
         if self.webgui == False:
             self.send_error(404, "no webgui")
@@ -351,9 +383,13 @@ class client_handler(BaseHTTPRequestHandler):
         if self.cpwhash is None:
             return True
         if "cpwauth" in self.headers and "nonce" in self.headers:
-            if dhash_salt(self.headers["cpwauth"], self.headers["nonce"]) == self.cpwhash:
+            if dhash_salt(self.cpwhash, self.headers["nonce"]) == self.headers["cpwauth"]:
+                if self.waschecked == False and self.links["client_server"].check_nonce(self.headers["nonce"]) == False:
+                    return False
+                self.waschecked = True
                 # be sure that cpwauth isn't routed
                 del self.headers["cpwauth"]
+                self.cpwveri = dhash_salt(self.cpwhash, self.answernonce)
                 return True
         return False
     
@@ -361,9 +397,13 @@ class client_handler(BaseHTTPRequestHandler):
         if self.apwhash is None:
             return True
         if "apwauth" in self.headers and "nonce" in self.headers:
-            if dhash_salt(self.headers["apwauth"], self.headers["nonce"]) == self.apwhash:
+            if dhash_salt(self.apwhash, self.headers["nonce"]) == self.headers["apwauth"]:
+                if self.waschecked == False and self.links["client_server"].check_nonce(self.headers["nonce"]) == False:
+                    return False
+                self.waschecked = True
                 # be sure that apwauth isn't routed
                 del self.headers["apwauth"]
+                self.apwveri = dhash_salt(self.apwhash, self.answernonce)
                 return True
         return False
 
@@ -371,9 +411,13 @@ class client_handler(BaseHTTPRequestHandler):
         if self.spwhash is None:
             return True
         if "spwhash" in self.headers and "nonce" in self.headers:
-            if dhash_salt(self.headers["spwhash"],self.headers["nonce"]) == self.spwhash:
+            if dhash_salt(self.spwhash,self.headers["nonce"]) == self.headers["spwhash"]:
+                if self.waschecked == False and self.links["client_server"].check_nonce(self.headers["nonce"]) == False:
+                    return False
+                self.waschecked = True
                 # be sure that spwauth isn't routed (doesnn't happen yet, but be sure)
                 del self.headers["spwauth"]
+                self.spwveri = dhash_salt(self.spwhash, self.answernonce)
                 return True
         return False
     
@@ -436,7 +480,17 @@ class client_handler(BaseHTTPRequestHandler):
         else:
             self.send_response(200)
             self.send_header("Cache-Control", "no-cache")
-            self.send_header('Content-type', "text")
+            self.send_header("nonce", self.answernonce)
+            if self.spwveri is not None:
+                self.send_header("spwveri", self.spwveri)
+            
+            if self.cpwveri is not None:
+                self.send_header("cpwveri", self.cpwveri)
+                
+            if self.tpwveri is not None:
+                self.send_header("tpwveri", self.tpwveri)
+            self.send_header('Content-type', "text/json")
+            self.send_header('Accept-Charset', 'utf-8')
             self.end_headers()
             self.wfile.write(bytes(json.dumps(response), "utf8"))
     
@@ -742,8 +796,12 @@ class client_init(object):
             port = int(_name[1])
         else:
             port = 0
-
-        self.links["client_server"] = client_server(_name[0], confm.get("priority"), dhash(pub_cert), _message)
+        
+        clientserverdict={"name": _name[0], "certhash": dhash(pub_cert),
+                "priority": confm.get("priority"), "message":_message, 
+                "nonces": None}
+        
+        self.links["client_server"] = client_server(clientserverdict)#_name[0], confm.get("priority"), dhash(pub_cert), _message)
         self.links["client_server"].pluginmanager=pluginm
         self.links["configmanager"] = confm
 

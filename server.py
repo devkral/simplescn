@@ -24,7 +24,7 @@ import socketserver #,socket
 import traceback
 import socket
 import logging
-import json
+import json, base64
 import ssl
 
 from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, logger, pwcallmethod, confdb_ending
@@ -41,9 +41,9 @@ class server(commonscn):
     nhipmap_len = 0
     sleep_time = 1
     refreshthread = None
-    isactive = True
     links = None
     expire_time = 100
+    cert_hash = None
     scn_type = "server"
 
     validactions={"register", "get", "listnames", "info", "cap", "prioty", "num_nodes"}
@@ -53,7 +53,7 @@ class server(commonscn):
         self.nhipmap = {}
         self.nhipmap_etime = {}
         self.nhipmap_cond = threading.Event()
-        self.changeip_sem = threading.Semaphore(1)
+        self.changeip_lock = threading.Lock()
         self.refreshthread = threading.Thread(target=self.refresh_nhipmap)
         self.refreshthread.daemon = True
         self.refreshthread.start()
@@ -67,14 +67,18 @@ class server(commonscn):
             logger().debug("Message empty")
             d["message"] = "<empty>"
         
+        if d["nonces"] is True:
+            self.init_cleannonces()
+        
         self.priority = int(d["priority"])
         self.cert_hash = d["certhash"]
         self.name = d["name"]
         self.message = d["message"]
+        self.cert_hash = d["certhash"]
         self.update_cache()
 
     def __del__(self):
-        self.isactive = False
+        commonscn.__del__(self)
         self.nhipmap_cond.set()
         try:
             self.refreshthread.join(4)
@@ -84,7 +88,7 @@ class server(commonscn):
             
     def refresh_nhipmap(self):
         while self.isactive:
-            self.changeip_sem.acquire()
+            self.changeip_lock.acquire()
             e_time = int(time.time())-self.expire_time
             for _name in self.nhipmap_etime:
                 for _hash in self.nhipmap_etime[_name]:
@@ -97,34 +101,42 @@ class server(commonscn):
             
             self.nhipmap_len = len(self.nhipmap)
             self.nhipmap_cache = json.dumps(self.nhipmap)
-            self.changeip_sem.release()
+            self.changeip_lock.release()
             self.nhipmap_cond.clear()
             time.sleep(self.sleep_time)
+            # wait until hashes change
             self.nhipmap_cond.wait()
-
-    def register(self,_name,_hash,_port,_addr): # , _cert):
-        if check_name(_name)==False:
-            return False, "invalid name"
+    #private, do not include in validactions
+    def check_register(self, _addr, _hash):
         try:
-            _cert = ssl.get_server_certificate((_addr[0], _port), ssl_version=ssl.PROTOCOL_TLSv1_2)
+            _cert = ssl.get_server_certificate(_addr, ssl_version=ssl.PROTOCOL_TLSv1_2)
         except ConnectionRefusedError:
             return False, "use_stun"
-        # TODO: fix self.request.getpeercert return None because no client certificate
-        # verify that client doesn't fake a certificate
         if _cert is None:
             return False, "no cert"
         if dhash(_cert) != _hash:
             return False, "hash does not match"
-        self.changeip_sem.acquire(False)
+        
+        return True, "registered_ip"
+        
+    def register(self,_name,_hash,_port,_addr): # , _cert):
+        if check_name(_name)==False:
+            return False, "invalid name"
+        ret = check_register((_addr[0], _port), _hash)
+        if ret[0] == False:
+            return ret
+        
+        self.changeip_lock.acquire(False)
         if _name not in self.nhipmap:
             self.nhipmap[_name]={}
             self.nhipmap_etime[_name]={}
         self.nhipmap[_name][_hash]=(_addr[0],_port)
         self.nhipmap_etime[_name][_hash]=int(time.time())
             
-        self.changeip_sem.release()
+        self.changeip_lock.release()
+        # notify that change happened
         self.nhipmap_cond.set()
-        return True, "registered_direct"
+        return ret
     
     
     def get(self,_name,_hash):
@@ -169,7 +181,18 @@ class server_handler(BaseHTTPRequestHandler):
     ttimeout=None
     webgui=True
     
-    statics={}
+    answernonce = None
+    spwveri = None
+    tpwveri = None
+    
+    
+    statics = {}
+    
+    def __init__(self, *args):
+        BaseHTTPRequestHandler.__init__(self, *args)
+        self.answernonce = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
+        self.spwveri = None
+        self.tpwveri = None
         
     def html(self,page,lang="en"):
         if self.webgui==False:
@@ -189,20 +212,37 @@ class server_handler(BaseHTTPRequestHandler):
     #check server password
     def check_spw(self):
         if self.spwhash is None:
-            return True
+            return True()
         if "spwauth" in self.headers and "nonce" in self.headers:
-            if dhash_salt(self.headers["spwauth"],self.headers["nonce"])==self.spwhash:
+            if self.links["server_server"].check_nonce(self.headers["nonce"]) == False:
+                return False
+            if dhash_salt(self.spwhash, self.headers["nonce"]) == self.headers["spwauth"]:
+                self.spwveri = dhash_salt(self.links["server_server"].cert_hash, "{}:{}".format(self.spwhash, self.answernonce))
                 return True
         return False
-    #check server password
+    #check tunnel password
     def check_tpw(self):
         if self.tpwhash is None:
             return True
-        if "tpwauth" in self.headers and "nonce" in self.headers:
-            if dhash_salt(self.headers["tpwauth"],self.headers["nonce"])==self.tpwhash:
+        if "tpwauth" in self.headers and "tnonce" in self.headers:
+            if self.links["server_server"].check_nonce(self.headers["tnonce"]) == False:
+                return False
+            if dhash_salt(self.tpwhash, self.headers["tnonce"])==self.headers["tpwauth"]:
+                self.tpwveri = dhash_salt(self.links["server_server"].cert_hash, "{}:{}".format(self.tpwhash, self.answernonce))
                 return True
         return False
-
+    
+    def needed_auths(self, _list):
+        retauth = []
+        if "server" in _list and self.spwhash is not None:
+            retauth.append("server")
+        if "tunnel" in _list and self.tpwhash is not None:
+            retauth.append("tunnel")
+        retstring=""
+        for elem in retauth:
+            retstring+=", {}".format(elem)
+        return retauth, retstring[2:]
+    
     
     def do_GET(self):
         if self.path=="/favicon.ico":
@@ -263,7 +303,15 @@ class server_handler(BaseHTTPRequestHandler):
         else:
             self.send_response(200)
             self.send_header("Cache-Control", "no-cache")
-            self.send_header('Content-type',"text")
+            self.send_header("nonce", self.answernonce)
+            if self.spwveri is not None:
+                self.send_header("spwveri", self.spwveri)
+                
+            if self.tpwveri is not None:
+                self.send_header("tpwveri", self.tpwveri)
+            self.send_header('Content-type', "text/json")
+            self.send_header('Accept-Charset', 'utf-8')
+            
             self.end_headers()
             # helps against ssl failing about empty string (EOF)
             self.wfile.write(bytes(response[1],"utf8"))
@@ -348,7 +396,7 @@ class server_init(object):
         port=kwargs["port"]
         init_config_folder(self.config_path,"server")
         
-        server_handler.salt = os.urandom(8)
+        #server_handler.salt = os.urandom(8)
         if kwargs["spwhash"] is not None:
             server_handler.spwhash = kwargs["spwhash"]
         elif kwargs["spwfile"] is not None:
@@ -369,8 +417,6 @@ class server_init(object):
                 pw = pw[:-1]
             server_handler.tpwhash = dhash(pw)
             op.close()
-
-        
         self.links={}
         _message=None
         _name=None
@@ -400,15 +446,22 @@ class server_init(object):
             _port=int(_name[1])
         else:
             _port=server_port
+        
+        
         serverd={"name": _name[0], "certhash": dhash(pub_cert),
                 "priority": kwargs["priority"], "message":_message,
-                "expire": kwargs["expire"]}
+                "expire": kwargs["expire"], "nonces": None}
+        
+        server_handler.links=self.links
+        
+        if server_handler.tphash is not None or server_handler.spwhash:
+            serverd["nonces"] = True
         
         self.links["server_server"]=server(serverd)
         #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
             #self.links["server_server"].pluginmanager.interfaces+=["server"]
             
-        server_handler.links=self.links
+        
         
         # use timeout argument of BaseServer
         http_server_server.timeout = int(kwargs["timeout"])

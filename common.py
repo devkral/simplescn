@@ -51,6 +51,8 @@ from http import client
 key_size = 4096
 server_port = 4040
 default_buffer_size = 1400
+maxread = 1500
+maxnoncelen = 20
 confdb_ending=".confdb"
 #client_port=4041
 
@@ -77,7 +79,8 @@ class VALNameError(VALError):
     msg = 'Name does not match'
 class VALHashError(VALError):
     msg = 'Hash does not match'
-    
+class VALMITMError(VALError):
+    msg = 'MITM-attack suspected: nonce missing or check failed'
 
 #### logging ####
 
@@ -270,7 +273,10 @@ def gen_sslcont(path):
 def parse_response(response):
     try:
         if response.status == client.OK:
-            return (True, response.read().decode("utf8"))
+            re=response.read(maxread).decode("utf8")
+            if response.closed == False:
+                (False, "reading response failed, too big")
+            return (True, re)
         return (False, response.read().decode("utf8"))
     except Exception as e:
         return (False, "reading response failed, reason: {}".format(e))
@@ -558,12 +564,54 @@ class commonscn(object):
     cert_hash = None
     scn_type = "unknown"
     pluginmanager = None
-    #config=None
-    
-    #validactions=[]
+    used_nonces = None
+    cleannonces_lock = None
+    nonce_cleanthread = None
+    nonce_expire_time = 30 # in secs
+    isactive = True
     
     cache={"cap":"", "info":"", "prioty":""}
     #,"hash":"","name":"","message":""
+    
+    
+    
+    def __del__(self):
+        self.isactive = False
+        if self.used_nonces is not None:
+            self.cleannonces_cond.set()
+            try:
+                self.nonce_cleanthread.join(4)
+            except Exception as e:
+                logger().error(e)
+    
+    def init_cleannonces(self):
+        if self.used_nonces is not None:
+            return
+        self.used_nonces = {}
+        self.cleannonces_lock = threading.Lock
+        self.nonce_cleanthread = threading.Thread(target=self.clean_usednonces)
+        self.nonce_cleanthread.daemon = True
+        self.nonce_cleanthread.start()
+    
+    def clean_usednonces(self):
+        while self.isactive:
+            self.cleannonces_lock.acquire()
+            self.nonce_e_time = int(time.time())-self.nonce_expire_time
+            for _nonceti in self.used_nonces.items():
+                if _nonceti[1] < self.nonce_e_time:
+                    del self.used_nonces[_nonceti[0]]
+            self.cleannonces_lock.release()
+            time.sleep(self.nonce_e_time)
+            
+    def check_nonce(self, _noncetime):
+        if len(_noncetime) > maxnoncelen:
+            return False
+        _nonce, _time = _noncetime.rsplit(":",1)
+        
+        if _nonce in self.used_nonces:
+            return False
+        self.used_nonces[_nonce] = _time
+        return True
     
     def update_cache(self):
         self.cache["cap"] = json.dumps(self.capabilities)
