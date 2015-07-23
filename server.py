@@ -122,7 +122,7 @@ class server(commonscn):
     def register(self,_name,_hash,_port,_addr): # , _cert):
         if check_name(_name)==False:
             return False, "invalid name"
-        ret = check_register((_addr[0], _port), _hash)
+        ret = self.check_register((_addr[0], _port), _hash)
         if ret[0] == False:
             return ret
         
@@ -212,7 +212,7 @@ class server_handler(BaseHTTPRequestHandler):
     #check server password
     def check_spw(self):
         if self.spwhash is None:
-            return True()
+            return True
         if "spwauth" in self.headers and "nonce" in self.headers:
             if self.links["server_server"].check_nonce(self.headers["nonce"]) == False:
                 return False
@@ -454,7 +454,7 @@ class server_init(object):
         
         server_handler.links=self.links
         
-        if server_handler.tphash is not None or server_handler.spwhash:
+        if server_handler.tpwhash is not None or server_handler.spwhash is not None:
             serverd["nonces"] = True
         
         self.links["server_server"]=server(serverd)
