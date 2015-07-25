@@ -506,68 +506,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
             tdparam["certhash"]=ret[1][1]
             gtkclient_node(self.links,"localhost:{}".format(ret[1][2]),tdparam,isself)
     
-    # update node type then open node 
-    def get_node(self,*args):
-        
-        rview = self.builder.get_object("refview")
-        _selr=rview.get_selection().get_selected()
-        if _selr[1] is None:
-            return
-        _ref, _type=_selr[0][_selr[1]]
-        
-        
-        hview = self.builder.get_object("hashview")
-        _selh=hview.get_selection().get_selected()
-        if _selh[1] is None:
-            return
-        _hash=_selh[0][_selh[1]][0]
-        
-        
-        if _type == "name":
-            serverurl=self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
-            if serverurl=="":
-                logger().info("no server selected")
-                return
-            
-            turl=self.do_requestdo("get",serverurl,_ref,_hash,self.header_server)
-            if logger().check(turl, logging.INFO)==False:
-                return
-            _url="{}:{}".format(*turl[1])
-        elif _type == "surl":
-            serverurl=_ref
-            namesret=self.do_requestdo("getreferences",_hash, "name",self.header_server)
-            if namesret[0]==False:
-                logger().info("getrefences failed")
-                return
-            tempret=None
-            for elem in namesret[1]: #try all names
-                if elem[0] in ["", None]:
-                    logger().warn("references type name contain invalid element: {}".format(elem[0]))
-                else:
-                    tempret=self.do_requestdo("get",serverurl,elem[0],_hash,self.header_server)
-                    if tempret[0]==True:
-                        break
-            if tempret is None or logger().check(tempret, logging.INFO)==False:
-                return
-            _url="{}:{}".format(*tempret[1])
-        elif _type == "url":
-            _url=_ref
-        else:
-            logger().info("invalid type")
-            return
-        if ":"  not in _url:
-            logger().info("invalid url: {}".format(_url))
-            return
-        
-        tdparam=self.header_node.copy()
-        tdparam["certhash"]=_hash
-        
-        ret=self.do_requestdo("check_direct", _url, self.curlocal[0], _hash,tdparam)
-        if ret[0]==True:
-            self.managehashdia.hide()
-            gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)),tdparam,self.curlocal[0])
-        else:
-            logger().error(ret[1])
+    
         
     def infonode(self,*args):
         #serverurl=self.builder.get_object("servercomboentry").get_text()
@@ -585,6 +524,8 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         _name=_sel[0][_sel[1]][2]
         _hash=_sel[0][_sel[1]][3]
         self.set_curnode(_address,_name,_hash, None)
+        
+    
     
     def listservices(self,*args):
         tdparam=self.header_node.copy()
@@ -724,8 +665,6 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         if res[0]==True:
             self.update_storage()
             self.delentitydia.hide()
-            
-    
     
     def delhash(self,*args):
         hview=self.builder.get_object("hashview")

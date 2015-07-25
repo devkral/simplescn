@@ -184,7 +184,14 @@ class client_safe(object): #abc.ABC):
             _addr,dheader=args
         else:
             return (False,("wrong amount arguments (priority_direct): {}".format(args)),isself,self.cert_hash)
-        return self.do_request(_addr,  "/prioty",dheader,forceport=True)
+        
+        _tprioty = self.do_request(_addr,  "/prioty",dheader,forceport=True)
+        temp2={}
+        try:
+            temp2 = json.loads(_tprioty[1])
+        except Exception as e:
+            return False, "{}: {}".format(type(e).__name__, e),isself,self.cert_hash
+        return True, temp2, _tprioty[2], _tprioty[3]
 
     def prioty(self,server_addr,_name,_hash,dheader):
         temp=self.get(server_addr,_name,_hash,dheader)

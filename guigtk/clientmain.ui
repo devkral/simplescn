@@ -288,7 +288,7 @@
             </child>
             <child>
               <object class="GtkButton" id="getservernodelist">
-                <property name="label" translatable="yes">get</property>
+                <property name="label" translatable="yes">Get</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -1564,6 +1564,7 @@ Entity</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="halign">center</property>
+                <signal name="clicked" handler="close_managehashdia" swapped="no"/>
                 <signal name="clicked" handler="delentity" swapped="no"/>
               </object>
               <packing>
@@ -1709,24 +1710,6 @@ Entity</property>
           </packing>
         </child>
         <child>
-          <object class="GtkButton" id="getnodebut">
-            <property name="label" translatable="yes">Get</property>
-            <property name="height_request">50</property>
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="receives_default">True</property>
-            <property name="halign">start</property>
-            <property name="valign">center</property>
-            <property name="margin_left">13</property>
-            <signal name="clicked" handler="get_node" swapped="no"/>
-          </object>
-          <packing>
-            <property name="left_attach">2</property>
-            <property name="top_attach">0</property>
-            <property name="height">2</property>
-          </packing>
-        </child>
-        <child>
           <object class="GtkGrid" id="grid12">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
@@ -1769,6 +1752,63 @@ Entity</property>
             <property name="left_attach">0</property>
             <property name="top_attach">2</property>
             <property name="width">3</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkGrid" id="nodeactionset">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">start</property>
+            <property name="valign">center</property>
+            <property name="orientation">vertical</property>
+            <property name="row_spacing">5</property>
+            <child>
+              <object class="GtkButton" id="selectnodebut">
+                <property name="label" translatable="yes">Select</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="select_node" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="getnodebut">
+                <property name="label" translatable="yes">Get</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="get_node" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="infonodebut">
+                <property name="label" translatable="yes">Info</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="valign">center</property>
+                <signal name="clicked" handler="info_node" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">2</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">2</property>
+            <property name="top_attach">0</property>
+            <property name="height">2</property>
           </packing>
         </child>
       </object>

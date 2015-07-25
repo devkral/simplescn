@@ -5,6 +5,7 @@ import os
 from gi.repository import Gtk
 from guigtk.guicommon import gtkclient_template, activate_shielded
 from common import sharedir,isself, logger
+from guigtk.clientnode import gtkclient_node
 
 class gtkclient_server(gtkclient_template):
     isregistered = False
@@ -92,7 +93,7 @@ class gtkclient_server(gtkclient_template):
     
     
     
-    def snode_get(self,*args):
+    def action_snode(self, action):
         _entry=self.get_object("servernodeentry")
         val=_entry.get_text()
         if val=="" or val.find("/")==-1:
@@ -104,7 +105,20 @@ class gtkclient_server(gtkclient_template):
             return
         
         self.links["gtkclient"].set_curnode("{}:{}".format(*_node[1]), _name, _hash, self.address)
+        #TODO: enum
+        if action == 0:
+            pass
+        elif action == 1:
+            tdparam=self.links["gtkclient"].header_node.copy()
+            tdparam["certhash"]=_hash
+            gtkclient_node(self.links, "{}:{}".format(*_node[1]), tdparam, _name)
         self.close()
+        
+    def get_snode(self,*args):
+        self.action_snode(1)
+        
+    def select_snode(self,*args):
+        self.action_snode(0)
         
     def snode_activate(self,*args):
         view=self.get_object("servernodeview")
@@ -117,7 +131,7 @@ class gtkclient_server(gtkclient_template):
         
         
     
-    def snode_select(self,*args):
+    def snode_row_select(self,*args):
         view=self.get_object("servernodeview")
         _entry=self.get_object("servernodeentry")
         _sel=view.get_selection().get_selected()

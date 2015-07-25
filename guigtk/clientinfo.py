@@ -19,13 +19,14 @@ class gtkclient_info(gtkclient_template):
         if self.init2(os.path.join(sharedir, "guigtk", "clientinfo.ui"))==False:
             return
         #self.get_object("col1").set_orientation(Gtk.Orientation.VERTICAL)
-        self.col=self.get_object("col")
-        self.win=self.get_object("infowin")
-                
+        self.col = self.get_object("col")
+        self.win = self.get_object("infowin")
+        serviceb = self.get_object("serviceb")
         if name == isself:
             self.win.set_title("This client")
         else:
             self.win.set_title(name)
+        serviceb.hide()
         self.name=name
         
         
@@ -35,7 +36,8 @@ class gtkclient_info(gtkclient_template):
         
     
     def update(self,*args):
-        messagebuf=self.get_object("messagebuf")
+        messagebuf = self.get_object("messagebuf")
+        serviceb = self.get_object("serviceb")
         
         self.col.foreach(clearme)
         if self.name is isself:
@@ -52,6 +54,10 @@ class gtkclient_info(gtkclient_template):
     
         _info=self.do_requestdo("info",self.address)
         if _info[0]==True:
+            if _info[1][0] == "server":
+                serviceb.hide()
+            else:
+                serviceb.show()
             messagebuf.set_text(_info[1][2],-1)
     
     def col_entry(self,key,val):

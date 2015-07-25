@@ -78,7 +78,6 @@
               <object class="GtkLabel" id="donotapear">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">booh</property>
               </object>
               <packing>
                 <property name="expand">False</property>
