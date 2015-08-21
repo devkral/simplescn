@@ -616,7 +616,7 @@ class commonscn(object):
         self.nonce_cleanthread.start()
         
         self.hashalgorithm=_hashalgo
-        self.salt = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
+        self.salt = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf-8")
         
     def clean_usednonces(self):
         while self.isactive:
@@ -664,14 +664,15 @@ class commonscn(object):
             return True
         
         # Notice: under high workload, it could happen, that valid authdata seems to be invalid
+        # Advantage: brute-force attacks become unreliable. Disadvantage: scripts too => keep-alive?
         if len(authdict["nonce"])>nonce_size or authdict["nonce"] in self.used_nonces:
             return False
-
+        self.used_nonces[authdict["nonce"]] = authdict["timestamp"]
+        
         a=self.realms[realm]
         if dhash((a[0], client_certhash,authdict["timestamp"], authdict["nonce"]), a[1]) == authdict["auth"]:
-            # verified, accept nonce
-            self.used_nonces[authdict["nonce"]] = authdict["timestamp"]
             return True
+        
         return False
     def init_realm(self, pw, realm):
         realms[realm] = dhash((pw, realm, self.salt), algo)
