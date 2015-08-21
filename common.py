@@ -48,8 +48,8 @@ import threading
 import json
 from http import client
 
-# small nonces mean more collisions
-nonce_size = 20
+# small noncesize means more collisions
+default_nonce_size = 20
 salt_size = 10
 key_size = 4096
 server_port = 4040
@@ -561,7 +561,8 @@ class pluginmanager(object):
 
 authrequest_struct = {
 "algo": "",
-"salt": ""
+"salt": "",
+"nonce_size": ""
 }
 
 
@@ -583,6 +584,7 @@ class commonscn(object):
     used_nonces = None
     cleannonces_lock = None
     nonce_cleanthread = None
+    nonce_sizes = None
     nonce_expire_time = 10 # in secs
     isactive = True
     # internal salt for memory protection
@@ -607,25 +609,22 @@ class commonscn(object):
                 logger().error(e)
     
     def init_auth(self, _hashalgo=DEFAULT_HASHALGORITHM):
-        if self.used_nonces is not None:
-            return
-        self.used_nonces = {}
-        self.cleannonces_lock = threading.Lock
-        self.nonce_cleanthread = threading.Thread(target=self.clean_usednonces)
-        self.nonce_cleanthread.daemon = True
-        self.nonce_cleanthread.start()
-        
         self.hashalgorithm=_hashalgo
         self.salt = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
         
-    def clean_usednonces(self):
+        self.nonce_sizes = {}
+        self.used_nonces = {}
+        self.cleannonces_lock = {}
+        self.nonce_cleanthread = {}
+        
+    def clean_usednonces(self, realm):
         while self.isactive:
-            self.cleannonces_lock.acquire()
+            self.cleannonces_lock[realm].acquire()
             self.nonce_e_time = int(time.time())-self.nonce_expire_time
-            for _nonceti in self.used_nonces.items():
+            for _nonceti in self.used_nonces[realm].items():
                 if _nonceti[1] < self.nonce_e_time:
-                    del self.used_nonces[_nonceti[0]]
-            self.cleannonces_lock.release()
+                    del self.used_nonces[realm][_nonceti[0]]
+            self.cleannonces_lock[realm].release()
             time.sleep(self.nonce_e_time)
 
     
@@ -639,7 +638,7 @@ class commonscn(object):
 
 
     
-    def auth(realm, pw, pubcert_hash, algo, memdata = None):
+    def auth(realm, pw, pubcert_hash, nonce_size, algo, memdata = None):
         nonce = str(base64.urlsafe_b64encode(os.urandom(nonce_size)))
         timestamp = int(time.time())
         dauth = auth_struct.copy()
@@ -652,7 +651,7 @@ class commonscn(object):
             server, realm = memdata 
             if server not in self.save_auth:
                 self.save_auth[server]={}
-            self.save_auth[server][realm] = (pre, algo)
+            self.save_auth[server][realm] = (pre, nonce_size, algo)
         dauth["auth"] = dhash((pre, pubcert_hash, timestamp, nonce), algo)
         return dauth
     def reauth(pubcert_hash, memdata):
@@ -664,18 +663,24 @@ class commonscn(object):
             return True
         
         # Notice: under high workload, it could happen, that valid authdata seems to be invalid
-        if len(authdict["nonce"])>nonce_size or authdict["nonce"] in self.used_nonces:
+        if len(authdict["nonce"])!=self.nonce_sizes[realm] or authdict["nonce"] in self.used_nonces[realm]:
             return False
 
         a=self.realms[realm]
         if dhash((a[0], client_certhash,authdict["timestamp"], authdict["nonce"]), a[1]) == authdict["auth"]:
             # verified, accept nonce
-            self.used_nonces[authdict["nonce"]] = authdict["timestamp"]
+            self.used_nonces[realm][authdict["nonce"]] = authdict["timestamp"]
             return True
         return False
-    def init_realm(self, pw, realm):
+    def init_realm(self, pw, realm, nonce_size=default_nonce_size):
         realms[realm] = dhash((pw, realm, self.salt), algo)
-
+        
+        self.nonce_sizes[realm] = nonce_size
+        self.used_nonces[realm] = {}
+        self.cleannonces_lock[realm] = threading.Lock()
+        self.nonce_cleanthread[realm] = threading.Thread(target=self.clean_usednonces)
+        self.nonce_cleanthread[realm].daemon = True
+        self.nonce_cleanthread[realm].start()
 
 def dhash(oblist, algo=HASHALGORITHM):
     if algo not in hashlib.algorithms_available:
