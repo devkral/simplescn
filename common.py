@@ -610,7 +610,7 @@ class commonscn(object):
         if self.used_nonces is not None:
             return
         self.used_nonces = {}
-        self.cleannonces_lock = threading.Lock
+        self.cleannonces_lock = threading.Lock()
         self.nonce_cleanthread = threading.Thread(target=self.clean_usednonces)
         self.nonce_cleanthread.daemon = True
         self.nonce_cleanthread.start()
