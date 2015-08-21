@@ -48,6 +48,9 @@ import threading
 import json
 from http import client
 
+# small nonces mean more collisions
+nonce_size = 20
+salt_size = 10
 key_size = 4096
 server_port = 4040
 default_buffer_size = 1400
@@ -61,6 +64,7 @@ success = 'success'
 isself = 'isself'
 default_configdir = '~/.simplescn/'
 
+DEFAULT_HASHALGORITHM = "sha512"
 
 
 ###### signaling ######
@@ -555,6 +559,17 @@ class pluginmanager(object):
     def delete_remote(self):
         self.redirect_addr = ""
 
+authrequest_struct = {
+"algo": "",
+"salt": ""
+}
+
+
+auth_struct = {
+"auth": "",
+"timestamp": "",
+"nonce": ""
+}
 
 class commonscn(object):
     capabilities = []
@@ -568,13 +583,19 @@ class commonscn(object):
     used_nonces = None
     cleannonces_lock = None
     nonce_cleanthread = None
-    nonce_expire_time = 30 # in secs
+    nonce_expire_time = 10 # in secs
     isactive = True
+    # internal salt for memory protection
+    salt = None
+    realms={}
+    # save credentials
+    save_auth={}
+    hashalgorithm = None
+
     
     cache={"cap":"", "info":"", "prioty":""}
     #,"hash":"","name":"","message":""
-    
-    
+     
     
     def __del__(self):
         self.isactive = False
@@ -585,7 +606,7 @@ class commonscn(object):
             except Exception as e:
                 logger().error(e)
     
-    def init_cleannonces(self):
+    def init_auth(self, _hashalgo=DEFAULT_HASHALGORITHM):
         if self.used_nonces is not None:
             return
         self.used_nonces = {}
@@ -593,7 +614,10 @@ class commonscn(object):
         self.nonce_cleanthread = threading.Thread(target=self.clean_usednonces)
         self.nonce_cleanthread.daemon = True
         self.nonce_cleanthread.start()
-    
+        
+        self.hashalgorithm=_hashalgo
+        self.salt = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
+        
     def clean_usednonces(self):
         while self.isactive:
             self.cleannonces_lock.acquire()
@@ -603,16 +627,7 @@ class commonscn(object):
                     del self.used_nonces[_nonceti[0]]
             self.cleannonces_lock.release()
             time.sleep(self.nonce_e_time)
-            
-    def check_nonce(self, _noncetime):
-        if len(_noncetime) > maxnoncelen:
-            return False
-        _nonce, _time = _noncetime.rsplit(":",1)
-        
-        if _nonce in self.used_nonces:
-            return False
-        self.used_nonces[_nonce] = _time
-        return True
+
     
     def update_cache(self):
         self.cache["cap"] = json.dumps(self.capabilities)
@@ -622,22 +637,66 @@ class commonscn(object):
     def update_prioty(self):
         self.cache["prioty"] = json.dumps([self.priority, self.scn_type])
 
-def dhash(ob):
-    if type(ob).__name__ == "str":
-        return hashlib.sha256(bytes(ob,"utf8")).hexdigest()
-    else:
-        return hashlib.sha256(ob).hexdigest()
+
     
-#gen hash for server, gen hash for transmitting
-def dhash_salt(ob, salt):
-    if type(ob).__name__ == "str":
-        ha = hashlib.sha256(bytes(ob, "utf8"))
-    elif None in [ob, salt]:
-        raise(TypeError("ob:{}, salt:{}".format(ob, salt)))
-    else:
-        ha = hashlib.sha256(ob)
-    ha.update(salt)
-    return ha.hexdigest()
+    def auth(realm, pw, pubcert_hash, algo, memdata = None):
+        nonce = str(base64.urlsafe_b64encode(os.urandom(nonce_size)))
+        timestamp = int(time.time())
+        dauth = auth_struct.copy()
+        dauth["realm"] = realm
+        dauth["algo"] = algo
+        dauth["timestamp"] = timestamp
+        dauth["nonce"] = nonce
+        pre = dhash((pw, realm), algo)
+        if memdata != None and len(memdata) == 2:
+            server, realm = memdata 
+            if server not in self.save_auth:
+                self.save_auth[server]={}
+            self.save_auth[server][realm] = (pre, algo)
+        dauth["auth"] = dhash((pre, pubcert_hash, timestamp, nonce), algo)
+        return dauth
+    def reauth(pubcert_hash, memdata):
+        dauth = auth_struct.copy()
+        
+        
+    def verify(realm, authdict, client_certhash):
+        if realm not in self.realms or self.realms[realm] is None:
+            return True
+        
+        # Notice: under high workload, it could happen, that valid authdata seems to be invalid
+        if len(authdict["nonce"])>nonce_size or authdict["nonce"] in self.used_nonces:
+            return False
+
+        a=self.realms[realm]
+        if dhash((a[0], client_certhash,authdict["timestamp"], authdict["nonce"]), a[1]) == authdict["auth"]:
+            # verified, accept nonce
+            self.used_nonces[authdict["nonce"]] = authdict["timestamp"]
+            return True
+        return False
+    def init_realm(self, pw, realm):
+        realms[realm] = dhash((pw, realm, self.salt), algo)
+
+
+def dhash(oblist, algo=HASHALGORITHM):
+    if algo not in hashlib.algorithms_available:
+        logger().warning("Hashalgorithm not available: {}".format(algo))
+        return None
+    if isinstance(oblist, (list, tuple))==False:
+        oblist = [oblist,]
+    hasher=hashlib.new(algo)
+    ret=""
+    for ob in oblist:
+        tmp = hasher.copy()
+        tmp.update(bytes(ret,"utf8"))
+        if isinstance(ob, bytes):
+            tmp.update(ob)
+        elif isinstance(ob, str):
+            tmp.update(bytes(ob, "utf8"))
+        else:
+            logger().error("Object not hash compatible: {}".format(ob))
+            continue
+        ret = tmp.hexdigest()
+    return ret
 
 #hash on server, uses already hashed password (e.g. in file)
 def gen_passwd_hash(passwd, salt):
@@ -645,7 +704,30 @@ def gen_passwd_hash(passwd, salt):
     ha = dhash(passwd)
     return dhash_salt(ha, salt)
 
+# remove complex types as value
+def simplify_dict(d):
+    ret={}
+    for key, val in d.items():
+        if isinstance(val, (str, bytes)):
+            ret[key] = val
+        elif isinstance(val, Iterable):
+            ret[key] = val[0]
+        else:
+            logger().warning("Error: invalid type simplified: {}".format(val))
+    return ret
 
+# always an array
+def safe_mdecode(string, encoding):
+    try:
+        if encoding == "application/x-www-form-urlencoded":
+            return parse.parse_qs(string)
+        elif encoding == "application/json":
+            return json.loads(string)
+        else:
+            return None
+    except Exception as e:
+        logger().error(e)
+        return None
 """def check_sqlitesafe(_name):
     if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
         "sqlite_" not in str(_name).lower():
@@ -697,6 +779,7 @@ def check_typename(_name, maxlength = 15):
     #logger().debug("invalid type: {}".format(_name))
     return False
 
+
 def rw_socket(sockr, sockw):
     while True:
         if bool(sockr.getsockopt(socket.SO_TCP_CLOSE)) == False and \
@@ -725,7 +808,10 @@ def rw_socket(sockr, sockw):
 #    redin.run()
 #    redout.run()
 #    redin.join()
-    
+
+
+
+
 class certhash_db(object):
     db_path = None
     lock = None

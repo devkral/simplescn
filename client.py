@@ -32,9 +32,10 @@ import signal,threading
 import socket
 import json, base64
 import time
+from urllib import parse
 from os import path
 
-from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket, notify, confdb_ending, VALMITMError
+from common import success, error, check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, dhash_salt, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket, notify, confdb_ending, VALMITMError, simplify_dict, safe_mdecode
 
 
 from common import logger
@@ -54,7 +55,8 @@ reference_header = \
 "tdestname":None,
 "tdesthash": None,
 "nonce":None,
-"tnonce":None
+"tnonce":None,
+"User-Agent": "simplescn/0.5 (client)"
 }
 class client_client(client_admin, client_safe):
     name=None
@@ -338,7 +340,7 @@ class client_server(commonscn):
         return True, self.cache["prioty"]
     
 class client_handler(BaseHTTPRequestHandler):
-    server_version = 'simple scn client 0.5'
+    server_version = 'simplescn/0.5 (client)'
     
     need_address = ["registerservice", "delservice"]
     
@@ -434,66 +436,6 @@ class client_handler(BaseHTTPRequestHandler):
             retstring+=", {}".format(elem)
         return retauth, retstring[2:]
     
-    ### PUT ###
-    def handle_client_put(self, _cmdlist):
-        if _cmdlist[0] not in self.links["client"].validactions_put:
-            self.send_error(400, "invalid action - client")
-            return
-        _cmdlist += [self.headers,]
-        if self.handle_remote == False and not self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
-            self.send_error(403, "no permission - client")
-            return
-        
-        if self.check_cpw() == False:
-            self.send_error(401, self.needed_auth(["client","admin"])[1]) # no permission - client
-            return
-            
-        if self.links["client"].validactions_admin:
-            if self.check_apw() == False:
-                self.send_error(401, self.needed_auth(["admin"])[1]) # no permission - admin"
-                return
-        try:
-            func = self.links["client"].__getattribute__(_cmdlist[0])
-            response = func(*_cmdlist[1:])
-        except AddressFail as e:
-            self.send_error(500, e.msg)
-            return
-        except Exception as e:
-            if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
-                if "tb_frame" in e.__dict__:
-                    st=str(e)+"\n\n"+str(traceback.format_tb(e))
-                else:
-                    st=str(e)
-                # helps against ssl failing about empty string (EOF)
-                if len(st) > 0:
-                    self.send_error(500, st)
-                else:
-                    self.send_error(500, "unknown")
-            return
-        if response[0] == False:
-            # helps against ssl failing about empty string (EOF)
-            if len(response) >= 1 and len(response[1]) > 0:
-                self.send_error(400, str(response[1]))
-            else:
-                self.send_error(400, "unknown")
-            return
-        else:
-            self.send_response(200)
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("nonce", self.answernonce)
-            if self.spwveri is not None:
-                self.send_header("spwveri", self.spwveri)
-            
-            if self.cpwveri is not None:
-                self.send_header("cpwveri", self.cpwveri)
-                
-            if self.tpwveri is not None:
-                self.send_header("tpwveri", self.tpwveri)
-            self.send_header('Content-type', "text/json")
-            self.send_header('Accept-Charset', 'utf-8')
-            self.end_headers()
-            self.wfile.write(bytes(json.dumps(response), "utf8"))
-    
         
     ### GET ###
     def handle_client(self, _cmdlist):
@@ -548,16 +490,12 @@ class client_handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(bytes(json.dumps(response), "utf8"))
 
-    def handle_server(self, _cmdlist):
-        action = _cmdlist[0]
-        _cmdlist = _cmdlist[1:]
+    def handle_server(self, action, obdict):
         if action not in self.links["client_server"].validactions:
             self.send_error(400, "invalid action - server")
             return
         
-        # add address to _cmdlist if needed
-        if action in self.need_address:
-            _cmdlist += [self.client_address,]
+        
         if self.check_spw() == False:
             self.send_error(401, self.needed_auth(["server"])[1]) # no permission - server
             return
@@ -647,53 +585,64 @@ class client_handler(BaseHTTPRequestHandler):
         
         self.send_error(400, "invalid action")
     
-    def do_PUT(self):
-        reqheader=reference_header.copy()
-        pos_header = self.path.find("?")
-        if pos_header != -1:
-            _cmdlist = self.path[1:pos_header].split("/")
-            tparam = self.path[pos_header+1:].split("&")
-            for elem in tparam:
-                elem = elem.split("=")
-
-                if len(elem) == 1 and elem[0] != "":
-                    reqheader[elem[0]] = ""
-                elif len(elem) == 2:
-                    reqheader[elem[0]] = elem[1]
-                else:
-                    self.send_error(400,"invalid key/value pair\n{}".format(elem))
-                    return
-        else:
-            _cmdlist = self.path[1:].split("/")
-        action = _cmdlist[0]
-        _cmdlist = _cmdlist[1:]
-        if action == "get":
-            self.handle_client(json.load(self.rfile))
-            return
-        elif action == "put":
-            self.handle_client_put(_cmdlist)
-
+    def parse_request(self):
+        BaseHTTPRequestHandler.parse_request(self)
+        if self.headers.get("User-Agent", "").split("/", 1)[0].strip().rstrip() == "simplescn":
+            self.error_message_format = "%(code)d: %(message)s – %(explain)s"
+    
+    #def do_GET(self):
+    
+    
     def do_POST(self):
-        plugin, action=self.path[1:].split("/",1)
+        splitted = self.path[1:].split("/",1)
         pluginm = self.links["client_server"].pluginmanager
-        if pluginm is None:
-            return
-        if pluginm.redirect_addr in ["",None]:
-            if "receive" in pluginm.plugins[plugin].__dict__:
-                try:
-                    pluginm.plugins[plugin].receive(action, self.rfile, self.wfile)
-                except Exception as e:
-                    logger().error(e)
-                    return
+        if len(splitted) == 1:
+            resource = splitted[0]
+            sub = ""
         else:
-            sockd= self.links["client_client"].do_request(pluginm.redirect_addr, \
-                                            self.path, requesttype = "POST")
-            redout = threading.Thread(target=rw_socket, args=(self.socket,sockd))
-            redout.daemon=True
-            redout.run()
-            rw_socket(sockd,self.socket)
-            return
+            resource = splitted[0]
+            sub = splitted[1]
         
+        if resource == "plugin":
+            if len(sub) != 1:
+                self.send_error(400, "no plugin specified", "No plugin was specified")
+                return
+            elif pluginm.redirect_addr not in ["", None]:
+                sockd = self.links["client_client"].do_request(pluginm.redirect_addr, \
+                                        self.path, requesttype = "POST")
+                redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
+                redout.daemon=True
+                redout.run()
+                rw_socket(sockd, self.connection)
+                return
+            
+            if sub[0] not in pluginm.plugins or "receive" not in pluginm.plugins[plugin].__dict__:
+                self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(sub[0]))
+                return
+            try:
+                pluginm.plugins[plugin].receive(action, self.connection)
+            except Exception as e:
+                logger().error(e)
+                self.send_error(500, "plugin error", str(e))
+                return
+        elif resource == "server":
+            # str: charset (like utf), safe_mdecode: transform arguments to dict 
+            inp = safe_mdecode(str(self.rfile.read(),self.headers.get("Accept-Charset","utf8")),self.headers.get("Content-Type"))
+            if inp is None:
+                self.send_error(400, "bad arguments")
+                return
+            inp["_clientaddress"] = "{}:{}".format(*self.client_address)
+            self.handle_server(sub, simplify_dict(inp))
+        elif resource == "client":
+            # str: charset (like utf), safe_mdecode: transform arguments to dict 
+            inp = safe_mdecode(str(self.rfile.read(),self.headers.get("Accept-Charset","utf8")),self.headers.get("Content-Type"))
+            if inp is None:
+                self.send_error(400, "bad arguments")
+                return
+            inp["_clientaddress"] = "{}:{}".format(*self.client_address)
+            self.handle_client(sub, simplify_dict(inp))
+        else:
+            self.send_error(404, "resource not found", "could not find {}".format(resource))
         
 class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
     """server part of client; inheritates client_server to provide
