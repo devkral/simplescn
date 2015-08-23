@@ -67,8 +67,6 @@ class server(commonscn):
             logger().debug("Message empty")
             d["message"] = "<empty>"
         
-        if d["nonces"] is True:
-            self.init_cleannonces()
         
         self.priority = int(d["priority"])
         self.cert_hash = d["certhash"]
@@ -144,7 +142,7 @@ class server(commonscn):
             return False, "name not exist"
         if _hash not in self.nhipmap[_name]:
             return False, "certhash not exist"
-        return True, json.dumps(self.nhipmap[_name][_hash])
+        return True, self.nhipmap[_name][_hash]
     
     def listnames(self):
         return True, self.nhipmap_cache
@@ -159,7 +157,7 @@ class server(commonscn):
         return True, self.cache["prioty"]
 
     def num_nodes(self):
-        return True, str(self.nhipmap_len)
+        return True, self.nhipmap_len
     
     
 class server_handler(BaseHTTPRequestHandler):
@@ -201,7 +199,7 @@ class server_handler(BaseHTTPRequestHandler):
             
         _ppath=os.path.join(sharedir, "html",lang, page)
         if os.path.exists(_ppath)==False:
-            self.send_error(404,"file not exist")          
+            self.send_error(404,"file not exist")
             return
         self.send_response(200)
         self.send_header('Content-type',"text/html")
@@ -209,40 +207,57 @@ class server_handler(BaseHTTPRequestHandler):
         
         with open(_ppath,"rb") as rob:
             self.wfile.write(rob.read())
-    #check server password
-    def check_spw(self):
-        if self.spwhash is None:
-            return True
-        if "spwauth" in self.headers and "nonce" in self.headers:
-            if self.links["server_server"].check_nonce(self.headers["nonce"]) == False:
-                return False
-            if dhash_salt(self.spwhash, self.headers["nonce"]) == self.headers["spwauth"]:
-                self.spwveri = dhash_salt(self.links["server_server"].cert_hash, "{}:{}".format(self.spwhash, self.answernonce))
-                return True
-        return False
-    #check tunnel password
-    def check_tpw(self):
-        if self.tpwhash is None:
-            return True
-        if "tpwauth" in self.headers and "tnonce" in self.headers:
-            if self.links["server_server"].check_nonce(self.headers["tnonce"]) == False:
-                return False
-            if dhash_salt(self.tpwhash, self.headers["tnonce"])==self.headers["tpwauth"]:
-                self.tpwveri = dhash_salt(self.links["server_server"].cert_hash, "{}:{}".format(self.tpwhash, self.answernonce))
-                return True
-        return False
     
-    def needed_auths(self, _list):
-        retauth = []
-        if "server" in _list and self.spwhash is not None:
-            retauth.append("server")
-        if "tunnel" in _list and self.tpwhash is not None:
-            retauth.append("tunnel")
-        retstring=""
-        for elem in retauth:
-            retstring+=", {}".format(elem)
-        return retauth, retstring[2:]
-    
+    def parse_request(self):
+        BaseHTTPRequestHandler.parse_request(self)
+        if self.headers.get("User-Agent", "").split("/", 1)[0].strip().rstrip() == "simplescn":
+            self.error_message_format = "%(code)d: %(message)s – %(explain)s"
+        
+        _auth = self.headers.get("Authorization", 'scn {}')
+        method, _auth = _auth.split(" ", 1)
+        _auth= _auth.strip().rstrip()
+        if method != "scn":
+            self.send_error(406, "Invalid auth method")
+        self.auth_info = safe_mdecode(_auth)
+        if self.auth_info is None:
+            self.send_error(406, "Parsing auth_info failed")
+
+    def handle_server(action):
+        if action not in self.links["server_server"].validactions:
+            self.send_error(400, "invalid action - server")
+            return
+        
+        if int(self.headers.get("Content-Length", "0"))>max_serverrequest_size:
+            self.send_error(431, "request too large")
+            return
+        
+        if self.links["auth"].verify("server", self.auth_info) == False:
+            authreq = self.links["auth"].request_auth("server")
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_response(401, json.dumps(authreq))
+            self.end_headers()
+            return
+            
+        try:
+            func=self.links["server_server"].__getattribute__(action)
+            witherror, jsonnized = func(obdict)
+        except Exception as e:
+            response = {}
+            error = generate_error("unknown")
+            if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
+                error = generate_error(e)
+            response["errors"] = [error,]
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_response(500, json.dumps(response))
+            self.end_headers()
+            return
+        if witherror == True:
+            self.send_response(400,bytes(jsonnized, "utf-8"))
+        else:
+            self.send_response(200,bytes(jsonnized, "utf-8"))
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header('Content-Type', "application/json; charset=utf-8")
+        self.end_headers()
     
     def do_GET(self):
         if self.path=="/favicon.ico":
@@ -254,71 +269,25 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(404)
             return
         
-        if self.check_spw()==False:
-            self.send_error(401,self.salt)
-            return
+        if self.webgui == False:
+            self.send_error(404, "no webgui enabled")
         
         _path=self.path[1:].split("/")
-        action=_path[0]
-        if action in ("","server","html","index"):
+        if _path[0] in ("","server","html","index"):
             self.html("server.html")
             return
-        elif self.webgui==True and action=="static" and len(_path)>=2:
+        elif  _path[0]=="static" and len(_path)>=2:
             if _path[1] in self.statics:
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(self.statics[_path[1]])
             else:
-                self.send_error(404)
+                self.send_error(404, "not -found")
             return
-        
-        if action in self.need_address_cert:
-            _path=_path+[self.client_address,] #, self.request.getpeercert(True)]
-            
-            
-        if action not in self.links["server_server"].validactions:
-            self.send_error(400,"invalid action")
-            return
-        try:
-            func=self.links["server_server"].__getattribute__(action)
-            response=func(*_path[1:])
-        except Exception as e:
-            if self.client_address[0] in ["localhost","127.0.0.1","::1"]:
-                if "tb_frame" in e.__dict__:
-                    st=str(e)+"\n\n"+str(traceback.format_tb(e))
-                else:
-                    st=str(e)
-                # helps against ssl failing about empty string (EOF)
-                if len(st)>0:
-                    self.send_error(500,st)
-                else:
-                    self.send_error(500,"unknown")
-            return
-        if response[0] == False:
-            # helps against ssl failing about empty string (EOF)
-            if len(response)>=1 and len(response[1])>0:
-                self.send_error(400,response[1])
-            else:
-                self.send_error(400,"unknown")
-        else:
-            self.send_response(200)
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header("nonce", self.answernonce)
-            if self.spwveri is not None:
-                self.send_header("spwveri", self.spwveri)
-                
-            if self.tpwveri is not None:
-                self.send_header("tpwveri", self.tpwveri)
-            self.send_header('Content-type', "text/json")
-            self.send_header('Accept-Charset', 'utf-8')
-            
-            self.end_headers()
-            # helps against ssl failing about empty string (EOF)
-            self.wfile.write(bytes(response[1],"utf8"))
-            
+    
     def do_CONNECT(self):
         if self.istunnel==False:
-            self.send_error(400,"no tunnel/proxy")
+            self.send_error(404,"no tunnel/proxy allowed")
             return
         if self.check_tpw()==False:
             self.send_error(407,self.salt)
@@ -350,26 +319,47 @@ class server_handler(BaseHTTPRequestHandler):
         rw_socket(sockd,self.socket)
 
     def do_POST(self):
-        plugin,action=self.path[1:].split("/",1)
-        pluginm=self.links["client_server"].pluginmanager
-        if pluginm is None:
-            return
-        if pluginm.redirect_addr in ["",None]:
-            if "receive" in pluginm.plugins[plugin].__dict__:
-                try:
-                    pluginm.plugins[plugin].receive(action, self.rfile, self.wfile)
-                except Exception as e:
-                    logger().error(e)
-                    return
-        else:
-            sockd = self.links["server_server"].do_request(pluginm.redirect_addr, \
-                                            self.path, requesttype = "POST")
-            redout=threading.Thread(target=rw_socket,args=(self.socket,sockd))
-            redout.daemon=True
-            redout.run()
-            rw_socket(sockd,self.socket)
+        try:
+            codecs.lookup(self.headers.get("Accept-Charset", "utf8"))
+        except Exception:
+            self.send_error(406, "invalid charset - client")
             return
         
+        splitted = self.path[1:].split("/",1)
+        pluginm = self.links["server_server"].pluginmanager
+        if len(splitted) == 1:
+            resource = splitted[0]
+            sub = ""
+        else:
+            resource = splitted[0]
+            sub = splitted[1]
+        if resource == "plugin":
+            if len(sub) != 1:
+                self.send_error(400, "no plugin specified", "No plugin was specified")
+                return
+            elif pluginm.redirect_addr not in ["", None]:
+                sockd = self.links["server_server"].do_request(pluginm.redirect_addr, \
+                                        self.path, requesttype = "POST")
+                redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
+                redout.daemon=True
+                redout.run()
+                rw_socket(sockd, self.connection)
+                return
+            
+            if sub[0] not in pluginm.plugins or "receive" not in pluginm.plugins[plugin].__dict__:
+                self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(sub[0]))
+                return
+            try:
+                pluginm.plugins[plugin].receive(action, self.connection)
+            except Exception as e:
+                logger().error(e)
+                self.send_error(500, "plugin error", str(e))
+                return
+        elif resource == "server":
+            self.handle_server(sub)
+        else:
+            self.send_error(404, "resource not found", "could not find {}".format(resource))
+    
 class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     sslcont = None
     #address_family = socket.AF_INET6
@@ -450,12 +440,10 @@ class server_init(object):
         
         serverd={"name": _name[0], "certhash": dhash(pub_cert),
                 "priority": kwargs["priority"], "message":_message,
-                "expire": kwargs["expire"], "nonces": None}
+                "expire": kwargs["expire"]}
         
         server_handler.links=self.links
         
-        if server_handler.tpwhash is not None or server_handler.spwhash is not None:
-            serverd["nonces"] = True
         
         self.links["server_server"]=server(serverd)
         #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")

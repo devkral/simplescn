@@ -55,19 +55,51 @@ key_size = 4096
 server_port = 4040
 default_buffer_size = 1400
 #maxread = 1500
-maxnoncelen = 20
+max_serverrequest_size = 4000
 confdb_ending=".confdb"
 #client_port=4041
 
-error = 'error'
-success = 'success'
+
 isself = 'isself'
 default_configdir = '~/.simplescn/'
 
 DEFAULT_HASHALGORITHM = "sha512"
-
+DEFAULT_HASHALGORITHM_len=128
 
 ###### signaling ######
+
+resp_st={
+"status":"", #ok, error
+"result": None,
+"error": None
+}
+
+
+def generate_error(err):
+    error={"name": "unknown", "type":"unknown", "stacktrace":""}
+    error["name"] = err
+    if isinstance(err,str) == True:
+        error["type"] = ""
+    else:
+        error["type"] = type(err).__name__
+        if "tb_frame" in err.__dict__:
+            error["stacktrace"] = str(traceback.format_tb(err)) 
+    return json.dumps(error)
+
+def gen_result(res, status):
+    s = resp_st.copy()
+    if status == True:
+        s["status"] = "ok"
+        s["result"] = res
+        del s["error"]
+    else:
+        s["status"] = "error"
+        s["error"] = res
+        del s["result"]
+    return s
+
+
+
 
 class AddressFail(Exception):
     msg = '"<address>:<port>"\n"[<address>]:<port>"'
@@ -278,7 +310,7 @@ def parse_response(response):
     try:
         if response.status == client.OK:
             #maxread
-            re=response.read().decode("utf8")
+            re = response.read().decode("utf8")
             if response.closed == False:
                 (False, "reading response failed, too big")
             return (True, re)
@@ -315,16 +347,16 @@ class configmanager(object):
     def __del__(self):
         if self.dbcon is not None:
             self.dbcon.close()
-
+    
+    def __getitem__(self, _name):
+        self.get(_name)
+    
     def dbaccess(func):
         def funcwrap(self, *args, **kwargs):
-            #if self.dbcon is None:
-            #    raise(Exception("self.path"))
             self.lock.acquire()
             temp=None
             try:
                 temp=func(self, self.dbcon, *args, **kwargs)
-                
             except Exception as e:
                 if "tb_frame" in e.__dict__:
                     st="{}\n\n{}".format(e, traceback.format_tb(e))
@@ -441,10 +473,6 @@ class configmanager(object):
             return False
         return True
     
-        
-    def __getitem__(self, _name):
-        self.get(_name)
-    
     #@self.configmanager.dbaccess
     def get_default(self,name):
         if name in self.defaults:
@@ -560,16 +588,95 @@ class pluginmanager(object):
         self.redirect_addr = ""
 
 authrequest_struct = {
-"algo": "",
-"salt": ""
+"algo": None,
+"salt": None,
+"timestamp": None,
+"realm": None
 }
 
 
 auth_struct = {
-"auth": "",
-"timestamp": "",
-"nonce": ""
+"auth": None,
+"timestamp": None,
+"nonce": None,
+"saveserver": None
 }
+
+
+
+class scnauth_server(object):
+    request_expire_time = 300 # in secs
+    # internal salt for memory protection
+    salt = None
+    # auth realms
+    realms = None
+    hashalgorithm = None
+    
+    def __init__(self, _hashalgo=DEFAULT_HASHALGORITHM):
+        realms = {}
+        self.hashalgorithm=_hashalgo
+        self.salt = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf8")
+
+    def request_auth(realm):
+        rauth = authrequest_struct.copy()
+        rauth["algo"] = self.hashalgo
+        rauth["salt"] = self.salt
+        rauth["timestamp"] = int(time.time())
+        rauth["realm"] = realm
+        return rauth
+    
+    # deactivate clientpubcert_hash for now as ssl doesn't send clientcert
+    def verify(realm, authdict, clientpubcert_hash=""):
+        if realm not in self.realms or self.realms[realm] is None:
+            return True
+        if realm not in authdict:
+            return False
+        if authdict["timestamp"].isdecimal() == False:
+            logger().warning("Timestamp not a number")
+            return False
+        if int(authdict["timestamp"])< int(time.time())-self.request_expire_time:
+            return False
+        a=self.realms[realm]
+        if dhash((a[0], clientpubcert_hash,authdict[realm]["timestamp"]), a[1]) == authdict[realm]["auth"]: #, authdict["nonce"]
+            return True
+        return False
+    def init_realm(self, pw, realm):
+        realms[realm] = dhash((pw, realm, self.salt), self.hashalgorithm)
+
+
+class scnauth_client(object):
+    # save credentials
+    save_auth = None
+    
+    def __init__(self):
+        self.save_auth = {}
+    
+    # deactivate pubcert_hash for now as ssl doesn't send clientcert
+    def auth(pw, authreq_ob, pubcert_hash="", savedata=None):
+        #nonce = str(base64.urlsafe_b64encode(os.urandom(nonce_size)))
+        realm = authreq_ob["realm"]
+        timestamp = authreq_ob["timestamp"]
+        dauth = auth_struct.copy()
+        dauth["timestamp"] = timestamp
+        #dauth["nonce"] = nonce
+        pre = savedata((pw, realm), authreq_ob["algo"])
+        if savedata != None:
+            server = savedata 
+            if server not in self.save_auth:
+                self.save_auth[server]={}
+            self.save_auth[server][realm] = (pre, authreq_ob["algo"])
+        dauth["auth"] = dhash((pre, pubcert_hash, timestamp), authreq_ob["algo"])
+        return realm, dauth
+        
+    
+    # deactivate pubcert_hash for now as ssl doesn't send clientcert
+    def reauth(_server, authreq_ob, pubcert_hash=""):
+        if _server not in self.save_auth:
+            return None
+        if authreq_ob["realm"] not in self.save_auth[_server]:
+            return None
+        return self.auth(self.save_auth[_server][authreq_ob["realm"]], authreq_ob, pubcert_hash=pubcert_hash)
+
 
 class commonscn(object):
     capabilities = []
@@ -580,107 +687,27 @@ class commonscn(object):
     cert_hash = None
     scn_type = "unknown"
     pluginmanager = None
-    used_nonces = None
-    cleannonces_lock = None
-    nonce_cleanthread = None
-    nonce_expire_time = 10 # in secs
     isactive = True
-    # internal salt for memory protection
-    salt = None
-    realms={}
-    # save credentials
-    save_auth={}
-    hashalgorithm = None
-
     
     cache={"cap":"", "info":"", "prioty":""}
     #,"hash":"","name":"","message":""
-     
+    
     
     def __del__(self):
         self.isactive = False
-        if self.used_nonces is not None:
-            self.cleannonces_cond.set()
-            try:
-                self.nonce_cleanthread.join(4)
-            except Exception as e:
-                logger().error(e)
-    
-    def init_auth(self, _hashalgo=DEFAULT_HASHALGORITHM):
-        if self.used_nonces is not None:
-            return
-        self.used_nonces = {}
-        self.cleannonces_lock = threading.Lock()
-        self.nonce_cleanthread = threading.Thread(target=self.clean_usednonces)
-        self.nonce_cleanthread.daemon = True
-        self.nonce_cleanthread.start()
-        
-        self.hashalgorithm=_hashalgo
-        self.salt = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf-8")
-        
-    def clean_usednonces(self):
-        while self.isactive:
-            self.cleannonces_lock.acquire()
-            self.nonce_e_time = int(time.time())-self.nonce_expire_time
-            for _nonceti in self.used_nonces.items():
-                if _nonceti[1] < self.nonce_e_time:
-                    del self.used_nonces[_nonceti[0]]
-            self.cleannonces_lock.release()
-            time.sleep(self.nonce_e_time)
-
     
     def update_cache(self):
-        self.cache["cap"] = json.dumps(self.capabilities)
-        self.cache["info"] = json.dumps([self.scn_type, self.name, self.message])
-        self.cache["prioty"] = json.dumps([self.priority, self.scn_type])
+        self.cache["cap"] = {"caps": self.capabilities}
+        self.cache["info"] = {"type": self.scn_type, "name": self.name, "message":self.message}
+        self.cache["prioty"] = {"priority": self.priority, "type": self.scn_type}
 
     def update_prioty(self):
-        self.cache["prioty"] = json.dumps([self.priority, self.scn_type])
+        self.cache["prioty"] = {"priority": self.priority, "type": self.scn_type}
 
 
-    
-    def auth(realm, pw, pubcert_hash, algo, memdata = None):
-        nonce = str(base64.urlsafe_b64encode(os.urandom(nonce_size)))
-        timestamp = int(time.time())
-        dauth = auth_struct.copy()
-        dauth["realm"] = realm
-        dauth["algo"] = algo
-        dauth["timestamp"] = timestamp
-        dauth["nonce"] = nonce
-        pre = dhash((pw, realm), algo)
-        if memdata != None and len(memdata) == 2:
-            server, realm = memdata 
-            if server not in self.save_auth:
-                self.save_auth[server]={}
-            self.save_auth[server][realm] = (pre, algo)
-        dauth["auth"] = dhash((pre, pubcert_hash, timestamp, nonce), algo)
-        return dauth
-    def reauth(pubcert_hash, memdata):
-        dauth = auth_struct.copy()
-        
-        
-    def verify(realm, authdict, client_certhash):
-        if realm not in self.realms or self.realms[realm] is None:
-            return True
-        
-        # Notice: under high workload, it could happen, that valid authdata seems to be invalid
-        # Advantage: brute-force attacks become unreliable. Disadvantage: scripts too => keep-alive?
-        if len(authdict["nonce"])>nonce_size or authdict["nonce"] in self.used_nonces:
-            return False
-        self.used_nonces[authdict["nonce"]] = authdict["timestamp"]
-        
-        a=self.realms[realm]
-        if dhash((a[0], client_certhash,authdict["timestamp"], authdict["nonce"]), a[1]) == authdict["auth"]:
-            return True
-        
-        return False
-    def init_realm(self, pw, realm):
-        realms[realm] = dhash((pw, realm, self.salt), algo)
-
-
-def dhash(oblist, algo=HASHALGORITHM):
+def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
     if algo not in hashlib.algorithms_available:
-        logger().warning("Hashalgorithm not available: {}".format(algo))
+        logger().error("Hashalgorithm not available: {}".format(algo))
         return None
     if isinstance(oblist, (list, tuple))==False:
         oblist = [oblist,]
@@ -705,27 +732,55 @@ def gen_passwd_hash(passwd, salt):
     ha = dhash(passwd)
     return dhash_salt(ha, salt)
 
-# remove complex types as value
-def simplify_dict(d):
-    ret={}
-    for key, val in d.items():
-        if isinstance(val, (str, bytes)):
-            ret[key] = val
-        elif isinstance(val, Iterable):
-            ret[key] = val[0]
-        else:
-            logger().warning("Error: invalid type simplified: {}".format(val))
-    return ret
+# args is iterable with (argname, type)
+# _moddic is modified
+def check_args(_moddict, args):
+    for arg, _type in args:
+        if arg not in _moddict:
+            return False
+        if isinstance(_moddict[arg], _type):
+            continue
+        # is a number given as string?
+        if isinstance(_type, int) and _moddict[arg].isdigit():
+            _moddict[arg] = int(_moddict[arg])
+        # strip array and try again (limitation of www-parser)
+        if isinstance(_moddict[arg], Iterable):
+            _moddict[arg] = _moddict[arg][0]
+            if isinstance(_type, int) and _moddict[arg].isdigit():
+                _moddict[arg] = int(_moddict[arg])
+        # check if everything is right now
+        if isinstance(_moddict[arg], _type):
+            continue
+        return False
+    return True
 
-# always an array
-def safe_mdecode(string, encoding):
+def safe_mdecode(inp, encoding, charset="utf-8"):
     try:
-        if encoding == "application/x-www-form-urlencoded":
-            return parse.parse_qs(string)
-        elif encoding == "application/json":
+        splitted=encoding.split(";",1)
+        enctype=splitted[0].strip().rstrip()
+        if isinstance(inp, str) == False:
+            if len(splitted)==2:
+                #splitted in format charset=utf-8
+                splitted = splitted.split("=")
+                charset = splitted[1].strip().rstrip()
+            string = str(inp,charset)
+        else:
+            string = inp
+        if enctype == "application/x-www-form-urlencoded":
+            tparse=parse.parse_qs(string)
+            if tparse.get("auth", None) is not None:
+                tparse["auth"] = json.loads(tparse.get("auth")[0])
+            return tparse
+        elif enctype == "application/json":
             return json.loads(string)
+        elif enctype in ["text/html", "text/plain"]:
+            logger().warning("try to parse plain/html text")
+            return None
         else:
             return None
+    except LookupError as e:
+        logger().error("charset not available")
+        return None
     except Exception as e:
         logger().error(e)
         return None
@@ -749,11 +804,11 @@ def check_reference_type(_reference_type):
     #logger().debug("invalid referencetype: {}".format(_reference_type))
     return False
 
+
 def check_hash(_hashstr):
-    if all(c in "0123456789abcdefABCDEF" for c in _hashstr) and \
-        len(_hashstr) == 64:
-        return True
-    #logger().debug("invalid hash: {}".format(_hashstr))
+    if all(c in "0123456789abcdefABCDEF" for c in _hashstr):
+        if len(_hashstr) == DEFAULT_HASHALGORITHM_len:
+            return True
     return False
 
 def check_name(_name, maxlength = 64):
@@ -800,18 +855,6 @@ def rw_socket(sockr, sockw):
         except Exception as e:
             logger().error(e)
             break
-
-#def con_socket(sockown,sockdest,buffersize,_servicename):
-#    redout=threading.Thread(target=rw_socket,args=(sockown,sockdest))
-#    redout.daemon=True
-#    redin=threading.Thread(target=rw_socket,args=(sockdest,sockown))
-#    redin.daemon=True
-#    redin.run()
-#    redout.run()
-#    redin.join()
-
-
-
 
 class certhash_db(object):
     db_path = None
