@@ -279,7 +279,7 @@ class client_server(commonscn):
     ### can be called by every application on same client
     def registerservice(self, obdict):
         if check_args(obdict, (("service",str),("port",int))) == False:
-            return False, "check_args failed"
+            return False, "check_args failed (client_server:registerservice))"
         if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
             self.spmap[obdict.get("service")] = obdict.get("port")
@@ -289,7 +289,7 @@ class client_server(commonscn):
 
     def delservice(self, obdict):
         if check_args(obdict, (("service",str),)) == False:
-            return False, "check_args failed"
+            return False, "check_args failed (client_server:delservice)"
         
         if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
@@ -303,7 +303,7 @@ class client_server(commonscn):
     
     def getservice(self, obdict):
         if check_args(obdict, (("service",str),)) == False:
-            return False, "check_args failed"
+            return False, "check_args failed (client_server:service)"
         if obdict["service"] not in self.spmap:
             return False, "service"
         return True, self.spmap[_service]

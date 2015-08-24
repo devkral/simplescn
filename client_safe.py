@@ -21,33 +21,41 @@ class client_safe(object): #abc.ABC):
     def help(self, obdict): 
         return True, self._cache_help
     
-    def register(self, obdict): #server_addr,dheader):
-        return self.do_request(server_addr,"/register/{}/{}/{}".format(self.name, self.cert_hash, self.show()[1][2]), dheader, context = self.links["server"].sslcont)
+    def register(self, obdict):
+        if check_args(obdict, (("server",str),)) == False:
+            return False, "check_args failed (register)"
+        return self.do_request(obdict("server"),"/register/{}/{}/{}".format(self.name, self.cert_hash, self.show()[1]["port"]), obdict["header"])
     
     #returns name,certhash,own socket
     def show(self, obdict):
-        return (True,(self.name,self.cert_hash,
-                str(self.links["server"].socket.getsockname()[1])),isself,self.cert_hash)
+        return True,{"name": self.name, "certhash": self.cert_hash,
+                "port":str(self.links["server"].socket.getsockname()[1])}
     
     #### second way to add a service ####
-    def registerservice(self,_servicename,_port):
-        self.links["client_server"].spmap[_servicename]=_port
-        return (True,"service registered",isself,self.cert_hash)
+    def registerservice(self, obdict):
+        if check_args(obdict, (("service",str),("port",int))) == False:
+            return False, "check_args failed (registerservice)"
+        self.links["client_server"].spmap[obdict["service"]]=obdict["port"]
+        return True,"service registered"
     
     #### second way to delete a service ####
-    def delservice(self,_servicename):
-        if _servicename in self.links["client_server"].spmap:
-            del self.links["client_server"].spmap[_servicename]
-        return (True,"service deleted",isself,self.cert_hash)
+    def delservice(self, obdict):
+        if check_args(obdict, (("service",str),)) == False:
+            return False, "check_args failed (delservice)"
+        if obdict["service"] in self.links["client_server"].spmap:
+            del self.links["client_server"].spmap[obdict["service"]]
+        return True,"service deleted"
         
-    def get(self, server_addr, _name, _hash, dheader):
-        temp=self.do_request(server_addr,"/get/{}/{}".format(_name,_hash),dheader)
+    def get(self,obdict):
+        if check_args(obdict, (("server",str),("name",str),("hash",str))) == False:
+            return False, "check_args failed (get)"
+        temp=self.do_request(obdict["server"],"/get/{}/{}".format(_name,_hash),dheader)
         if temp[0]==False:
             return temp
         try:
             address,port=json.loads(temp[1])
         except Exception as e:
-            return (False, "splitting failed: {}".format(e), isself, self.cert_hash)
+            return False, "splitting failed: {}".format(e)
         try:
             temp2=(temp[0],(address,int(port)),temp[2],temp[3])
         except ValueError:
@@ -57,12 +65,11 @@ class client_safe(object): #abc.ABC):
         return temp2
         
     
-    def gethash(self, obdict): #_addr):
-        _addr = _addr.split(":")
-        if len(_addr) == 1:
-            _addr = (_addr[0],server_port)
+    def gethash(self, obdict):
+        if check_args(obdict, (("address",str),)) == False:
+            return False, "check_args failed (gethash)"
         try:
-            con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
+            con = client.HTTPSConnection(obdict["address"], context=self.sslcont)
             con.connect()
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             con.close()
@@ -75,6 +82,9 @@ class client_safe(object): #abc.ABC):
             return (False, "Other error: {}".format(e), isself, self.cert_hash)
 
     def ask(self, obdict): #_address):
+        if check_args(obdict, (("address",str),)) == False:
+            return False, "check_args failed (ask)"
+    
         _ha = self.gethash(_address)
         if _ha[0] == False:
             return _ha
@@ -83,7 +93,9 @@ class client_safe(object): #abc.ABC):
         temp = self.hashdb.certhash_as_name(_ha[1][0])
         return (True, (temp, _ha[1][0]), isself, self.cert_hash)
 
-    def listnames(self, obdict): #server_addr, dheader):
+    def listnames(self, obdict):
+        if check_args(obdict, (("server",str),)) == False:
+            return False, "check_args failed (ask)"
         temp = self.do_request(server_addr, "/listnames", dheader)
         if temp[0] == False:
             return temp
@@ -104,26 +116,20 @@ class client_safe(object): #abc.ABC):
                         
         except Exception as e:
             return False, "{}: {}".format(type(e).__name__, e),isself,self.cert_hash
-        return (temp[0],out,temp[2],temp[3])
+        return True, out
     
     def getservice(self, obdict):
-        if len(args)==1:
-            dheader=args[0]
-            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            client_addr,dheader=args
+        if check_args(obdict, (("address",str),)) == False:
+            client_addr=obdict["address"]
         else:
-            return (False,("wrong amount arguments (getservice): {}".format(args)),isself,self.cert_hash)
+            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         return self.do_request(client_addr, "/getservice/{}".format(_service),dheader)
     
     def listservices(self, obdict):
-        if len(args)==1:
-            dheader=args[0]
-            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            client_addr,dheader=args
+        if check_args(obdict, (("address",str),)) == False:
+            client_addr=obdict["address"]
         else:
-            return (False,("wrong amount arguments (listservices): {}".format(args)),isself,self.cert_hash)
+            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         temp=self.do_request(client_addr, "/listservices",dheader,forceport=True)
         if temp[0]==False:
             return temp
@@ -138,13 +144,10 @@ class client_safe(object): #abc.ABC):
         return temp[0],temp3,temp[2],temp[3]
     
     def info(self, obdict):
-        if len(args) == 1:
-            dheader=args[0]
-            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            _addr,dheader=args
+        if check_args(obdict, (("address",str),)) == False:
+            client_addr=obdict["address"]
         else:
-            return (False,("wrong amount arguments (info): {}".format(args)),isself,self.cert_hash)
+            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         
         _tinfo=self.do_request(_addr, "/info", dheader, forceport=True)
         if _tinfo[0]==False:
@@ -157,19 +160,16 @@ class client_safe(object): #abc.ABC):
         return True, temp2, _tinfo[2], _tinfo[3]
 
     def cap(self, obdict):
-        if len(args)==1:
-            dheader=args[0]
-            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            _addr,dheader=args
+        if check_args(obdict, (("address",str),)) == False:
+            client_addr=obdict["address"]
         else:
-            return (False,("wrong amount arguments (cap): {}".format(args)),isself,self.cert_hash)
-            
-        temp=self.do_request(_addr, "/cap",dheader,forceport=True)
-        if temp[0]==False:
+            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        
+        temp = self.do_request(_addr, "/cap",dheader,forceport=True)
+        if temp[0] == False:
             return temp
         
-        temp2={}
+        temp2 = {}
         try:
             temp2 = json.loads(_tinfo[1])
         except Exception as e:
@@ -177,13 +177,10 @@ class client_safe(object): #abc.ABC):
         return True, temp2, temp[2], temp[3]
         
     def prioty_direct(self, obdict):
-        if len(args)==1:
-            dheader=args[0]
-            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        elif len(args)==2:
-            _addr,dheader=args
+        if check_args(obdict, (("address",str),)) == False:
+            client_addr = obdict["address"]
         else:
-            return (False,("wrong amount arguments (priority_direct): {}".format(args)),isself,self.cert_hash)
+            client_addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
         
         _tprioty = self.do_request(_addr,  "/prioty",dheader,forceport=True)
         temp2={}
@@ -193,14 +190,19 @@ class client_safe(object): #abc.ABC):
             return False, "{}: {}".format(type(e).__name__, e),isself,self.cert_hash
         return True, temp2, _tprioty[2], _tprioty[3]
 
-    def prioty(self,server_addr,_name,_hash,dheader):
+    def prioty(self, obdict): #server_addr,_name,_hash,dheader):
+        if check_args(obdict, (("server",str),("name",str),("hash",str))) == False:
+            return False, "check_args failed (prioty)"
+        
         temp=self.get(server_addr,_name,_hash,dheader)
         if temp[0]==False:
             return temp
         return self.prioty_direct(temp[1])
 
     #check if _addr is reachable and update priority
-    def check_direct(self,_addr,_namelocal,_hash,dheader):
+    def check_direct(self, obdict): #_addr,_namelocal,_hash,dheader):
+        if check_args(obdict, (("address",str),("name",str),("hash",str))) == False:
+            return False, "check_args failed (check_direct)"
         dheader["certhash"]=_hash #ensure this
         
         temp=self.prioty_direct(_addr,dheader)
@@ -214,6 +216,8 @@ class client_safe(object): #abc.ABC):
     
     #check if node is reachable and update priority
     def check(self, obdict): #server_addr,_name,_namelocal,_hash,dheader):
+        if check_args(obdict, (("server",str),("name",str),("namelocal",str),("hash",str))) == False:
+            return False, "check_args failed (check)"
         temp=self.get(server_addr,_name,_hash,dheader)
         if temp[0]==False:
             return temp
@@ -222,93 +226,94 @@ class client_safe(object): #abc.ABC):
 
     #search
     def searchhash(self, obdict): #_certhash):
+        if check_args(obdict, (("certhash",str)) == False:
+            return False, "check_args failed (searchhash)"
         temp=self.hashdb.certhash_as_name(_certhash)
         if temp is None:
-            return(False, error,isself,self.cert_hash)
+            return False, error
         else:
-            return (True,temp,isself,self.cert_hash)
+            return True,temp
             
     def getlocal(self, obdict): #_name,_certhash):
+        if check_args(obdict, (("name",str),("hash",str))) == False:
+            return False, "check_args failed (getlocal)"
         temp=self.hashdb.get(_name,_certhash)
         if temp is None:
-            return(False, error,isself,self.cert_hash)
+            return False, "error"
         else:
-            return (True,temp,isself,self.cert_hash)
+            return True,temp
     
     def listhashes(self, obdict):
-        if len(args) == 2:
-            _name, _nodetypefilter = args
-        elif len(args) == 1:
-            _name=args[0]
+        if check_args(obdict, (("name",str),("filter",str))) == False:
+            _name, _nodetypefilter = obdict["name"], obdict["filter"]
+        elif check_args(obdict, (("name",str),)) == False:
+            _name = obdict["name"]
             _nodetypefilter = None
         else:
-            return (False,("wrong amount arguments (listhashes): {}".format(args)))
+            return False, "check_args failed (listhashes)"
+        
         temp=self.hashdb.listhashes(_name,_nodetypefilter)
         if temp is None:
-            return(False, error,isself,self.cert_hash)
+            return False, "error"
         else:
-            return (True,temp,isself,self.cert_hash)
+            return True, temp
     
     def listnodenametypes(self, obdict):
         temp=self.hashdb.listnodenametypes()
         if temp is None:
-            return(False, error,isself,self.cert_hash)
+            return False, "error"
         else:
-            return (True,temp,isself,self.cert_hash)
+            return True, temp
     
     def listnodenames(self,obdict):
-        if len(args)==1:
-            _nodetypefilter=args[0]
-        elif len(args)==0:
-            _nodetypefilter=None
+        if check_args(obdict, (("filter",str),)) == False:
+            _nodetypefilter = obdict["filter"]
         else:
-            return (False,("wrong amount arguments (listnodenames): {}".format(args)))
+            return False, "check_args failed (listnodenames)"
         temp=self.hashdb.listnodenames(_nodetypefilter)
         if temp is None:
-            return(False, error,isself,self.cert_hash)
+            return False, "error"
         else:
-            return (True,temp,isself,self.cert_hash)
+            return True,temp
 
     def listnodeall(self, obdict):
-        if len(args)==1:
-            _nodetypefilter=args[0]
-        elif len(args)==0:
-            _nodetypefilter=None
+        if check_args(obdict, (("filter",str),)) == False:
+            _nodetypefilter = obdict["filter"]
         else:
-            return (False,"wrong amount arguments (listnodeall): {}".format(args),isself,self.cert_hash)
+            return False, "check_args failed (listnodeall)"
         temp=self.hashdb.listnodeall(_nodetypefilter)
         if temp is None:
-            return (False, error,isself,self.cert_hash)
+            return False, "error"
         else:
-            return (True,temp,isself,self.cert_hash)
+            return True,temp
     
         
     def getreferences(self, obdict):
-        if len(args) == 2:
-            _certhash,_reftypefilter=args
-        elif len(args) == 1:
-            _certhash=args[0]
-            _reftypefilter=None
+        if check_args(obdict, (("certhash",str),("filter",str))) == False:
+            _certhash, _nodetypefilter = obdict["certhash"], obdict["filter"]
+        elif check_args(obdict, (("filter",str),)) == False:
+            _nodetypefilter = obdict["filter"]
         else:
-            return (False,"wrong amount arguments (getreferences): {}".format(args),isself,self.cert_hash)
+            return False, "check_args failed (getreferences)"
+        
         if check_hash(_certhash)==True:
             _localname=self.hashdb.certhash_as_name(_certhash) #can return None to sort out invalid hashes
         else:
             _localname=None
         if _localname is None:
-            return (False, "certhash does not exist: {}".format(_certhash),isself,self.cert_hash)
+            return False, "certhash does not exist: {}".format(_certhash)
         _tref=self.hashdb.get(_localname, _certhash)
         if _tref is None:
-            return (False,"error in hashdb",isself,self.cert_hash)
+            return False,"error in hashdb"
         temp=self.hashdb.getreferences(_tref[2], _reftypefilter)
         if temp is None:
-            return (False,error,isself,self.cert_hash)
-        return (True,temp,isself,self.cert_hash)
+            return False, "error"
+        return True, temp
         
     def findbyref(self, obdict): #_reference):
         temp=self.hashdb.findbyref(_reference)
         if temp is None:
-            return (False,error,isself,self.cert_hash)
-        return (True,temp,isself,self.cert_hash)
+            return False, "error"
+        return True,temp
 
 

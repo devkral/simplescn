@@ -690,8 +690,6 @@ class commonscn(object):
     isactive = True
     
     cache={"cap":"", "info":"", "prioty":""}
-    #,"hash":"","name":"","message":""
-    
     
     def __del__(self):
         self.isactive = False
