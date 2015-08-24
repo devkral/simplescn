@@ -27,7 +27,7 @@ import logging
 import json, base64
 import ssl
 
-from common import success, error, server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, dhash_salt, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, logger, pwcallmethod, confdb_ending
+from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_args, scnauth_server, max_serverrequest_size, generate_error
 
 
 
@@ -105,31 +105,34 @@ class server(commonscn):
             # wait until hashes change
             self.nhipmap_cond.wait()
     #private, do not include in validactions
-    def check_register(self, _addr, _hash):
+    def check_register(self, obdict):
+        if check_args(obdict, (("addresst",()),("certhash",str))) == False:
+            return False, "check_args failed (server: check_register)"
         try:
-            _cert = ssl.get_server_certificate(_addr, ssl_version=ssl.PROTOCOL_TLSv1_2)
+            _cert = ssl.get_server_certificate(obdict["addresst"], ssl_version=ssl.PROTOCOL_TLSv1_2)
         except ConnectionRefusedError:
             return False, "use_stun"
         if _cert is None:
             return False, "no cert"
-        if dhash(_cert) != _hash:
+        if dhash(_cert) != obdict["certhash"]:
             return False, "hash does not match"
-        
         return True, "registered_ip"
         
-    def register(self,_name,_hash,_port,_addr): # , _cert):
-        if check_name(_name)==False:
+    def register(self, obdict): #_name,_hash,_port,_addr): # , _cert):
+        if check_args(obdict, (("certhash",str),("name",str),("port",str))) == False:
+            return False, "check_args failed (server: register)"
+        if check_name(obdict["name"])==False:
             return False, "invalid name"
-        ret = self.check_register((_addr[0], _port), _hash)
+        ret = self.check_register({"addresst":(obdict["clientaddress"][0], obdict["port"]), "certhash":obdict["certhash"]})
         if ret[0] == False:
             return ret
         
         self.changeip_lock.acquire(False)
-        if _name not in self.nhipmap:
-            self.nhipmap[_name]={}
-            self.nhipmap_etime[_name]={}
-        self.nhipmap[_name][_hash]=(_addr[0],_port)
-        self.nhipmap_etime[_name][_hash]=int(time.time())
+        if obdict["name"] not in self.nhipmap:
+            self.nhipmap[obdict["name"]]={}
+            self.nhipmap_etime[obdict["name"]]={}
+        self.nhipmap[obdict["name"]][obdict["name"]]=(obdict["clientaddress"][0],obdict["port"])
+        self.nhipmap_etime[obdict["name"]][obdict["certhash"]]=int(time.time())
             
         self.changeip_lock.release()
         # notify that change happened
@@ -137,26 +140,28 @@ class server(commonscn):
         return ret
     
     
-    def get(self,_name,_hash):
-        if _name not in self.nhipmap:
+    def get(self, obdict):
+        if check_args(obdict, (("name",str),("hash",str))) == False:
+            return False, "check_args failed (server: get)"
+        if obdict["name"] not in self.nhipmap:
             return False, "name not exist"
-        if _hash not in self.nhipmap[_name]:
+        if obdict["hash"] not in self.nhipmap[obdict["name"]]:
             return False, "certhash not exist"
-        return True, self.nhipmap[_name][_hash]
+        return True, self.nhipmap[obdict["name"]][obdict["hash"]]
     
-    def listnames(self):
+    def listnames(self, obdict):
         return True, self.nhipmap_cache
     
-    def info(self):
+    def info(self, obdict):
         return True, self.cache["info"]
     
-    def cap(self):
+    def cap(self, obdict):
         return True, self.cache["cap"]
     
-    def prioty(self):
+    def prioty(self, obdict):
         return True, self.cache["prioty"]
 
-    def num_nodes(self):
+    def num_nodes(self, obdict):
         return True, self.nhipmap_len
     
     
@@ -218,11 +223,11 @@ class server_handler(BaseHTTPRequestHandler):
         _auth= _auth.strip().rstrip()
         if method != "scn":
             self.send_error(406, "Invalid auth method")
-        self.auth_info = safe_mdecode(_auth)
+        self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type", "application/json; charset=utf-8"))
         if self.auth_info is None:
             self.send_error(406, "Parsing auth_info failed")
 
-    def handle_server(action):
+    def handle_server(self, action):
         if action not in self.links["server_server"].validactions:
             self.send_error(400, "invalid action - server")
             return
@@ -237,6 +242,14 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_response(401, json.dumps(authreq))
             self.end_headers()
             return
+        
+        # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
+        obdict = safe_mdecode(self.rfile.read(),self.headers.get("Content-Type"))
+        if obdict is None:
+            self.send_error(400, "bad arguments")
+            return
+        obdict["clientaddress"] = self.client_address
+        obdict["headers"] = self.headers
             
         try:
             func=self.links["server_server"].__getattribute__(action)
@@ -286,24 +299,24 @@ class server_handler(BaseHTTPRequestHandler):
             return
     
     def do_CONNECT(self):
-        if self.istunnel==False:
+        # deactivate
+        if True or self.istunnel==False:
             self.send_error(404,"no tunnel/proxy allowed")
             return
-        if self.check_tpw()==False:
-            self.send_error(407,self.salt)
+        #if self.check_tpw()==False:
+        #    self.send_error(407,self.salt)
+        #    return
+        splitted = self.path[1:].split("/")
+        if len(splitted) != 2:
+            self.send_error(400, "invalid path")
             return
-        port_i=self.path.find(":")
-        if port_i>=0:
-            if self.path[port_i+1:].isdecimal()==True:
-                dest=(self.path[:port_i],int(self.path[port_i+1:]))
-            else:
-                self.send_error(400,"portnumber invalid")
-                return
-        
-        else:
-            dest=(self.path[:port_i],80)
+        name, certhash = splitted
+        client = self.links["server_server"].get({"name":name, "certhash":certhash})
+        if client[0] == False:
+            self.send_error(500)
+            return
         try:
-            sockd=socket.create_connection(dest,self.ttimeout)
+            sockd=self.connection.create_connection(client[1],self.ttimeout)
                 
         except Exception:
             self.send_error(400,"Connection failed")
@@ -313,18 +326,12 @@ class server_handler(BaseHTTPRequestHandler):
         #self.send_header('Connection established')
         #self.send_header(self.version_string())
         self.end_headers()
-        redout=threading.Thread(target=rw_socket,args=(self.socket,sockd))
+        redout=threading.Thread(target=rw_socket,args=(self.connection,sockd))
         redout.daemon=True
         redout.run()
-        rw_socket(sockd,self.socket)
+        rw_socket(sockd,self.connection)
 
     def do_POST(self):
-        try:
-            codecs.lookup(self.headers.get("Accept-Charset", "utf8"))
-        except Exception:
-            self.send_error(406, "invalid charset - client")
-            return
-        
         splitted = self.path[1:].split("/",1)
         pluginm = self.links["server_server"].pluginmanager
         if len(splitted) == 1:
@@ -334,7 +341,7 @@ class server_handler(BaseHTTPRequestHandler):
             resource = splitted[0]
             sub = splitted[1]
         if resource == "plugin":
-            if len(sub) != 1:
+            if len(splitted) == 1:
                 self.send_error(400, "no plugin specified", "No plugin was specified")
                 return
             elif pluginm.redirect_addr not in ["", None]:
@@ -346,11 +353,11 @@ class server_handler(BaseHTTPRequestHandler):
                 rw_socket(sockd, self.connection)
                 return
             
-            if sub[0] not in pluginm.plugins or "receive" not in pluginm.plugins[plugin].__dict__:
+            if sub[0] not in pluginm.plugins or "receive" not in pluginm.plugins[sub].__dict__:
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(sub[0]))
                 return
             try:
-                pluginm.plugins[plugin].receive(action, self.connection)
+                pluginm.plugins[sub].receive(self.connection)
             except Exception as e:
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))
@@ -381,6 +388,8 @@ class server_init(object):
     sthread=None
     
     def __init__(self,_configpath, **kwargs):
+        self.links = {}
+        self.links["auth"] = scnauth_server()
         self.config_path=_configpath
         _spath=os.path.join(self.config_path,"server")
         port=kwargs["port"]
@@ -388,26 +397,25 @@ class server_init(object):
         
         #server_handler.salt = os.urandom(8)
         if kwargs["spwhash"] is not None:
-            server_handler.spwhash = kwargs["spwhash"]
+            self.links["auth"].init_realm("server", kwargs["spwhash"])
         elif kwargs["spwfile"] is not None:
             op=open(kwargs["spwfile"], "r")
             pw=op.readline()
             if pw[-1] == "\n":
                 pw = pw[:-1]
-            server_handler.spwhash = dhash(pw)
-            op.close()
+            pw.close()
+            self.links["auth"].init_realm("server", dhash(pw))
         if kwargs["tunnel"] is not None:
             server_handler.istunnel = True
-        if kwargs["tpwhash"] is not None:
-            server_handler.tpwhash = kwargs["tpwhash"]
-        elif kwargs["tpwfile"] is not None:
-            op=open(kwargs["tpwfile"], "r")
-            pw=op.readline()
-            if pw[-1] == "\n":
-                pw = pw[:-1]
-            server_handler.tpwhash = dhash(pw)
-            op.close()
-        self.links={}
+        #if kwargs["tpwhash"] is not None:
+        #    self.links["auth"].kwargs["tpwhash"]
+        #elif kwargs["tpwfile"] is not None:
+        #    op=open(kwargs["tpwfile"], "r")
+        #    pw=op.readline()
+        #    if pw[-1] == "\n":
+        #        pw = pw[:-1]
+        #    server_handler.tpwhash = dhash(pw)
+        #    op.close()
         _message=None
         _name=None
         if check_certs(_spath+"_cert")==False:

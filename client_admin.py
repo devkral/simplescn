@@ -1,6 +1,6 @@
 
 import os
-from common import logger, isself, success, error, configmanager, check_reference, check_reference_type,confdb_ending
+from common import logger, isself, configmanager, check_reference, check_reference_type, confdb_ending, check_args, gen_result, generate_error
 
 class client_admin(object): #"register", 
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "addreference", "updatereference", "delreference", "set_config", "set_pluginconfig", "clean_pluginconfig", "reset_configkey", "reset_pluginconfigkey"}
@@ -13,7 +13,7 @@ class client_admin(object): #"register",
         if check_args(obdict, (("priority",int),)) == False:
             return False, "check_args failed (setpriority)"
         if obdict["priority"]<0 or obdict["priority"]>100:
-            return simple_result([generate_error("out of range")], "error")
+            return gen_result([generate_error("out of range")], False)
         
         self.links["server"].priority = obdict["priority"]
         self.links["server"].update_prioty()
@@ -29,7 +29,7 @@ class client_admin(object): #"register",
         else:
             return False, "error"
 
-    def delentity(self,_name):
+    def delentity(self, obdict):
         if check_args(obdict, (("name",str),)) == False:
             return False, "check_args failed (delentity)"
         temp=self.hashdb.delentity(obdict["name"])
@@ -151,10 +151,10 @@ class client_admin(object): #"register",
         
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
-        if _plugin not in listplugin:
+        if obdict["plugin"] not in listplugin:
             return False, "plugin does not exist"
         # last case shouldn't exist but be sure
-        if _plugin not in pluginm.plugins or "config" not in pluginm.plugins[obdict["plugin"]].__dict__:
+        if obdict["plugin"] not in pluginm.plugins or "config" not in pluginm.plugins[obdict["plugin"]].__dict__:
             config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
         else:
             config = pluginm.plugins[obdict["plugin"]].config

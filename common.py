@@ -640,8 +640,8 @@ class scnauth_server(object):
         if dhash((a[0], clientpubcert_hash,authdict[realm]["timestamp"]), a[1]) == authdict[realm]["auth"]: #, authdict["nonce"]
             return True
         return False
-    def init_realm(self, pw, realm):
-        realms[realm] = dhash((pw, realm, self.salt), self.hashalgorithm)
+    def init_realm(self,realm, pwhash):
+        realms[realm] = dhash((pwhash, realm, self.salt), self.hashalgorithm)
 
 
 class scnauth_client(object):
@@ -659,7 +659,7 @@ class scnauth_client(object):
         dauth = auth_struct.copy()
         dauth["timestamp"] = timestamp
         #dauth["nonce"] = nonce
-        pre = savedata((pw, realm), authreq_ob["algo"])
+        pre = dhash((dhash(pw, authreq_ob["algo"]), realm), authreq_ob["algo"])
         if savedata != None:
             server = savedata 
             if server not in self.save_auth:

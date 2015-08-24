@@ -24,7 +24,7 @@ class client_safe(object): #abc.ABC):
     def register(self, obdict):
         if check_args(obdict, (("server",str),)) == False:
             return False, "check_args failed (register)"
-        return self.do_request(obdict("server"),"/register/{}/{}/{}".format(self.name, self.cert_hash, self.show()[1]["port"]), obdict["header"])
+        return self.do_request(obdict("server"),"/server/register", {"name":self.name, "certhash": self.cert_hash, "port": self.show()[1]["port"]}, obdict["header"])
     
     #returns name,certhash,own socket
     def show(self, obdict):
@@ -35,7 +35,7 @@ class client_safe(object): #abc.ABC):
     def registerservice(self, obdict):
         if check_args(obdict, (("service",str),("port",int))) == False:
             return False, "check_args failed (registerservice)"
-        self.links["client_server"].spmap[obdict["service"]]=obdict["port"]
+        self.links["client_server"].spmap[obdict["service"]] = obdict["port"]
         return True,"service registered"
     
     #### second way to delete a service ####
@@ -45,23 +45,24 @@ class client_safe(object): #abc.ABC):
         if obdict["service"] in self.links["client_server"].spmap:
             del self.links["client_server"].spmap[obdict["service"]]
         return True,"service deleted"
-        
+    
+    # check
     def get(self,obdict):
-        if check_args(obdict, (("server",str),("name",str),("hash",str))) == False:
+        if check_args(obdict, (("server",str),("name",str),("certhash",str))) == False:
             return False, "check_args failed (get)"
-        temp=self.do_request(obdict["server"],"/get/{}/{}".format(_name,_hash),dheader)
-        if temp[0]==False:
+        temp = self.do_request(obdict["server"],"/server/get", obdict,obdict["headers"])
+        if temp[0] == False:
             return temp
         try:
-            address,port=json.loads(temp[1])
+            address, port = temp[1]
         except Exception as e:
             return False, "splitting failed: {}".format(e)
         try:
-            temp2=(temp[0],(address,int(port)),temp[2],temp[3])
+            temp2=(temp[0],{"address": address,"port": int(port)},temp[2],temp[3])
         except ValueError:
-            return (False,"port not a number:\n{}".format(temp[1]),isself,self.cert_hash)
+            return False,"port not a number:\n{}".format(temp[1])
         if temp2[1][1]<1:
-            return (False,"port <1:\n{}".format(temp[1][1]),isself,self.cert_hash)
+            return False,"port <1:\n{}".format(temp[1][1])
         return temp2
         
     
@@ -73,30 +74,29 @@ class client_safe(object): #abc.ABC):
             con.connect()
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             con.close()
-            return (True, (dhash(pcert), pcert), isself, self.cert_hash)
+            return True, {"certhash":dhash(pcert), "cert":pcert}
         except ssl.SSLError:
-            return (False, "server speaks no tls 1.2", isself, self.cert_hash)
+            return False, "server speaks no tls 1.2"
         except ConnectionRefusedError:
-            return (False, "server does not exist", isself, self.cert_hash)
+            return False, "server does not exist"
         except Exception as e:
-            return (False, "Other error: {}".format(e), isself, self.cert_hash)
+            return False, "Other error: {}".format(e)
 
     def ask(self, obdict): #_address):
         if check_args(obdict, (("address",str),)) == False:
             return False, "check_args failed (ask)"
-    
         _ha = self.gethash(_address)
         if _ha[0] == False:
             return _ha
-        if _ha[1][0] == self.cert_hash:
-            return (True, (isself, self.cert_hash), isself, self.cert_hash)
-        temp = self.hashdb.certhash_as_name(_ha[1][0])
-        return (True, (temp, _ha[1][0]), isself, self.cert_hash)
+        if _ha[1]["certhash"] == self.cert_hash:
+            return True, {"certname":isself, "certhash":self.cert_hash}
+        temp = self.hashdb.certhash_as_name(_ha[1]["certhash"])
+        return True, {"certname":temp, "certhash":_ha[1]["certhash"]}
 
     def listnames(self, obdict):
         if check_args(obdict, (("server",str),)) == False:
             return False, "check_args failed (ask)"
-        temp = self.do_request(server_addr, "/listnames", dheader)
+        temp = self.do_request(obdict["server"], "/server/listnames", headers=obdict["headers"])
         if temp[0] == False:
             return temp
         out = []
@@ -115,22 +115,22 @@ class client_safe(object): #abc.ABC):
                         out.append((name, _hash, certname))
                         
         except Exception as e:
-            return False, "{}: {}".format(type(e).__name__, e),isself,self.cert_hash
+            return False, "{}: {}".format(type(e).__name__, e)
         return True, out
     
     def getservice(self, obdict):
-        if check_args(obdict, (("address",str),)) == False:
+        if check_args(obdict, (("address",str),("service",str))) == False:
             client_addr=obdict["address"]
         else:
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(client_addr, "/getservice/{}".format(_service),dheader)
+        return self.do_request(client_addr, "/server/getservice",obdict,headers=obdict["headers"])
     
     def listservices(self, obdict):
         if check_args(obdict, (("address",str),)) == False:
             client_addr=obdict["address"]
         else:
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        temp=self.do_request(client_addr, "/listservices",dheader,forceport=True)
+        temp=self.do_request(client_addr, "/server/listservices",headers=obdict["headers"],forceport=True)
         if temp[0]==False:
             return temp
         temp2={}
@@ -149,7 +149,7 @@ class client_safe(object): #abc.ABC):
         else:
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         
-        _tinfo=self.do_request(_addr, "/info", dheader, forceport=True)
+        _tinfo=self.do_request(_addr, "/server/info", headers=obdict["headers"], forceport=True)
         if _tinfo[0]==False:
             return _tinfo
         temp2={}
@@ -165,7 +165,7 @@ class client_safe(object): #abc.ABC):
         else:
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         
-        temp = self.do_request(_addr, "/cap",dheader,forceport=True)
+        temp = self.do_request(_addr, "/server/cap", headers=obdict["headers"], forceport=True)
         if temp[0] == False:
             return temp
         
@@ -182,62 +182,62 @@ class client_safe(object): #abc.ABC):
         else:
             client_addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
         
-        _tprioty = self.do_request(_addr,  "/prioty",dheader,forceport=True)
+        _tprioty = self.do_request(_addr,  "/server/prioty",headers=obdict["headers"],forceport=True)
         temp2={}
         try:
             temp2 = json.loads(_tprioty[1])
         except Exception as e:
-            return False, "{}: {}".format(type(e).__name__, e),isself,self.cert_hash
+            return False, "{}: {}".format(type(e).__name__, e)
         return True, temp2, _tprioty[2], _tprioty[3]
 
     def prioty(self, obdict): #server_addr,_name,_hash,dheader):
         if check_args(obdict, (("server",str),("name",str),("hash",str))) == False:
             return False, "check_args failed (prioty)"
         
-        temp=self.get(server_addr,_name,_hash,dheader)
+        temp=self.get(server_addr,_name,_hash,headers=obdict["headers"])
         if temp[0]==False:
             return temp
         return self.prioty_direct(temp[1])
 
     #check if _addr is reachable and update priority
-    def check_direct(self, obdict): #_addr,_namelocal,_hash,dheader):
-        if check_args(obdict, (("address",str),("name",str),("hash",str))) == False:
+    def check_direct(self, obdict):
+        if check_args(obdict, (("address",str),("namelocal",str),("certhash",str))) == False:
             return False, "check_args failed (check_direct)"
         dheader["certhash"]=_hash #ensure this
         
-        temp=self.prioty_direct(_addr,dheader)
+        temp = self.prioty_direct(obdict)
         if temp[0]==False:
             return temp
-        
-        if self.hashdb.exist(_namelocal,_hash)==True:
-            self.hashdb.changepriority(_namelocal,_hash,temp[1][0])
-            self.hashdb.changetype(_namelocal,_hash,temp[1][1])
+        if self.hashdb.exist(obdict["namelocal"],obdict["certhash"])==True:
+            self.hashdb.changepriority(obdict["namelocal"],obdict["certhash"])
+            self.hashdb.changetype(obdict["namelocal"],obdict["certhash"],temp[1]["type"])
         return temp
     
     #check if node is reachable and update priority
-    def check(self, obdict): #server_addr,_name,_namelocal,_hash,dheader):
+    def check(self, obdict):
         if check_args(obdict, (("server",str),("name",str),("namelocal",str),("hash",str))) == False:
             return False, "check_args failed (check)"
-        temp=self.get(server_addr,_name,_hash,dheader)
-        if temp[0]==False:
+        temp = self.get(obdict)
+        if temp[0] == False:
             return temp
-        return self.check_direct(temp[1],_namelocal,_hash,dheader)
+        obdict["address"] = temp[1]["address"]
+        return self.check_direct(obdict)
     #local management
 
     #search
-    def searchhash(self, obdict): #_certhash):
-        if check_args(obdict, (("certhash",str)) == False:
+    def searchhash(self, obdict):
+        if check_args(obdict, (("certhash",str),)) == False:
             return False, "check_args failed (searchhash)"
-        temp=self.hashdb.certhash_as_name(_certhash)
+        temp = self.hashdb.certhash_as_name(obdict["certhash"])
         if temp is None:
             return False, error
         else:
             return True,temp
             
-    def getlocal(self, obdict): #_name,_certhash):
-        if check_args(obdict, (("name",str),("hash",str))) == False:
+    def getlocal(self, obdict):
+        if check_args(obdict, (("name",str),("certhash",str))) == False:
             return False, "check_args failed (getlocal)"
-        temp=self.hashdb.get(_name,_certhash)
+        temp = self.hashdb.get(obdict["name"],obdict["certhash"])
         if temp is None:
             return False, "error"
         else:
@@ -252,14 +252,14 @@ class client_safe(object): #abc.ABC):
         else:
             return False, "check_args failed (listhashes)"
         
-        temp=self.hashdb.listhashes(_name,_nodetypefilter)
+        temp = self.hashdb.listhashes(_name, _nodetypefilter)
         if temp is None:
             return False, "error"
         else:
             return True, temp
     
     def listnodenametypes(self, obdict):
-        temp=self.hashdb.listnodenametypes()
+        temp = self.hashdb.listnodenametypes()
         if temp is None:
             return False, "error"
         else:
@@ -270,7 +270,7 @@ class client_safe(object): #abc.ABC):
             _nodetypefilter = obdict["filter"]
         else:
             return False, "check_args failed (listnodenames)"
-        temp=self.hashdb.listnodenames(_nodetypefilter)
+        temp = self.hashdb.listnodenames(_nodetypefilter)
         if temp is None:
             return False, "error"
         else:
@@ -281,13 +281,12 @@ class client_safe(object): #abc.ABC):
             _nodetypefilter = obdict["filter"]
         else:
             return False, "check_args failed (listnodeall)"
-        temp=self.hashdb.listnodeall(_nodetypefilter)
+        temp = self.hashdb.listnodeall(_nodetypefilter)
         if temp is None:
             return False, "error"
         else:
             return True,temp
     
-        
     def getreferences(self, obdict):
         if check_args(obdict, (("certhash",str),("filter",str))) == False:
             _certhash, _nodetypefilter = obdict["certhash"], obdict["filter"]
@@ -296,22 +295,24 @@ class client_safe(object): #abc.ABC):
         else:
             return False, "check_args failed (getreferences)"
         
-        if check_hash(_certhash)==True:
-            _localname=self.hashdb.certhash_as_name(_certhash) #can return None to sort out invalid hashes
+        if check_hash(_certhash) == True:
+            _localname = self.hashdb.certhash_as_name(_certhash) #can return None to sort out invalid hashes
         else:
-            _localname=None
+            _localname = None
         if _localname is None:
             return False, "certhash does not exist: {}".format(_certhash)
-        _tref=self.hashdb.get(_localname, _certhash)
+        _tref = self.hashdb.get(_localname, _certhash)
         if _tref is None:
             return False,"error in hashdb"
-        temp=self.hashdb.getreferences(_tref[2], _reftypefilter)
+        temp = self.hashdb.getreferences(_tref[2], _reftypefilter)
         if temp is None:
             return False, "error"
         return True, temp
         
     def findbyref(self, obdict): #_reference):
-        temp=self.hashdb.findbyref(_reference)
+        if check_args(obdict, (("reference",str),)) == False:
+            return False, "check_args failed (findbyref)"
+        temp = self.hashdb.findbyref(obdict["reference"])
         if temp is None:
             return False, "error"
         return True,temp

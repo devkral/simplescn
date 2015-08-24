@@ -51,6 +51,6 @@ gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"option
 gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
 
 # uncomment for being accessable by internet
-# def receive(action,rfile, wfile):
+# def receive(connection):
 #     pass
 
