@@ -397,7 +397,8 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         addnodecombo.set_active_id(_name)
         addnodehashentry.set_text(_hash)
         addnodetypeentry.set_active_id(_type)
-        self._intern_refstoadd=refstoadd
+        # save refs which should be added in classvariable
+        self._intern_refstoadd = refstoadd
         self.addnodedia.show()
         self.addnodedia.grab_focus()
     
@@ -439,22 +440,22 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         if check_hash(_hash) == False:
             logger().debug("invalid hash")
             return
-        res = self.do_requestdo("addhash",_name,_hash,_type,self.header_client)
+        res = self.do_requestdo("addhash", name=_name, hash=_hash, type=_type)
         if logger().check(res) == True:
             self.update_storage()
             if self.curlocal is not None and _type==self.curlocal[0]:
                 it=hashlist.prepend((_hash,))
                 hashview.get_selection().select_iter(it)
             #self.update_hashes()
-            #?????TODO: DOCUMENTATION
+            # apply refs (saved in classvariable) from addnodehash
             for elem in self._intern_refstoadd:
-                self.do_requestdo("addreference",_hash,elem[1],elem[0],self.header_client)
+                self.do_requestdo("addreference",hash=_hash, reference=elem[1], type=elem[0])
             
             self.close_addnodedia()
         else:
             logger().error(res[1])
     
-    
+    #TODO: find use
     #def delnodehash(self,*args):
     #    view=self.builder.get_object("recentstore")
     #    _sel=view.get_selection().get_selected()
@@ -471,12 +472,11 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         self.enternodedia.grab_focus()
     
     def enternode_confirm(self,*args):
-        tparam=self.header_node.copy()
         _address=self.builder.get_object("enternodeurl").get_text().strip(" ").rstrip(" ")
         _hasho=self.builder.get_object("enternodehash")
         _hash=_hasho.get_text().strip(" ").rstrip(" ")
         if _hash=="":
-            ret=self.do_requestdo("gethash",_address,tparam)
+            ret=self.do_requestdo("gethash", address=_address)
             if logger().check(ret,logging.INFO)==False:
                 return
             _hasho.set_text(ret[1][0])

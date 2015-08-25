@@ -26,13 +26,13 @@ from http.server  import BaseHTTPRequestHandler,HTTPServer
 from http import client
 import socketserver
 import logging
-import traceback
 import ssl
 import signal,threading
 import json
 from os import path
+from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server
 #VALMITMError
 
 from common import logger
@@ -49,7 +49,7 @@ class client_client(client_admin, client_safe):
     hashdb = None
     links = None
     
-    validactions = {"cmd_plugin", }
+    validactions = {"cmd_plugin", "save_auth" }
     
     def __init__(self, _name, _pub_cert_hash, _certdbpath, _links):
         self.links = _links
@@ -62,7 +62,7 @@ class client_client(client_admin, client_safe):
         self.validactions.update(client_safe.validactions_safe)
         self._cache_help = self.cmdhelp()
 
-    def do_request(self, _addr, _path, body={}, headers = {}, forceport=False, context=None):
+    def do_request(self, _addr, _path, body={}, headers = {}, forceport=False, context=None, reauthcount=0):
         if context is None:
             context = self.sslcont
         sendheaders = reference_header.copy()
@@ -105,8 +105,13 @@ class client_client(client_admin, client_safe):
             reqob=safe_mdecode(r.read(), r.headers.get("Content-Type","application/json; charset=utf-8"))
             if reqob is None:
                 logger().error("Invalid password request object")
-                return False,  
-            realm, authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob)
+                return False
+            
+            realm, authob = self.links["auth"].reauth(hashpcert, reqob)
+            if authob is None or reauthcount>0:
+                realm, authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, None)
+            else:
+                reauthcount+=1
             if realm == "proxy":
                 proxy_parsed = {}
                 proxy_parsed["proxy"] = authob
@@ -114,7 +119,7 @@ class client_client(client_admin, client_safe):
             else:
                 auth_parsed[realm] = authob
                 sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
-            return self.do_request(_addr, _path, body=None, headers=sendheaders, forceport=forceport)
+            return self.do_request(_addr, _path, body=body, headers=sendheaders, forceport=forceport)
         else:
             #if len()>0:
             #    pass
@@ -168,26 +173,32 @@ class client_client(client_admin, client_safe):
         except Exception as e:
             False, generate_error(e)
     
+    @check_argsdeco((("auth", tuple),), (("hash", str), ("address", str)))
+    def save_auth(self, obdict):
+        if obdict.get("hash") is None:
+            _hashob = self.gethash(obdict)
+            if _hashob[0] == False:
+                return False, "invalid address for retrieving hash"
+            _hash = _hashob[1]["hash"]
+        else:
+            _hash = obdict.get("hash")
+        for elem in obdict["auth"]:
+            splitted = elem.split(":", 1)
+            if len(splitted) == 1:
+                return False, "auth object invalid (<realm>:<pw>)"
+            realm,  pw = splitted
+            self.links["auth"].saveauth(realm, pw, _hash)
+        return True
     # command wrapper for cmd interfaces
     def command(self, inp):
-        if isinstance(inp,  dict) == False:
-            if isinstance(inp,  str) == False:
-                return False, "wrong input format", isself, self.cert_hash
-            if inp == "":
-                return False, None, isself, self.cert_hash
-            try:
-                obdict = json.loads(inp)
-            except Exception as e:
-                return False, generate_error(e), isself, self.cert_hash
-        else:
-            obdict = inp
-            if len(obdict)==0:
-                return False, None, isself, self.cert_hash
+        obdict = parse.parse_qs(inp)
         if check_args(obdict, (("action", str),)) == False:
             return False, "no action given"
         if obdict["action"] in ["access_main", "access_safe", "command"]:
             return False, "actions: 'access_safe, access_main, command' not allowed in command", isself, self.cert_hash
-        return self.access_main(obdict["action"], **obdict)
+        action = obdict["action"]
+        del obdict["action"]
+        return self.access_main(action, **obdict)
         
     # NEVER include in validactions
     # for plugins, e.g. untrusted
@@ -209,6 +220,7 @@ class client_client(client_admin, client_safe):
     # headers=headers
     # client_address=client_address
     def access_main(self, action, **obdict):
+        print(action)
         if action in ["access_main", "access_safe"]:
             return False, "actions: 'access_safe, access_main' not allowed in access_main"
         if action in self.validactions:
@@ -219,13 +231,42 @@ class client_client(client_admin, client_safe):
             except ConnectionRefusedError:
                 return False, "unreachable"
             except Exception as e:
-                st="Error: {}\n".format(e)
-                if "tb_frame" in e.__dict__:
-                    st="{}\n{}\n\n".format(st,traceback.format_tb(e))
-                st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, st)
-                return False, "Error:\n{}".format(st)
+                return False, generate_error(e)
         else:
             return False, "not in validactions"
+    
+    # help section
+    def cmdhelp(self):
+        out="""### cmd-commands ###
+hash <pw>: calculate hash for pw
+plugin <plugin>:<...>: speak with plugin
+"""
+        for funcname in self.validactions:
+            if funcname in client_admin.validactions_admin:
+                eperm = " (admin)"
+            else:
+                eperm = ""
+            func = self.__getattribute__(funcname)
+            out+="{func}{admin}:{doku}".format(func=funcname, admin=eperm, doku=func.__doc__)
+            if hasattr(func, "requires")==False:
+                print("skip non decorated function: "+funcname)
+                continue
+            out+="\n reqargs: "
+            try:
+                for elem in func.requires:
+                    name, _type=elem
+                    out+=name+":"+_type.__name__+", "
+                out=out[:-2]
+                out+="\n optargs: "
+                for elem in func.optional:
+                    name, _type=elem
+                    out+=name+":"+_type.__name__+", "
+                out=out[:-2]
+                out+="\n"
+            except Exception as e:
+                print("Function :"+funcname+" has broken check_argdeco arguments")
+                raise(e)
+        return out
 
 
 ### receiverpart of client ###
@@ -289,22 +330,6 @@ class client_server(commonscn):
             return False, "service"
         return True, self.spmap[obdict["service"]]
     
-    # help section
-    def cmdhelp(self):
-        out="""### cmd-commands ###
-hash <pw>: calculate hash for pw
-plugin <plugin>:<...>: speak with plugin
-"""
-        for elem in self.validactions:
-            if elem in client_admin.validactions_admin:
-                eperm = "{}(admin)".format(elem)
-            else:
-                eperm = elem
-            if elem in cmdanot:
-                out += "{}{}: {}".format(eperm,*cmdanot[elem])+"\n"
-            else:
-                out += "{}: {}".format(eperm,"<undocumented>")+"\n"
-        return out
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simplescn/0.5 (client)'
@@ -542,11 +567,13 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
 
 
 class client_init(object):
-    config_root=None
-    plugins_config=None
-    links={}
+    config_root = None
+    plugins_config = None
+    links = None
     
     def __init__(self,confm,pluginm):
+        self.links = {}
+        self.links["auth"] = scnauth_server()
         self.links["config"]=confm
         self.links["config_root"]=confm.get("config")
         
@@ -567,36 +594,36 @@ class client_init(object):
             # ensure that password is set when allowing remote
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
-            client_handler.cpwhash=confm.get("cpwhash")
+            self.links["auth"].init_realm("client", confm.get("cpwhash"))
         elif confm.getb("cpwfile") == True:
             # ensure that password is set when allowing remote
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
-            op=open("r")
+            op=open(confm.get("cpwfile"),"r")
             pw=op.readline()
             if pw[-1] == "\n":
                 pw = pw[:-1]
-            client_handler.cpwhash=dhash(pw)
+            self.links["auth"].init_realm("client", dhash(pw))
             op.close()
         
         if confm.getb("apwhash") == True:
-            client_handler.apwhash=confm.get("apwhash")
+            self.links["auth"].init_realm("admin", confm.get("apwhash"))
         elif confm.getb("apwfile") == True:
             op=open("r")
             pw=op.readline()
             if pw[-1] == "\n":
                 pw = pw[:-1]
-            client_handler.apwhash=dhash(pw)
+            self.links["auth"].init_realm("admin", dhash(pw))
             op.close()
             
         if confm.getb("spwhash") == True:
-            client_handler.spwhash = confm.get("spwhash")
+            self.links["auth"].init_realm("server", confm.get("spwhash"))
         elif confm.getb("spwfile") == True:
-            op=open("r")
+            op=open(confm.get("spwfile"),"r")
             pw=op.readline()
             if pw[-1] == "\n":
                 pw = pw[:-1]
-            client_handler.spwhash = dhash(pw)
+            self.links["auth"].init_realm("server", confm.get(dhash(pw)))
             op.close()
         
         if check_certs(_cpath+"_cert") == False:
@@ -767,9 +794,10 @@ if __name__ ==  "__main__":
         logger().debug("start client server")
         cm.serve_forever_nonblock()
         logger().debug("start console")
-        print(*cm.links["client"].show()[1],sep="/")
+        for name, value in cm.links["client"].show({})[1].items():
+            print(name, value, sep=":")#,  end="/")
         while True:
-            inp=input("Enter command, seperate by \"/\"\nEnter headers by closing command with \"?\" and\nadding key1=value1&key2=value2 key/value pairs:\n")
+            inp=input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
             if inp in ["exit", "close", "quit"]:
                 break
             ret=cm.links["client"].command(inp)

@@ -51,6 +51,6 @@ gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"option
 gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
 
 # uncomment for being accessable by internet
-# def receive(connection):
+# def receive(action, _socket):
 #     pass
 

@@ -32,7 +32,7 @@ class client_admin(object): #"register",
     def renameentity(self, obdict):
         return self.hashdb.renameentity(obdict["name"],obdict["newname"])
 
-    @check_argsdeco((("name",str),("hash", str)), (("type", str))) 
+    @check_argsdeco((("name",str),("hash", str)), (("type", str), )) 
     def addhash(self, obdict):
         _type = obdict.get("type")
         _name,  _certhash = obdict["name"], obdict["hash"]
@@ -51,27 +51,27 @@ class client_admin(object): #"register",
     
     @check_argsdeco((("hash", str), ("newname", str)))
     def movehash(self, obdict):
-        return self.hashdb.movehash(obdict["certhash"],obdict["newname"])
+        return self.hashdb.movehash(obdict["hash"],obdict["newname"])
     
     @check_argsdeco((("hash", str), ("reference", str), ("reftype", str)))
     def addreference(self, obdict):
-        _name=self.hashdb.certhash_as_name(obdict["certhash"])
+        _name=self.hashdb.certhash_as_name(obdict["hash"])
         if _name is None:
-            return False,"hash not in db: {}".format(obdict["certhash"])
+            return False,"hash not in db: {}".format(obdict["hash"])
         
         if check_reference(obdict["reference"])==False:
             return False, "reference invalid"
         if check_reference_type(obdict["reftype"])==False:
             return False, "reference type invalid"
             
-        _tref=self.hashdb.get(_name,obdict["certhash"])
+        _tref=self.hashdb.get(_name,obdict["hash"])
         return self.hashdb.addreference(_tref[2],obdict["reference"],obdict["reftype"])
 
     @check_argsdeco((("hash", str), ("reference", str), ("newreference", str), ("newreftype", str)))
     def updatereference(self, obdict):
-        _name=self.hashdb.certhash_as_name(obdict["certhash"])
+        _name=self.hashdb.certhash_as_name(obdict["hash"])
         if _name is None:
-            return False,"hash not in db: {}".format(obdict["certhash"])
+            return False,"hash not in db: {}".format(obdict["hash"])
             
         if check_reference(obdict["newreference"]) == False:
             return False, "reference invalid"
@@ -79,7 +79,7 @@ class client_admin(object): #"register",
         if check_reference_type(obdict["newreftype"]) == False:
             return False, "reference type invalid"
             
-        _tref=self.hashdb.get(_name, obdict["certhash"])
+        _tref=self.hashdb.get(_name, obdict["hash"])
         if _tref is None:
             return False,"name, hash not exist"
         
@@ -87,9 +87,9 @@ class client_admin(object): #"register",
 
     @check_argsdeco((("hash", str), ("reference", str)))
     def delreference(self, obdict):
-        _name=self.hashdb.certhash_as_name(obdict["certhash"])
+        _name=self.hashdb.certhash_as_name(obdict["hash"])
         
-        _tref=self.hashdb.get(_name,obdict["certhash"])
+        _tref=self.hashdb.get(_name,obdict["hash"])
         if _tref is None:
             return False, "name, hash not exist"
         return self.hashdb.delreference(_tref[2],obdict["reference"])

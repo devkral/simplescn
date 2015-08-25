@@ -33,6 +33,8 @@ if sharedir not in sys.path:
 #    sys.path+=['', '/usr/lib/python34.zip', '/usr/lib/python3.4', '/usr/lib/python3.4/plat-linux', '/usr/lib/python3.4/lib-dynload', '/usr/lib/python3.4/site-packages', '/usr/lib/site-python']
 
 import importlib
+# import extra
+import importlib.machinery
 from types import ModuleType # needed for ModuleType
 from getpass import getpass
 
@@ -674,21 +676,29 @@ class scnauth_client(object):
         #dauth["nonce"] = nonce
         pre = dhash((dhash(pw, authreq_ob["algo"]), realm), authreq_ob["algo"])
         if savedata != None:
-            server = savedata 
-            if server not in self.save_auth:
-                self.save_auth[server]={}
-            self.save_auth[server][realm] = (pre, authreq_ob["algo"])
+            saveid = savedata 
+            if saveid not in self.save_auth:
+                self.save_auth[saveid]={}
+            self.save_auth[saveid][realm] = (pre, authreq_ob["algo"])
         dauth["auth"] = dhash((pre, pubcert_hash, timestamp), authreq_ob["algo"])
         return realm, dauth
+    
+    def saveauth(self, realm, pw, savedata):
+        saveid = savedata
+        pre = dhash((dhash(pw, DEFAULT_HASHALGORITHM), realm), DEFAULT_HASHALGORITHM)
+        if saveid not in self.save_auth:
+            self.save_auth[saveid]={}
+        self.save_auth[saveid][realm] = (pre, DEFAULT_HASHALGORITHM)
         
     
     # deactivate pubcert_hash for now as ssl doesn't send clientcert
-    def reauth(self, _server, authreq_ob, pubcert_hash=""):
-        if _server not in self.save_auth:
-            return None
-        if authreq_ob["realm"] not in self.save_auth[_server]:
-            return None
-        return self.auth(self.save_auth[_server][authreq_ob["realm"]], authreq_ob, pubcert_hash=pubcert_hash)
+    def reauth(self, savedata, authreq_ob, pubcert_hash=""):
+        saveid = savedata
+        if saveid not in self.save_auth:
+            return authreq_ob.get("realm"), None
+        if authreq_ob.get("realm") not in self.save_auth[saveid]:
+            return authreq_ob.get("realm"), None
+        return self.auth(self.save_auth[saveid][authreq_ob["realm"]], authreq_ob, pubcert_hash=pubcert_hash)
 
 
 class commonscn(object):
@@ -740,23 +750,31 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
 
 # args is iterable with (argname, type)
 # _moddic is modified
-def check_args(_moddict, args, optionalargs=()):
-    args.update(optionalargs)
-    for arg, _type in args:
+def check_args(_moddict, requiredargs, optionalargs=()):
+    search = set()
+    search.update(requiredargs)
+    search.update(optionalargs)
+    for arg, _type in search:
         if arg not in _moddict and arg in optionalargs:
             continue
         elif arg not in _moddict:
             return False
         if isinstance(_moddict[arg], _type):
             continue
-        # is a number given as string?
-        if isinstance(_type, int) and _moddict[arg].isdigit():
-            _moddict[arg] = int(_moddict[arg])
+            
+        if isinstance(_type, tuple) and isinstance(_moddict[arg], list):
+            _moddict[arg] = tuple(_moddict[arg])
+            continue
+        if isinstance(_type, list) and isinstance(_moddict[arg], tuple):
+            _moddict[arg] = list(_moddict[arg])
+            continue
+            
         # strip array and try again (limitation of www-parser)
-        if hasattr(_moddict[arg], "__iter__"):
+        if isinstance(_type, (tuple, list)) == False and isinstance(_moddict[arg], (tuple, list)) == True:
             _moddict[arg] = _moddict[arg][0]
-            if isinstance(_type, int) and _moddict[arg].isdigit():
-                _moddict[arg] = int(_moddict[arg])
+        # is a number given as string?
+        if isinstance(_type, int) and isinstance(_moddict[arg], str) and _moddict[arg].isdigit():
+            _moddict[arg] = int(_moddict[arg])
         # check if everything is right now
         if isinstance(_moddict[arg], _type):
             continue

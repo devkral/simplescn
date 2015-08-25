@@ -37,7 +37,7 @@ class client_safe(object): #abc.ABC):
     def registerservice(self, obdict):
         """ register service (second way) """
         self.links["client_server"].spmap[obdict["service"]] = obdict["port"]
-        return True,"service registered"
+        return True
     
     #### second way to delete a service ####
     @check_argsdeco((("service", str),))
@@ -45,7 +45,7 @@ class client_safe(object): #abc.ABC):
         """ delete service (second way) """
         if obdict["service"] in self.links["client_server"].spmap:
             del self.links["client_server"].spmap[obdict["service"]]
-        return True,"service deleted"
+        return True
     
     @check_argsdeco((("server", str),("name", str),("hash", str)))
     def get(self,obdict):
@@ -55,7 +55,7 @@ class client_safe(object): #abc.ABC):
         if _getret[0] == False or check_args(_getret[1], (("address", str), ("port", int))) == False:
             return _getret
         if _getret[1]["port"]<1:
-            return False,"port <1:\n{}".format(_getret[1]["port"])
+            return False,"port <1: {}".format(_getret[1]["port"])
         return _getret
     
     @check_argsdeco((("address",str),))
@@ -78,7 +78,7 @@ class client_safe(object): #abc.ABC):
         _ha = self.gethash(obdict["address"])
         if _ha[0] == False:
             return _ha
-        if _ha[1]["certhash"] == self.cert_hash:
+        if _ha[1]["hash"] == self.cert_hash:
             return True, {"localname":isself, "hash":self.cert_hash}
         temp = self.hashdb.certhash_as_name(_ha[1]["hash"])
         return True, {"localname":temp, "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
