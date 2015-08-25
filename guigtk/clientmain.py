@@ -18,9 +18,7 @@ from guigtk.clientmain_sub import services_stuff, cmd_stuff, debug_stuff
 from guigtk.clientmain_managehash import hashmanagement
 
 from client import reference_header
-from common import init_config_folder, check_certs,default_sslcont, sharedir, \
-init_config_folder, generate_certs, isself, default_sslcont, check_hash, \
-scnparse_url, AddressEmptyFail
+from common import check_certs,default_sslcont, sharedir, init_config_folder, generate_certs, isself, check_hash, scnparse_url, AddressEmptyFail
 #, replace_logger
 
 from common import logger
@@ -252,15 +250,18 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
                 if _hash[0]!="default":
                     self.update_serverlist_hash(_hash[0])
 
-    def do_requestdo(self,action,*requeststrs):
+    def do_requestdo(self, action, **obdict):
         uselocal=self.builder.get_object("uselocal")
         if uselocal.get_active() == True:
-            return self.links["client"].access_main(action, requeststrs[:-1],requeststrs[-1])
+            return self.links["client"].access_main(action, **obdict)
         else:
+            clienturl = self.builder.get_object("clienturl").get_text()
+            clienthash = self.builder.get_object("clienthash").get_text()
+            obdict["forcehash"] = clienthash
             try:
-                self.links["client"].do_request(self, "127.0.0.1", "get", requeststrs[-1], body=json.dumps(requeststrs), forceport=True,requesttype="PUT")
-            except Exception :
-                pass
+                self.links["client"].do_request(clienturl, "/client/{}".format(action), body=obdict, forceport=True)
+            except Exception as e:
+                logger().error(e)
     def pushint(self):
         time.sleep(5)
         #self.messagecount-=1
@@ -454,12 +455,12 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
             logger().error(res[1])
     
     
-    def delnodehash(self,*args):
-        view=self.builder.get_object("recentstore")
-        _sel=view.get_selection().get_selected()
-        if _sel[1] is None:
-            return
-        _name=_sel[0][_sel[1]][2]
+    #def delnodehash(self,*args):
+    #    view=self.builder.get_object("recentstore")
+    #    _sel=view.get_selection().get_selected()
+    #    if _sel[1] is None:
+    #        return
+    #    _name=_sel[0][_sel[1]][2]
         
     
     

@@ -36,7 +36,7 @@ import importlib
 from types import ModuleType # needed for ModuleType
 from getpass import getpass
 
-import logging, platform
+import logging
 from OpenSSL import SSL, crypto
 import ssl
 import socket
@@ -46,7 +46,10 @@ import hashlib
 import re
 import threading
 import json
+import base64
+import time
 from http import client
+from urllib import parse
 
 # small nonces mean more collisions
 nonce_size = 20
@@ -98,6 +101,16 @@ def gen_result(res, status):
         del s["result"]
     return s
 
+def check_result(obdict, status):
+    if obdict is None:
+        return False
+    if "status" not in obdict:
+        return False
+    if status == True and "result" not in obdict:
+        return False
+    if status == False and "error" not in obdict:
+        return False
+    return True
 
 
 
@@ -613,11 +626,11 @@ class scnauth_server(object):
     hashalgorithm = None
     
     def __init__(self, _hashalgo=DEFAULT_HASHALGORITHM):
-        realms = {}
+        self.realms = {}
         self.hashalgorithm=_hashalgo
         self.salt = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf8")
 
-    def request_auth(realm):
+    def request_auth(self,  realm):
         rauth = authrequest_struct.copy()
         rauth["algo"] = self.hashalgo
         rauth["salt"] = self.salt
@@ -626,7 +639,7 @@ class scnauth_server(object):
         return rauth
     
     # deactivate clientpubcert_hash for now as ssl doesn't send clientcert
-    def verify(realm, authdict, clientpubcert_hash=""):
+    def verify(self, realm, authdict, clientpubcert_hash=""):
         if realm not in self.realms or self.realms[realm] is None:
             return True
         if realm not in authdict:
@@ -641,7 +654,7 @@ class scnauth_server(object):
             return True
         return False
     def init_realm(self,realm, pwhash):
-        realms[realm] = dhash((pwhash, realm, self.salt), self.hashalgorithm)
+        self.realms[realm] = dhash((pwhash, realm, self.salt), self.hashalgorithm)
 
 
 class scnauth_client(object):
@@ -652,7 +665,7 @@ class scnauth_client(object):
         self.save_auth = {}
     
     # deactivate pubcert_hash for now as ssl doesn't send clientcert
-    def auth(pw, authreq_ob, pubcert_hash="", savedata=None):
+    def auth(self, pw, authreq_ob, pubcert_hash="", savedata=None):
         #nonce = str(base64.urlsafe_b64encode(os.urandom(nonce_size)))
         realm = authreq_ob["realm"]
         timestamp = authreq_ob["timestamp"]
@@ -670,7 +683,7 @@ class scnauth_client(object):
         
     
     # deactivate pubcert_hash for now as ssl doesn't send clientcert
-    def reauth(_server, authreq_ob, pubcert_hash=""):
+    def reauth(self, _server, authreq_ob, pubcert_hash=""):
         if _server not in self.save_auth:
             return None
         if authreq_ob["realm"] not in self.save_auth[_server]:
@@ -695,12 +708,12 @@ class commonscn(object):
         self.isactive = False
     
     def update_cache(self):
-        self.cache["cap"] = {"caps": self.capabilities}
-        self.cache["info"] = {"type": self.scn_type, "name": self.name, "message":self.message}
-        self.cache["prioty"] = {"priority": self.priority, "type": self.scn_type}
+        self.cache["cap"] = gen_result({"caps": self.capabilities}, True)
+        self.cache["info"] = gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True)
+        self.cache["prioty"] = gen_result({"priority": self.priority, "type": self.scn_type}, True)
 
     def update_prioty(self):
-        self.cache["prioty"] = {"priority": self.priority, "type": self.scn_type}
+        self.cache["prioty"] = gen_result({"priority": self.priority, "type": self.scn_type}, True)
 
 
 def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
@@ -724,17 +737,15 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
         ret = tmp.hexdigest()
     return ret
 
-#hash on server, uses already hashed password (e.g. in file)
-def gen_passwd_hash(passwd, salt):
-    #hash hexdigest of hash of passwd
-    ha = dhash(passwd)
-    return dhash_salt(ha, salt)
 
 # args is iterable with (argname, type)
 # _moddic is modified
-def check_args(_moddict, args):
+def check_args(_moddict, args, optionalargs=()):
+    args.update(optionalargs)
     for arg, _type in args:
-        if arg not in _moddict:
+        if arg not in _moddict and arg in optionalargs:
+            continue
+        elif arg not in _moddict:
             return False
         if isinstance(_moddict[arg], _type):
             continue
@@ -742,7 +753,7 @@ def check_args(_moddict, args):
         if isinstance(_type, int) and _moddict[arg].isdigit():
             _moddict[arg] = int(_moddict[arg])
         # strip array and try again (limitation of www-parser)
-        if isinstance(_moddict[arg], Iterable):
+        if hasattr(_moddict[arg], "__iter__"):
             _moddict[arg] = _moddict[arg][0]
             if isinstance(_type, int) and _moddict[arg].isdigit():
                 _moddict[arg] = int(_moddict[arg])
@@ -751,6 +762,29 @@ def check_args(_moddict, args):
             continue
         return False
     return True
+
+# args is iterable with (argname, type)
+# _moddic is modified
+def check_argsdeco(_checkargs=(), _optionalargs=()):
+    def func_to_check(func):
+        def get_args(self, obdict):
+            if check_args(obdict, _checkargs, _optionalargs) == False:
+                return False, "check_args failed ({})".format(func.__name__), isself, self.cert_hash
+            resp = func(self, obdict)
+            if len(resp)==2:
+                return resp[0], resp[1], isself, self.cert_hash
+            elif len(resp)==1:
+                if resp[0] == True:
+                    resp[0], "{} finished successfully".format(func.__name__), isself, self.cert_hash
+                else:
+                    resp[0], "{} failed".format(func.__name__), isself, self.cert_hash
+            else:
+                return resp
+        get_args.requires = _checkargs
+        get_args.optional = _optionalargs
+        get_args.__doc__ = func.__doc__
+        return get_args
+    return func_to_check
 
 def safe_mdecode(inp, encoding, charset="utf-8"):
     try:

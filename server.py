@@ -21,14 +21,12 @@ import time
 #import socket
 import signal,threading
 import socketserver #,socket
-import traceback
-import socket
 import logging
 import json, base64
 import ssl
 
-from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, gen_passwd_hash, rw_socket, dhash, commonscn, pluginmanager, configmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_args, scnauth_server, max_serverrequest_size, generate_error
-
+from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_args, scnauth_server, max_serverrequest_size, generate_error, gen_result
+#configmanager
 
 
 
@@ -46,7 +44,7 @@ class server(commonscn):
     cert_hash = None
     scn_type = "server"
 
-    validactions={"register", "get", "listnames", "info", "cap", "prioty", "num_nodes"}
+    validactions={"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes"}
     
     def __init__(self,d):
         self.expire_time = int(d["expire"])*60 #in minutes
@@ -96,34 +94,32 @@ class server(commonscn):
                 if len(self.nhipmap[_name])==0:
                     del self.nhipmap[_name]
                     del self.nhipmap_etime[_name]
-            
-            self.nhipmap_len = len(self.nhipmap)
-            self.nhipmap_cache = json.dumps(self.nhipmap)
+            self.cache["dumpnames"] = gen_result(self.nhipmap, True)
+            #self.cache["listnames"] = gen_result(sorted(self.nhipmap.items(), key=lambda t: t[0]), True)
+            self.cache["num_nodes"] = gen_result(len(self.nhipmap), True)
             self.changeip_lock.release()
             self.nhipmap_cond.clear()
             time.sleep(self.sleep_time)
             # wait until hashes change
             self.nhipmap_cond.wait()
     #private, do not include in validactions
-    def check_register(self, obdict):
-        if check_args(obdict, (("addresst",()),("certhash",str))) == False:
-            return False, "check_args failed (server: check_register)"
+    def check_register(self, addresst, _hash):
         try:
-            _cert = ssl.get_server_certificate(obdict["addresst"], ssl_version=ssl.PROTOCOL_TLSv1_2)
+            _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2)
         except ConnectionRefusedError:
             return False, "use_stun"
         if _cert is None:
             return False, "no cert"
-        if dhash(_cert) != obdict["certhash"]:
+        if dhash(_cert) != _hash:
             return False, "hash does not match"
         return True, "registered_ip"
         
     def register(self, obdict): #_name,_hash,_port,_addr): # , _cert):
-        if check_args(obdict, (("certhash",str),("name",str),("port",str))) == False:
+        if check_args(obdict, (("hash",str),("name",str),("port",str))) == False:
             return False, "check_args failed (server: register)"
         if check_name(obdict["name"])==False:
             return False, "invalid name"
-        ret = self.check_register({"addresst":(obdict["clientaddress"][0], obdict["port"]), "certhash":obdict["certhash"]})
+        ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), obdict["hash"])
         if ret[0] == False:
             return ret
         
@@ -149,20 +145,6 @@ class server(commonscn):
             return False, "certhash not exist"
         return True, self.nhipmap[obdict["name"]][obdict["hash"]]
     
-    def listnames(self, obdict):
-        return True, self.nhipmap_cache
-    
-    def info(self, obdict):
-        return True, self.cache["info"]
-    
-    def cap(self, obdict):
-        return True, self.cache["cap"]
-    
-    def prioty(self, obdict):
-        return True, self.cache["prioty"]
-
-    def num_nodes(self, obdict):
-        return True, self.nhipmap_len
     
     
 class server_handler(BaseHTTPRequestHandler):
@@ -243,14 +225,22 @@ class server_handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         
+        if action in self.links["server_server"].cache:
+             self.send_header('Content-Type', "application/json; charset=utf-8")
+             self.send_response(200,bytes(self.links["server_server"].cache[action], "utf-8"))
+             self.end_headers()
+             return
+        
+        if self.headers.get("Content-Type", None) is None:
+            self.send_error("POST data needed")
+            return
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
-        obdict = safe_mdecode(self.rfile.read(),self.headers.get("Content-Type"))
+        obdict = safe_mdecode(self.rfile.read(),self.headers.get("Content-Type", "application/json; charset=utf-8"))
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
         obdict["clientaddress"] = self.client_address
         obdict["headers"] = self.headers
-            
         try:
             func=self.links["server_server"].__getattribute__(action)
             witherror, jsonnized = func(obdict)
@@ -291,12 +281,13 @@ class server_handler(BaseHTTPRequestHandler):
             return
         elif  _path[0]=="static" and len(_path)>=2:
             if _path[1] in self.statics:
-                self.send_response(200)
+                self.send_response(200, self.statics[_path[1]])
                 self.end_headers()
-                self.wfile.write(self.statics[_path[1]])
-            else:
-                self.send_error(404, "not -found")
             return
+        elif len(_path)==2:
+            self.handle_server(_path[0])
+            return
+        self.send_error(404, "not -found")
     
     def do_CONNECT(self):
         # deactivate
@@ -311,8 +302,8 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid path")
             return
         name, certhash = splitted
-        client = self.links["server_server"].get({"name":name, "certhash":certhash})
-        if client[0] == False:
+        _clientt = self.links["server_server"].get({"name":name, "certhash":certhash})
+        if _clientt[0] == False:
             self.send_error(500)
             return
         try:
@@ -341,10 +332,12 @@ class server_handler(BaseHTTPRequestHandler):
             resource = splitted[0]
             sub = splitted[1]
         if resource == "plugin":
-            if len(splitted) == 1:
-                self.send_error(400, "no plugin specified", "No plugin was specified")
+            split2 = sub.split("/", 1)
+            if len(split2) != 2:
+                self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
                 return
-            elif pluginm.redirect_addr not in ["", None]:
+            plugin, action = split2
+            if pluginm.redirect_addr not in ["", None]:
                 sockd = self.links["server_server"].do_request(pluginm.redirect_addr, \
                                         self.path, requesttype = "POST")
                 redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
@@ -353,11 +346,11 @@ class server_handler(BaseHTTPRequestHandler):
                 rw_socket(sockd, self.connection)
                 return
             
-            if sub[0] not in pluginm.plugins or "receive" not in pluginm.plugins[sub].__dict__:
-                self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(sub[0]))
+            if plugin not in pluginm.plugins or "receive" not in pluginm.plugins[plugin].__dict__:
+                self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
             try:
-                pluginm.plugins[sub].receive(self.connection)
+                pluginm.plugins[plugin].receive(action, self.connection)
             except Exception as e:
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))

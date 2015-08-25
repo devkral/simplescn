@@ -29,22 +29,14 @@ import logging
 import traceback
 import ssl
 import signal,threading
-import socket
-import json, base64
-import time
-from urllib import parse
+import json
 from os import path
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, parse_response, dhash, VALNameError, VALHashError, isself, check_name, check_hash, gen_passwd_hash, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, check_reference, check_reference_type, pwcallmethod, rw_socket, notify, confdb_ending, VALMITMError, check_args, safe_mdecode, generate_error, max_serverrequest_size
-
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco
+#VALMITMError
 
 from common import logger
 
-
-#"tdesthash": None,
-#"cpwhash": None,
-#"spwhash": None,
-#"tpwhash":None,
 reference_header = \
 {
 "User-Agent": "simplescn/0.5 (client)",
@@ -57,22 +49,18 @@ class client_client(client_admin, client_safe):
     hashdb = None
     links = None
     
-    validactions=set()
-    validactions_put={"command",}
-    #_cache_help = None
-    # "access"
-    #pwcache={}
+    validactions = {"cmd_plugin", }
     
     def __init__(self, _name, _pub_cert_hash, _certdbpath, _links):
         self.links = _links
-        self._cache_help = cmdhelp()
         self.name = _name
         self.cert_hash = _pub_cert_hash
         self.hashdb = certhash_db(_certdbpath)
         self.sslcont = default_sslcont()
+        # update as static variable
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
-        self._cache_help = cmdhelp()
+        self._cache_help = self.cmdhelp()
 
     def do_request(self, _addr, _path, body={}, headers = {}, forceport=False, context=None):
         if context is None:
@@ -83,6 +71,7 @@ class client_client(client_admin, client_safe):
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
         
         auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}"))
+        #proxy_parsed = json.loads(sendheaders.get("Proxy-Authorization", "scn {}"))
         
         _addr=scnparse_url(_addr,force_port=forceport)
         con=client.HTTPSConnection(_addr[0],_addr[1], context=context)
@@ -91,7 +80,7 @@ class client_client(client_admin, client_safe):
         hashpcert=dhash(pcert)
         if hashpcert==self.cert_hash:
             val = isself
-        elif body.get("certhash") is not None and body.get("certhash") != hashpcert:
+        elif body.get("forcehash") is not None and body.get("forcehash") != hashpcert:
             raise(VALHashError)
         else:
             val = self.hashdb.certhash_as_name(hashpcert)
@@ -102,7 +91,7 @@ class client_client(client_admin, client_safe):
             #con.putrequest("CONNECT", "/{}/{}".format(body.get("destname"), body.get("desthash")))
             con.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
         
-        con.putrequest("POST", requeststr)
+        con.putrequest("POST", _path)
         for key, val in sendheaders.items():
             if key != "Proxy-Authorization":
                 con.putheader(key, val)
@@ -116,10 +105,16 @@ class client_client(client_admin, client_safe):
             reqob=safe_mdecode(r.read(), r.headers.get("Content-Type","application/json; charset=utf-8"))
             if reqob is None:
                 logger().error("Invalid password request object")
-                return None 
+                return False,  
             realm, authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob)
-            auth_parsed[realm] = authob
-            return self.do_request(_addr, _path, body=None, headers=sendheaders, forceport=forceport, requesttype=requesttype)
+            if realm == "proxy":
+                proxy_parsed = {}
+                proxy_parsed["proxy"] = authob
+                sendheaders["Proxy-Authorization"] = "scn {}".format(json.dumps(proxy_parsed))
+            else:
+                auth_parsed[realm] = authob
+                sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
+            return self.do_request(_addr, _path, body=None, headers=sendheaders, forceport=forceport)
         else:
             #if len()>0:
             #    pass
@@ -133,129 +128,113 @@ class client_client(client_admin, client_safe):
             readob = r.read()
             con.close()
             if r.status == 200:
-                resp = True
+                status = True
             else:
-                resp = False
+                status = False
             if r.headers.get("Content-Type").split(";")[0].strip().rstrip() in ["text/plain","text/html"]:
-                logger().error(readob)
-                return None
-            obdict = safe_mdecode(readob, r.headers.get("Content-Type", "application/json"))
-            if obdict is None:
-                return None
-            #ir r.
-            return resp,readob,val,hashpcert
-
-    # command wrapper for cmd interfaces
-    def command(self, _data):
-        if type(_data) is str:
-            inp = _data
-        else:
-            inp = str(_data, "utf-8")
-        reqheader=reference_header.copy()
-        ret = [False, None, self.cert_hash, isself ]
-        if inp == "":
-            return ret
-        unparsed=inp.strip(" ").rstrip(" ")
-        if unparsed[:5]=="hash/":
-            ret[0] = True
-            ret[1] = "Hash: {}".format(dhash(unparsed[6:]))
-            return ret
-        
-        pos_header=unparsed.find("?")
-        if pos_header!=-1:
-            parsed=unparsed[:pos_header].split("/")
-            tparam=unparsed[pos_header+1:].split("&")
-            for elem in tparam:
-                elem=elem.split("=")
-                if len(elem)==1 and elem[0]!="":
-                    reqheader[elem[0]]=""
-                elif len(elem)==2:
-                    reqheader[elem[0]]=elem[1]
-                else:
-                    ret[0] = False
-                    ret[1] = "Error: invalid key/value pair\n{}".format(elem)
-                    return ret
-        else:
-            parsed=unparsed.split("/")
-        
-        #call functions in plugins
-        if str(parsed[0]) == "plugin":
-            plugins=self.links["client_server"].pluginmanager.plugins
-            if plugins is None:
-                return
-            if parsed[1] not in plugins:
-                ret[0] = False
-                ret[1] = "Error: plugin does not exist"
-                return ret
-            plugin = plugins[parsed[1]]
-            if "cmd_node_actions" not in plugin.__dict__:
-                ret[0] = False
-                ret[1] = "Error: plugin does not support commandline"
-                return ret
-                
-            action = str(parsed[2])
-            if "cmd_node_localized_actions" in plugin.__dict__ and \
-                    action in plugin.cmd_node_localized_actions:
-                    action = plugin.cmd_node_localized_actions[action]
-            try:
-                
-                resp = plugin.cmd_node_actions[action][0](*parsed[2:])
-                ret[0] = True
-                ret[1] = str(resp)
-            except Exception as e:
-                st="Error: {}\n".format(e)
-                if "tb_frame" in e.__dict__:
-                    st="{}\n{}\n\n".format(st,traceback.format_tb(e))
-                st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, parsed)
-                ret[0] = False
-                ret[1] = "Error:\n{}".format(st)
-            return ret
-        
-        return self.access_main(str(parsed[0]),parsed[1:],reqheader)
+                #logger().error(readob)
+                obdict = gen_result(readob, status)
+                #return True,readob,val,hashpcert
+            else:
+                obdict = safe_mdecode(readob, r.headers.get("Content-Type", "application/json"))
+            if check_result(obdict, status) == False:
+                return False, "error parsing request", val, hashpcert
+            
+            if status == True:
+                return status, obdict["result"], val, hashpcert
+            else:
+                return status, obdict["error"], val, hashpcert
     
+    @check_argsdeco((("plugin", str), ("paction", str)))
+    def cmd_plugin(self, obdict):
+        plugins = self.links["client_server"].pluginmanager.plugins
+        if plugins is None:
+            return False, "no plugins loaded"
+        if obdict["plugin"] not in plugins:
+            ret[0] = False
+            ret[1] = "Error: plugin does not exist"
+            return False, "Error: plugin does not exist"
+        plugin = plugins[obdict["plugin"]]
+        if "cmd_node_actions" not in plugin.__dict__:
+            return False,  "Error: plugin does not support commandline"
+                
+        action = obdict["paction"]
+        if "cmd_node_localized_actions" in plugin.__dict__ and \
+                action in plugin.cmd_node_localized_actions:
+                action = plugin.cmd_node_localized_actions[action]
+        try:
+            resp = plugin.cmd_node_actions[action][0](obdict)
+            return True, resp
+        except Exception as e:
+            False, generate_error(e)
+    
+    # command wrapper for cmd interfaces
+    def command(self, inp):
+        if isinstance(inp,  dict) == False:
+            if isinstance(inp,  str) == False:
+                return False, "wrong input format", isself, self.cert_hash
+            if inp == "":
+                return False, None, isself, self.cert_hash
+            try:
+                obdict = json.loads(inp)
+            except Exception as e:
+                return False, generate_error(e), isself, self.cert_hash
+        else:
+            obdict = inp
+            if len(obdict)==0:
+                return False, None, isself, self.cert_hash
+        if check_args(obdict, (("action", str),)) == False:
+            return False, "no action given"
+        if obdict["action"] in ["access_main", "access_safe", "command"]:
+            return False, "actions: 'access_safe, access_main, command' not allowed in command", isself, self.cert_hash
+        return self.access_main(obdict["action"], **obdict)
         
     # NEVER include in validactions
     # for plugins, e.g. untrusted
     # requester = None, don't allow asking
-    def access_safe(self, action, args, dheader, requester=None ):
-        args = list(args)
+    # headers=headers
+    # client_address=client_address
+    def access_safe(self, action, requester=None, **obdict):
+        if action in ["access_main", "access_safe", "cmd_plugin"]:
+            return False, "actions: 'access_safe, access_main, cmd_plugin' not allowed in access_safe"
         if action in self.validactions:
             if action not in self.validactions_safe:
                 if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
-                    return False, "no permission", isself, self.cert_hash
-            return self.__getattribute__(action)(*args)
+                    return False, "no permission"
+            return self.__getattribute__(action)(obdict)
         else:
-            return False, "not in validactions", isself, self.cert_hash
+            return False, "not in validactions"
     
     # NEVER include in validactions
-    def access_main(self, action, args, dheader):
-        args = list(args)
+    # headers=headers
+    # client_address=client_address
+    def access_main(self, action, **obdict):
+        if action in ["access_main", "access_safe"]:
+            return False, "actions: 'access_safe, access_main' not allowed in access_main"
         if action in self.validactions:
             try:
-                return self.__getattribute__(action)(*args)
+                return self.__getattribute__(action)(obdict)
             except AddressFail as e:
-                return False, "Addresserror:\n{}".format(e.msg), isself, self.cert_hash
+                return False, "Addresserror:\n{}".format(e.msg)
             except ConnectionRefusedError:
-                return False, "unreachable", isself, self.cert_hash
+                return False, "unreachable"
             except Exception as e:
                 st="Error: {}\n".format(e)
                 if "tb_frame" in e.__dict__:
                     st="{}\n{}\n\n".format(st,traceback.format_tb(e))
                 st = "{}Errortype: {}\nCommandline: {}".format(st, type(e).__name__, st)
-                return False, "Error:\n{}".format(st), isself, self.cert_hash
+                return False, "Error:\n{}".format(st)
         else:
-            return False, "not in validactions", isself, self.cert_hash
+            return False, "not in validactions"
 
 
-###server on client
-
-
+### receiverpart of client ###
 
 class client_server(commonscn):
     capabilities = ["basic",]
     scn_type = "client"
     spmap = {}
-    validactions = {"info", "getservice", "listservices", "cap", "prioty", "registerservice", "delservice"}
+    validactions = {"info", "getservice", "dumpservices", "cap", "prioty", "registerservice", "delservice"}
     local_client_service_control = False
     wlock = None
     def __init__(self, dcserver):
@@ -272,8 +251,8 @@ class client_server(commonscn):
         self.message = dcserver["message"]
         self.priority = dcserver["priority"]
         self.cert_hash = dcserver["certhash"]
-        
-        #self.update_cache()
+        self.cache["listservices"] = gen_result({}, True)
+        self.update_cache()
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     def registerservice(self, obdict):
@@ -282,6 +261,8 @@ class client_server(commonscn):
         if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
             self.spmap[obdict.get("service")] = obdict.get("port")
+            self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
+            #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             self.wlock.release()
             return True, "success"
         return False, "no permission"
@@ -294,6 +275,7 @@ class client_server(commonscn):
             self.wlock.acquire()
             if obdict["service"] in self.spmap:
                 del self.spmap[obdict["service"]]
+                self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             self.wlock.release()
             return  True, "success"
         return False, "no permission"
@@ -305,19 +287,24 @@ class client_server(commonscn):
             return False, "check_args failed (client_server:service)"
         if obdict["service"] not in self.spmap:
             return False, "service"
-        return True, self.spmap[_service]
-
-    def listservices(self, obdict):
-        return True, self.spmap
-
-    def info(self, obdict):
-        return True, self.cache["info"]
-
-    def cap(self, obdict):
-        return True, self.cache["cap"]
+        return True, self.spmap[obdict["service"]]
     
-    def prioty(self, obdict):
-        return True, self.cache["prioty"]
+    # help section
+    def cmdhelp(self):
+        out="""### cmd-commands ###
+hash <pw>: calculate hash for pw
+plugin <plugin>:<...>: speak with plugin
+"""
+        for elem in self.validactions:
+            if elem in client_admin.validactions_admin:
+                eperm = "{}(admin)".format(elem)
+            else:
+                eperm = elem
+            if elem in cmdanot:
+                out += "{}{}: {}".format(eperm,*cmdanot[elem])+"\n"
+            else:
+                out += "{}: {}".format(eperm,"<undocumented>")+"\n"
+        return out
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simplescn/0.5 (client)'
@@ -360,13 +347,22 @@ class client_handler(BaseHTTPRequestHandler):
                 realm = "client"
         else:
             realm = "client"
-        if self.links["auth"].verify(realm, _auth) == False:
+        if self.links["auth"].verify(realm, self.auth_info) == False:
             authreq = self.links["auth"].request_auth(realm)
             self.send_header("Content-Type", "application/json")
             self.send_response(401, json.dumps(authreq))
             self.end_headers()
             return
-
+        
+        if action in self.links["client_server"].cache:
+             self.send_header('Content-Type', "application/json; charset=utf-8")
+             self.send_response(200,bytes(self.links["client_server"].cache[action], "utf-8"))
+             self.end_headers()
+             return
+        
+        if self.headers.get("Content-Type", None) is None:
+            self.send_error("POST data needed")
+            return
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
         obdict = safe_mdecode(self.rfile.read(),self.headers.get("Content-Type"))
         if obdict is None:
@@ -423,7 +419,6 @@ class client_handler(BaseHTTPRequestHandler):
         obdict["clientaddress"] = self.client_address
         obdict["headers"] = self.headers
         try:
-            out = resp_st.copy()
             func = self.links["client_server"].__getattribute__(action)
             result=func(obdict)
             if len(result)==2:
@@ -468,12 +463,13 @@ class client_handler(BaseHTTPRequestHandler):
             return
         elif  _path[0]=="static" and len(_path)>=2:
             if _path[1] in self.statics:
-                self.send_response(200)
+                self.send_response(200, self.statics[_path[1]])
                 self.end_headers()
-                self.wfile.write(self.statics[_path[1]])
-            else:
-                self.send_error(404, "not -found")
+                return
+        elif len(_path)==2:
+            self.handle_server(_path[0])
             return
+        self.send_error(404, "not -found")
     
     def parse_request(self):
         BaseHTTPRequestHandler.parse_request(self)
@@ -490,7 +486,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(406, "Parsing auth_info failed")
     
     def do_POST(self):
-        splitted = self.path[1:].split("/",1)
+        splitted = self.path[1:].split("/", 1)
         pluginm = self.links["client_server"].pluginmanager
         if len(splitted) == 1:
             resource = splitted[0]
@@ -500,11 +496,13 @@ class client_handler(BaseHTTPRequestHandler):
             sub = splitted[1]
         
         if resource == "plugin":
-            if len(splitted) != 2:
-                self.send_error(400, "no plugin specified", "No plugin was specified")
+            split2 = sub.split("/", 1)
+            if len(split2) != 2:
+                self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
                 return
-            elif pluginm.redirect_addr not in ["", None]:
-                sockd = self.links["client_client"].do_request(pluginm.redirect_addr, \
+            plugin, action = split2
+            if pluginm.redirect_addr not in ["", None]:
+                sockd = self.links["client"].do_request(pluginm.redirect_addr, \
                                         self.path, requesttype = "POST")
                 redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
                 redout.daemon=True
@@ -512,11 +510,11 @@ class client_handler(BaseHTTPRequestHandler):
                 rw_socket(sockd, self.connection)
                 return
             
-            if sub not in pluginm.plugins or "receive" not in pluginm.plugins[plugin].__dict__:
+            if plugin not in pluginm.plugins or "receive" not in pluginm.plugins[plugin].__dict__:
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(sub))
                 return
             try:
-                pluginm.plugins[sub].receive(action, self.connection)
+                pluginm.plugins[plugin].receive(action, self.connection)
             except Exception as e:
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))
@@ -663,28 +661,7 @@ cmdanot={
     "get": (" <serverurl>/<name>/<hash>", "retrieve ip from client from server")
 
     }
-                
-def cmdhelp():
-    out="""### cmd-commands ###
-hash <pw>: calculate hash for pw
-plugin <plugin>/<...>: speak with plugin
-"""
-    for elem in client_client.validactions:
-        if elem in client_admin.validactions_admin:
-            eperm = "{}(admin)".format(elem)
-        else:
-            eperm = elem
-        if elem in cmdanot:
-            out += "{}{}: {}".format(eperm,*cmdanot[elem])+"\n"
-        else:
-            out += "{}: {}".format(eperm,"<undocumented>")+"\n"
 
-    out += """
-### cmd-headers ###
-headers defined this way: ...?<header1>=<value1>&<header2>=<value2>...
-TODO
-"""
-    return out
     
 def paramhelp():
     return """
