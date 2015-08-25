@@ -185,15 +185,16 @@ class server_handler(BaseHTTPRequestHandler):
             return
             
         _ppath=os.path.join(sharedir, "html",lang, page)
-        if os.path.exists(_ppath)==False:
-            self.send_error(404,"file not exist")
-            return
-        self.send_response(200)
-        self.send_header('Content-type',"text/html")
-        self.end_headers()
         
-        with open(_ppath,"rb") as rob:
-            self.wfile.write(rob.read())
+        fullob = None
+        with open(_ppath, "rb") as rob:
+            fullob = rob.read()
+        if fullob is None:
+            self.send_error(404, "file not found")
+        else:
+            self.send_response(200,  fullob)
+            self.send_header('Content-Type', "text/html")
+            self.end_headers()
     
     def parse_request(self):
         BaseHTTPRequestHandler.parse_request(self)

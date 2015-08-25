@@ -612,9 +612,9 @@ authrequest_struct = {
 
 auth_struct = {
 "auth": None,
-"timestamp": None,
-"nonce": None,
-"saveserver": None
+"timestamp": None
+#"nonce": None,
+#"saveserver": None
 }
 
 
@@ -670,19 +670,24 @@ class scnauth_client(object):
     def auth(self, pw, authreq_ob, pubcert_hash="", savedata=None):
         #nonce = str(base64.urlsafe_b64encode(os.urandom(nonce_size)))
         realm = authreq_ob["realm"]
-        timestamp = authreq_ob["timestamp"]
-        dauth = auth_struct.copy()
-        dauth["timestamp"] = timestamp
         #dauth["nonce"] = nonce
-        pre = dhash((dhash(pw, authreq_ob["algo"]), realm), authreq_ob["algo"])
+        pre = dhash((dhash(pw, authreq_ob["algo"]), authreq_ob["realm"]), authreq_ob["algo"])
         if savedata != None:
             saveid = savedata 
             if saveid not in self.save_auth:
                 self.save_auth[saveid]={}
             self.save_auth[saveid][realm] = (pre, authreq_ob["algo"])
-        dauth["auth"] = dhash((pre, pubcert_hash, timestamp), authreq_ob["algo"])
-        return realm, dauth
+        return self.asauth(pre,  authreq_ob, pubcert_hash=pubcert_hash)
     
+    def asauth(self, pre, authreq_ob, pubcert_hash=""):
+        if pre is None:
+            return None
+        dauth = auth_struct.copy()
+        dauth["timestamp"] = authreq_ob["timestamp"]
+        authreq_ob["realm"]
+        dauth["auth"] = dhash((pre, pubcert_hash, authreq_ob["timestamp"]), authreq_ob["algo"])
+        return dauth
+
     def saveauth(self, realm, pw, savedata):
         saveid = savedata
         pre = dhash((dhash(pw, DEFAULT_HASHALGORITHM), realm), DEFAULT_HASHALGORITHM)

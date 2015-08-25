@@ -61,7 +61,15 @@ class client_client(client_admin, client_safe):
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
         self._cache_help = self.cmdhelp()
-
+    
+    def pw_auth(self, hashpcert, reqob, reauthcount):
+        if reauthcount == 0:
+            authob = self.links["auth"].reauth(hashpcert, reqob)
+        else:
+            authob = None
+        if reauthcount <= 3:
+            authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
+        return authob
     def do_request(self, _addr, _path, body={}, headers = {}, forceport=False, context=None, reauthcount=0):
         if context is None:
             context = self.sslcont
@@ -70,7 +78,7 @@ class client_client(client_admin, client_safe):
             sendheaders[key] = val
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
         
-        auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}"))
+        #
         #proxy_parsed = json.loads(sendheaders.get("Proxy-Authorization", "scn {}"))
         
         _addr=scnparse_url(_addr,force_port=forceport)
@@ -101,17 +109,20 @@ class client_client(client_admin, client_safe):
         #if requesttype == "POST" and body is None:
         #    return con.sock
         r=con.getresponse()
-        if r.status == 401:
+        if r.status == 401 and callable(body.get("pwcall_method")) == True:
+            auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ")[1])
             reqob=safe_mdecode(r.read(), r.headers.get("Content-Type","application/json; charset=utf-8"))
             if reqob is None:
                 logger().error("Invalid password request object")
                 return False
-            
-            realm, authob = self.links["auth"].reauth(hashpcert, reqob)
-            if authob is None or reauthcount>0:
-                realm, authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, None)
+            realm = reqob.get("realm")
+            if body.get("pwcall_method") is None:
+                authob = None
             else:
-                reauthcount+=1
+                authob = body.get("pwcall_method")(hashpcert, reqob, reauthcount)
+            if authob is None:
+                return False, "Autherror", val, hashpcert
+            reauthcount+=1
             if realm == "proxy":
                 proxy_parsed = {}
                 proxy_parsed["proxy"] = authob
@@ -160,11 +171,11 @@ class client_client(client_admin, client_safe):
             ret[1] = "Error: plugin does not exist"
             return False, "Error: plugin does not exist"
         plugin = plugins[obdict["plugin"]]
-        if "cmd_node_actions" not in plugin.__dict__:
+        if hasattr(plugin, "cmd_node_actions") == False:
             return False,  "Error: plugin does not support commandline"
                 
         action = obdict["paction"]
-        if "cmd_node_localized_actions" in plugin.__dict__ and \
+        if hasattr(plugin, "cmd_node_localized_actions") and \
                 action in plugin.cmd_node_localized_actions:
                 action = plugin.cmd_node_localized_actions[action]
         try:
@@ -208,11 +219,15 @@ class client_client(client_admin, client_safe):
     def access_safe(self, action, requester=None, **obdict):
         if action in ["access_main", "access_safe", "cmd_plugin"]:
             return False, "actions: 'access_safe, access_main, cmd_plugin' not allowed in access_safe"
+        def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
+            authob = self.links["auth"].asauth(obdict("auth", {}).get(authreqob.get("realm")), authreqob)
+            return authob
+        obdict["pwcall_method"] = pw_auth_plugin
         if action in self.validactions:
             if action not in self.validactions_safe:
                 if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
                     return False, "no permission"
-            return self.__getattribute__(action)(obdict)
+            return getattr(self, action)(obdict)
         else:
             return False, "not in validactions"
     
@@ -220,12 +235,12 @@ class client_client(client_admin, client_safe):
     # headers=headers
     # client_address=client_address
     def access_main(self, action, **obdict):
-        print(action)
+        obdict["pwcall_method"] = self.pw_auth
         if action in ["access_main", "access_safe"]:
             return False, "actions: 'access_safe, access_main' not allowed in access_main"
         if action in self.validactions:
             try:
-                return self.__getattribute__(action)(obdict)
+                return getattr(self, action)(obdict)
             except AddressFail as e:
                 return False, "Addresserror:\n{}".format(e.msg)
             except ConnectionRefusedError:
@@ -246,7 +261,7 @@ plugin <plugin>:<...>: speak with plugin
                 eperm = " (admin)"
             else:
                 eperm = ""
-            func = self.__getattribute__(funcname)
+            func = getattr(self, funcname)
             out+="{func}{admin}:{doku}".format(func=funcname, admin=eperm, doku=func.__doc__)
             if hasattr(func, "requires")==False:
                 print("skip non decorated function: "+funcname)
@@ -345,15 +360,16 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(404, "no webgui")
             return
         _ppath = os.path.join(sharedir, "html", lang, page)
-        if os.path.exists(_ppath) == False:
-            self.send_error(404, "file not exist")
-            return
-        self.send_response(200)
-        self.send_header('Content-Type', "text/html")
-        self.end_headers()
+        fullob = None
         with open(_ppath, "rb") as rob:
-            self.wfile.write(rob.read())
-            #.format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
+            fullob = rob.read()
+        if fullob is None:
+            self.send_error(404, "file not found")
+        else:
+            self.send_response(200,  fullob)
+            self.send_header('Content-Type', "text/html")
+            self.end_headers()
+        #.format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
 
         
     ### GET ###
@@ -678,18 +694,7 @@ class client_init(object):
         self.sthread.daemon = True
         self.sthread.start()
         
-cmdanot={
-    "help": ("", "open help"),
-    "show": ("","general info about client"),
-    "setconfig": (" <key>/<value>", "set key of main config to value"),
-    "setpluginconfig": (" <plugin>/<key>/<value>", "set key of plugin config to value"),
-    "register": (" <serverurl>", "register ip on server"),
-    "registerservice": (" [clientname:port/]<servicename>/<serviceport>", "register service on client\n    (server accepts only localhost by default)"),
-    "get": (" <serverurl>/<name>/<hash>", "retrieve ip from client from server")
 
-    }
-
-    
 def paramhelp():
     return """
 ### parameters ###
