@@ -24,7 +24,7 @@ class client_safe(object): #abc.ABC):
     @check_argsdeco((("server",str),))
     def register(self, obdict):
         """ register client """
-        return self.do_request(obdict("server"),"/server/register", {"name":self.name, "hash": self.cert_hash, "port": self.show()[1]["port"]}, obdict["header"])
+        return self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "hash": self.cert_hash, "port": self.show(obdict)[1]["port"], "pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"))
     
     @check_argsdeco()
     def show(self, obdict):
@@ -50,11 +50,11 @@ class client_safe(object): #abc.ABC):
     @check_argsdeco((("server", str),("name", str),("hash", str)))
     def get(self,obdict):
         """ fetch client address """
-        obdict["forcehash"] = obdict["hash"]
-        _getret = self.do_request(obdict["server"],"/server/get", obdict,obdict["headers"])
+        #obdict["forcehash"] = obdict["hash"]
+        _getret = self.do_request(obdict["server"],"/server/get", obdict,headers=obdict.get("headers"))
         if _getret[0] == False or check_args(_getret[1], (("address", str), ("port", int))) == False:
             return _getret
-        if _getret[1]["port"]<1:
+        if _getret[1].get("port", 0)<1:
             return False,"port <1: {}".format(_getret[1]["port"])
         return _getret
     
@@ -85,7 +85,7 @@ class client_safe(object): #abc.ABC):
 
     @check_argsdeco((("server",str),))
     def listnames(self, obdict):
-        _tnames = self.do_request(obdict["server"], "/server/dumpnames", headers=obdict["headers"])
+        _tnames = self.do_request(obdict["server"], "/server/dumpnames", headers=obdict.get("headers"))
         if _tnames[0] == False:
             return _tnames
         out=sorted(_tnames[1], key=lambda t: t[0])
@@ -98,7 +98,7 @@ class client_safe(object): #abc.ABC):
             del obdict["client"]
         else:
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(client_addr, "/server/getservice",obdict,headers=obdict["headers"])
+        return self.do_request(client_addr, "/server/getservice",obdict,headers=obdict.get("headers"))
     
     @check_argsdeco((), (("client", str),)) 
     def listservices(self, obdict):
@@ -107,7 +107,7 @@ class client_safe(object): #abc.ABC):
             del obdict["client"]
         else:
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        _tservices = self.do_request(client_addr, "/server/dumpservices", headers=obdict["headers"], forceport=True)
+        _tservices = self.do_request(client_addr, "/server/dumpservices", headers=obdict.get("headers"), forceport=True)
         if _tservices[0] == False:
             return _tservices
         out=sorted(_tservices[1], key=lambda t: t[0])
@@ -120,7 +120,7 @@ class client_safe(object): #abc.ABC):
             del obdict["address"]
         else:
             _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/info", headers=obdict["headers"], forceport=True)
+        return self.do_request(_addr, "/server/info", headers=obdict.get("headers"), forceport=True)
 
     @check_argsdeco((), (("address",str),))
     def cap(self, obdict):
@@ -129,7 +129,7 @@ class client_safe(object): #abc.ABC):
             del obdict["address"]
         else:
             _addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/cap", headers=obdict["headers"], forceport=True)
+        return self.do_request(_addr, "/server/cap", headers=obdict.get("headers"), forceport=True)
     
     @check_argsdeco((), (("address",str),))
     def prioty_direct(self, obdict):
@@ -138,11 +138,11 @@ class client_safe(object): #abc.ABC):
             del obdict["address"]
         else:
             _addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(_addr,  "/server/prioty", headers=obdict["headers"], forceport=True)
+        return self.do_request(_addr,  "/server/prioty", headers=obdict.get("headers"), forceport=True)
 
     @check_argsdeco((("server", str), ("name", str), ("hash", str)))
     def prioty(self, obdict):
-        temp=self.get(obdict["server"],obdict["name"],obdict["hash"],headers=obdict["headers"])
+        temp=self.get(obdict["server"],obdict["name"],obdict["hash"],headers=obdict.get("headers"))
         if temp[0]==False:
             return temp
         return self.prioty_direct(temp[1])

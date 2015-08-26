@@ -81,13 +81,16 @@ resp_st={
 
 
 def generate_error(err):
-    error={"name": "unknown", "type":"unknown", "stacktrace":""}
-    error["name"] = err
+    error={"name": "unknown", "type":"unknown"}
+    if hasattr(err, "msg"):
+        error["name"] = str(err.msg)
+    else:
+        error["name"] = str(err)
     if isinstance(err,str) == True:
         error["type"] = ""
     else:
         error["type"] = type(err).__name__
-        if "tb_frame" in err.__dict__:
+        if hasattr(err,"tb_frame"):
             error["stacktrace"] = str(traceback.format_tb(err)) 
     return json.dumps(error)
 
@@ -127,11 +130,12 @@ class AddressEmptyFail(AddressFail):
 class VALError(Exception):
     msg = 'validation failed'
 class VALNameError(VALError):
-    msg = 'Name does not match'
+    msg = 'Name spoofed/does not match'
 class VALHashError(VALError):
     msg = 'Hash does not match'
 class VALMITMError(VALError):
     msg = 'MITM-attack suspected: nonce missing or check failed'
+    args = (msg, )
 
 #### logging ####
 
@@ -373,7 +377,7 @@ class configmanager(object):
             try:
                 temp=func(self, self.dbcon, *args, **kwargs)
             except Exception as e:
-                if "tb_frame" in e.__dict__:
+                if hasattr(e,"tb_frame"):
                     st="{}\n\n{}".format(e, traceback.format_tb(e))
                 else:
                     st="{}".format(e)
@@ -426,7 +430,7 @@ class configmanager(object):
         
     @dbaccess
     def set(self, dbcon, name, value):
-        if type(name).__name__ != "str":
+        if isinstance(name, str) == False:
             logger.error("name not string")
             return False
         if name not in self.defaults:
@@ -457,7 +461,7 @@ class configmanager(object):
         
     @dbaccess
     def get(self, dbcon, name):
-        if type(name).__name__ != "str":
+        if isinstance(name, str) == False:
             logger.error("name not string")
             return None
         if name in self.overlays:
@@ -585,7 +589,7 @@ class pluginmanager(object):
                 # use return False if plugin does not fit
                 ret = pload.init()
             except Exception as e:
-                if "tb_frame" in e.__dict__:
+                if hasattr(e,"tb_frame"):
                     st = "{}\n\n{}".format(e, traceback.format_tb(e))
                 else:
                     st = str(e)
@@ -723,12 +727,12 @@ class commonscn(object):
         self.isactive = False
     
     def update_cache(self):
-        self.cache["cap"] = gen_result({"caps": self.capabilities}, True)
-        self.cache["info"] = gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True)
-        self.cache["prioty"] = gen_result({"priority": self.priority, "type": self.scn_type}, True)
+        self.cache["cap"] = json.dumps(gen_result({"caps": self.capabilities}, True))
+        self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
+        self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
 
     def update_prioty(self):
-        self.cache["prioty"] = gen_result({"priority": self.priority, "type": self.scn_type}, True)
+        self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
 
 
 def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
@@ -755,14 +759,19 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
 
 # args is iterable with (argname, type)
 # _moddic is modified
-def check_args(_moddict, requiredargs, optionalargs=()):
+def check_args(_moddict, requires, optional=(), error=[]):
     search = set()
-    search.update(requiredargs)
-    search.update(optionalargs)
-    for arg, _type in search:
-        if arg not in _moddict and arg in optionalargs:
+    search.update(requires)
+    _optionallist = [elemoptional[0] for elemoptional in optional]
+    search.update(optional)
+    for elem in search:
+        if len(elem)!=2:
+            continue
+        arg, _type = elem
+        if arg not in _moddict and arg in _optionallist:
             continue
         elif arg not in _moddict:
+            error.append(arg)
             return False
         if isinstance(_moddict[arg], _type):
             continue
@@ -783,16 +792,22 @@ def check_args(_moddict, requiredargs, optionalargs=()):
         # check if everything is right now
         if isinstance(_moddict[arg], _type):
             continue
+        error.append(arg)
         return False
     return True
 
 # args is iterable with (argname, type)
 # _moddic is modified
-def check_argsdeco(_checkargs=(), _optionalargs=()):
+def check_argsdeco(requires=(), optional=()):
     def func_to_check(func):
-        def get_args(self, obdict):
-            if check_args(obdict, _checkargs, _optionalargs) == False:
-                return False, "check_args failed ({})".format(func.__name__), isself, self.cert_hash
+        def get_args(*args):
+            if len(args)!=2:
+                logger().error("check_args:wrong functioncall: {}: {}".format(func.__name__, args))
+            #    return False, "check_args failed ({}) wrong amount args: {}".format(func.__name__, args), isself, self.cert_hash
+            self, obdict = args
+            error=[]
+            if check_args(obdict, requires, optional, error=error) == False:
+                return False, "check_args failed ({}) arg: {}".format(func.__name__, error[0]), isself, self.cert_hash
             resp = func(self, obdict)
             if len(resp)==2:
                 return resp[0], resp[1], isself, self.cert_hash
@@ -803,8 +818,8 @@ def check_argsdeco(_checkargs=(), _optionalargs=()):
                     resp[0], "{} failed".format(func.__name__), isself, self.cert_hash
             else:
                 return resp
-        get_args.requires = _checkargs
-        get_args.optional = _optionalargs
+        get_args.requires = requires
+        get_args.optional = optional
         get_args.__doc__ = func.__doc__
         return get_args
     return func_to_check
@@ -816,17 +831,20 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
         if isinstance(inp, str) == False:
             if len(splitted)==2:
                 #splitted in format charset=utf-8
-                splitted = splitted.split("=")
-                charset = splitted[1].strip().rstrip()
+                split2 = splitted[1].split("=")
+                charset = split2[1].strip().rstrip()
             string = str(inp,charset)
         else:
             string = inp
+        if string == "":
+            logger().debug("Input empty")
+            return None
         if enctype == "application/x-www-form-urlencoded":
             tparse=parse.parse_qs(string)
             if tparse.get("auth", None) is not None:
                 tparse["auth"] = json.loads(tparse.get("auth")[0])
             return tparse
-        elif enctype == "application/json":
+        elif enctype == "application/json": 
             return json.loads(string)
         elif enctype in ["text/html", "text/plain"]:
             logger().warning("try to parse plain/html text")

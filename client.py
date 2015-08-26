@@ -70,14 +70,18 @@ class client_client(client_admin, client_safe):
         if reauthcount <= 3:
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
-    def do_request(self, _addr, _path, body={}, headers = {}, forceport=False, context=None, reauthcount=0):
+    def do_request(self, _addr, _path, body={}, headers = None, forceport=False, context=None, reauthcount=0):
         if context is None:
             context = self.sslcont
+        if headers is None:
+            headers = body.pop("headers", {})
+        else:
+            body.pop("headers", {})
+        
         sendheaders = reference_header.copy()
         for key, val in headers:
             sendheaders[key] = val
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
-        
         #
         #proxy_parsed = json.loads(sendheaders.get("Proxy-Authorization", "scn {}"))
         
@@ -94,32 +98,40 @@ class client_client(client_admin, client_safe):
             val = self.hashdb.certhash_as_name(hashpcert)
             if val == isself:
                 raise(VALNameError)
-
+        
         if body.get("destname") is not None and body.get("desthash") is not None:
             #con.putrequest("CONNECT", "/{}/{}".format(body.get("destname"), body.get("desthash")))
             con.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
+            #del body["destname"]
+            #del body["desthash"]
         
         con.putrequest("POST", _path)
         for key, val in sendheaders.items():
             if key != "Proxy-Authorization":
                 con.putheader(key, val)
-        
-        con.endheaders(json.dumps(body))
-        
+        pwcallm = body.get("pwcall_method")
+        if pwcallm:
+            del body["pwcall_method"]
+        ob=bytes(json.dumps(body), "utf-8")
+        #con.putheader("Content-Length", str(len(ob)))
+        con.endheaders()
+        print(ob)
+        #con.send(ob)
         #if requesttype == "POST" and body is None:
         #    return con.sock
         r=con.getresponse()
-        if r.status == 401 and callable(body.get("pwcall_method")) == True:
+        if r.status == 401 and callable(pwcallm) == True:
             auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ")[1])
             reqob=safe_mdecode(r.read(), r.headers.get("Content-Type","application/json; charset=utf-8"))
             if reqob is None:
                 logger().error("Invalid password request object")
                 return False
             realm = reqob.get("realm")
-            if body.get("pwcall_method") is None:
-                authob = None
+            if callable(pwcallm) == True:
+                authob = pwcallm(hashpcert, reqob, reauthcount)
             else:
-                authob = body.get("pwcall_method")(hashpcert, reqob, reauthcount)
+                authob = None
+
             if authob is None:
                 return False, "Autherror", val, hashpcert
             reauthcount+=1
@@ -141,7 +153,7 @@ class client_client(client_admin, client_safe):
                 #    if r.getheader(elem[0], "") != dhash_salt(hashpcert, "{}:{}".format(_nonce,elem[1])):
                 #        raise(VALMITMError)
             
-            readob = r.read()
+            readob = r.read()#int(r.getheader("Content-Length", str(max_serverrequest_size))))
             con.close()
             if r.status == 200:
                 status = True
@@ -366,7 +378,8 @@ class client_handler(BaseHTTPRequestHandler):
         if fullob is None:
             self.send_error(404, "file not found")
         else:
-            self.send_response(200,  fullob)
+            self.send_response(200)
+            self.send_header('Content-Length', len(fullob))
             self.send_header('Content-Type', "text/html")
             self.end_headers()
         #.format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
@@ -390,29 +403,27 @@ class client_handler(BaseHTTPRequestHandler):
             realm = "client"
         if self.links["auth"].verify(realm, self.auth_info) == False:
             authreq = self.links["auth"].request_auth(realm)
-            self.send_header("Content-Type", "application/json")
-            self.send_response(401, json.dumps(authreq))
+            ob = bytes(json.dumps(authreq), "utf-8")
+            self.send_response(401)
+            self.send_header("Content-Length", len(ob))
+            self.send_header('Content-Type', "application/json; charset=utf-8")
             self.end_headers()
+            self.wfile.write(ob)
             return
         
-        if action in self.links["client_server"].cache:
-             self.send_header('Content-Type', "application/json; charset=utf-8")
-             self.send_response(200,bytes(self.links["client_server"].cache[action], "utf-8"))
-             self.end_headers()
-             return
-        
-        if self.headers.get("Content-Type", None) is None:
-            self.send_error("POST data needed")
+        readob = self.rfile.read()
+        if readob == b"":
+            self.send_error(400,"POST data needed")
             return
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
-        obdict = safe_mdecode(self.rfile.read(),self.headers.get("Content-Type"))
+        obdict = safe_mdecode(readob, self.headers.get("Content-Type"))
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
         obdict["clientaddress"] = self.client_address
         obdict["headers"] = self.headers
         try:
-            func = self.links["client"].__getattribute__(action)#self.links["client"].access_main(action, _cmdlist, self.headers)
+            func = getattr(self.links["client"], action)#self.links["client"].access_main(action, _cmdlist, self.headers)
             response = func(obdict)
             jsonnized = json.dumps(response)
         except AddressFail as e:
@@ -425,47 +436,65 @@ class client_handler(BaseHTTPRequestHandler):
                 error = generate_error(e)
             response["errors"] = [error,]
             self.send_header("Content-Type", "application/json")
-            self.send_response(500, json.dumps(error))
+            self.send_response(500)
             self.end_headers()
+            self.wfile.write(bytes(json.dumps(error), "utf-8"))
             return
         if response.get("errors", None) is None:
-            self.send_response(400, bytes(jsonnized, "utf-8"))
+            self.send_response(400)
         else:
-            self.send_response(200, bytes(jsonnized, "utf-8"))
+            self.send_response(200)
+        ob=bytes(jsonnized, "utf-8")
         self.send_header("Cache-Control", "no-cache")
-        self.send_header('Content-Type', "application/json")
+        self.send_header('Content-Type', "application/json; charset=utf-8")
+        self.send_header('Content-Length', len(ob))
         self.end_headers()
+        self.wfile.write(ob)
 
-    def handle_server(self, action, obdict):
+    def handle_server(self, action):
         if action not in self.links["client_server"].validactions:
             self.send_error(400, "invalid action - server")
             return
         
-        if int(self.headers.get("Content-Length", "0"))>max_serverrequest_size:
+        contsize=int(self.headers.get("Content-Length", str(max_serverrequest_size)))
+        if contsize>max_serverrequest_size:
             self.send_error(431, "request too large")
-            return
-        
+                
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_response(401, json.dumps(authreq))
+            ob = bytes(json.dumps(authreq), "utf-8")
+            self.send_response(401)
+            self.send_header("Content-Length", len(ob))
+            self.send_header('Content-Type', "application/json; charset=utf-8")
             self.end_headers()
+            self.wfile.write(ob)
             return
         
+        
+        if action in self.links["client_server"].cache:
+            ob = bytes(self.links["client_server"].cache[action], "utf-8")
+            self.send_response(200)
+            #self.send_header("Content-Length", len(ob))
+            self.send_header('Content-Type', "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(ob)
+            return
+        
+        readob = self.rfile.read()
+        if readob == b"":
+            self.send_error(400,"POST data needed")
+            return
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
-        obdict = safe_mdecode(self.rfile.read(),self.headers.get("Content-Type"))
+        obdict = safe_mdecode(readob,self.headers.get("Content-Type"))
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
         obdict["clientaddress"] = self.client_address
         obdict["headers"] = self.headers
         try:
-            func = self.links["client_server"].__getattribute__(action)
+            func = getattr(self.links["client_server"], action)
             result=func(obdict)
-            if len(result)==2:
-                success, result = result
-            else:
-                success, result, certname, certhash = result
+            success, result, certname, certhash = result
         except Exception as e:
             response = {}
             error = generate_error("unknown")
@@ -473,17 +502,21 @@ class client_handler(BaseHTTPRequestHandler):
                 error = generate_error(e)
             response["error"] = error
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_response(500, json.dumps(error))
+            self.send_response(500)
             self.end_headers()
+            self.wfile.write(bytes(json.dumps(error), "utf-8"))
             return
         
         if success:
-            self.send_response(400,bytes(json.dumps(result), "utf-8"))
+            self.send_response(400)
         else:
-            self.send_response(200,bytes(json.dumps(result), "utf-8"))
+            self.send_response(200)
+        ob=bytes(json.dumps(result), "utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
+        #self.send_header('Content-Length', len(ob))
         self.end_headers()
+        self.wfile.write(ob)
     
     def do_GET(self):
         if self.path == "/favicon.ico":
@@ -504,28 +537,28 @@ class client_handler(BaseHTTPRequestHandler):
             return
         elif  _path[0]=="static" and len(_path)>=2:
             if _path[1] in self.statics:
-                self.send_response(200, self.statics[_path[1]])
+                self.send_response(200)
                 self.end_headers()
+                self.wfile.write(self.statics[_path[1]])
                 return
         elif len(_path)==2:
             self.handle_server(_path[0])
             return
         self.send_error(404, "not -found")
     
-    def parse_request(self):
-        BaseHTTPRequestHandler.parse_request(self)
+    def handle_one_request(self):
+        BaseHTTPRequestHandler.handle_one_request(self)
         if self.headers.get("User-Agent", "").split("/", 1)[0].strip().rstrip() == "simplescn":
             self.error_message_format = "%(code)d: %(message)s – %(explain)s"
         
         _auth = self.headers.get("Authorization", 'scn {}')
         method, _auth = _auth.split(" ", 1)
         _auth= _auth.strip().rstrip()
-        if method != "scn":
-            self.send_error(406, "Invalid auth method")
-        self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type","application/json; charset=utf-8"))
-        if self.auth_info is None:
-            self.send_error(406, "Parsing auth_info failed")
-    
+        if method == "scn":
+            self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type","application/json; charset=utf-8"))
+        else:
+            self.auth_info = None
+
     def do_POST(self):
         splitted = self.path[1:].split("/", 1)
         pluginm = self.links["client_server"].pluginmanager
@@ -800,7 +833,7 @@ if __name__ ==  "__main__":
         cm.serve_forever_nonblock()
         logger().debug("start console")
         for name, value in cm.links["client"].show({})[1].items():
-            print(name, value, sep=":")#,  end="/")
+            print(name, value, sep=":")
         while True:
             inp=input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
             if inp in ["exit", "close", "quit"]:

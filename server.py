@@ -25,7 +25,7 @@ import logging
 import json, base64
 import ssl
 
-from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_args, scnauth_server, max_serverrequest_size, generate_error, gen_result
+from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result
 #configmanager
 
 
@@ -94,14 +94,15 @@ class server(commonscn):
                 if len(self.nhipmap[_name])==0:
                     del self.nhipmap[_name]
                     del self.nhipmap_etime[_name]
-            self.cache["dumpnames"] = gen_result(self.nhipmap, True)
+            self.cache["dumpnames"] = json.dumps(gen_result(self.nhipmap, True))
             #self.cache["listnames"] = gen_result(sorted(self.nhipmap.items(), key=lambda t: t[0]), True)
-            self.cache["num_nodes"] = gen_result(len(self.nhipmap), True)
+            self.cache["num_nodes"] = json.dumps(gen_result(len(self.nhipmap), True))
             self.changeip_lock.release()
             self.nhipmap_cond.clear()
             time.sleep(self.sleep_time)
             # wait until hashes change
             self.nhipmap_cond.wait()
+
     #private, do not include in validactions
     def check_register(self, addresst, _hash):
         try:
@@ -113,16 +114,14 @@ class server(commonscn):
         if dhash(_cert) != _hash:
             return False, "hash does not match"
         return True, "registered_ip"
-        
-    def register(self, obdict): #_name,_hash,_port,_addr): # , _cert):
-        if check_args(obdict, (("hash",str),("name",str),("port",str))) == False:
-            return False, "check_args failed (server: register)"
+    
+    @check_argsdeco((("hash",str),("name",str),("port",str)))
+    def register(self, obdict):
         if check_name(obdict["name"])==False:
             return False, "invalid name"
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), obdict["hash"])
         if ret[0] == False:
             return ret
-        
         self.changeip_lock.acquire(False)
         if obdict["name"] not in self.nhipmap:
             self.nhipmap[obdict["name"]]={}
@@ -136,9 +135,8 @@ class server(commonscn):
         return ret
     
     
+    @check_argsdeco((("hash",str),("name",str)))
     def get(self, obdict):
-        if check_args(obdict, (("name",str),("hash",str))) == False:
-            return False, "check_args failed (server: get)"
         if obdict["name"] not in self.nhipmap:
             return False, "name not exist"
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
@@ -161,14 +159,11 @@ class server_handler(BaseHTTPRequestHandler):
         
     #tunnel stuff
     istunnel=False
-    tpwhash=None
     tbsize=1500
     ttimeout=None
     webgui=True
     
-    answernonce = None
-    spwveri = None
-    tpwveri = None
+    auth_info = None
     
     
     statics = {}
@@ -196,54 +191,60 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', "text/html")
             self.end_headers()
     
-    def parse_request(self):
-        BaseHTTPRequestHandler.parse_request(self)
+    def handle_one_request(self):
+        BaseHTTPRequestHandler.handle_one_request(self)
         if self.headers.get("User-Agent", "").split("/", 1)[0].strip().rstrip() == "simplescn":
             self.error_message_format = "%(code)d: %(message)s – %(explain)s"
-        
         _auth = self.headers.get("Authorization", 'scn {}')
         method, _auth = _auth.split(" ", 1)
         _auth= _auth.strip().rstrip()
-        if method != "scn":
-            self.send_error(406, "Invalid auth method")
-        self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type", "application/json; charset=utf-8"))
-        if self.auth_info is None:
-            self.send_error(406, "Parsing auth_info failed")
+        if method == "scn":
+            self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type", "application/json; charset=utf-8"))
+        else:
+            self.auth_info = None
 
     def handle_server(self, action):
         if action not in self.links["server_server"].validactions:
             self.send_error(400, "invalid action - server")
             return
         
-        if int(self.headers.get("Content-Length", "0"))>max_serverrequest_size:
+        contsize=int(self.headers.get("Content-Length", str(max_serverrequest_size)))
+        if contsize>max_serverrequest_size:
             self.send_error(431, "request too large")
-            return
         
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
+            ob = bytes(json.dumps(authreq), "utf-8")
+            self.send_response(401)
+            self.send_header("Content-Length", len(ob))
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_response(401, json.dumps(authreq))
             self.end_headers()
+            self.wfile.write(ob)
             return
         
         if action in self.links["server_server"].cache:
-             self.send_header('Content-Type', "application/json; charset=utf-8")
-             self.send_response(200,bytes(self.links["server_server"].cache[action], "utf-8"))
-             self.end_headers()
-             return
+            ob = bytes(self.links["server_server"].cache[action], "utf-8")
+            self.send_response(200)
+            self.send_header("Content-Length", len(ob))
+            self.send_header('Content-Type', "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(ob)
+            return
         
-        if self.headers.get("Content-Type", None) is None:
-            self.send_error("POST data needed")
+        readob = self.rfile.read()
+        print(readob)
+        if readob == b"":
+            self.send_error(400,"POST data needed")
             return
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
-        obdict = safe_mdecode(self.rfile.read(),self.headers.get("Content-Type", "application/json; charset=utf-8"))
+        obdict = safe_mdecode(readob, self.headers.get("Content-Type", "application/json; charset=utf-8"))
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
         obdict["clientaddress"] = self.client_address
         obdict["headers"] = self.headers
         try:
-            func=self.links["server_server"].__getattribute__(action)
+            func = getattr(self.links["server_server"])(action)
             witherror, jsonnized = func(obdict)
         except Exception as e:
             response = {}
@@ -252,17 +253,21 @@ class server_handler(BaseHTTPRequestHandler):
                 error = generate_error(e)
             response["errors"] = [error,]
             self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_response(500, json.dumps(response))
+            self.send_response(500)
             self.end_headers()
+            self.wfile.write(bytes(json.dumps(response), "utf8"))
             return
         if witherror == True:
-            self.send_response(400,bytes(jsonnized, "utf-8"))
+            self.send_response(400)
         else:
-            self.send_response(200,bytes(jsonnized, "utf-8"))
+            self.send_response(200)
+        ob=bytes(jsonnized, "utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
+        self.send_header('Content-Lenght', len(ob))
         self.end_headers()
-    
+        self.wfile.write(ob)
+        
     def do_GET(self):
         if self.path=="/favicon.ico":
             if "favicon.ico" in self.statics:
@@ -347,7 +352,7 @@ class server_handler(BaseHTTPRequestHandler):
                 rw_socket(sockd, self.connection)
                 return
             
-            if plugin not in pluginm.plugins or "receive" not in pluginm.plugins[plugin].__dict__:
+            if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "receive"):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
             try:

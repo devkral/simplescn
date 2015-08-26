@@ -105,7 +105,7 @@ class client_admin(object): #"register",
         if obdict["plugin"] not in listplugin:
             return False, "plugin does not exist"
         # last case shouldn't exist but be sure
-        if obdict["plugin"] not in pluginm.plugins or "config" not in pluginm.plugins[obdict["plugin"]].__dict__:
+        if obdict["plugin"] not in pluginm.plugins or hasattr(pluginm.plugins[obdict["plugin"]], "config"):
             config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
         else:
             config = pluginm.plugins[obdict["plugin"]].config
@@ -122,7 +122,7 @@ class client_admin(object): #"register",
         if obdict["plugin"] not in listplugin:
             return False, "plugin does not exist"
         # last case shouldn't exist but be sure
-        if obdict["plugin"] not in pluginm.plugins or "config" not in pluginm.plugins[obdict["plugin"]].__dict__:
+        if obdict["plugin"] not in pluginm.plugins or hasattr(pluginm.plugins[obdict["plugin"]]):
             config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
         else:
             config = pluginm.plugins[obdict["plugin"]].config
