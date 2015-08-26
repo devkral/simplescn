@@ -40,7 +40,8 @@ from common import logger
 reference_header = \
 {
 "User-Agent": "simplescn/0.5 (client)",
-"Authorization": 'scn {}'
+"Authorization": 'scn {}', 
+"Connection": 'close'
 }
 class client_client(client_admin, client_safe):
     name=None
@@ -70,7 +71,7 @@ class client_client(client_admin, client_safe):
         if reauthcount <= 3:
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
-    def do_request(self, _addr, _path, body={}, headers = None, forceport=False, context=None, reauthcount=0):
+    def do_request(self, _addr, _path, body={}, headers = None, forceport=False, context=None, reauthcount=0, cont=None):
         if context is None:
             context = self.sslcont
         if headers is None:
@@ -81,13 +82,19 @@ class client_client(client_admin, client_safe):
         sendheaders = reference_header.copy()
         for key, val in headers:
             sendheaders[key] = val
+        
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
         #
         #proxy_parsed = json.loads(sendheaders.get("Proxy-Authorization", "scn {}"))
         
-        _addr=scnparse_url(_addr,force_port=forceport)
-        con=client.HTTPSConnection(_addr[0],_addr[1], context=context)
-        con.connect()
+        if True: #cont is None:
+            _addr=scnparse_url(_addr,force_port=forceport)
+            con=client.HTTPSConnection(_addr[0],_addr[1], context=context)
+            con.connect()
+        #else:
+            #con = cont.pop()
+            #sendheaders["Con"] = "application/json; charset=utf-8"
+            
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         hashpcert=dhash(pcert)
         if hashpcert==self.cert_hash:
@@ -167,7 +174,11 @@ class client_client(client_admin, client_safe):
                 obdict = safe_mdecode(readob, r.headers.get("Content-Type", "application/json"))
             if check_result(obdict, status) == False:
                 return False, "error parsing request", val, hashpcert
-            
+            if isinstance(con, list):
+                if len(cont) ==0:
+                    cont.append(con)
+            else:
+                con.close()
             if status == True:
                 return status, obdict["result"], val, hashpcert
             else:
