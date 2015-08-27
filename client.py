@@ -188,7 +188,7 @@ class client_client(client_admin, client_safe):
             else:
                 return status, obdict["error"], validated_name, hashpcert
     
-    @check_argsdeco((("plugin", str), ("paction", str)))
+    @check_argsdeco({"plugin": (str, "name of plugin"), "paction": (str, "action of plugin")})
     def cmd_plugin(self, obdict):
         """ trigger commandline action of plugin """ 
         plugins = self.links["client_server"].pluginmanager.plugins
@@ -213,7 +213,7 @@ class client_client(client_admin, client_safe):
             False, generate_error(e)
     
     # auth is special variable see safe_mdecode in common
-    @check_argsdeco((("auth", dict),), (("hash", str), ("address", str)))
+    @check_argsdeco({"auth": (dict, ), "hash": (str, ), "address": (str, )})
     def remember_auth(self, obdict):
         """ Remember Authentification info for as long the program runs """
         if obdict.get("hash") is None:
@@ -291,23 +291,47 @@ plugin <plugin>:<...>: speak with plugin
                 eperm = ""
             func = getattr(self, funcname)
             out+="{func}{admin}:{doku}".format(func=funcname, admin=eperm, doku=func.__doc__)
-            if hasattr(func, "requires")==False:
+            if hasattr(func, "requires") == False or hasattr(func, "optional") == False:
                 print("skip non decorated function: "+funcname)
                 continue
-            out+="\n reqargs: "
             try:
-                for elem in func.requires:
-                    name, _type=elem
-                    out+=name+":"+_type.__name__+", "
+                if len(func.requires) == 0:
+                    # xx gets deleted [:-2]
+                    out+="\n reqargs: n.a.xx"
+                else:
+                    out+="\n reqargs: "
+                for name, val in func.requires.items():
+                    if len(val) == 2:
+                        _type, doc = val
+                        doc = ":{}".format(doc)
+                    elif len(val) == 1:
+                        _type = val[0]
+                        doc = ""
+                    else:
+                        print(funcname, "invalid element: ", val)
+                        continue
+                    out+="{} ({}){}, ".format(name, _type.__name__, doc)
                 out=out[:-2]
-                out+="\n optargs: "
-                for elem in func.optional:
-                    name, _type=elem
-                    out+=name+":"+_type.__name__+", "
+                if len(func.optional) == 0:
+                    # xx gets deleted [:-2]
+                    out+="\n optargs: n.a.xx"
+                else:
+                    out+="\n optargs: "
+                for name, val in func.optional.items():
+                    if len(val) == 2:
+                        _type, doc = val
+                        doc = ": {}".format(doc)
+                    elif len(val) == 1:
+                        _type = val[0]
+                        doc = ""
+                    else:
+                        print(funcname, "invalid element: ", val)
+                        continue
+                    out+="{} ({}){}, ".format(name, _type.__name__, doc)
                 out=out[:-2]
                 out+="\n"
             except Exception as e:
-                print("Function :"+funcname+" has broken check_argdeco arguments")
+                print("Function : \""+funcname+"\" has broken check_argdeco arguments")
                 raise(e)
         return out
 

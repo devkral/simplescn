@@ -113,7 +113,7 @@ class server(commonscn):
             return False, "hash does not match"
         return True, "registered_ip"
     
-    @check_argsdeco((("hash",str),("name",str),("port",str)))
+    @check_argsdeco({"hash": (str, "client hash"),"name": (str, "client name"),"port": (str, "port on which the client runs")})
     def register(self, obdict):
         """ register client """
         if check_name(obdict["name"])==False:
@@ -134,7 +134,7 @@ class server(commonscn):
         return ret
     
     
-    @check_argsdeco((("hash",str),("name",str)))
+    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")})
     def get(self, obdict):
         """ get address of a client with name, hash """
         if obdict["name"] not in self.nhipmap:

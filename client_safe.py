@@ -20,7 +20,7 @@ class client_safe(object):
         """ return help """
         return True, self._cache_help
     
-    @check_argsdeco((("server",str),))
+    @check_argsdeco({"server":(str, ),})
     def register(self, obdict):
         """ register client """
         return self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "hash": self.cert_hash, "port": self.show(obdict)[1]["port"], "pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"))
@@ -31,17 +31,17 @@ class client_safe(object):
         return True,{"name": self.name, "hash": self.cert_hash,
                 "port":str(self.links["server"].socket.getsockname()[1])}
     
-    @check_argsdeco((("name", str),("port", int)))
+    @check_argsdeco({"name": (str, ),"port": (int, )})
     def registerservice(self, obdict):
         """ register service (second way) """
         self.do_request("localhost:{}".format(self.links["server"].socket.getsockname()[1]),"/server/registerservice", obdict)
     
-    @check_argsdeco((("name", str),))
+    @check_argsdeco({"name": (str, )})
     def delservice(self, obdict):
         """ delete service (second way) """
         return self.do_request("localhost:{}".format(self.links["server"].socket.getsockname()[1]),"/server/delservice", obdict)
     
-    @check_argsdeco((("server", str),("name", str),("hash", str)))
+    @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})
     def get(self,obdict):
         """ fetch client address """
         #obdict["forcehash"] = obdict["hash"]
@@ -52,7 +52,7 @@ class client_safe(object):
             return False,"port <1: {}".format(_getret[1]["port"])
         return _getret
     
-    @check_argsdeco((("address",str),))
+    @check_argsdeco({"address": (str, ), })
     def gethash(self, obdict):
         try:
             con = client.HTTPSConnection(obdict["address"], context=self.sslcont)
@@ -67,7 +67,7 @@ class client_safe(object):
         except Exception as e:
             return False, "Other error: {}".format(e)
 
-    @check_argsdeco((("address",str),))
+    @check_argsdeco({"address": (str, ), })
     def ask(self, obdict):
         _ha = self.gethash(obdict["address"])
         if _ha[0] == False:
@@ -77,7 +77,7 @@ class client_safe(object):
         temp = self.hashdb.certhash_as_name(_ha[1]["hash"])
         return True, {"localname":temp, "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
 
-    @check_argsdeco((("server",str),))
+    @check_argsdeco({"server": (str, ), })
     def listnames(self, obdict):
         _tnames = self.do_request(obdict["server"], "/server/dumpnames", headers=obdict.get("headers"))
         if _tnames[0] == False:
@@ -85,7 +85,7 @@ class client_safe(object):
         out=sorted(_tnames[1], key=lambda t: t[0])
         return _tnames[0], out, _tnames[1], _tnames[2]
     
-    @check_argsdeco((("name", str),), (("client", str),)) 
+    @check_argsdeco({"name": (str, "service name"), }, {"client":(str, )})
     def getservice(self, obdict):
         if obdict.get("client") == False:
             client_addr = obdict["client"]
@@ -94,7 +94,7 @@ class client_safe(object):
             client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         return self.do_request(client_addr, "/server/getservice",obdict,headers=obdict.get("headers"))
     
-    @check_argsdeco((), (("client", str),)) 
+    @check_argsdeco(optional={"client":(str, )})
     def listservices(self, obdict):
         if obdict.get("client") == False:
             client_addr = obdict["client"]
@@ -107,7 +107,7 @@ class client_safe(object):
         out=sorted(_tservices[1], key=lambda t: t[0])
         return _tservices[0], out, _tservices[1], _tservices[2]
     
-    @check_argsdeco((), (("address", str),))
+    @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
     def info(self, obdict):
         """ retrieve info of own client/remote client/server """
         if obdict.get("address") is not None:
@@ -117,7 +117,7 @@ class client_safe(object):
             _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/info", headers=obdict.get("headers"), forceport=True)
 
-    @check_argsdeco((), (("address",str),))
+    @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
     def cap(self, obdict):
         """ retrieve capabilities of own client/remote client/server """
         if obdict.get("address") is not None:
@@ -127,7 +127,7 @@ class client_safe(object):
             _addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/cap", headers=obdict.get("headers"), forceport=True)
     
-    @check_argsdeco((), (("address",str),))
+    @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
     def prioty_direct(self, obdict):
         """ retrieve priority and type of own client/remote client/server """
         if obdict.get("address") is not None:
@@ -137,7 +137,7 @@ class client_safe(object):
             _addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
         return self.do_request(_addr,  "/server/prioty", headers=obdict.get("headers"), forceport=True)
 
-    @check_argsdeco((("server", str), ("name", str), ("hash", str)))
+    @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})
     def prioty(self, obdict):
         """ retrieve priority and type of a client on a server """
         temp=self.get(obdict["server"],obdict["name"],obdict["hash"],headers=obdict.get("headers"))
@@ -146,7 +146,7 @@ class client_safe(object):
         return self.prioty_direct(temp[1])
 
     #check if _addr is reachable and update priority
-    @check_argsdeco((("address", str), ("namelocal", str), ("hash", str)))
+    @check_argsdeco({"address": (str, ), "namelocal": (str, ), "hash": (str, )})
     def check_direct(self, obdict):
         """ retrieve priority and type of own client/remote client/server; update own priority/type information """
         temp = self.prioty_direct(obdict)
@@ -158,7 +158,7 @@ class client_safe(object):
         return temp
     
     #check if node is reachable and update priority
-    @check_argsdeco((("server",str),("name",str),("namelocal",str),("hash",str)))
+    @check_argsdeco({"server":(str, ),"name":(str, ),"namelocal":(str, ),"hash": (str, )})
     def check(self, obdict):
         """ retrieve priority and type of a client on a server; update own priority/type information """
         temp = self.get(obdict)
@@ -169,7 +169,7 @@ class client_safe(object):
     
     ### local management ###
 
-    @check_argsdeco((("hash",str),))
+    @check_argsdeco({"hash": (str, )})
     def searchhash(self, obdict):
         """ search hash (of a certificate) in hashdb """
         temp = self.hashdb.certhash_as_name(obdict["hash"])
@@ -178,7 +178,7 @@ class client_safe(object):
         else:
             return True, temp
     
-    @check_argsdeco((("name",str), ),(("hash",str), ))
+    @check_argsdeco({"name":(str, ),"hash":(str, ) })
     def getlocal(self, obdict):
         """ get information about entity identified by name and hash in hashdb """
         temp = self.hashdb.get(obdict["name"],obdict["hash"])
@@ -187,7 +187,7 @@ class client_safe(object):
         else:
             return True, temp
     
-    @check_argsdeco((("name",str),),(("filter",str), ))
+    @check_argsdeco({"name":(str,)}, optional={"filter":(str, )})
     def listhashes(self, obdict):
         """ list hashes in hashdb """
         _name = obdict.get("name")
@@ -208,7 +208,7 @@ class client_safe(object):
         else:
             return True, temp
     
-    @check_argsdeco((), (("filter",str),))
+    @check_argsdeco(optional={"filter":(str, )})
     def listnodenames(self,obdict):
         """ list nodenames """
         _nodetypefilter = obdict.get("filter", None)
@@ -218,7 +218,7 @@ class client_safe(object):
         else:
             return True, temp
 
-    @check_argsdeco((), (("filter",str),))
+    @check_argsdeco(optional={"filter":(str, )})
     def listnodeall(self, obdict):
         """ list nodes with all informations """
         _nodetypefilter = obdict.get("filter", None)
@@ -228,7 +228,7 @@ class client_safe(object):
         else:
             return True, temp
     
-    @check_argsdeco((("hash",str),), (("filter",str),))
+    @check_argsdeco({"hash": (str, )}, optional={"filter":(str, )})
     def getreferences(self, obdict):
         """ get references of a hash """
         if obdict.get("file") is not None:
@@ -249,7 +249,7 @@ class client_safe(object):
             return False
         return True, temp
     
-    @check_argsdeco((("reference",str),))
+    @check_argsdeco({"reference":(str, )})
     def findbyref(self, obdict):
         """ find nodes in hashdb by reference """
         temp = self.hashdb.findbyref(obdict["reference"])

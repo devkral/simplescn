@@ -3,14 +3,14 @@ import os
 from common import configmanager, check_reference, check_reference_type, confdb_ending, check_argsdeco
 #logger, isself
 
-class client_admin(object): #"register", 
+class client_admin(object): 
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "addreference", "updatereference", "delreference", "set_config", "set_pluginconfig", "clean_pluginconfig", "reset_configkey", "reset_pluginconfigkey"}
     #, "connect"
     hashdb = None
     links = None
     cert_hash = None
     
-    @check_argsdeco((("priority",int),)) 
+    @check_argsdeco({"priority":(int, "priority of client")}) 
     def setpriority(self, obdict):
         """ set priority of client """ 
         if obdict["priority"]<0 or obdict["priority"]>100:
@@ -21,22 +21,22 @@ class client_admin(object): #"register",
         return True
         
     #local management
-    @check_argsdeco((("name",str),)) 
+    @check_argsdeco({"name": (str, "entity name")})
     def addentity(self, obdict):
         """ add entity (= named group for hashes) """ 
         return self.hashdb.addentity(obdict["name"])
 
-    @check_argsdeco((("name",str),)) 
+    @check_argsdeco({"name": (str, "entity name")})
     def delentity(self, obdict):
         """ delete entity """
         return self.hashdb.delentity(obdict["name"])
 
-    @check_argsdeco((("name",str),("newname", str))) 
+    @check_argsdeco({"name": (str, "entity name"), "newname": (str, "new entity name")})
     def renameentity(self, obdict):
         """ rename entity """
         return self.hashdb.renameentity(obdict["name"],obdict["newname"])
 
-    @check_argsdeco((("name",str),("hash", str)), (("type", str), )) 
+    @check_argsdeco({"name": (str, "entity"),"hash": (str, "hash of client/server/notimagined yet")},{"type": (str, "type (=client/server/notimagined yet)")}) 
     def addhash(self, obdict):
         """ add hash to entity """
         _type = obdict.get("type")
@@ -50,17 +50,17 @@ class client_admin(object): #"register",
     #    else:
     #        return (False,error)
     
-    @check_argsdeco((("hash", str), ))
+    @check_argsdeco({"hash": (str, )})
     def delhash(self, obdict):
         """ delete hash """
         return self.hashdb.delhash(obdict["hash"])
     
-    @check_argsdeco((("hash", str), ("newname", str)))
+    @check_argsdeco({"hash": (str, ), "newname": (str, )})
     def movehash(self, obdict):
         """ move hash to entity """
         return self.hashdb.movehash(obdict["hash"],obdict["newname"])
     
-    @check_argsdeco((("hash", str), ("reference", str), ("reftype", str)))
+    @check_argsdeco({"hash": (str, ), "reference": (str, ), "reftype": (str, )})
     def addreference(self, obdict):
         """ add reference to hash """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
@@ -75,7 +75,7 @@ class client_admin(object): #"register",
         _tref=self.hashdb.get(_name,obdict["hash"])
         return self.hashdb.addreference(_tref[2],obdict["reference"],obdict["reftype"])
 
-    @check_argsdeco((("hash", str), ("reference", str), ("newreference", str), ("newreftype", str)))
+    @check_argsdeco({"hash": (str, ), "reference": (str, ), "newreference": (str, ), "newreftype": (str, )})
     def updatereference(self, obdict):
         """ update reference (child of hash) """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
@@ -94,7 +94,7 @@ class client_admin(object): #"register",
         
         return self.hashdb.updatereference(_tref[2],obdict["reference"],obdict["newreference"],obdict["newreftype"])
 
-    @check_argsdeco((("hash", str), ("reference", str)))
+    @check_argsdeco({"hash": (str, "hash"), "reference":(str, "reference")})
     def delreference(self, obdict):
         """ delete reference """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
@@ -104,12 +104,12 @@ class client_admin(object): #"register",
             return False, "name, hash not exist"
         return self.hashdb.delreference(_tref[2],obdict["reference"])
 
-    @check_argsdeco((("key", str), ("value", str)))
+    @check_argsdeco({"key": (str, "config key"), "value": (str, "key value")})
     def set_config(self, obdict):
         """ set key in main configuration of client """
         return self.links["configmanager"].set(obdict["key"], obdict["value"])
 
-    @check_argsdeco((("key", str), ("value", str), ("plugin", str)))
+    @check_argsdeco({"key": (str, "config key"), "value": (str, "key value"), "plugin": (str, "plugin name")})
     def set_pluginconfig(self, obdict):
         """ set key in plugin configuration """
         pluginm=self.links["client_server"].pluginmanager
@@ -123,12 +123,12 @@ class client_admin(object): #"register",
             config = pluginm.plugins[obdict["plugin"]].config
         return config.set(obdict["key"], obdict["value"])
 
-    @check_argsdeco((("key", str),))
+    @check_argsdeco({"key": (str, "config key"),})
     def reset_configkey(self, obdict):
         """ reset key in main configuration of client """
         return self.links["configmanager"].set_default(obdict["key"])
 
-    @check_argsdeco((("key", str), ("plugin", str)))
+    @check_argsdeco({"key": (str, "config key"), "plugin": (str, "plugin name")})
     def reset_pluginconfigkey(self, obdict):
         """ reset key in plugin configuration """
         pluginm=self.links["client_server"].pluginmanager

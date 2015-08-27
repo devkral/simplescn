@@ -748,16 +748,16 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
 
 # args is iterable with (argname, type)
 # _moddic is modified
-def check_args(_moddict, requires, optional=(), error=[]):
+def check_args(_moddict, requires={}, optional={}, error=[]):
     search = set()
     search.update(requires)
-    _optionallist = [elemoptional[0] for elemoptional in optional]
+    #_optionallist = [elemoptional[0] for elemoptional in optional]
     search.update(optional)
     for elem in search:
-        if len(elem)!=2:
+        if len(elem) not in [2, 3]:
             continue
-        arg, _type = elem
-        if arg not in _moddict and arg in _optionallist:
+        arg, _type = elem[:2] # remove documentation string
+        if arg not in _moddict and arg in optional:
             continue
         elif arg not in _moddict:
             error.append(arg)
@@ -787,7 +787,7 @@ def check_args(_moddict, requires, optional=(), error=[]):
 
 # args is iterable with (argname, type)
 # _moddic is modified
-def check_argsdeco(requires=(), optional=()):
+def check_argsdeco(requires={}, optional={}):
     def func_to_check(func):
         def get_args(*args):
             if len(args)!=2:
