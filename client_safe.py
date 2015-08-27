@@ -1,11 +1,10 @@
 
 import ssl
-#import abc
 from common import isself, check_hash, dhash, check_argsdeco, check_args
 #, logger
 from http import client
 
-class client_safe(object): #abc.ABC):
+class client_safe(object):
     
     validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "searchhash","listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref"}
 
@@ -110,6 +109,7 @@ class client_safe(object): #abc.ABC):
     
     @check_argsdeco((), (("address", str),))
     def info(self, obdict):
+        """ retrieve info of own client/remote client/server """
         if obdict.get("address") is not None:
             _addr=obdict["address"]
             del obdict["address"]
@@ -119,6 +119,7 @@ class client_safe(object): #abc.ABC):
 
     @check_argsdeco((), (("address",str),))
     def cap(self, obdict):
+        """ retrieve capabilities of own client/remote client/server """
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             del obdict["address"]
@@ -128,6 +129,7 @@ class client_safe(object): #abc.ABC):
     
     @check_argsdeco((), (("address",str),))
     def prioty_direct(self, obdict):
+        """ retrieve priority and type of own client/remote client/server """
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             del obdict["address"]
@@ -137,6 +139,7 @@ class client_safe(object): #abc.ABC):
 
     @check_argsdeco((("server", str), ("name", str), ("hash", str)))
     def prioty(self, obdict):
+        """ retrieve priority and type of a client on a server """
         temp=self.get(obdict["server"],obdict["name"],obdict["hash"],headers=obdict.get("headers"))
         if temp[0]==False:
             return temp
@@ -145,6 +148,7 @@ class client_safe(object): #abc.ABC):
     #check if _addr is reachable and update priority
     @check_argsdeco((("address", str), ("namelocal", str), ("hash", str)))
     def check_direct(self, obdict):
+        """ retrieve priority and type of own client/remote client/server; update own priority/type information """
         temp = self.prioty_direct(obdict)
         if temp[0] == False:
             return temp
@@ -156,16 +160,18 @@ class client_safe(object): #abc.ABC):
     #check if node is reachable and update priority
     @check_argsdeco((("server",str),("name",str),("namelocal",str),("hash",str)))
     def check(self, obdict):
+        """ retrieve priority and type of a client on a server; update own priority/type information """
         temp = self.get(obdict)
         if temp[0] == False:
             return temp
         obdict["address"] = temp[1]["address"]
         return self.check_direct(obdict)
-    #local management
+    
+    ### local management ###
 
-    #search
     @check_argsdeco((("hash",str),))
     def searchhash(self, obdict):
+        """ search hash (of a certificate) in hashdb """
         temp = self.hashdb.certhash_as_name(obdict["hash"])
         if temp is None:
             return False
@@ -174,6 +180,7 @@ class client_safe(object): #abc.ABC):
     
     @check_argsdeco((("name",str), ),(("hash",str), ))
     def getlocal(self, obdict):
+        """ get information about entity identified by name and hash in hashdb """
         temp = self.hashdb.get(obdict["name"],obdict["hash"])
         if temp is None:
             return False
@@ -182,6 +189,7 @@ class client_safe(object): #abc.ABC):
     
     @check_argsdeco((("name",str),),(("filter",str), ))
     def listhashes(self, obdict):
+        """ list hashes in hashdb """
         _name = obdict.get("name")
         _nodetypefilter = obdict.get("filter")
         
@@ -193,6 +201,7 @@ class client_safe(object): #abc.ABC):
     
     @check_argsdeco()
     def listnodenametypes(self, obdict):
+        """ list nodenames with type """
         temp = self.hashdb.listnodenametypes()
         if temp is None:
             return False
@@ -201,6 +210,7 @@ class client_safe(object): #abc.ABC):
     
     @check_argsdeco((), (("filter",str),))
     def listnodenames(self,obdict):
+        """ list nodenames """
         _nodetypefilter = obdict.get("filter", None)
         temp = self.hashdb.listnodenames(_nodetypefilter)
         if temp is None:
@@ -210,6 +220,7 @@ class client_safe(object): #abc.ABC):
 
     @check_argsdeco((), (("filter",str),))
     def listnodeall(self, obdict):
+        """ list nodes with all informations """
         _nodetypefilter = obdict.get("filter", None)
         temp = self.hashdb.listnodeall(_nodetypefilter)
         if temp is None:
@@ -219,6 +230,7 @@ class client_safe(object): #abc.ABC):
     
     @check_argsdeco((("hash",str),), (("filter",str),))
     def getreferences(self, obdict):
+        """ get references of a hash """
         if obdict.get("file") is not None:
             _hash, _reftypefilter = obdict["hash"], obdict["filter"]
         else:
@@ -239,9 +251,9 @@ class client_safe(object): #abc.ABC):
     
     @check_argsdeco((("reference",str),))
     def findbyref(self, obdict):
+        """ find nodes in hashdb by reference """
         temp = self.hashdb.findbyref(obdict["reference"])
         if temp is None:
             return False
         return True, temp
-
 

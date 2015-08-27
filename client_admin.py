@@ -12,6 +12,7 @@ class client_admin(object): #"register",
     
     @check_argsdeco((("priority",int),)) 
     def setpriority(self, obdict):
+        """ set priority of client """ 
         if obdict["priority"]<0 or obdict["priority"]>100:
             return False, "out of range"
         
@@ -22,18 +23,22 @@ class client_admin(object): #"register",
     #local management
     @check_argsdeco((("name",str),)) 
     def addentity(self, obdict):
+        """ add entity (= named group for hashes) """ 
         return self.hashdb.addentity(obdict["name"])
 
     @check_argsdeco((("name",str),)) 
     def delentity(self, obdict):
+        """ delete entity """
         return self.hashdb.delentity(obdict["name"])
 
     @check_argsdeco((("name",str),("newname", str))) 
     def renameentity(self, obdict):
+        """ rename entity """
         return self.hashdb.renameentity(obdict["name"],obdict["newname"])
 
     @check_argsdeco((("name",str),("hash", str)), (("type", str), )) 
     def addhash(self, obdict):
+        """ add hash to entity """
         _type = obdict.get("type")
         _name,  _certhash = obdict["name"], obdict["hash"]
         return self.hashdb.addhash(_name,_certhash,_type)
@@ -47,14 +52,17 @@ class client_admin(object): #"register",
     
     @check_argsdeco((("hash", str), ))
     def delhash(self, obdict):
+        """ delete hash """
         return self.hashdb.delhash(obdict["hash"])
     
     @check_argsdeco((("hash", str), ("newname", str)))
     def movehash(self, obdict):
+        """ move hash to entity """
         return self.hashdb.movehash(obdict["hash"],obdict["newname"])
     
     @check_argsdeco((("hash", str), ("reference", str), ("reftype", str)))
     def addreference(self, obdict):
+        """ add reference to hash """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
         if _name is None:
             return False,"hash not in db: {}".format(obdict["hash"])
@@ -69,6 +77,7 @@ class client_admin(object): #"register",
 
     @check_argsdeco((("hash", str), ("reference", str), ("newreference", str), ("newreftype", str)))
     def updatereference(self, obdict):
+        """ update reference (child of hash) """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
         if _name is None:
             return False,"hash not in db: {}".format(obdict["hash"])
@@ -87,6 +96,7 @@ class client_admin(object): #"register",
 
     @check_argsdeco((("hash", str), ("reference", str)))
     def delreference(self, obdict):
+        """ delete reference """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
         
         _tref=self.hashdb.get(_name,obdict["hash"])
@@ -96,10 +106,12 @@ class client_admin(object): #"register",
 
     @check_argsdeco((("key", str), ("value", str)))
     def set_config(self, obdict):
+        """ set key in main configuration of client """
         return self.links["configmanager"].set(obdict["key"], obdict["value"])
 
     @check_argsdeco((("key", str), ("value", str), ("plugin", str)))
-    def set_pluginconfig(self, obdict):        
+    def set_pluginconfig(self, obdict):
+        """ set key in plugin configuration """
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
@@ -113,10 +125,12 @@ class client_admin(object): #"register",
 
     @check_argsdeco((("key", str),))
     def reset_configkey(self, obdict):
+        """ reset key in main configuration of client """
         return self.links["configmanager"].set_default(obdict["key"])
 
     @check_argsdeco((("key", str), ("plugin", str)))
     def reset_pluginconfigkey(self, obdict):
+        """ reset key in plugin configuration """
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
@@ -131,9 +145,7 @@ class client_admin(object): #"register",
     
     @check_argsdeco()
     def clean_pluginconfig(self, obdict):
+        """ clean orphan plugin configurations """
         pluginm=self.links["client_server"].pluginmanager
         pluginm.clean_plugin_config()
         return True
-        
-        
-

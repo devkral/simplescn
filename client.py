@@ -50,7 +50,7 @@ class client_client(client_admin, client_safe):
     hashdb = None
     links = None
     
-    validactions = {"cmd_plugin", "save_auth" }
+    validactions = {"cmd_plugin", "remember_auth" }
     
     def __init__(self, _name, _pub_cert_hash, _certdbpath, _links):
         self.links = _links
@@ -190,6 +190,7 @@ class client_client(client_admin, client_safe):
     
     @check_argsdeco((("plugin", str), ("paction", str)))
     def cmd_plugin(self, obdict):
+        """ trigger commandline action of plugin """ 
         plugins = self.links["client_server"].pluginmanager.plugins
         if plugins is None:
             return False, "no plugins loaded"
@@ -212,9 +213,9 @@ class client_client(client_admin, client_safe):
             False, generate_error(e)
     
     # auth is special variable see safe_mdecode in common
-    #
     @check_argsdeco((("auth", dict),), (("hash", str), ("address", str)))
-    def save_auth(self, obdict):
+    def remember_auth(self, obdict):
+        """ Remember Authentification info for as long the program runs """
         if obdict.get("hash") is None:
             _hashob = self.gethash(obdict)
             if _hashob[0] == False:
@@ -341,6 +342,7 @@ class client_server(commonscn):
     
     @check_argsdeco((("name", str), ("port", int)))
     def registerservice(self, obdict):
+        """ register a service = (map port to name) """
         if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
             self.spmap[obdict.get("name")] = obdict.get("port")
@@ -352,6 +354,7 @@ class client_server(commonscn):
     
     @check_argsdeco((("name", str), ))
     def delservice(self, obdict):
+        """ delete a service"""
         if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
             if obdict["name"] in self.spmap:
@@ -364,6 +367,7 @@ class client_server(commonscn):
     ### management section - end ###
     @check_argsdeco((("name", str), ))
     def getservice(self, obdict):
+        """ get the port of a service """
         if obdict["name"] not in self.spmap:
             return False
         return True, self.spmap[obdict["name"]]

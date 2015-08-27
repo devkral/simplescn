@@ -994,7 +994,7 @@ class certhash_db(object):
     @connecttodb
     def delentity(self,dbcon,_name):
         cur = dbcon.cursor()
-        cur.execute('SELECT name FROM certs WHERE name=?;', (_name,))
+        cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
             logger().info("name does not exist: {}".format(_name))
             return False
@@ -1005,11 +1005,11 @@ class certhash_db(object):
     @connecttodb
     def renameentity(self, dbcon, _name, _newname):
         cur = dbcon.cursor()
-        cur.execute('SELECT name FROM certs WHERE name=?;', (_name,))
+        cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
             logger().info("name does not exist: {}".format(_name))
             return False
-        cur.execute('SELECT name FROM certs WHERE name=?;', (_newname,))
+        cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
         if cur.fetchone() is not None:
             logger().info("newname already exist: {}".format(_newname))
             return False
@@ -1112,7 +1112,7 @@ class certhash_db(object):
         if check_hash(_certhash) == False:
             logger().info("hash contains invalid characters: {}".format(_certhash))
             return False
-
+        
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
             logger().info("hash does not exist: {}".format(_certhash))
@@ -1149,7 +1149,11 @@ class certhash_db(object):
             cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? ORDER BY priority DESC;''', (_name,))
         else:
             cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? and type=? ORDER BY priority DESC;''', (_name, _nodetype))
-        return cur.fetchall()
+        out = cur.fetchall()
+        if out is None:
+            return []
+        else:
+            return out
     
 
     @connecttodb
@@ -1159,16 +1163,21 @@ class certhash_db(object):
             cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
         else:
             cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''',(_nodetype,))
-        temmp = cur.fetchall()
-        if temmp is None:
-            return None
-        return [elem[0] for elem in temmp]
+        out = cur.fetchall()
+        if out is None:
+            return []
+        else:
+            return [elem[0] for elem in out]
     
     @connecttodb
     def listnodenametypes(self, dbcon):
         cur = dbcon.cursor()
         cur.execute('''SELECT DISTINCT name,type FROM certs ORDER BY name ASC;''')
-        return cur.fetchall()
+        out = cur.fetchall()
+        if out is None:
+            return []
+        else:
+            return out
     
     @connecttodb
     def listnodeall(self, dbcon, _nodetype = None):
@@ -1177,8 +1186,11 @@ class certhash_db(object):
             cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority DESC;''')
         else:
             cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority WHERE type=? DESC;''', (_nodetype,))
-        temmp = cur.fetchall()
-        return temmp
+        out = cur.fetchall()
+        if out is None:
+            return []
+        else:
+            return out
     
     @connecttodb
     def certhash_as_name(self, dbcon, _certhash):
@@ -1211,7 +1223,7 @@ class certhash_db(object):
             logger().error("reference type invalid: {}".format(_reftype))
             return False
         cur = dbcon.cursor()
-        cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;', (_referenceid, _reference))
+        cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_referenceid, _reference))
         if cur.fetchone() is not None:
             logger().info("certreferenceid exist: {}".format(_referenceid))
             return False
@@ -1222,7 +1234,7 @@ class certhash_db(object):
     @connecttodb
     def delreference(self, dbcon, _certreferenceid, _reference):
         cur = dbcon.cursor()
-        cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;', (_certreferenceid, _reference))
+        cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
             logger().info("certreferenceid/reference does not exist: {}, {}".format(_certreferenceid, _reference))
             return False
@@ -1233,12 +1245,12 @@ class certhash_db(object):
     @connecttodb
     def updatereference(self, dbcon, _certreferenceid, _reference, _newreference, _newreftype):
         cur = dbcon.cursor()
-        cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;', (_certreferenceid, _reference))
+        cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
             logger().info("certreferenceid/reference does not exist:{}, {}".format(_certreferenceid, _reference))
             return False
         if _reference != _newreference:
-            cur.execute('SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;', (_certreferenceid, _newreference))
+            cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _newreference))
             if cur.fetchone() is not None:
                 logger().info("new reference does exist: {}, {}".format(_certreferenceid, _reference))
                 return False
@@ -1256,20 +1268,25 @@ class certhash_db(object):
             cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''', (_referenceid,))
         else:
             cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? and type=?;''', (_referenceid, _reftype))
-        return cur.fetchall()
-    
+        out = cur.fetchall()
+        if out is None:
+            return []
+        else:
+            return out
+
     #@connecttodb
     #def listreferences(self, dbcon, _reftype = None):
     #    cur = dbcon.cursor()
-    #    cur.execute('''SELECT DISTINCT name,type FROM certs ORDER BY name ASC;''')
+    #    cur.execute('''SELECT DISTINCT name,type FROM certreferences WHERE type ORDER BY name ASC;''',(_reftype, ))
     #    return cur.fetchall()
     
+    #untested
     @connecttodb
     def findbyref(self, dbcon, _reference):
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreferenceid FROM certreferences WHERE reference=?;''', (_reference,))
-        _referenceid = cur.fetchone()
-        if _referenceid is None:
-            return None
-        cur.execute('''SELECT name,certhash,type,priority FROM certs WHERE certreferenceid=?;''', (_referenceid,))
-        return cur.fetchall()
+        cur.execute('''SELECT name,certhash,type,priority FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE reference=?);''', (_reference,))
+        out = cur.fetchall()
+        if out is None:
+            return []
+        else:
+            return out

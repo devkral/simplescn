@@ -115,6 +115,7 @@ class server(commonscn):
     
     @check_argsdeco((("hash",str),("name",str),("port",str)))
     def register(self, obdict):
+        """ register client """
         if check_name(obdict["name"])==False:
             return False, "invalid name"
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), obdict["hash"])
@@ -135,6 +136,7 @@ class server(commonscn):
     
     @check_argsdeco((("hash",str),("name",str)))
     def get(self, obdict):
+        """ get address of a client with name, hash """
         if obdict["name"] not in self.nhipmap:
             return False, "name not exist"
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
