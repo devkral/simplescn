@@ -65,12 +65,10 @@ class server(commonscn):
             logger().debug("Message empty")
             d["message"] = "<empty>"
         
-        
         self.priority = int(d["priority"])
         self.cert_hash = d["certhash"]
         self.name = d["name"]
         self.message = d["message"]
-        self.cert_hash = d["certhash"]
         self.update_cache()
 
     def __del__(self):
@@ -127,7 +125,7 @@ class server(commonscn):
             self.nhipmap[obdict["name"]]={}
             self.nhipmap_etime[obdict["name"]]={}
         self.nhipmap[obdict["name"]][obdict["name"]]=(obdict["clientaddress"][0],obdict["port"])
-        self.nhipmap_etime[obdict["name"]][obdict["certhash"]]=int(time.time())
+        self.nhipmap_etime[obdict["name"]][obdict["hash"]]=int(time.time())
             
         self.changeip_lock.release()
         # notify that change happened
@@ -140,32 +138,24 @@ class server(commonscn):
         if obdict["name"] not in self.nhipmap:
             return False, "name not exist"
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
-            return False, "certhash not exist"
+            return False, "hash not exist"
         return True, self.nhipmap[obdict["name"]][obdict["hash"]]
     
     
     
 class server_handler(BaseHTTPRequestHandler):
-
-    server_version = 'simple scn server 0.5'
-    
-    need_address_cert = ["register",]
+    server_version = 'simplescn/0.5 (server)'
+    sys_version = "" # would say python xy, no need and maybe security hole
     
     links=None
-    salt=None
-
-    #server use pw
-    spwhash=None
-        
+    
     #tunnel stuff
     istunnel=False
-    tbsize=1500
+    #tbsize=1500
     ttimeout=None
     webgui=True
     
     auth_info = None
-    
-    
     statics = {}
     
     def __init__(self, *args):
@@ -173,6 +163,14 @@ class server_handler(BaseHTTPRequestHandler):
         self.answernonce = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
         self.spwveri = None
         self.tpwveri = None
+    
+    
+    def scn_send_answer(self, status, ob, _type="application/json"):
+        self.send_response(status)
+        self.send_header("Content-Length", len(ob))
+        self.send_header("Content-Type", "{}; charset=utf-8".format(_type))
+        self.end_headers()
+        self.wfile.write(ob)
         
     def html(self,page,lang="en"):
         if self.webgui==False:
@@ -187,13 +185,13 @@ class server_handler(BaseHTTPRequestHandler):
         if fullob is None:
             self.send_error(404, "file not found")
         else:
-            self.send_response(200,  fullob)
-            self.send_header('Content-Type', "text/html")
-            self.end_headers()
+            self.scn_send_answer(200,  fullob, "text/html")
     
-    def handle_one_request(self):
-        BaseHTTPRequestHandler.handle_one_request(self)
-        if self.headers.get("User-Agent", "").split("/", 1)[0].strip().rstrip() == "simplescn":
+    
+    def init_scn_stuff(self):
+        useragent = self.headers.get("User-Agent", "")
+        #print(useragent)
+        if "simplescn" in useragent:
             self.error_message_format = "%(code)d: %(message)s – %(explain)s"
         _auth = self.headers.get("Authorization", 'scn {}')
         method, _auth = _auth.split(" ", 1)
@@ -215,27 +213,18 @@ class server_handler(BaseHTTPRequestHandler):
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
-            self.send_response(401)
-            self.send_header("Content-Length", len(ob))
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(ob)
+            self.scn_send_answer(401, ob)
             return
         
         if action in self.links["server_server"].cache:
             ob = bytes(self.links["server_server"].cache[action], "utf-8")
-            self.send_response(200)
-            self.send_header("Content-Length", len(ob))
-            self.send_header('Content-Type', "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(ob)
+            self.scn_send_answer(200, ob)
             return
         
-        readob = self.rfile.read()
-        print(readob)
-        if readob == b"":
-            self.send_error(400,"POST data needed")
+        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
+            self.send_error(411,"POST data+data length needed")
             return
+        readob = self.rfile.read(int(self.headers.get("Content-Length")))
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
         obdict = safe_mdecode(readob, self.headers.get("Content-Type", "application/json; charset=utf-8"))
         if obdict is None:
@@ -244,31 +233,29 @@ class server_handler(BaseHTTPRequestHandler):
         obdict["clientaddress"] = self.client_address
         obdict["headers"] = self.headers
         try:
-            func = getattr(self.links["server_server"])(action)
-            witherror, jsonnized = func(obdict)
+            func = getattr(self.links["server_server"], action)
+            success, result = func(obdict)[:2]
+            jsonnized = json.dumps(gen_result(result, success))
         except Exception as e:
-            response = {}
             error = generate_error("unknown")
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
-            response["errors"] = [error,]
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(bytes(json.dumps(response), "utf8"))
+            ob = bytes(json.dumps(gen_result(error, False)), "utf8")
+            self.scn_send_answer(500, ob)
             return
-        if witherror == True:
+        if success == False:
             self.send_response(400)
         else:
             self.send_response(200)
         ob=bytes(jsonnized, "utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
-        self.send_header('Content-Lenght', len(ob))
+        self.send_header('Content-Length', len(ob))
         self.end_headers()
         self.wfile.write(ob)
         
     def do_GET(self):
+        self.init_scn_stuff()
         if self.path=="/favicon.ico":
             if "favicon.ico" in self.statics:
                 self.send_response(200)
@@ -287,8 +274,9 @@ class server_handler(BaseHTTPRequestHandler):
             return
         elif  _path[0]=="static" and len(_path)>=2:
             if _path[1] in self.statics:
-                self.send_response(200, self.statics[_path[1]])
+                self.send_response(200)
                 self.end_headers()
+                self.wfile.write(self.statics[_path[1]])
             return
         elif len(_path)==2:
             self.handle_server(_path[0])
@@ -307,8 +295,8 @@ class server_handler(BaseHTTPRequestHandler):
         if len(splitted) != 2:
             self.send_error(400, "invalid path")
             return
-        name, certhash = splitted
-        _clientt = self.links["server_server"].get({"name":name, "certhash":certhash})
+        name, _hash = splitted
+        _clientt = self.links["server_server"].get({"name":name, "hash":_hash})
         if _clientt[0] == False:
             self.send_error(500)
             return
@@ -329,6 +317,7 @@ class server_handler(BaseHTTPRequestHandler):
         rw_socket(sockd,self.connection)
 
     def do_POST(self):
+        self.init_scn_stuff()
         splitted = self.path[1:].split("/",1)
         pluginm = self.links["server_server"].pluginmanager
         if len(splitted) == 1:

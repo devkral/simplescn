@@ -71,68 +71,75 @@ class client_client(client_admin, client_safe):
         if reauthcount <= 3:
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
-    def do_request(self, _addr, _path, body={}, headers = None, forceport=False, context=None, reauthcount=0, cont=None):
-        if context is None:
-            context = self.sslcont
+
+    def do_request(self, _addr_or_con, _path, body={}, headers = None, forceport=False, reauthcount=0):
         if headers is None:
             headers = body.pop("headers", {})
         else:
             body.pop("headers", {})
         
         sendheaders = reference_header.copy()
-        for key, val in headers:
-            sendheaders[key] = val
+        for key, value in headers:
+            sendheaders[key] = value
         
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
-        #
-        #proxy_parsed = json.loads(sendheaders.get("Proxy-Authorization", "scn {}"))
         
-        if True: #cont is None:
-            _addr=scnparse_url(_addr,force_port=forceport)
-            con=client.HTTPSConnection(_addr[0],_addr[1], context=context)
+        if isinstance(_addr_or_con, client.HTTPSConnection) == False:
+            _addr = scnparse_url(_addr_or_con,force_port=forceport)
+            con=client.HTTPSConnection(_addr[0],_addr[1], context=self.sslcont)
+        
+        if body.get("destname") is not None and body.get("desthash") is not None:
+            con.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
             con.connect()
-        #else:
-            #con = cont.pop()
-            #sendheaders["Con"] = "application/json; charset=utf-8"
-            
+            response = con.getresponse()
+            if response.status == 200:
+                del body["destname"]
+                del body["desthash"]
+                proxyerror = False
+            else:
+                proxyerror = True
+        else:
+            con.connect()
+            proxyerror = False
+        
         pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
         hashpcert=dhash(pcert)
         if hashpcert==self.cert_hash:
-            val = isself
+            validated_name = isself
         elif body.get("forcehash") is not None and body.get("forcehash") != hashpcert:
             raise(VALHashError)
         else:
-            val = self.hashdb.certhash_as_name(hashpcert)
-            if val == isself:
+            validated_name = self.hashdb.certhash_as_name(hashpcert)
+            if validated_name == isself:
                 raise(VALNameError)
-        
-        if body.get("destname") is not None and body.get("desthash") is not None:
-            #con.putrequest("CONNECT", "/{}/{}".format(body.get("destname"), body.get("desthash")))
-            con.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
-            #del body["destname"]
-            #del body["desthash"]
-        
-        con.putrequest("POST", _path)
-        for key, val in sendheaders.items():
-            if key != "Proxy-Authorization":
-                con.putheader(key, val)
-        pwcallm = body.get("pwcall_method")
-        if pwcallm:
-            del body["pwcall_method"]
-        ob=bytes(json.dumps(body), "utf-8")
-        #con.putheader("Content-Length", str(len(ob)))
-        con.endheaders()
-        print(ob)
-        #con.send(ob)
-        #if requesttype == "POST" and body is None:
-        #    return con.sock
-        r=con.getresponse()
-        if r.status == 401 and callable(pwcallm) == True:
+        if proxyerror == False:
+            con.putrequest("POST", _path)
+            for key, value in sendheaders.items():
+                if key != "Proxy-Authorization":
+                    con.putheader(key, value)
+            pwcallm = body.get("pwcall_method")
+            if pwcallm:
+                del body["pwcall_method"]
+            ob=bytes(json.dumps(body), "utf-8")
+            con.putheader("Content-Length", str(len(ob)))
+            con.endheaders()
+            con.send(ob)
+            #if requesttype == "POST" and body is None:
+            #    return con.sock
+            response = con.getresponse()
+        servertype = response.headers.get("Server", "")
+        logger().debug("Servertype: {}".format(servertype))
+        if response.status == 401 and callable(pwcallm) == True:
+            body["pwcall_method"] = pwcallm
             auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ")[1])
-            reqob=safe_mdecode(r.read(), r.headers.get("Content-Type","application/json; charset=utf-8"))
+            if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
+                con.close()
+                return False, "no content length", validated_name, hashpcert
+            readob = response.read(int(response.headers.get("Content-Length")))
+            reqob = safe_mdecode(readob, response.headers.get("Content-Type","application/json; charset=utf-8"))
             if reqob is None:
-                logger().error("Invalid password request object")
-                return False
+                con.close()
+                return False, "Invalid Authorization request object", validated_name, hashpcert
             realm = reqob.get("realm")
             if callable(pwcallm) == True:
                 authob = pwcallm(hashpcert, reqob, reauthcount)
@@ -140,7 +147,8 @@ class client_client(client_admin, client_safe):
                 authob = None
 
             if authob is None:
-                return False, "Autherror", val, hashpcert
+                con.close()
+                return False, "Authorization object invalid", validated_name, hashpcert
             reauthcount+=1
             if realm == "proxy":
                 proxy_parsed = {}
@@ -149,7 +157,7 @@ class client_client(client_admin, client_safe):
             else:
                 auth_parsed[realm] = authob
                 sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
-            return self.do_request(_addr, _path, body=body, headers=sendheaders, forceport=forceport)
+            return self.do_request(con, _path, body=body, headers=sendheaders, forceport=forceport)
         else:
             #if len()>0:
             #    pass
@@ -159,30 +167,26 @@ class client_client(client_admin, client_safe):
                 #for elem in pwhashes.items():
                 #    if r.getheader(elem[0], "") != dhash_salt(hashpcert, "{}:{}".format(_nonce,elem[1])):
                 #        raise(VALMITMError)
-            
-            readob = r.read()#int(r.getheader("Content-Length", str(max_serverrequest_size))))
-            con.close()
-            if r.status == 200:
+            if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
+                con.close()
+                return False, "No content length", validated_name, hashpcert
+            readob = response.read(int(response.getheader("Content-Length")))
+            if isinstance(_addr_or_con, client.HTTPSConnection) == False:
+                con.close()
+            if response.status == 200:
                 status = True
             else:
                 status = False
-            if r.headers.get("Content-Type").split(";")[0].strip().rstrip() in ["text/plain","text/html"]:
-                #logger().error(readob)
-                obdict = gen_result(readob, status)
-                #return True,readob,val,hashpcert
+            if response.headers.get("Content-Type").split(";")[0].strip().rstrip() in ["text/plain","text/html"]:
+                obdict = gen_result(str(readob, "utf-8"), status)
             else:
-                obdict = safe_mdecode(readob, r.headers.get("Content-Type", "application/json"))
+                obdict = safe_mdecode(readob, response.headers.get("Content-Type", "application/json"))
             if check_result(obdict, status) == False:
-                return False, "error parsing request", val, hashpcert
-            if isinstance(con, list):
-                if len(cont) ==0:
-                    cont.append(con)
-            else:
-                con.close()
+                return False, "error parsing request\n{}".format(readob), validated_name, hashpcert
             if status == True:
-                return status, obdict["result"], val, hashpcert
+                return status, obdict["result"], validated_name, hashpcert
             else:
-                return status, obdict["error"], val, hashpcert
+                return status, obdict["error"], validated_name, hashpcert
     
     @check_argsdeco((("plugin", str), ("paction", str)))
     def cmd_plugin(self, obdict):
@@ -207,7 +211,9 @@ class client_client(client_admin, client_safe):
         except Exception as e:
             False, generate_error(e)
     
-    @check_argsdeco((("auth", tuple),), (("hash", str), ("address", str)))
+    # auth is special variable see safe_mdecode in common
+    #
+    @check_argsdeco((("auth", dict),), (("hash", str), ("address", str)))
     def save_auth(self, obdict):
         if obdict.get("hash") is None:
             _hashob = self.gethash(obdict)
@@ -216,11 +222,7 @@ class client_client(client_admin, client_safe):
             _hash = _hashob[1]["hash"]
         else:
             _hash = obdict.get("hash")
-        for elem in obdict["auth"]:
-            splitted = elem.split(":", 1)
-            if len(splitted) == 1:
-                return False, "auth object invalid (<realm>:<pw>)"
-            realm,  pw = splitted
+        for realm, pw in obdict.get("auth"):
             self.links["auth"].saveauth(realm, pw, _hash)
         return True
     # command wrapper for cmd interfaces
@@ -241,7 +243,7 @@ class client_client(client_admin, client_safe):
     # client_address=client_address
     def access_safe(self, action, requester=None, **obdict):
         if action in ["access_main", "access_safe", "cmd_plugin"]:
-            return False, "actions: 'access_safe, access_main, cmd_plugin' not allowed in access_safe"
+            return False, "actions: 'access_safe, access_main, cmd_plugin' not allowed in access_safe",  isself,  self.cert_hash
         def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
             authob = self.links["auth"].asauth(obdict("auth", {}).get(authreqob.get("realm")), authreqob)
             return authob
@@ -249,10 +251,12 @@ class client_client(client_admin, client_safe):
         if action in self.validactions:
             if action not in self.validactions_safe:
                 if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
-                    return False, "no permission"
-            return getattr(self, action)(obdict)
+                    return False, "no permission",  isself,  self.cert_hash
+            resp = getattr(self, action)(obdict)
+            #print(action)
+            return resp
         else:
-            return False, "not in validactions"
+            return False, "not in validactions",  isself,  self.cert_hash
     
     # NEVER include in validactions
     # headers=headers
@@ -260,18 +264,18 @@ class client_client(client_admin, client_safe):
     def access_main(self, action, **obdict):
         obdict["pwcall_method"] = self.pw_auth
         if action in ["access_main", "access_safe"]:
-            return False, "actions: 'access_safe, access_main' not allowed in access_main"
+            return False, "actions: 'access_safe, access_main' not allowed in access_main",  isself,  self.cert_hash
         if action in self.validactions:
             try:
                 return getattr(self, action)(obdict)
             except AddressFail as e:
-                return False, "Addresserror:\n{}".format(e.msg)
+                return False, "Addresserror:\n{}".format(e.msg),  isself,  self.cert_hash
             except ConnectionRefusedError:
-                return False, "unreachable"
+                return False, "unreachable",  isself,  self.cert_hash
             except Exception as e:
-                return False, generate_error(e)
+                return False, generate_error(e),  isself,  self.cert_hash
         else:
-            return False, "not in validactions"
+            return False, "not in validactions",  isself,  self.cert_hash
     
     # help section
     def cmdhelp(self):
@@ -319,11 +323,11 @@ class client_server(commonscn):
     def __init__(self, dcserver):
         self.wlock = threading.Lock()
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
-            logger().debug("Name empty")
+            logger().info("Name empty")
             dcserver["name"] = "<noname>"
 
         if dcserver["message"] is None or len(dcserver["message"]) == 0:
-            logger().debug("Message empty")
+            logger().info("Message empty")
             dcserver["message"] = "<empty>"
             
         self.name = dcserver["name"]
@@ -334,49 +338,53 @@ class client_server(commonscn):
         self.update_cache()
     ### the primary way to add or remove a service
     ### can be called by every application on same client
+    
+    @check_argsdeco((("name", str), ("port", int)))
     def registerservice(self, obdict):
-        if check_args(obdict, (("service",str),("port",int))) == False:
-            return False, "check_args failed (client_server:registerservice))"
         if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
-            self.spmap[obdict.get("service")] = obdict.get("port")
+            self.spmap[obdict.get("name")] = obdict.get("port")
             self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
             #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             self.wlock.release()
-            return True, "success"
+            return True
         return False, "no permission"
-
+    
+    @check_argsdeco((("name", str), ))
     def delservice(self, obdict):
-        if check_args(obdict, (("service",str),)) == False:
-            return False, "check_args failed (client_server:delservice)"
-        
         if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
-            if obdict["service"] in self.spmap:
-                del self.spmap[obdict["service"]]
+            if obdict["name"] in self.spmap:
+                del self.spmap[obdict["name"]]
                 self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             self.wlock.release()
-            return  True, "success"
+            return  True
         return False, "no permission"
         
     ### management section - end ###
-    
+    @check_argsdeco((("name", str), ))
     def getservice(self, obdict):
-        if check_args(obdict, (("service",str),)) == False:
-            return False, "check_args failed (client_server:service)"
-        if obdict["service"] not in self.spmap:
-            return False, "service"
-        return True, self.spmap[obdict["service"]]
+        if obdict["name"] not in self.spmap:
+            return False
+        return True, self.spmap[obdict["name"]]
     
     
 class client_handler(BaseHTTPRequestHandler):
     server_version = 'simplescn/0.5 (client)'
+    sys_version = "" # would say python xy, no need and maybe security hole
     auth_info = None
     
     links = None
     handle_remote = False
     statics = {}
     webgui = False
+    
+    def scn_send_answer(self, status, ob, _type="application/json"):
+        self.send_response(status)
+        self.send_header("Content-Length", len(ob))
+        self.send_header("Content-Type", "{}; charset=utf-8".format(_type))
+        self.end_headers()
+        self.wfile.write(ob)
     
     def html(self, page, lang = "en"):
         if self.webgui == False:
@@ -389,10 +397,7 @@ class client_handler(BaseHTTPRequestHandler):
         if fullob is None:
             self.send_error(404, "file not found")
         else:
-            self.send_response(200)
-            self.send_header('Content-Length', len(fullob))
-            self.send_header('Content-Type', "text/html")
-            self.end_headers()
+            self.scn_send_answer(200, fullob, "text/html")
         #.format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
 
         
@@ -415,17 +420,13 @@ class client_handler(BaseHTTPRequestHandler):
         if self.links["auth"].verify(realm, self.auth_info) == False:
             authreq = self.links["auth"].request_auth(realm)
             ob = bytes(json.dumps(authreq), "utf-8")
-            self.send_response(401)
-            self.send_header("Content-Length", len(ob))
-            self.send_header('Content-Type', "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(ob)
+            self.scn_send_answer(401, ob)
             return
         
-        readob = self.rfile.read()
-        if readob == b"":
-            self.send_error(400,"POST data needed")
+        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
+            self.send_error(411,"POST data+data length needed")
             return
+        readob = self.rfile.read(int(self.headers.get("Content-Length")))
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
         obdict = safe_mdecode(readob, self.headers.get("Content-Type"))
         if obdict is None:
@@ -441,17 +442,13 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(500, e.msg)
             return
         except Exception as e:
-            response = {}
             error = generate_error("unknown")
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
-            response["errors"] = [error,]
-            self.send_header("Content-Type", "application/json")
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(bytes(json.dumps(error), "utf-8"))
+            ob = bytes(json.dumps(gen_result(error, False)), "utf8")
+            self.scn_send_answer(500, ob)
             return
-        if response.get("errors", None) is None:
+        if response[0] == False:
             self.send_response(400)
         else:
             self.send_response(200)
@@ -474,27 +471,19 @@ class client_handler(BaseHTTPRequestHandler):
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
-            self.send_response(401)
-            self.send_header("Content-Length", len(ob))
-            self.send_header('Content-Type', "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(ob)
+            self.scn_send_answer(401, ob)
             return
         
         
         if action in self.links["client_server"].cache:
             ob = bytes(self.links["client_server"].cache[action], "utf-8")
-            self.send_response(200)
-            #self.send_header("Content-Length", len(ob))
-            self.send_header('Content-Type', "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(ob)
+            self.scn_send_answer(200, ob)
             return
         
-        readob = self.rfile.read()
-        if readob == b"":
-            self.send_error(400,"POST data needed")
+        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
+            self.send_error(411,"POST data+data length needed")
             return
+        readob = self.rfile.read(int(self.headers.get("Content-Length")))
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
         obdict = safe_mdecode(readob,self.headers.get("Content-Type"))
         if obdict is None:
@@ -504,32 +493,29 @@ class client_handler(BaseHTTPRequestHandler):
         obdict["headers"] = self.headers
         try:
             func = getattr(self.links["client_server"], action)
-            result=func(obdict)
-            success, result, certname, certhash = result
+            response = func(obdict)
+            success, jsonnizedresult = response[:2]
         except Exception as e:
-            response = {}
             error = generate_error("unknown")
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
-            response["error"] = error
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(bytes(json.dumps(error), "utf-8"))
+            ob = bytes(json.dumps(gen_result(error, False)), "utf8")
+            self.scn_send_answer(500, ob)
             return
-        
+
         if success:
             self.send_response(400)
         else:
             self.send_response(200)
-        ob=bytes(json.dumps(result), "utf-8")
+        ob=bytes(jsonnizedresult, "utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
-        #self.send_header('Content-Length', len(ob))
+        self.send_header('Content-Length', len(ob))
         self.end_headers()
         self.wfile.write(ob)
     
     def do_GET(self):
+        self.init_scn_stuff()
         if self.path == "/favicon.ico":
             if "favicon.ico" in self.statics:
                 self.send_response(200)
@@ -557,20 +543,21 @@ class client_handler(BaseHTTPRequestHandler):
             return
         self.send_error(404, "not -found")
     
-    def handle_one_request(self):
-        BaseHTTPRequestHandler.handle_one_request(self)
-        if self.headers.get("User-Agent", "").split("/", 1)[0].strip().rstrip() == "simplescn":
+    def init_scn_stuff(self):
+        useragent = self.headers.get("User-Agent", "")
+        logger().debug("Useragent: {}".format(useragent))
+        if "simplescn" in useragent:
             self.error_message_format = "%(code)d: %(message)s – %(explain)s"
-        
         _auth = self.headers.get("Authorization", 'scn {}')
         method, _auth = _auth.split(" ", 1)
         _auth= _auth.strip().rstrip()
         if method == "scn":
-            self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type","application/json; charset=utf-8"))
+            self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type", "application/json; charset=utf-8"))
         else:
             self.auth_info = None
 
     def do_POST(self):
+        self.init_scn_stuff()
         splitted = self.path[1:].split("/", 1)
         pluginm = self.links["client_server"].pluginmanager
         if len(splitted) == 1:
@@ -687,9 +674,9 @@ class client_init(object):
             op.close()
         
         if check_certs(_cpath+"_cert") == False:
-            logger().debug("Certificate(s) not found. Generate new...")
+            logger().info("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
-            logger().debug("Certificate generation complete")
+            logger().info("Certificate generation complete")
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read()
 
@@ -839,8 +826,8 @@ if __name__ ==  "__main__":
         pluginm.resources["access"] = cm.links["client"].access_safe
         pluginm.init_plugins()
 
+    logger().debug("start servercomponent (client)")
     if confm.getb("cmd")!=False:
-        logger().debug("start client server")
         cm.serve_forever_nonblock()
         logger().debug("start console")
         for name, value in cm.links["client"].show({})[1].items():
@@ -849,15 +836,22 @@ if __name__ ==  "__main__":
             inp=input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
             if inp in ["exit", "close", "quit"]:
                 break
+            # debug remove later
+            if inp == "a":
+                inp = "action=register&server=127.0.0.1"
             ret=cm.links["client"].command(inp)
             if ret[1] is not None:
                 if ret[0] == True:
-                    if ret[2] == isself:
-                        print("This client:")
-                    else:
-                        print("{} with hash:\n {}\n answers:".format(ret[2], ret[3]))
+                    print("Success: ", end="")
+                else:
+                    print("Error: ", end="")
+                if ret[2] == isself:
+                    print("This client:")
+                elif ret[2] == None:
+                    print("Unknown partner, hash: {}:".format(ret[3]))
+                else:
+                    print("Known, name: {}:".format(ret[2]))
                 print(ret[1])
     else:
-        logger().debug("start client server")
         cm.serve_forever_block()
 

@@ -50,7 +50,7 @@ import threading
 import json
 import base64
 import time
-from http import client
+#from http import client
 from urllib import parse
 
 # small nonces mean more collisions
@@ -325,17 +325,6 @@ def gen_sslcont(path):
     return sslcont
 
 
-def parse_response(response):
-    try:
-        if response.status == client.OK:
-            #maxread
-            re = response.read().decode("utf8")
-            if response.closed == False:
-                (False, "reading response failed, too big")
-            return (True, re)
-        return (False, response.read().decode("utf8"))
-    except Exception as e:
-        return (False, "reading response failed, reason: {}".format(e))
 
 
 re_parse_url = re.compile("\\[?(.*)\\]?:([0-9]+)")
@@ -810,7 +799,7 @@ def check_argsdeco(requires=(), optional=()):
                 return False, "check_args failed ({}) arg: {}".format(func.__name__, error[0]), isself, self.cert_hash
             resp = func(self, obdict)
             if len(resp)==2:
-                return resp[0], resp[1], isself, self.cert_hash
+                return resp[0], resp[1], (True, isself, self.cert_hash)
             elif len(resp)==1:
                 if resp[0] == True:
                     resp[0], "{} finished successfully".format(func.__name__), isself, self.cert_hash
@@ -828,7 +817,10 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
     try:
         splitted=encoding.split(";",1)
         enctype=splitted[0].strip().rstrip()
-        if isinstance(inp, str) == False:
+        if isinstance(inp, dict) == True:
+            logger().warning("already parsed")
+            return None
+        elif isinstance(inp, str) == False:
             if len(splitted)==2:
                 #splitted in format charset=utf-8
                 split2 = splitted[1].split("=")
@@ -841,7 +833,18 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
             return None
         if enctype == "application/x-www-form-urlencoded":
             tparse=parse.parse_qs(string)
-            if tparse.get("auth", None) is not None:
+            if "auth" in tparse:
+                authold = tparse.copy()
+                authnew = {}
+                for elem in authold:
+                    splitted = elem.split(":", 1)
+                    if len(splitted) == 1:
+                        return False, "auth object invalid (<realm>:<pw>)"
+                    realm,  pw = splitted
+                    authnew[realm] = pw
+                tparse["auth"] = authnew
+            # auth needs to be json formatted
+            if tparse.get("jauth", None) is not None:
                 tparse["auth"] = json.loads(tparse.get("auth")[0])
             return tparse
         elif enctype == "application/json": 

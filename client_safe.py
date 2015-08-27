@@ -32,20 +32,15 @@ class client_safe(object): #abc.ABC):
         return True,{"name": self.name, "hash": self.cert_hash,
                 "port":str(self.links["server"].socket.getsockname()[1])}
     
-    #### second way to add a service ####
-    @check_argsdeco((("service", str),("port", int)))
+    @check_argsdeco((("name", str),("port", int)))
     def registerservice(self, obdict):
         """ register service (second way) """
-        self.links["client_server"].spmap[obdict["service"]] = obdict["port"]
-        return True
+        self.do_request("localhost:{}".format(self.links["server"].socket.getsockname()[1]),"/server/registerservice", obdict)
     
-    #### second way to delete a service ####
-    @check_argsdeco((("service", str),))
+    @check_argsdeco((("name", str),))
     def delservice(self, obdict):
         """ delete service (second way) """
-        if obdict["service"] in self.links["client_server"].spmap:
-            del self.links["client_server"].spmap[obdict["service"]]
-        return True
+        return self.do_request("localhost:{}".format(self.links["server"].socket.getsockname()[1]),"/server/delservice", obdict)
     
     @check_argsdeco((("server", str),("name", str),("hash", str)))
     def get(self,obdict):
@@ -91,7 +86,7 @@ class client_safe(object): #abc.ABC):
         out=sorted(_tnames[1], key=lambda t: t[0])
         return _tnames[0], out, _tnames[1], _tnames[2]
     
-    @check_argsdeco((("service", str),), (("client", str),)) 
+    @check_argsdeco((("name", str),), (("client", str),)) 
     def getservice(self, obdict):
         if obdict.get("client") == False:
             client_addr = obdict["client"]
