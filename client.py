@@ -884,9 +884,9 @@ if __name__ ==  "__main__":
             inp=input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
             if inp in ["exit", "close", "quit"]:
                 break
-            # debug remove later
-            if inp == "a":
-                inp = "action=register&server=127.0.0.1"
+            # help
+            if inp == "help":
+                inp = "action=help"
             ret=cm.links["client"].command(inp)
             if ret[1] is not None:
                 if ret[0] == True:
