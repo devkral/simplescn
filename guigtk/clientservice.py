@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
-import os,sys
+import os
+#,sys
 #thisdir=os.path.dirname(os.path.realpath(__file__))
 
 from gi.repository import Gtk, Gdk
@@ -13,8 +14,8 @@ import logging
 
 class gtkclient_remoteservice(gtkclient_template):
     name=None
-    def __init__(self,links,_address,dheader,name=""):
-        gtkclient_template.__init__(self, links,_address,dheader)
+    def __init__(self, links, _address, name="", **obdict):
+        gtkclient_template.__init__(self, links, _address, **obdict)
         if self.init2(os.path.join(sharedir, "guigtk", "clientservice.ui"))==False:
             return
         self.win=self.get_object("servicewin")
@@ -35,7 +36,7 @@ class gtkclient_remoteservice(gtkclient_template):
         
     def update(self,*args):
         servicel=self.get_object("servicelist")
-        ret=self.do_requestdo("listservices", self.address)
+        ret=self.do_requestdo("listservices", address=self.address)
         if ret[0]==False:
             logging.info(ret[1])
             return

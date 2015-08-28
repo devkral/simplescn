@@ -181,11 +181,7 @@ class client_safe(object):
     @check_argsdeco({"name":(str, ),"hash":(str, ) })
     def getlocal(self, obdict):
         """ get information about entity identified by name and hash in hashdb """
-        temp = self.hashdb.get(obdict["name"],obdict["hash"])
-        if temp is None:
-            return False
-        else:
-            return True, temp
+        return True, self.hashdb.get(obdict["name"],obdict["hash"])
     
     @check_argsdeco({"name":(str,)}, optional={"filter":(str, )})
     def listhashes(self, obdict):

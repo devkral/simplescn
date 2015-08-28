@@ -27,7 +27,7 @@ class services_stuff(object):
         localservicelist.clear()
         but=self.builder.get_object("deleteserviceb")
         but.hide()
-        services=self.do_requestdo("listservices",self.header_client)
+        services=self.do_requestdo("listservices")
         if services[0]==False:
             return
         for elem in services[1]:
@@ -43,11 +43,11 @@ class services_stuff(object):
         if service=="":
             logger().debug("service invalid")
             return
-        if port=="" or port.isdecimal()==False:
+        if port == "" or port.isdecimal() == False:
             logger().debug("port invalid")
             return
-        ret=self.do_requestdo("registerservice",service,port,self.header_client)
-        if ret[0]==False:
+        ret = self.do_requestdo("registerservice", name=service, port=port)
+        if ret[0] == False:
             logger().debug(ret[1])
             return
         servicee.set_text("")
@@ -72,7 +72,7 @@ class services_stuff(object):
         service=_sel[0][_sel[1]][0]
         if service=="":
             return
-        ret=self.do_requestdo("delservice",service,self.header_client)
+        ret=self.do_requestdo("delservice", name=service)
         if ret[0]==False:
             return
         self.update_services()

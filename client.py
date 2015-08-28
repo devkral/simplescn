@@ -91,10 +91,21 @@ class client_client(client_admin, client_safe):
         if body.get("destname") is not None and body.get("desthash") is not None:
             con.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
             con.connect()
+            
+            pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            hashpcert=dhash(pcert)
+            if hashpcert==self.cert_hash:
+                validated_name = isself
+            elif body.get("forceproxyhash") is not None and body.get("forceproxyhash") != hashpcert:
+                raise(VALHashError)
+            else:
+                validated_name = self.hashdb.certhash_as_name(hashpcert)
+            if validated_name == isself:
+                raise(VALNameError)
+            
             response = con.getresponse()
+            
             if response.status == 200:
-                del body["destname"]
-                del body["desthash"]
                 proxyerror = False
             else:
                 proxyerror = True
@@ -102,17 +113,26 @@ class client_client(client_admin, client_safe):
             con.connect()
             proxyerror = False
         
-        pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-        hashpcert=dhash(pcert)
-        if hashpcert==self.cert_hash:
-            validated_name = isself
-        elif body.get("forcehash") is not None and body.get("forcehash") != hashpcert:
-            raise(VALHashError)
-        else:
-            validated_name = self.hashdb.certhash_as_name(hashpcert)
-            if validated_name == isself:
-                raise(VALNameError)
         if proxyerror == False:
+            if body.get("destname") is not None and body.get("desthash") is not None:
+                # TODO: create httpsconnection from socket (con.sock)
+         
+                
+                del body["destname"]
+                body["forcehash"] = body["desthash"]
+                del body["desthash"]
+         
+            pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            hashpcert=dhash(pcert)
+            if hashpcert==self.cert_hash:
+                validated_name = isself
+            elif body.get("forcehash") is not None and body.get("forcehash") != hashpcert:
+                raise(VALHashError)
+            else:
+                validated_name = self.hashdb.certhash_as_name(hashpcert)
+                if validated_name == isself:
+                    raise(VALNameError)
+                
             con.putrequest("POST", _path)
             for key, value in sendheaders.items():
                 if key != "Proxy-Authorization":

@@ -1,7 +1,7 @@
 
 from common import logger, scnparse_url
 import logging
-from gi.repository import Gtk
+#from gi.repository import Gtk
 
 from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node
@@ -20,9 +20,9 @@ class hashmanagement(object):
         self.managehashdia.connect('delete-event',self.close_managehashdia)
 
     def activate_local(self,*args):
-        serverurl=self.builder.get_object("servercomboentry").get_text()
+        #serverurl=self.builder.get_object("servercomboentry").get_text()
         nodeactionset=self.builder.get_object("nodeactionset")
-        action_sub=self.builder.get_object("refactiongrid_sub")
+        #action_sub=self.builder.get_object("refactiongrid_sub")
         refactiongrid_sub=self.builder.get_object("refactiongrid_sub")
         refscrollwin=self.builder.get_object("refscrollwin")
         
@@ -54,7 +54,7 @@ class hashmanagement(object):
         self.managehashdia.show()
         
     def update_hashes(self,*args):
-        temp=self.do_requestdo("listhashes",self.curlocal[1],self.header_client)
+        temp=self.do_requestdo("listhashes", name=self.curlocal[1])
         hashlist=self.builder.get_object("hashlist")
         hashlist.clear()
         if temp[0]==False:
@@ -72,7 +72,7 @@ class hashmanagement(object):
         action_sub=self.builder.get_object("refactiongrid_sub")
         refscrollwin=self.builder.get_object("refscrollwin")
         
-        updatereftb=self.builder.get_object("updatereftb")
+        #updatereftb=self.builder.get_object("updatereftb")
         addrefb=self.builder.get_object("addrefb")
         addrefentry=self.builder.get_object("addrefentry")
         
@@ -129,7 +129,7 @@ class hashmanagement(object):
             return
         _hash=_sel[0][_sel[1]][0]
     
-        temp=self.do_requestdo("getreferences",_hash,self.header_client)
+        temp=self.do_requestdo("getreferences", hash=_hash)
         reflist=self.builder.get_object("reflist")
         reflist.clear()
         if temp[0]==False:
@@ -161,13 +161,13 @@ class hashmanagement(object):
                 logger().info("no server selected")
                 return
             
-            turl=self.do_requestdo("get", serverurl, _ref, _hash, self.header_server)
+            turl = self.do_requestdo("get", server=serverurl, reference=_ref, hash=_hash)
             if logger().check(turl, logging.INFO)==False:
                 return
             _url="{}:{}".format(*turl[1])
         elif _type == "surl":
             serverurl=_ref
-            namesret=self.do_requestdo("getreferences",_hash, "name",self.header_server)
+            namesret=self.do_requestdo("getreferences", hash=_hash, type="name")
             if namesret[0]==False:
                 logger().info("getrefences failed")
                 return
@@ -176,7 +176,7 @@ class hashmanagement(object):
                 if elem[0] in ["", None]:
                     logger().warn("references type name contain invalid element: {}".format(elem[0]))
                 else:
-                    tempret=self.do_requestdo("get",serverurl,elem[0],_hash,self.header_server)
+                    tempret=self.do_requestdo("get", server=serverurl, name=elem[0], hash=_hash)
                     if tempret[0]==True:
                         break
             if tempret is None or logger().check(tempret, logging.INFO)==False:
@@ -194,7 +194,7 @@ class hashmanagement(object):
         tdparam=self.header_node.copy()
         tdparam["certhash"]=_hash
         
-        ret=self.do_requestdo("check_direct", _url, self.curlocal[1], _hash,tdparam)
+        ret=self.do_requestdo("check_direct", address=_url, name=self.curlocal[1], hash=_hash, forcehash=_hash)
         if ret[0]==True:
             self.managehashdia.hide()
             if self.curlocal[0] == "server":

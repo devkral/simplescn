@@ -996,8 +996,8 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
-            logger().info("name does not exist: {}".format(_name))
-            return False
+            #logger().info("name does not exist: {}".format(_name))
+            return True
         cur.execute('''DELETE FROM certs WHERE name=?;''', (_name,))
         dbcon.commit()
         return True
@@ -1129,8 +1129,8 @@ class certhash_db(object):
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
 
         if cur.fetchone() is None:
-            logger().info("hash does not exist: {}".format(_certhash))
-            return False
+            #logger().info("hash does not exist: {}".format(_certhash))
+            return True
 
         cur.execute('''DELETE FROM certs WHERE certhash=?;''', (_certhash,))
         dbcon.commit()
@@ -1236,8 +1236,8 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
-            logger().info("certreferenceid/reference does not exist: {}, {}".format(_certreferenceid, _reference))
-            return False
+            #logger().info("certreferenceid/reference does not exist: {}, {}".format(_certreferenceid, _reference))
+            return True
         cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         dbcon.commit()
         return True

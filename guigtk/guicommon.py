@@ -1,11 +1,11 @@
 #! /usr/bin/env python3
 
 
-import sys
-import os
+#import sys
+#import os
 
 
-from gi.repository import Gtk,Gdk
+from gi.repository import Gtk
 
 
 run=True
@@ -20,16 +20,16 @@ def activate_shielded(action, url, header):
 
 class gtkclient_template(Gtk.Builder):
     #builder=None
-    links=None
-    win=None
-    dheader=None
-    address=None
+    links = None
+    win = None
+    resdict = None
+    address = None
     #autoclose=0 #closes window after a timeperiod
     
-    def __init__(self,links,_address,dheader):
-        self.links=links
-        self.dheader=dheader
-        self.address=_address
+    def __init__(self,links,_address, **obdict):
+        self.links = links
+        self.resdict = obdict
+        self.address = _address
         
     def init2(self, _file):
         classname=type(self).__name__
@@ -49,9 +49,10 @@ class gtkclient_template(Gtk.Builder):
         self.add_from_file(_file)
         return True
         
-    def do_requestdo(self,action,*requeststrs):
-        requeststrs+=(self.dheader,)
-        return self.links["gtkclient"].do_requestdo(action,*requeststrs)
+    def do_requestdo(self,action, **obdict):
+        od=self.resdict.clone()
+        od.update(obdict)
+        return self.links["gtkclient"].do_requestdo(action, **od)
     
     def close(self,*args):
         self.win.destroy()

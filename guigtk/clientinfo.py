@@ -2,7 +2,8 @@
 
 
 import os
-from common import sharedir,isself, scnparse_url
+from common import sharedir,isself
+#, scnparse_url
 
 from gi.repository import Gtk
 from guigtk.guicommon import gtkclient_template
@@ -14,8 +15,8 @@ def clearme(widget):
 class gtkclient_info(gtkclient_template):
     name=None
     col=None
-    def __init__(self,links,_address,dheader,name=""):
-        gtkclient_template.__init__(self, links, _address,dheader)
+    def __init__(self, links, _address, name="", **obdict):
+        gtkclient_template.__init__(self, links, _address, **obdict)
         if self.init2(os.path.join(sharedir, "guigtk", "clientinfo.ui"))==False:
             return
         #self.get_object("col1").set_orientation(Gtk.Orientation.VERTICAL)
@@ -52,7 +53,7 @@ class gtkclient_info(gtkclient_template):
         
         
     
-        _info=self.do_requestdo("info",self.address)
+        _info=self.do_requestdo("info", address=self.address)
         if _info[0]==True:
             if _info[1][0] == "server":
                 serviceb.hide()
@@ -75,5 +76,5 @@ class gtkclient_info(gtkclient_template):
         self.col.pack_end(grid,False,False,0)
         
     def openservices(self,*args):
-        gtkclient_remoteservice(self.links, self.address, self.dheader, self.name)
+        gtkclient_remoteservice(self.links, self.address, self.forcedhash, self.name)
 

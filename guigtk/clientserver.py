@@ -19,8 +19,8 @@ class gtkclient_server(gtkclient_template):
         else:
             return False
     
-    def __init__(self,links,_address,dheader,name=""):
-        gtkclient_template.__init__(self, links,_address,dheader)
+    def __init__(self,links, _address, name="", **obdict):
+        gtkclient_template.__init__(self, links,_address, **obdict)
         if self.init2(os.path.join(sharedir, "guigtk", "clientserver.ui"))==False:
             return
         
