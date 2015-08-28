@@ -54,6 +54,7 @@ class client_safe(object):
     
     @check_argsdeco({"address": (str, ), })
     def gethash(self, obdict):
+        """ fetch hash from address """
         try:
             con = client.HTTPSConnection(obdict["address"], context=self.sslcont)
             con.connect()
@@ -69,6 +70,7 @@ class client_safe(object):
 
     @check_argsdeco({"address": (str, ), })
     def ask(self, obdict):
+        #""" ask """
         _ha = self.gethash(obdict["address"])
         if _ha[0] == False:
             return _ha
@@ -79,6 +81,7 @@ class client_safe(object):
 
     @check_argsdeco({"server": (str, ), })
     def listnames(self, obdict):
+        """ list and sort names from server """
         _tnames = self.do_request(obdict["server"], "/server/dumpnames", headers=obdict.get("headers"))
         if _tnames[0] == False:
             return _tnames
