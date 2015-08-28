@@ -46,7 +46,7 @@ class client_safe(object):
         """ fetch client address """
         #obdict["forcehash"] = obdict["hash"]
         _getret = self.do_request(obdict["server"],"/server/get", obdict,headers=obdict.get("headers"))
-        if _getret[0] == False or check_args(_getret[1], (("address", str), ("port", int))) == False:
+        if _getret[0] == False or check_args(_getret[1], {"address": (str,), "port": (int,)}) == False:
             return _getret
         if _getret[1].get("port", 0)<1:
             return False,"port <1: {}".format(_getret[1]["port"])

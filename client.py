@@ -249,8 +249,8 @@ class client_client(client_admin, client_safe):
     # command wrapper for cmd interfaces
     def command(self, inp):
         obdict = parse.parse_qs(inp)
-        if check_args(obdict, (("action", str),)) == False:
-            return False, "no action given"
+        if check_args(obdict, {"action": (str, "main action"),}) == False:
+            return False, "no action given", isself, self.cert_hash
         if obdict["action"] in ["access_main", "access_safe", "command"]:
             return False, "actions: 'access_safe, access_main, command' not allowed in command", isself, self.cert_hash
         action = obdict["action"]
@@ -285,18 +285,18 @@ class client_client(client_admin, client_safe):
     def access_main(self, action, **obdict):
         obdict["pwcall_method"] = self.pw_auth
         if action in ["access_main", "access_safe"]:
-            return False, "actions: 'access_safe, access_main' not allowed in access_main",  isself,  self.cert_hash
+            return False, "actions: 'access_safe, access_main' not allowed in access_main", isself, self.cert_hash
         if action in self.validactions:
             try:
                 return getattr(self, action)(obdict)
             except AddressFail as e:
-                return False, "Addresserror:\n{}".format(e.msg),  isself,  self.cert_hash
+                return False, "Addresserror:\n{}".format(e.msg), isself, self.cert_hash
             except ConnectionRefusedError:
-                return False, "unreachable",  isself,  self.cert_hash
+                return False, "unreachable", isself, self.cert_hash
             except Exception as e:
-                return False, generate_error(e),  isself,  self.cert_hash
+                return False, generate_error(e), isself, self.cert_hash
         else:
-            return False, "not in validactions",  isself,  self.cert_hash
+            return False, "not in validactions", isself, self.cert_hash
     
     # help section
     def cmdhelp(self):

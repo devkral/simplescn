@@ -750,38 +750,42 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
 # _moddic is modified
 def check_args(_moddict, requires={}, optional={}, error=[]):
     search = set()
-    search.update(requires)
+    if isinstance(requires,dict) == False:
+        raise(TypeError("requires wrong type: "+type(requires).__name__))
+    
+    if isinstance(optional,dict) == False:
+        raise(TypeError("optional wrong type: "+type(optional).__name__))
+    search.update(requires.items())
     #_optionallist = [elemoptional[0] for elemoptional in optional]
-    search.update(optional)
-    for elem in search:
-        if len(elem) not in [2, 3]:
-            continue
-        arg, _type = elem[:2] # remove documentation string
-        if arg not in _moddict and arg in optional:
-            continue
-        elif arg not in _moddict:
-            error.append(arg)
+    search.update(optional.items())
+    for argname, value in search:
+        if len(value) not in [1, 2]:
+            raise(IndexError("len invalid: "+str(value)))
+        _type = value[0] # remove documentation string
+        if argname not in _moddict:
+            if argname in optional:
+                continue
+            error.append(argname)
             return False
-        if isinstance(_moddict[arg], _type):
+        if isinstance(_moddict[argname], _type):
             continue
-            
-        if isinstance(_type, tuple) and isinstance(_moddict[arg], list):
-            _moddict[arg] = tuple(_moddict[arg])
+        if isinstance(_type, tuple) and isinstance(_moddict[argname], list):
+            _moddict[argname] = tuple(_moddict[argname])
             continue
-        if isinstance(_type, list) and isinstance(_moddict[arg], tuple):
-            _moddict[arg] = list(_moddict[arg])
+        if isinstance(_type, list) and isinstance(_moddict[argname], tuple):
+            _moddict[argname] = list(_moddict[argname])
             continue
-            
+        
         # strip array and try again (limitation of www-parser)
-        if isinstance(_type, (tuple, list)) == False and isinstance(_moddict[arg], (tuple, list)) == True:
-            _moddict[arg] = _moddict[arg][0]
+        if isinstance(_type, (tuple, list)) == False and isinstance(_moddict[argname], (tuple, list)) == True:
+            _moddict[argname] = _moddict[argname][0]
         # is a number given as string?
-        if isinstance(_type, int) and isinstance(_moddict[arg], str) and _moddict[arg].isdigit():
-            _moddict[arg] = int(_moddict[arg])
+        if isinstance(_type, int) and isinstance(_moddict[argname], str) and _moddict[argname].isdigit():
+            _moddict[argname] = int(_moddict[argname])
         # check if everything is right now
-        if isinstance(_moddict[arg], _type):
+        if isinstance(_moddict[argname], _type):
             continue
-        error.append(arg)
+        error.append(argname)
         return False
     return True
 
