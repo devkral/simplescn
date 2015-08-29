@@ -132,6 +132,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Manage Services</property>
     <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.png</property>
     <child>
       <object class="GtkGrid" id="maingridserviceswin">
         <property name="name">maingrid</property>

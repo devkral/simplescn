@@ -33,7 +33,7 @@ class client_safe(object):
     @check_argsdeco({"name": (str, ),"port": (int, )})
     def registerservice(self, obdict):
         """ register service (second way) """
-        self.do_request("localhost:{}".format(self.links["server"].socket.getsockname()[1]),"/server/registerservice", obdict)
+        return self.do_request("localhost:{}".format(self.links["server"].socket.getsockname()[1]),"/server/registerservice", obdict)
     
     @check_argsdeco({"name": (str, )})
     def delservice(self, obdict):

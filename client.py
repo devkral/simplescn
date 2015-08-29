@@ -140,6 +140,7 @@ class client_client(client_admin, client_safe):
             pwcallm = body.get("pwcall_method")
             if pwcallm:
                 del body["pwcall_method"]
+            
             ob=bytes(json.dumps(body), "utf-8")
             con.putheader("Content-Length", str(len(ob)))
             con.endheaders()
@@ -197,6 +198,7 @@ class client_client(client_admin, client_safe):
                 status = True
             else:
                 status = False
+            
             if response.headers.get("Content-Type").split(";")[0].strip().rstrip() in ["text/plain","text/html"]:
                 obdict = gen_result(str(readob, "utf-8"), status)
             else:
@@ -249,8 +251,10 @@ class client_client(client_admin, client_safe):
     # command wrapper for cmd interfaces
     def command(self, inp):
         obdict = parse.parse_qs(inp)
-        if check_args(obdict, {"action": (str, "main action"),}) == False:
-            return False, "no action given", isself, self.cert_hash
+        error=[]
+        if check_args(obdict, {"action": (str, "main action"),},error=error) == False:
+            return False, "{}:{}".format(*error), isself, self.cert_hash
+            #return False, "no action given", isself, self.cert_hash
         if obdict["action"] in ["access_main", "access_safe", "command"]:
             return False, "actions: 'access_safe, access_main, command' not allowed in command", isself, self.cert_hash
         action = obdict["action"]
@@ -378,15 +382,17 @@ class client_server(commonscn):
         self.message = dcserver["message"]
         self.priority = dcserver["priority"]
         self.cert_hash = dcserver["certhash"]
-        self.cache["listservices"] = gen_result({}, True)
+        self.cache["dumpservices"] = json.dumps(gen_result({}, True))
         self.update_cache()
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     
-    @check_argsdeco((("name", str), ("port", int)))
+    @check_argsdeco({"name": (str,), "port": (int,)})
     def registerservice(self, obdict):
         """ register a service = (map port to name) """
-        if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
+        if obdict.get("clientaddress") is None:
+            False, "bug: clientaddress is None"
+        if obdict.get("clientaddress")[0] in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
             self.spmap[obdict.get("name")] = obdict.get("port")
             self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
@@ -395,10 +401,12 @@ class client_server(commonscn):
             return True
         return False, "no permission"
     
-    @check_argsdeco((("name", str), ))
+    @check_argsdeco({"name": (str, )})
     def delservice(self, obdict):
         """ delete a service"""
-        if obdict.get("clientaddress") in ["localhost", "127.0.0.1", "::1"]:
+        if obdict.get("clientaddress") is None:
+            False, "bug: clientaddress is None"
+        if obdict.get("clientaddress")[0] in ["localhost", "127.0.0.1", "::1"]:
             self.wlock.acquire()
             if obdict["name"] in self.spmap:
                 del self.spmap[obdict["name"]]
@@ -408,7 +416,7 @@ class client_server(commonscn):
         return False, "no permission"
         
     ### management section - end ###
-    @check_argsdeco((("name", str), ))
+    @check_argsdeco({"name":(str,)})
     def getservice(self, obdict):
         """ get the port of a service """
         if obdict["name"] not in self.spmap:
@@ -474,7 +482,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(411,"POST data+data length needed")
             return
         readob = self.rfile.read(int(self.headers.get("Content-Length")))
-        # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
+        # str: charset (like utf-8), safe_mdecode: transform arguments to dict
         obdict = safe_mdecode(readob, self.headers.get("Content-Type"))
         if obdict is None:
             self.send_error(400, "bad arguments")
@@ -484,7 +492,7 @@ class client_handler(BaseHTTPRequestHandler):
         try:
             func = getattr(self.links["client"], action)#self.links["client"].access_main(action, _cmdlist, self.headers)
             response = func(obdict)
-            jsonnized = json.dumps(response)
+            jsonnized = json.dumps(gen_result(response[1],response[0]))
         except AddressFail as e:
             self.send_error(500, e.msg)
             return
@@ -492,13 +500,18 @@ class client_handler(BaseHTTPRequestHandler):
             error = generate_error("unknown")
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
-            ob = bytes(json.dumps(gen_result(error, False)), "utf8")
+            ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
             self.scn_send_answer(500, ob)
             return
+        
+        if jsonnized is None:
+            jsonnized = json.dumps(gen_result(generate_error("jsonnized None")))
+            response[0] = False
         if response[0] == False:
             self.send_response(400)
         else:
             self.send_response(200)
+        
         ob=bytes(jsonnized, "utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
@@ -541,7 +554,7 @@ class client_handler(BaseHTTPRequestHandler):
         try:
             func = getattr(self.links["client_server"], action)
             response = func(obdict)
-            success, jsonnizedresult = response[:2]
+            jsonnized = json.dumps(gen_result(response[1],response[0]))
         except Exception as e:
             error = generate_error("unknown")
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
@@ -549,12 +562,16 @@ class client_handler(BaseHTTPRequestHandler):
             ob = bytes(json.dumps(gen_result(error, False)), "utf8")
             self.scn_send_answer(500, ob)
             return
-
-        if success:
+        
+        
+        if jsonnized is None:
+            jsonnized = json.dumps(gen_result(generate_error("jsonnized None")))
+            response[0] = False
+        if response[0] == False:
             self.send_response(400)
         else:
             self.send_response(200)
-        ob=bytes(jsonnizedresult, "utf-8")
+        ob=bytes(jsonnized, "utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
         self.send_header('Content-Length', len(ob))

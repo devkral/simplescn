@@ -35,17 +35,18 @@ class services_stuff(object):
     
         
     def add_service(self,*args):
-        localservicelist=self.builder.get_object("localservicelist")
-        servicee=self.builder.get_object("newservicenameentry")
-        porte=self.builder.get_object("newserviceportentry")
-        service=servicee.get_text().strip(" ").rstrip(" ")
-        port=porte.get_text().strip(" ").rstrip(" ")
+        localservicelist = self.builder.get_object("localservicelist")
+        servicee = self.builder.get_object("newservicenameentry")
+        porte = self.builder.get_object("newserviceportentry")
+        service = servicee.get_text().strip(" ").rstrip(" ")
+        port = porte.get_text().strip(" ").rstrip(" ")
         if service=="":
             logger().debug("service invalid")
             return
         if port == "" or port.isdecimal() == False:
             logger().debug("port invalid")
             return
+        print("\""+port+"\"")
         ret = self.do_requestdo("registerservice", name=service, port=port)
         if ret[0] == False:
             logger().debug(ret[1])

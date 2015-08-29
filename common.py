@@ -766,26 +766,28 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
             if argname in optional:
                 continue
             error.append(argname)
+            error.append("no found")
             return False
         if isinstance(_moddict[argname], _type):
             continue
-        if isinstance(_type, tuple) and isinstance(_moddict[argname], list):
+        if _type is tuple and isinstance(_moddict[argname], list):
             _moddict[argname] = tuple(_moddict[argname])
             continue
-        if isinstance(_type, list) and isinstance(_moddict[argname], tuple):
+        if _type is list and isinstance(_moddict[argname], tuple):
             _moddict[argname] = list(_moddict[argname])
             continue
         
         # strip array and try again (limitation of www-parser)
-        if isinstance(_type, (tuple, list)) == False and isinstance(_moddict[argname], (tuple, list)) == True:
+        if not _type in (tuple, list) and isinstance(_moddict[argname], (tuple, list)):
             _moddict[argname] = _moddict[argname][0]
         # is a number given as string?
-        if isinstance(_type, int) and isinstance(_moddict[argname], str) and _moddict[argname].isdigit():
+        if _type is int and isinstance(_moddict[argname], str) and _moddict[argname].strip().rstrip().isdecimal():
             _moddict[argname] = int(_moddict[argname])
         # check if everything is right now
         if isinstance(_moddict[argname], _type):
             continue
         error.append(argname)
+        error.append("wrong type: {}, {}".format(type(_moddict[argname]).__name__,_moddict[argname]))
         return False
     return True
 
@@ -800,7 +802,7 @@ def check_argsdeco(requires={}, optional={}):
             self, obdict = args
             error=[]
             if check_args(obdict, requires, optional, error=error) == False:
-                return False, "check_args failed ({}) arg: {}".format(func.__name__, error[0]), isself, self.cert_hash
+                return False, "check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), isself, self.cert_hash
             resp = func(self, obdict)
             if isinstance(resp, bool) == True or len(resp)==1:
                 if isinstance(resp, bool) == False:
