@@ -410,7 +410,7 @@ class client_server(commonscn):
             self.wlock.acquire()
             if obdict["name"] in self.spmap:
                 del self.spmap[obdict["name"]]
-                self.cache["listservices"] = json.dumps(gen_result(self.spmap, True)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
+                self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
             self.wlock.release()
             return  True
         return False, "no permission"
