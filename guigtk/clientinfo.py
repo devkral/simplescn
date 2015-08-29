@@ -46,17 +46,17 @@ class gtkclient_info(gtkclient_template):
         else:
             self.col_entry("Name: ",self.name)
         self.col_entry("Address: ",self.address)
-        self.col_entry("Hash: ",self.forcedhash)
-        
-        
     
         _info=self.do_requestdo("info", address=self.address)
         if _info[0]==True:
-            if _info[1][0] == "server":
+            if _info[1]["type"] == "server":
                 serviceb.hide()
             else:
                 serviceb.show()
-            messagebuf.set_text(_info[1][2],-1)
+            
+            self.col_entry("Hash: ", _info[3])
+            messagebuf.set_text(_info[1]["message"],-1)
+            
     
     def col_entry(self,key,val):
         grid=Gtk.Grid()
@@ -73,5 +73,5 @@ class gtkclient_info(gtkclient_template):
         self.col.pack_end(grid,False,False,0)
         
     def openservices(self,*args):
-        gtkclient_remoteservice(self.links, self.address, self.forcedhash, self.name)
+        gtkclient_remoteservice(self.links, self.address, self.name, **self.resdict)
 

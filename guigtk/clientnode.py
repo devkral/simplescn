@@ -47,7 +47,7 @@ class gtkclient_node(gtkclient_template):
                             itemb.pack_end(Gtk.Image.new_from_file(action["icon"]), True, True,0)
                         itemb.show_all()
                         item.show()
-                        item.connect('activate',activate_shielded(action["action"],self.address,self.dheader))
+                        item.connect('activate',activate_shielded(action["action"],self.address,**self.resdict))
                         menu.append(item)
                 except Exception as e:
                     logger().error(e)

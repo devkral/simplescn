@@ -15,14 +15,10 @@ class hashmanagement(object):
     
     def __init__(self):
         self.managehashdia = self.builder.get_object("managehashdia")
-        
-        
         self.managehashdia.connect('delete-event',self.close_managehashdia)
 
     def activate_local(self,*args):
-        #serverurl=self.builder.get_object("servercomboentry").get_text()
         nodeactionset=self.builder.get_object("nodeactionset")
-        #action_sub=self.builder.get_object("refactiongrid_sub")
         refactiongrid_sub=self.builder.get_object("refactiongrid_sub")
         refscrollwin=self.builder.get_object("refscrollwin")
         
@@ -72,7 +68,6 @@ class hashmanagement(object):
         action_sub=self.builder.get_object("refactiongrid_sub")
         refscrollwin=self.builder.get_object("refscrollwin")
         
-        #updatereftb=self.builder.get_object("updatereftb")
         addrefb=self.builder.get_object("addrefb")
         addrefentry=self.builder.get_object("addrefentry")
         
@@ -113,7 +108,6 @@ class hashmanagement(object):
             delrefb.set_sensitive(False)
             updatereftb.set_sensitive(False)
             return
-        #updaterefentry.set_text(_sel[0][_sel[1]][1])
         nodeactionset.show()
         delrefb.set_sensitive(True)
         updatereftb.set_sensitive(True)
@@ -191,8 +185,6 @@ class hashmanagement(object):
             logger().info("invalid url: {}".format(_url))
             return
         
-        tdparam=self.header_node.copy()
-        tdparam["certhash"]=_hash
         
         ret=self.do_requestdo("check_direct", address=_url, name=self.curlocal[1], hash=_hash, forcehash=_hash)
         if ret[0]==True:
@@ -207,11 +199,11 @@ class hashmanagement(object):
                 pass
             elif action == 1:
                 if self.curlocal[0] == "server":
-                    gtkclient_server(self.links,"{}:{}".format(*scnparse_url(_url)),tdparam, self.curlocal[1])
+                    gtkclient_server(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash)
                 else:
-                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)),tdparam, self.curlocal[1])
+                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash)
             elif action == 2:
-                gtkclient_info(self.links,"{}:{}".format(*scnparse_url(_url)),tdparam,self.curlocal[1])
+                gtkclient_info(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash)
         else:
             logger().error(ret[1])
     

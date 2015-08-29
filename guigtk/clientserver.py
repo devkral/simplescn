@@ -103,13 +103,12 @@ class gtkclient_server(gtkclient_template):
         if _node[0]==False:
             logger().error(_node[1])
             return
-        
-        self.links["gtkclient"].set_curnode(_node["address"], _name, _hash, self.address)
+        self.links["gtkclient"].set_curnode("{}:{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.address)
         #TODO: enum
         if action == 0:
             pass
         elif action == 1:
-            gtkclient_node(self.links, "{}:{}".format(_node["address"],_node["port"]), _name, **self.resdict)
+            gtkclient_node(self.links, "{}:{}".format(_node[1]["address"],_node[1]["port"]), _name, **self.resdict)
         self.close()
         
     def get_snode(self,*args):

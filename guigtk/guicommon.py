@@ -1,15 +1,8 @@
 #! /usr/bin/env python3
 
-
-#import sys
-#import os
-
-
 from gi.repository import Gtk
 
-
-run=True
-
+run = True
 open_addresses={}
 
 
@@ -19,7 +12,6 @@ def activate_shielded(action, url, obdict):
     return shielded
 
 class gtkclient_template(Gtk.Builder):
-    #builder=None
     links = None
     win = None
     resdict = None

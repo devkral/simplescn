@@ -802,13 +802,15 @@ def check_argsdeco(requires={}, optional={}):
             if check_args(obdict, requires, optional, error=error) == False:
                 return False, "check_args failed ({}) arg: {}".format(func.__name__, error[0]), isself, self.cert_hash
             resp = func(self, obdict)
-            if len(resp)==2:
-                return resp[0], resp[1], isself, self.cert_hash
-            elif len(resp)==1:
-                if resp[0] == True:
-                    resp[0], "{} finished successfully".format(func.__name__), isself, self.cert_hash
+            if isinstance(resp, bool) == True or len(resp)==1:
+                if isinstance(resp, bool) == False:
+                    resp = resp[0]
+                if resp == True:
+                    return True, "{} finished successfully".format(func.__name__), isself, self.cert_hash
                 else:
-                    resp[0], "{} failed".format(func.__name__), isself, self.cert_hash
+                    return False, "{} failed".format(func.__name__), isself, self.cert_hash
+            elif len(resp)==2:
+                return resp[0], resp[1], isself, self.cert_hash
             else:
                 return resp
         get_args.requires = requires
@@ -871,49 +873,61 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
     return False"""
 
 def check_reference(_reference):
-    if all(c not in "\0'\"\x1A\x7F" for c in _reference) and \
-        len(_reference) < 100:
-        return True
-    #logger().debug("invalid reference: {}".format(_reference))
-    return False
+    if _reference is None:
+        return False
+    if len(_reference) > 100:
+        return False
+    if all(c not in "\0'\"\x1A\x7F" for c in _reference) == False:
+        return False
+    return True
 
 def check_reference_type(_reference_type):
-    if all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type) and \
-        len(_reference_type) < 15:
-        return True
-    #logger().debug("invalid referencetype: {}".format(_reference_type))
-    return False
+    if _reference_type is None:
+        return False
+    if len(_reference_type) > 15:
+        return False
+    if all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type) == False:
+        return False
+    return True
 
 
 def check_hash(_hashstr):
-    if all(c in "0123456789abcdefABCDEF" for c in _hashstr):
-        if len(_hashstr) == DEFAULT_HASHALGORITHM_len:
-            return True
-    return False
+    if _hashstr is None:
+        return False
+    if len(_hashstr) != DEFAULT_HASHALGORITHM_len:
+        return False
+    if all(c in "0123456789abcdefABCDEF" for c in _hashstr) == False:
+        return False
+    return True
 
 def check_name(_name, maxlength = 64):
-    #ensure no bad characters
-    #name shouldn't be too big
-    #.:[]to differ name from ip address
+    if _name is None:
+        return False
+    # name shouldn't be too long
+    if len(_name) > maxlength:
+        return False
+    # ensure no bad characters
+    if any(c in " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name):
+        return False
+    # no .:[]to differ name from ip address
     #name shouldn't be isself as it is used 
-    if all(c not in " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
-        all(c not in ".:[]" for c in _name) and \
-        len(_name) <= maxlength and \
-        _name != isself:
-        return True
-    #logger().debug("invalid name (maxlength: {}): {}".format(maxlength, _name))
-    return False
+    if any(c in ".:[]" for c in _name) or _name == isself:
+        return False
+    return True
 
-def check_typename(_name, maxlength = 15):
-    #ensure no bad characters
-    #name shouldn't be too big
-    #name shouldn't be isself as it is used
-    if _name.isalpha() == True and \
-        len(_name) <= maxlength and \
-        _name != isself:
-        return True
-    #logger().debug("invalid type: {}".format(_name))
-    return False
+def check_typename(_type, maxlength = 15):
+    if _type is None:
+        return False
+    # type shouldn't be too long
+    if len(_type) > maxlength:
+        return False
+    # ensure no bad characters
+    if _type.isalpha() == False:
+        return False
+    # type shouldn't be isself as it is used
+    if _type == isself:
+        return False
+    return True
 
 
 def rw_socket(sockr, sockw):
@@ -1128,7 +1142,10 @@ class certhash_db(object):
         return True
     
     @connecttodb
-    def delhash(self, dbcon, _certhash, _name = None):
+    def delhash(self, dbcon, _certhash):
+        if _certhash == "default":
+            logger().error("tried to delete reserved hash 'default'")
+            return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
 
@@ -1150,9 +1167,9 @@ class certhash_db(object):
     def listhashes(self, dbcon, _name, _nodetype = None):
         cur = dbcon.cursor()
         if _nodetype is None:
-            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? ORDER BY priority DESC;''', (_name,))
+            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? AND certhash!='default' ORDER BY priority DESC;''', (_name,))
         else:
-            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? and type=? ORDER BY priority DESC;''', (_name, _nodetype))
+            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? AND certhash!='default' AND type=? ORDER BY priority DESC;''', (_name, _nodetype))
         out = cur.fetchall()
         if out is None:
             return []
@@ -1169,7 +1186,7 @@ class certhash_db(object):
             cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''',(_nodetype,))
         out = cur.fetchall()
         if out is None:
-            return []
+            return None
         else:
             return [elem[0] for elem in out]
     
@@ -1179,7 +1196,7 @@ class certhash_db(object):
         cur.execute('''SELECT DISTINCT name,type FROM certs ORDER BY name ASC;''')
         out = cur.fetchall()
         if out is None:
-            return []
+            return None
         else:
             return out
     
@@ -1202,6 +1219,9 @@ class certhash_db(object):
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (_certhash,))
         temp = cur.fetchone()
         if temp is None:
+            return None
+        elif temp[0] == isself:
+            logger().error("reserved name in db: "+isself)
             return None
         else:
             return temp[0]

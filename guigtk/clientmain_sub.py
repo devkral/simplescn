@@ -31,7 +31,7 @@ class services_stuff(object):
         if services[0]==False:
             return
         for elem in services[1]:
-            localservicelist.append((elem[0],elem[1]))
+            localservicelist.append((elem[0], elem[1]))
     
         
     def add_service(self,*args):
@@ -113,8 +113,6 @@ class cmd_stuff(object):
         out.insert(out.get_end_iter(),resp[1]+"\n")
         out.move_mark_by_name("scroll", out.get_end_iter())
         cmdview.scroll_to_mark(out.get_mark("scroll"),0.4,True,0,1)
-        #place_cursor_onscreen()
-        #cmdwinscrolla.set_value(0) #100)
     def cmdme(self,*args):
         if self.cmd_wintoggle.get_active()==True:
             self.cmdwin.show()

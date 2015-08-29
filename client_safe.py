@@ -73,7 +73,7 @@ class client_safe(object):
 
     @check_argsdeco({"address": (str, ), })
     def ask(self, obdict):
-        #""" ask """
+        """ retrieve localname of a address/None if not available """
         _ha = self.gethash(obdict)
         if _ha[0] == False:
             return _ha
@@ -90,11 +90,15 @@ class client_safe(object):
             return _tnames
         out = []
         for name, _hash in sorted(_tnames[1], key=lambda t: t[0]):
-            out.append((name, _hash, self.hashdb.certhash_as_name(_hash)))
+            if _hash == self.cert_hash:
+                out.append((name, _hash, isself))
+            else:
+                out.append((name, _hash, self.hashdb.certhash_as_name(_hash)))
         return _tnames[0], out, _tnames[2], _tnames[3]
     
     @check_argsdeco({"name": (str, "service name"), }, {"client":(str, )})
     def getservice(self, obdict):
+        """ get port of a service """
         if obdict.get("client") == False:
             client_addr = obdict["client"]
             del obdict["client"]
@@ -104,6 +108,7 @@ class client_safe(object):
     
     @check_argsdeco(optional={"client":(str, )})
     def listservices(self, obdict):
+        """ list services with ports """
         if obdict.get("client") == False:
             client_addr = obdict["client"]
             del obdict["client"]
@@ -112,7 +117,7 @@ class client_safe(object):
         _tservices = self.do_request(client_addr, "/server/dumpservices", headers=obdict.get("headers"), forceport=True)
         if _tservices[0] == False:
             return _tservices
-        out=sorted(_tservices[1], key=lambda t: t[0])
+        out=sorted(_tservices[1].items(), key=lambda t: t[0])
         return _tservices[0], out, _tservices[2], _tservices[3]
     
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
@@ -195,9 +200,7 @@ class client_safe(object):
     def listhashes(self, obdict):
         """ list hashes in hashdb """
         _name = obdict.get("name")
-        _nodetypefilter = obdict.get("filter")
-        
-        temp = self.hashdb.listhashes(_name, _nodetypefilter)
+        temp = self.hashdb.listhashes(_name, obdict.get("filter", None))
         if temp is None:
             return False
         else:
@@ -215,8 +218,7 @@ class client_safe(object):
     @check_argsdeco(optional={"filter":(str, )})
     def listnodenames(self,obdict):
         """ list nodenames """
-        _nodetypefilter = obdict.get("filter", None)
-        temp = self.hashdb.listnodenames(_nodetypefilter)
+        temp = self.hashdb.listnodenames(obdict.get("filter", None))
         if temp is None:
             return False
         else:
@@ -225,8 +227,7 @@ class client_safe(object):
     @check_argsdeco(optional={"filter":(str, )})
     def listnodeall(self, obdict):
         """ list nodes with all informations """
-        _nodetypefilter = obdict.get("filter", None)
-        temp = self.hashdb.listnodeall(_nodetypefilter)
+        temp = self.hashdb.listnodeall(obdict.get("filter", None))
         if temp is None:
             return False
         else:
@@ -235,10 +236,7 @@ class client_safe(object):
     @check_argsdeco({"hash": (str, )}, optional={"filter":(str, )})
     def getreferences(self, obdict):
         """ get references of a hash """
-        if obdict.get("file") is not None:
-            _hash, _reftypefilter = obdict["hash"], obdict["filter"]
-        else:
-            _hash = obdict["hash"]
+        _hash = obdict["hash"]
         if check_hash(_hash) == True:
             _localname = self.hashdb.certhash_as_name(_hash) #can return None to sort out invalid hashes
         else:
@@ -248,7 +246,7 @@ class client_safe(object):
         _tref = self.hashdb.get(_localname, _hash)
         if _tref is None:
             return False,"error in hashdb"
-        temp = self.hashdb.getreferences(_tref[2], _reftypefilter)
+        temp = self.hashdb.getreferences(_tref[2], obdict.get("filter", None))
         if temp is None:
             return False
         return True, temp
