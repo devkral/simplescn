@@ -34,9 +34,7 @@ from common import server_port, check_certs,generate_certs,init_config_folder, d
 class server(commonscn):
     capabilities = ["basic",]
     nhipmap = None
-    nhipmap_etime = None
     nhipmap_cache = ""
-    nhipmap_len = 0
     sleep_time = 1
     refreshthread = None
     links = None
