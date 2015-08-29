@@ -31,7 +31,7 @@ class services_stuff(object):
         if services[0]==False:
             return
         for elem in services[1]:
-            localservicelist.append((elem[0], elem[1]))
+            localservicelist.append((elem[0], str(elem[1])))
     
         
     def add_service(self,*args):
