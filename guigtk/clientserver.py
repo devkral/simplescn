@@ -54,18 +54,18 @@ class gtkclient_server(gtkclient_template):
         registerb=self.get_object("registerbutton")
         self.isregistered=False
         namestore.clear()
-        _names=self.do_requestdo("listnames",self.address)
+        _names=self.do_requestdo("listnames",server=self.address)
         if _names[0]==False:
             logger().error(_names[1])
             return
-        for elem in _names[1]:
-            if elem[2] is None:
-                namestore.append(("remote",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
-            elif elem[2] is isself:
+        for name, _hash, _localname in _names[1]:
+            if _localname is None:
+                namestore.append(("remote",name,_hash,"{}/{}".format(name,_hash)))
+            elif _localname is isself:
                 self.isregistered=True
-                namestore.append(("self",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
+                namestore.append(("self",name,_hash,"{}/{}".format(name,_hash)))
             else:
-                namestore.append(("local",elem[0],elem[1],"{}/{}".format(elem[0],elem[1])))
+                namestore.append(("local","{} ({})".format(name, _localname),_hash,"{}/{}".format(name,_hash)))
         if self.isregistered==False:
             registerb.set_label("Register")
         else:
@@ -86,7 +86,7 @@ class gtkclient_server(gtkclient_template):
                             itemb.pack_end(Gtk.Image.new_from_file(action["icon"]), True, True,0)
                         itemb.show_all()
                         item.show()
-                        item.connect('activate',activate_shielded(action["action"],self.address,self.dheader))
+                        item.connect('activate',activate_shielded(action["action"],self.address, **self.resdict))
                         menu.append(item)
                 except Exception as e:
                     logger().error(e)
@@ -99,19 +99,17 @@ class gtkclient_server(gtkclient_template):
         if val=="" or val.find("/")==-1:
             return
         _name,_hash=_entry.get_text().split("/",1)
-        _node=self.do_requestdo("get",self.address,_name,_hash)
+        _node = self.do_requestdo("get",server=self.address,name=_name,hash=_hash)
         if _node[0]==False:
             logger().error(_node[1])
             return
         
-        self.links["gtkclient"].set_curnode("{}:{}".format(*_node[1]), _name, _hash, self.address)
+        self.links["gtkclient"].set_curnode(_node["address"], _name, _hash, self.address)
         #TODO: enum
         if action == 0:
             pass
         elif action == 1:
-            tdparam=self.links["gtkclient"].header_node.copy()
-            tdparam["certhash"]=_hash
-            gtkclient_node(self.links, "{}:{}".format(*_node[1]), tdparam, _name)
+            gtkclient_node(self.links, "{}:{}".format(_node["address"],_node["port"]), _name, **self.resdict)
         self.close()
         
     def get_snode(self,*args):
@@ -146,7 +144,7 @@ class gtkclient_server(gtkclient_template):
     def register(self,*args):
         registerb=self.get_object("registerbutton")
         namestore=self.get_object("servernodelist")
-        res=self.do_requestdo("register",self.address)
+        res=self.do_requestdo("register",server=self.address)
         if res[0]==False:
             logger().error(res[1])
             return
@@ -156,6 +154,6 @@ class gtkclient_server(gtkclient_template):
                 logger().error(res[1])
                 return
             self.isregistered=True
-            namestore.prepend(("self", res_show[1][0], res_show[1][1], "{}/{}".format(res_show[1][0], res_show[1][1])))
+            namestore.prepend(("self", res_show[1]["name"], res_show[1]["hash"], "{}/{}".format(res_show[1]["name"], res_show[1]["hash"])))
             registerb.set_label("Update Address")
 

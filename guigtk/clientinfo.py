@@ -46,10 +46,7 @@ class gtkclient_info(gtkclient_template):
         else:
             self.col_entry("Name: ",self.name)
         self.col_entry("Address: ",self.address)
-        if self.dheader["certhash"] is not None:
-            self.col_entry("Hash: ",self.dheader["certhash"])
-        else:
-            self.col_entry("Hash: ", "<empty>")
+        self.col_entry("Hash: ",self.forcedhash)
         
         
     

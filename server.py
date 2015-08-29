@@ -49,7 +49,6 @@ class server(commonscn):
     def __init__(self,d):
         self.expire_time = int(d["expire"])*60 #in minutes
         self.nhipmap = {}
-        self.nhipmap_etime = {}
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()
         self.refreshthread = threading.Thread(target=self.refresh_nhipmap)
@@ -84,17 +83,19 @@ class server(commonscn):
         while self.isactive:
             self.changeip_lock.acquire()
             e_time = int(time.time())-self.expire_time
-            for _name in self.nhipmap_etime:
-                for _hash in self.nhipmap_etime[_name]:
-                    if self.nhipmap_etime[_name][_hash] < e_time:
+            count = 0
+            dump=[]
+            for _name,hashob in self.nhipmap.items():
+                for _hash, val in hashob.items():
+                    if val["updatetime"] < e_time:
                         del self.nhipmap[_name][_hash]
-                        del self.nhipmap_etime[_name][_hash]
-                if len(self.nhipmap[_name])==0:
+                    else:
+                        count += 1
+                        dump.append((_name,_hash))
+                if len(self.nhipmap[_name]) == 0:
                     del self.nhipmap[_name]
-                    del self.nhipmap_etime[_name]
-            self.cache["dumpnames"] = json.dumps(gen_result(self.nhipmap, True))
-            #self.cache["listnames"] = gen_result(sorted(self.nhipmap.items(), key=lambda t: t[0]), True)
-            self.cache["num_nodes"] = json.dumps(gen_result(len(self.nhipmap), True))
+            self.cache["dumpnames"] = json.dumps(gen_result(dump, True))
+            self.cache["num_nodes"] = json.dumps(gen_result(count, True))
             self.changeip_lock.release()
             self.nhipmap_cond.clear()
             time.sleep(self.sleep_time)
@@ -124,10 +125,11 @@ class server(commonscn):
         self.changeip_lock.acquire(False)
         if obdict["name"] not in self.nhipmap:
             self.nhipmap[obdict["name"]]={}
-            self.nhipmap_etime[obdict["name"]]={}
-        self.nhipmap[obdict["name"]][obdict["name"]]=(obdict["clientaddress"][0],obdict["port"])
-        self.nhipmap_etime[obdict["name"]][obdict["hash"]]=int(time.time())
-            
+        if obdict["hash"] not in self.nhipmap[obdict["name"]]:
+            self.nhipmap[obdict["name"]][obdict["hash"]] = {}
+        self.nhipmap[obdict["name"]][obdict["hash"]]["address"] = obdict["clientaddress"][0]
+        self.nhipmap[obdict["name"]][obdict["hash"]]["port"] = obdict["port"]
+        self.nhipmap[obdict["name"]][obdict["hash"]]["updatetime"] = int(time.time())
         self.changeip_lock.release()
         # notify that change happened
         self.nhipmap_cond.set()
@@ -162,9 +164,6 @@ class server_handler(BaseHTTPRequestHandler):
     
     def __init__(self, *args):
         BaseHTTPRequestHandler.__init__(self, *args)
-        self.answernonce = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
-        self.spwveri = None
-        self.tpwveri = None
     
     
     def scn_send_answer(self, status, ob, _type="application/json"):
@@ -367,9 +366,9 @@ class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
     def __init__(self, server_address,certfpath):
         socketserver.TCPServer.__init__(self, server_address, server_handler)
         #self.crappyssl=workaround_ssl(certs[1])
-        self.sslcont=default_sslcont()
+        self.sslcont = default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv", pwcallmethod)
-        self.socket=self.sslcont.wrap_socket(self.socket)
+        self.socket = self.sslcont.wrap_socket(self.socket)
 
 
 class server_init(object):

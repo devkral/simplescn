@@ -1,7 +1,6 @@
 
 import ssl
-from common import isself, check_hash, dhash, check_argsdeco, check_args
-#, logger
+from common import isself, check_hash, dhash, check_argsdeco, check_args, logger, scnparse_url,EnforcedPortFail
 from http import client
 
 class client_safe(object):
@@ -56,22 +55,26 @@ class client_safe(object):
     def gethash(self, obdict):
         """ fetch hash from address """
         try:
-            con = client.HTTPSConnection(obdict["address"], context=self.sslcont)
+            _addr = scnparse_url(obdict["address"],force_port=False)
+            con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
             con.connect()
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             con.close()
+            
             return True, {"hash":dhash(pcert), "cert":pcert}
         except ssl.SSLError:
             return False, "server speaks no tls 1.2"
         except ConnectionRefusedError:
             return False, "server does not exist"
+        except EnforcedPortFail as e:
+            return False, e.msg
         except Exception as e:
             return False, "Other error: {}".format(e)
 
     @check_argsdeco({"address": (str, ), })
     def ask(self, obdict):
         #""" ask """
-        _ha = self.gethash(obdict["address"])
+        _ha = self.gethash(obdict)
         if _ha[0] == False:
             return _ha
         if _ha[1]["hash"] == self.cert_hash:
@@ -85,8 +88,10 @@ class client_safe(object):
         _tnames = self.do_request(obdict["server"], "/server/dumpnames", headers=obdict.get("headers"))
         if _tnames[0] == False:
             return _tnames
-        out=sorted(_tnames[1], key=lambda t: t[0])
-        return _tnames[0], out, _tnames[1], _tnames[2]
+        out = []
+        for name, _hash in sorted(_tnames[1], key=lambda t: t[0]):
+            out.append((name, _hash, self.hashdb.certhash_as_name(_hash)))
+        return _tnames[0], out, _tnames[2], _tnames[3]
     
     @check_argsdeco({"name": (str, "service name"), }, {"client":(str, )})
     def getservice(self, obdict):
@@ -108,7 +113,7 @@ class client_safe(object):
         if _tservices[0] == False:
             return _tservices
         out=sorted(_tservices[1], key=lambda t: t[0])
-        return _tservices[0], out, _tservices[1], _tservices[2]
+        return _tservices[0], out, _tservices[2], _tservices[3]
     
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
     def info(self, obdict):

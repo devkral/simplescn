@@ -274,7 +274,6 @@ class client_client(client_admin, client_safe):
                 if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
                     return False, "no permission",  isself,  self.cert_hash
             resp = getattr(self, action)(obdict)
-            #print(action)
             return resp
         else:
             return False, "not in validactions",  isself,  self.cert_hash

@@ -803,7 +803,7 @@ def check_argsdeco(requires={}, optional={}):
                 return False, "check_args failed ({}) arg: {}".format(func.__name__, error[0]), isself, self.cert_hash
             resp = func(self, obdict)
             if len(resp)==2:
-                return resp[0], resp[1], (True, isself, self.cert_hash)
+                return resp[0], resp[1], isself, self.cert_hash
             elif len(resp)==1:
                 if resp[0] == True:
                     resp[0], "{} finished successfully".format(func.__name__), isself, self.cert_hash

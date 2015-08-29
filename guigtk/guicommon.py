@@ -13,9 +13,9 @@ run=True
 open_addresses={}
 
 
-def activate_shielded(action, url, header):
+def activate_shielded(action, url, obdict):
     def shielded(widget):
-        action(url, header.copy())
+        action(url, {"forcehash": obdict.get("forcehash")})
     return shielded
 
 class gtkclient_template(Gtk.Builder):
@@ -50,14 +50,15 @@ class gtkclient_template(Gtk.Builder):
         return True
         
     def do_requestdo(self,action, **obdict):
-        od=self.resdict.clone()
+        od = self.resdict.copy()
         od.update(obdict)
         return self.links["gtkclient"].do_requestdo(action, **od)
     
     def close(self,*args):
-        self.win.destroy()
+        self.win.hide()
         self.links["gtkclient"].remove_window(self.win)
         del open_addresses[self.address]
+        self.win.destroy()
         del self
 
 
