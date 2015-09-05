@@ -73,6 +73,25 @@ DEFAULT_HASHALGORITHM_len=128
 
 ###### signaling ######
 
+
+class AddressFail(Exception):
+    msg = '"<address>[:<port>]": '
+class EnforcedPortFail(AddressFail):
+    msg = 'address is lacking ":<port>"'
+class AddressEmptyFail(AddressFail):
+    msg = '{} address is empty'.format(AddressFail.msg)
+
+
+class VALError(Exception):
+    msg = 'validation failed'
+class VALNameError(VALError):
+    msg = 'Name spoofed/does not match'
+class VALHashError(VALError):
+    msg = 'Hash does not match'
+class VALMITMError(VALError):
+    msg = 'MITM-attack suspected: nonce missing or check failed'
+    args = (msg, )
+
 resp_st={
 "status":"", #ok, error
 "result": None,
@@ -92,7 +111,24 @@ def generate_error(err):
         error["type"] = type(err).__name__
         if hasattr(err,"tb_frame"):
             error["stacktrace"] = str(traceback.format_tb(err)) 
-    return json.dumps(error)
+    return error # json.dumps(error)
+
+def generate_error_deco(func):
+    def get_args(self,*args, **kwargs):
+        resp = func(self, *args,**kwargs)
+        if len(resp) == 4:
+            _name = resp[2]
+            _hash = resp[3]
+        else:
+            _name = isself
+            _hash = self.cert_hash
+        if resp[0] == False:
+            #ry:
+            #    json.loads(resp[1])
+            #except ValueError:
+            return False, generate_error(resp[1]), _name, _hash
+        return resp
+    return get_args
 
 def gen_result(res, status):
     s = resp_st.copy()
@@ -119,23 +155,6 @@ def check_result(obdict, status):
 
 
 
-class AddressFail(Exception):
-    msg = '"<address>:<port>"\n"[<address>]:<port>"'
-class EnforcedPortFail(AddressFail):
-    msg = 'address is lacking":<port>"\n{}'.format(AddressFail.msg)
-class AddressEmptyFail(AddressFail):
-    msg = 'address is empty\n{}'.format(AddressFail.msg)
-
-
-class VALError(Exception):
-    msg = 'validation failed'
-class VALNameError(VALError):
-    msg = 'Name spoofed/does not match'
-class VALHashError(VALError):
-    msg = 'Hash does not match'
-class VALMITMError(VALError):
-    msg = 'MITM-attack suspected: nonce missing or check failed'
-    args = (msg, )
 
 #### logging ####
 
@@ -627,7 +646,7 @@ class scnauth_server(object):
 
     def request_auth(self,  realm):
         rauth = authrequest_struct.copy()
-        rauth["algo"] = self.hashalgo
+        rauth["algo"] = self.hashalgorithm
         rauth["salt"] = self.salt
         rauth["timestamp"] = int(time.time())
         rauth["realm"] = realm

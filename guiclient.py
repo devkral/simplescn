@@ -43,11 +43,10 @@ def paramhelp():
 ### parameters ###
 config=<dir>: path to config dir
 timeout=<number>: #########not implemented yet ###############
-server: shall start own server
+noserver: shall start no own server
 port=<number>: Port in connection with server
 client: url to connect
 clientpw: pw for the url
-cmd: opens cmd
 """)
 
 

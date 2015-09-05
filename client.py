@@ -32,7 +32,7 @@ import json
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco
 #VALMITMError
 
 from common import logger
@@ -49,7 +49,7 @@ class client_client(client_admin, client_safe):
     sslcont=None
     hashdb = None
     links = None
-    
+    client_lock = None
     validactions = {"cmd_plugin", "remember_auth" }
     
     def __init__(self, _name, _pub_cert_hash, _certdbpath, _links):
@@ -62,6 +62,7 @@ class client_client(client_admin, client_safe):
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
         self._cache_help = self.cmdhelp()
+        self.client_lock = threading.RLock()
     
     def pw_auth(self, hashpcert, reqob, reauthcount):
         if reauthcount == 0:
@@ -79,7 +80,10 @@ class client_client(client_admin, client_safe):
             body.pop("headers", {})
         
         sendheaders = reference_header.copy()
-        for key, value in headers:
+        for elem in headers.items():
+            if key in ["Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent"]:
+                continue
+            key, value = elem
             sendheaders[key] = value
         
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
@@ -92,9 +96,9 @@ class client_client(client_admin, client_safe):
             con.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
             con.connect()
             
-            pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-            hashpcert=dhash(pcert)
-            if hashpcert==self.cert_hash:
+            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            hashpcert = dhash(pcert)
+            if hashpcert == self.cert_hash:
                 validated_name = isself
             elif body.get("forceproxyhash") is not None and body.get("forceproxyhash") != hashpcert:
                 raise(VALHashError)
@@ -248,58 +252,78 @@ class client_client(client_admin, client_safe):
         for realm, pw in obdict.get("auth"):
             self.links["auth"].saveauth(realm, pw, _hash)
         return True
+        
+    
+    
+    # NEVER include in validactions
+    # headers=headers
+    # client_address=client_address
+    def access_core(self, action, obdict):
+        """ internal method to access functions """
+        if action in self.access_methods:
+            return False, "actions: 'access_methods not allowed in access_core", isself, self.cert_hash
+        if action in self.validactions:
+            with self.client_lock:
+                return getattr(self, action)(obdict)
+        else:
+            return False, "not in validactions", isself, self.cert_hash
+    
+    access_methods = ["access_main", "access_safe", "access_core"]
     # command wrapper for cmd interfaces
+    @generate_error_deco
     def command(self, inp):
         obdict = parse.parse_qs(inp)
         error=[]
         if check_args(obdict, {"action": (str, "main action"),},error=error) == False:
-            return False, "{}:{}".format(*error), isself, self.cert_hash
+            return False, "{}:{}".format(*error)
             #return False, "no action given", isself, self.cert_hash
-        if obdict["action"] in ["access_main", "access_safe", "command"]:
-            return False, "actions: 'access_safe, access_main, command' not allowed in command", isself, self.cert_hash
+        if obdict["action"] in ["command"] or obdict["action"] in self.access_methods:
+            return False, "actions: 'access_methods, command' not allowed in command"
         action = obdict["action"]
         del obdict["action"]
-        return self.access_main(action, **obdict)
+        def pw_auth_command(pwcerthash, authreqob, reauthcount):
+            authob = self.links["auth"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
+            return authob
+        obdict["pwcall_method"] = pw_auth_command
+        try:
+            return self.access_core(action, obdict)
+        except Exception as e:
+            return False, e
         
     # NEVER include in validactions
     # for plugins, e.g. untrusted
     # requester = None, don't allow asking
     # headers=headers
     # client_address=client_address
+    @generate_error_deco
     def access_safe(self, action, requester=None, **obdict):
-        if action in ["access_main", "access_safe", "cmd_plugin"]:
-            return False, "actions: 'access_safe, access_main, cmd_plugin' not allowed in access_safe",  isself,  self.cert_hash
+        if action in ["cmd_plugin",] or action in self.access_methods:
+            return False, "actions: 'access_methods, cmd_plugin' not allowed in access_safe"
         def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
-            authob = self.links["auth"].asauth(obdict("auth", {}).get(authreqob.get("realm")), authreqob)
+            authob = self.links["auth"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
             return authob
         obdict["pwcall_method"] = pw_auth_plugin
         if action in self.validactions:
             if action not in self.validactions_safe:
                 if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
-                    return False, "no permission",  isself,  self.cert_hash
-            resp = getattr(self, action)(obdict)
-            return resp
+                    return False, "no permission"
+            return self.access_core(action, obdict)
         else:
-            return False, "not in validactions",  isself,  self.cert_hash
+            return False, "not in validactions"
+    
     
     # NEVER include in validactions
+    # for user interactions
     # headers=headers
     # client_address=client_address
+    @generate_error_deco
     def access_main(self, action, **obdict):
         obdict["pwcall_method"] = self.pw_auth
-        if action in ["access_main", "access_safe"]:
-            return False, "actions: 'access_safe, access_main' not allowed in access_main", isself, self.cert_hash
-        if action in self.validactions:
-            try:
-                return getattr(self, action)(obdict)
-            except AddressFail as e:
-                return False, "Addresserror:\n{}".format(e.msg), isself, self.cert_hash
-            except ConnectionRefusedError:
-                return False, "unreachable", isself, self.cert_hash
-            except Exception as e:
-                return False, generate_error(e), isself, self.cert_hash
-        else:
-            return False, "not in validactions", isself, self.cert_hash
+        try:
+            return self.access_core(action, obdict)
+        except Exception as e:
+            return False, e
+        
     
     # help section
     def cmdhelp(self):
@@ -430,6 +454,8 @@ class client_handler(BaseHTTPRequestHandler):
     auth_info = None
     
     links = None
+    handle_local = False
+    # overwrite handle_local
     handle_remote = False
     statics = {}
     webgui = False
@@ -461,7 +487,8 @@ class client_handler(BaseHTTPRequestHandler):
         if action not in self.links["client"].validactions:
             self.send_error(400, "invalid action - client")
             return
-        if self.handle_remote == False and not self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
+        if self.handle_remote == False and (self.handle_local == False \
+                and not self.client_address[0] in ["localhost", "127.0.0.1", "::1"]):
             self.send_error(403, "no permission - client")
             return
         
@@ -490,13 +517,14 @@ class client_handler(BaseHTTPRequestHandler):
         obdict["clientaddress"] = self.client_address
         obdict["headers"] = self.headers
         try:
-            func = getattr(self.links["client"], action)#self.links["client"].access_main(action, _cmdlist, self.headers)
-            response = func(obdict)
+            response = self.links["client"].access_core(action, obdict)
             jsonnized = json.dumps(gen_result(response[1],response[0]))
         except AddressFail as e:
             self.send_error(500, e.msg)
             return
         except Exception as e:
+            #import traceback
+            #print(traceback.format_tb(e))
             error = generate_error("unknown")
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
@@ -505,7 +533,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         
         if jsonnized is None:
-            jsonnized = json.dumps(gen_result(generate_error("jsonnized None")))
+            jsonnized = json.dumps(gen_result(generate_error("jsonnized None"), False))
             response[0] = False
         if response[0] == False:
             self.send_response(400)
@@ -559,13 +587,13 @@ class client_handler(BaseHTTPRequestHandler):
             error = generate_error("unknown")
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
-            ob = bytes(json.dumps(gen_result(error, False)), "utf8")
+            ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
             self.scn_send_answer(500, ob)
             return
         
         
         if jsonnized is None:
-            jsonnized = json.dumps(gen_result(generate_error("jsonnized None")))
+            jsonnized = json.dumps(gen_result(generate_error("jsonnized None"), False))
             response[0] = False
         if response[0] == False:
             self.send_response(400)
@@ -701,9 +729,11 @@ class client_init(object):
         else:
             client_handler.webgui=False
         
+        if confm.getb("local"):
+            client_handler.handle_local = True
         if confm.getb("cpwhash") == True:
             # ensure that password is set when allowing remote
-            if confm.getb("remote") == True:
+            if confm.getb("remote") == True and confm.getb("local") == False:
                 client_handler.handle_remote = True
             self.links["auth"].init_realm("client", confm.get("cpwhash"))
         elif confm.getb("cpwfile") == True:
@@ -778,7 +808,8 @@ class client_init(object):
         
         # use timeout argument of BaseServer
         http_client_server.timeout=confm.get("timeout")
-        self.links["server"]=http_client_server(("", port), _cpath+"_cert")
+        if confm.getb("noserver") == False:
+            self.links["server"]=http_client_server(("", port), _cpath+"_cert")
         self.links["client"]=client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), self.links)
         
         
@@ -797,6 +828,8 @@ config=<dir>: path to config dir
 port=<number>: Port
 (c/a/s)pwhash=<hash>: sha256 hash of pw, higher preference than pwfile
 (c/a/s)pwfile=<file>: file with password (cleartext)
+noserver: don't start server component
+local: reachable from localhost (overwrites remote)
 remote: remote reachable (not localhost) (needs cpwhash/file)
 priority=<number>: set priority
 timeout=<number>: socket timeout
@@ -820,6 +853,7 @@ default_client_args={"noplugins": None,
              "apwfile": None,
              "spwhash": None,
              "spwfile": None,
+             "local" : None,
              "remote": None,
              "priority": "20",
              "timeout": "30",
@@ -829,7 +863,7 @@ default_client_args={"noplugins": None,
 client_args={"config":default_configdir,
              "port":None}
 
-if __name__ ==  "__main__":    
+if __name__ ==  "__main__":
     from common import scn_logger, init_logger
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)

@@ -426,7 +426,7 @@ class server_init(object):
             logger().error("Configuration error in {}\nshould be: <name>/<port>\nName has some restricted characters".format(_spath+"_name"))
         
         if port is not None:
-            port=int(port)
+            _port=int(port)
         elif len(_name)>=2:
             _port=int(_name[1])
         else:

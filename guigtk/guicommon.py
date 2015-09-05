@@ -6,7 +6,7 @@ run = True
 open_addresses={}
 
 
-def activate_shielded(action, url, obdict):
+def activate_shielded(action, url, **obdict):
     def shielded(widget):
         action(url, {"forcehash": obdict.get("forcehash")})
     return shielded

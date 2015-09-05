@@ -27,8 +27,12 @@ class client_safe(object):
     @check_argsdeco()
     def show(self, obdict):
         """ show client stats """
-        return True,{"name": self.name, "hash": self.cert_hash,
+        if "server" in self.links:
+            return True,{"name": self.name, "hash": self.cert_hash,
                 "port":str(self.links["server"].socket.getsockname()[1])}
+        else:
+            return True,{"name": self.name, "hash": self.cert_hash,
+                "port":str(None)}
     
     @check_argsdeco({"name": (str, ),"port": (int, )})
     def registerservice(self, obdict):
@@ -153,7 +157,7 @@ class client_safe(object):
     @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})
     def prioty(self, obdict):
         """ retrieve priority and type of a client on a server """
-        temp=self.get(obdict["server"],obdict["name"],obdict["hash"],headers=obdict.get("headers"))
+        temp=self.get(obdict)
         if temp[0]==False:
             return temp
         return self.prioty_direct(temp[1])

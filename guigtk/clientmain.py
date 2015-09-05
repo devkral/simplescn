@@ -17,7 +17,7 @@ from guigtk.clientservice import gtkclient_remoteservice
 from guigtk.clientmain_sub import services_stuff, cmd_stuff, debug_stuff
 from guigtk.clientmain_managehash import hashmanagement
 
-from common import check_certs,default_sslcont, sharedir, init_config_folder, generate_certs, isself, check_hash, scnparse_url, AddressEmptyFail
+from common import check_certs,default_sslcont, sharedir, init_config_folder, generate_certs, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
 
 from common import logger
 import client
@@ -237,17 +237,20 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         uselocal=self.builder.get_object("uselocal")
         if uselocal.get_active() == True:
             resp = self.links["client"].access_main(action, **obdict)
-            if resp[0] == False:
-                logger().error(resp)
-            return resp
         else:
             clienturl = self.builder.get_object("clienturl").get_text()
             clienthash = self.builder.get_object("clienthash").get_text()
             obdict["forcehash"] = clienthash
             try:
-                self.links["client"].do_request(clienturl, "/client/{}".format(action), body=obdict, forceport=True)
+                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action), body=obdict, forceport=True)
             except Exception as e:
                 logger().error(e)
+                return False, generate_error(e), isself, self.links["client"].cert_hash
+        
+        if resp[0] == False:
+            logger().error(resp)
+        return resp
+
     def pushint(self):
         time.sleep(5)
         #self.messagecount-=1
@@ -557,10 +560,17 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         clurl=self.builder.get_object("clienturl")
         clhash=self.builder.get_object("clienthash")
         ulocal=self.builder.get_object("uselocal")
+        _hash=clhash.get_text().strip(" ").rstrip(" ")
+        if _hash == "":
+            ret = self.do_requestdo("gethash", address=clurl.get_text())
+            if logger().check(ret,logging.INFO)==False:
+                return
+            clhash.set_text(ret[1]["hash"])
+            return
         if ulocal.get_active()!=True:
             if clurl.get_text()=="":
                 return
-            if check_hash(clhash.get_text()==False):
+            if check_hash(clhash.get_text())==False:
                 return
         self.remoteclient_url=clurl.get_text()
         self.remoteclient_hash=self.builder.get_object("clienthash").get_text()
@@ -916,8 +926,9 @@ class gtkclient_init(client.client_init):
             generate_certs(_cpath+"_cert")
             logger().debug("Certificate generation complete")
         client.client_init.__init__(self, confm, pluginpathes)
-        logger().debug("start client server")
-        self.serve_forever_nonblock()
+        if confm.getb("noserver") == False:
+            logger().debug("start client server")
+            self.serve_forever_nonblock()
         logger().debug("start gtkclient")
         self.links["gtkclient"]=gtkclient_main(self.links)
         logger().replaceHandler(self.links["gtkclient"])
