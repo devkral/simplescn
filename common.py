@@ -100,17 +100,19 @@ resp_st={
 
 
 def generate_error(err):
-    error={"name": "unknown", "type":"unknown"}
+    error={"msg": "unknown", "type":"unknown"}
     if hasattr(err, "msg"):
-        error["name"] = str(err.msg)
+        error["msg"] = str(err.msg)
     else:
-        error["name"] = str(err)
+        error["msg"] = str(err)
     if isinstance(err,str) == True:
         error["type"] = ""
     else:
         error["type"] = type(err).__name__
         if hasattr(err,"tb_frame"):
             error["stacktrace"] = str(traceback.format_tb(err)) 
+        elif hasattr(sys,"last_traceback"):
+            error["stacktrace"] = str(traceback.format_tb(sys.last_traceback)) 
     return error # json.dumps(error)
 
 def generate_error_deco(func):

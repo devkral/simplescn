@@ -32,7 +32,7 @@ import json
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco,VALError
 #VALMITMError
 
 from common import logger
@@ -73,7 +73,7 @@ class client_client(client_admin, client_safe):
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
 
-    def do_request(self, _addr_or_con, _path, body={}, headers = None, forceport=False, reauthcount=0):
+    def do_request(self, _addr_or_con, _path, body={}, headers = None, forceport=False, clientforcehash = None, reauthcount=0):
         if headers is None:
             headers = body.pop("headers", {})
         else:
@@ -90,53 +90,62 @@ class client_client(client_admin, client_safe):
         
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             _addr = scnparse_url(_addr_or_con,force_port=forceport)
-            con=client.HTTPSConnection(_addr[0],_addr[1], context=self.sslcont)
+            proxycon = client.HTTPSConnection(_addr[0],_addr[1], context=self.sslcont)
         
         if body.get("destname") is not None and body.get("desthash") is not None:
-            con.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
-            con.connect()
+            proxycon.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
+            proxycon.connect()
             
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             hashpcert = dhash(pcert)
+            
+            if body.get("forceproxyhash") is not None and body.get("forceproxyhash") != hashpcert:
+                raise(VALHashError)
+
             if hashpcert == self.cert_hash:
                 validated_name = isself
-            elif body.get("forceproxyhash") is not None and body.get("forceproxyhash") != hashpcert:
-                raise(VALHashError)
             else:
                 validated_name = self.hashdb.certhash_as_name(hashpcert)
-            if validated_name == isself:
-                raise(VALNameError)
+                if validated_name == isself:
+                    raise(VALNameError)
             
-            response = con.getresponse()
+            response = proxycon.getresponse()
             
             if response.status == 200:
                 proxyerror = False
+                # TODO: create httpsconnection from socket (con.sock)
             else:
                 proxyerror = True
+                con = proxycon
+                
         else:
-            con.connect()
+            proxycon.connect()
+            con = proxycon
             proxyerror = False
         
         if proxyerror == False:
             if body.get("destname") is not None and body.get("desthash") is not None:
-                # TODO: create httpsconnection from socket (con.sock)
-         
-                
                 del body["destname"]
                 body["forcehash"] = body["desthash"]
                 del body["desthash"]
          
             pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             hashpcert=dhash(pcert)
+            if clientforcehash is not None:
+                if clientforcehash == hashpcert:
+                    raise(VALHashError)
+            elif body.get("forcehash") is not None:
+                if body.get("forcehash") != hashpcert:
+                    raise(VALHashError)
+
             if hashpcert==self.cert_hash:
                 validated_name = isself
-            elif body.get("forcehash") is not None and body.get("forcehash") != hashpcert:
-                raise(VALHashError)
             else:
                 validated_name = self.hashdb.certhash_as_name(hashpcert)
                 if validated_name == isself:
                     raise(VALNameError)
-                
+            
+            #start connection
             con.putrequest("POST", _path)
             for key, value in sendheaders.items():
                 if key != "Proxy-Authorization":
@@ -144,6 +153,8 @@ class client_client(client_admin, client_safe):
             pwcallm = body.get("pwcall_method")
             if pwcallm:
                 del body["pwcall_method"]
+            
+            
             
             ob=bytes(json.dumps(body), "utf-8")
             con.putheader("Content-Length", str(len(ob)))
@@ -182,7 +193,7 @@ class client_client(client_admin, client_safe):
             else:
                 auth_parsed[realm] = authob
                 sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
-            return self.do_request(con, _path, body=body, headers=sendheaders, forceport=forceport)
+            return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport)
         else:
             #if len()>0:
             #    pass
@@ -209,6 +220,7 @@ class client_client(client_admin, client_safe):
                 obdict = safe_mdecode(readob, response.headers.get("Content-Type", "application/json"))
             if check_result(obdict, status) == False:
                 return False, "error parsing request\n{}".format(readob), validated_name, hashpcert
+            
             if status == True:
                 return status, obdict["result"], validated_name, hashpcert
             else:
@@ -264,7 +276,10 @@ class client_client(client_admin, client_safe):
             return False, "actions: 'access_methods not allowed in access_core", isself, self.cert_hash
         if action in self.validactions:
             with self.client_lock:
-                return getattr(self, action)(obdict)
+                try:
+                    return getattr(self, action)(obdict)
+                except Exception as e:
+                    return False, e.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
     
@@ -516,25 +531,25 @@ class client_handler(BaseHTTPRequestHandler):
             return
         obdict["clientaddress"] = self.client_address
         obdict["headers"] = self.headers
-        try:
-            response = self.links["client"].access_core(action, obdict)
+        response = self.links["client"].access_core(action, obdict)
+
+        if response[0] == False:
+            error = response[1]
+            generror = generate_error(error)
+                
+            if isinstance(error, (str, AddressFail, VALError)):
+                if isinstance(error, str) == False:
+                    del generror["stacktrace"]
+                jsonnized = json.dumps(gen_result(generror, False))
+            else:
+                if self.client_address[0] not in ["localhost", "127.0.0.1", "::1"]:
+                    generror = generate_error("unknown")
+                ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
+                self.scn_send_answer(500, ob)
+                return
+        else:
             jsonnized = json.dumps(gen_result(response[1],response[0]))
-        except AddressFail as e:
-            self.send_error(500, e.msg)
-            return
-        except Exception as e:
-            #import traceback
-            #print(traceback.format_tb(e))
-            error = generate_error("unknown")
-            if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
-                error = generate_error(e)
-            ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
-            self.scn_send_answer(500, ob)
-            return
         
-        if jsonnized is None:
-            jsonnized = json.dumps(gen_result(generate_error("jsonnized None"), False))
-            response[0] = False
         if response[0] == False:
             self.send_response(400)
         else:
@@ -543,7 +558,7 @@ class client_handler(BaseHTTPRequestHandler):
         ob=bytes(jsonnized, "utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
-        self.send_header('Content-Length', len(ob))
+        self.send_header('Content-Length', str(len(ob)))
         self.end_headers()
         self.wfile.write(ob)
 

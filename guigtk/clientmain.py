@@ -238,17 +238,18 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         if uselocal.get_active() == True:
             resp = self.links["client"].access_main(action, **obdict)
         else:
-            clienturl = self.builder.get_object("clienturl").get_text()
-            clienthash = self.builder.get_object("clienthash").get_text()
-            obdict["forcehash"] = clienthash
+            clienturl = self.builder.get_object("clienturl").get_text().strip().rstrip()
+            clienthash = self.builder.get_object("clienthash").get_text().strip().rstrip()
+            if clienthash == "":
+                clienthash = None
             try:
-                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action), body=obdict, forceport=True)
+                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action),body=obdict, clientforcehash=clienthash, forceport=True)
             except Exception as e:
                 logger().error(e)
                 return False, generate_error(e), isself, self.links["client"].cert_hash
         
         if resp[0] == False:
-            logger().error(resp)
+            logger().error("{}: {}".format(action, resp))
         return resp
 
     def pushint(self):
@@ -561,20 +562,23 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         clhash=self.builder.get_object("clienthash")
         ulocal=self.builder.get_object("uselocal")
         _hash=clhash.get_text().strip(" ").rstrip(" ")
+        if clurl.get_text().strip() == "":
+            self.close_clientdia()
+            return
         if _hash == "":
             ret = self.do_requestdo("gethash", address=clurl.get_text())
             if logger().check(ret,logging.INFO)==False:
                 return
             clhash.set_text(ret[1]["hash"])
             return
-        if ulocal.get_active()!=True:
+        if ulocal.get_active()== False:
             if clurl.get_text()=="":
                 return
             if check_hash(clhash.get_text())==False:
                 return
         self.remoteclient_url=clurl.get_text()
-        self.remoteclient_hash=self.builder.get_object("clienthash").get_text()
-        self.use_localclient=self.builder.get_object("uselocal").get_active()
+        self.remoteclient_hash=_hash
+        self.use_localclient=ulocal.get_active()
         self.close_clientdia()
         
     def client_localtoggle(self,*args):

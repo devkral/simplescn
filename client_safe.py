@@ -58,6 +58,8 @@ class client_safe(object):
     @check_argsdeco({"address": (str, ), })
     def gethash(self, obdict):
         """ fetch hash from address """
+        if obdict["address"] in ["", " ", None]:
+            return False, "address is empty"
         try:
             _addr = scnparse_url(obdict["address"],force_port=False)
             con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
@@ -73,7 +75,7 @@ class client_safe(object):
         except EnforcedPortFail as e:
             return False, e.msg
         except Exception as e:
-            return False, "Other error: {}".format(e)
+            return False, "Other error: {}:{}".format(obdict.get("address"), e)
 
     @check_argsdeco({"address": (str, ), })
     def ask(self, obdict):
