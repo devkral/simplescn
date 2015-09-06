@@ -279,7 +279,7 @@ class client_client(client_admin, client_safe):
                 try:
                     return getattr(self, action)(obdict)
                 except Exception as e:
-                    return False, e.with_traceback(sys.last_traceback)
+                    return False, e #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
     

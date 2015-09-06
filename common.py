@@ -109,8 +109,8 @@ def generate_error(err):
         error["type"] = ""
     else:
         error["type"] = type(err).__name__
-        if hasattr(err,"tb_frame"):
-            error["stacktrace"] = str(traceback.format_tb(err)) 
+        if hasattr(err,"__traceback__"):
+            error["stacktrace"] = str(traceback.format_tb(err.__traceback__)) 
         elif hasattr(sys,"last_traceback"):
             error["stacktrace"] = str(traceback.format_tb(sys.last_traceback)) 
     return error # json.dumps(error)
