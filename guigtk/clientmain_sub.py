@@ -103,15 +103,17 @@ class configuration_stuff(object):
     def toggle_configuration(self,*args):
         usemaint = self.builder.get_object("usemainconf")
         useplugt = self.builder.get_object("useplugconf")
-        prefmainscroll = self.builder.get_object("prefmainscroll")
+        #prefmainscroll = self.builder.get_object("prefmainscroll")
         prefpluginscroll = self.builder.get_object("prefpluginscroll")
+        # show pluginlist with checkbutton for active when useplugconf is active
+        # elsewise show just the configurationwindow
         
         if usemaint.get_active():
-            prefmainscroll.show()
             prefpluginscroll.hide()
+            #self.load_mainconfig()
         else:
-            prefmainscroll.hide()
             prefpluginscroll.show()
+            #self.load_plugconfig
             
     def close_configurationwin(self,*args):
         self.configurationwin.hide()

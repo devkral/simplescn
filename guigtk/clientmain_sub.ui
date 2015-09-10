@@ -334,6 +334,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               <object class="GtkButtonBox" id="buttonbox1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="halign">center</property>
                 <property name="layout_style">center</property>
                 <child>
                   <object class="GtkRadioButton" id="usemainconf">
@@ -344,7 +345,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                     <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
-                    <signal name="group-changed" handler="toggle_configuration" swapped="no"/>
+                    <signal name="toggled" handler="toggle_configuration" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">True</property>
@@ -397,7 +398,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 </child>
               </object>
               <packing>
-                <property name="left_attach">1</property>
+                <property name="left_attach">0</property>
                 <property name="top_attach">2</property>
               </packing>
             </child>
@@ -423,7 +424,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 </child>
               </object>
               <packing>
-                <property name="left_attach">0</property>
+                <property name="left_attach">1</property>
                 <property name="top_attach">2</property>
               </packing>
             </child>

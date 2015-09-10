@@ -275,11 +275,11 @@ class client_client(client_admin, client_safe):
         if action in self.access_methods:
             return False, "actions: 'access_methods not allowed in access_core", isself, self.cert_hash
         if action in self.validactions:
-            with self.client_lock:
-                try:
-                    return getattr(self, action)(obdict)
-                except Exception as e:
-                    return False, e #.with_traceback(sys.last_traceback)
+            #with self.client_lock: # not needed, use sqlite's intern locking mechanic
+            try:
+                return getattr(self, action)(obdict)
+            except Exception as e:
+                return False, e #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
     
