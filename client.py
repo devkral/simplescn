@@ -868,6 +868,7 @@ default_client_args={"noplugins": None,
              "apwfile": None,
              "spwhash": None,
              "spwfile": None,
+             "noserver": None,
              "local" : None,
              "remote": None,
              "priority": "20",
@@ -931,7 +932,6 @@ if __name__ ==  "__main__":
             pluginm.interfaces+=["cmd",]
     else:
         pluginm=None
-
     cm=client_init(confm,pluginm)
 
     if confm.getb("noplugins")==False:

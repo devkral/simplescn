@@ -83,7 +83,23 @@ class services_stuff(object):
         return True
 
 class configuration_stuff(object):
+    configurationwin = None
+    configuration_wintoggle = None
+    builder = None
+    links = None
     
+    def __init__(self):
+        self.configurationwin=self.builder.get_object("configurationwin")
+        self.configurationwin.connect('delete-event',self.close_configurationwin)
+        
+    def configurationme(self,*args):
+        self.configuration_update()
+        self.configurationwin.show()
+        self.configurationwin.grab_focus()
+
+    def configuration_update(self, *args):
+        pass
+
     def toggle_configuration(self,*args):
         usemaint = self.builder.get_object("usemainconf")
         useplugt = self.builder.get_object("useplugconf")
@@ -98,7 +114,7 @@ class configuration_stuff(object):
             prefpluginscroll.show()
             
     def close_configurationwin(self,*args):
-        self.close_configurationwin.hide()
+        self.configurationwin.hide()
         return True
 
 class cmd_stuff(object):

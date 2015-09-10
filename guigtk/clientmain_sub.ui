@@ -258,6 +258,8 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
   </object>
   <object class="GtkApplicationWindow" id="configurationwin">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Configuration</property>
+    <property name="icon">icon.png</property>
     <child>
       <object class="GtkGrid" id="grid1">
         <property name="visible">True</property>
@@ -299,6 +301,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_configurationwin" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">2</property>

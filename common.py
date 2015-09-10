@@ -470,44 +470,72 @@ class configmanager(object):
         return self.set(name, self.defaults[name])
         
     @dbaccess
-    def get(self, dbcon, name):
-        if isinstance(name, str) == False:
-            logger.error("name not string")
+    def get(self, dbcon, _key):
+        if isinstance(_key, str) == False:
+            logger().error("key no string")
             return None
-        if name in self.overlays:
-            if self.overlays[name] is None:
-                return "False"
-            else:
-                return str(self.overlays[name])
-        if dbcon is None:
-            if self.defaults[name] is None:
-                return "False"
-            else:
-                return self.defaults[name]
         
-        cur = dbcon.cursor()
-        cur.execute('''SELECT val FROM main WHERE name=?;''', (name,))
-        temp = cur.fetchone()
-        if temp is None:
-            return None
-        if temp[0] in [None,"False", "false"]:
+        # key can be in overlays but not in defaults
+        if _key in self.overlays:
+            ret = self.overlays[_key]
+        else:
+            if _key not in self.defaults:
+                logger().error("\"{}\" is no key".format(_key))
+                return None
+            if self.defaults[_key] is None:
+                ret = self.defaults[_key]
+            if dbcon is not None:
+                cur = dbcon.cursor()
+                cur.execute('''SELECT val FROM main WHERE name=?;''', (_key,))
+                temp = cur.fetchone()
+                if temp is not None and temp[0] != "":
+                    ret = temp[0]
+        
+        if ret in [None,"False", "false", False]:
             return "False"
-        if temp[0] in ["True", "true"]:
+        elif ret in ["True", "true", True]:
             return "True"
-        return temp[0]
+        else:
+            return str(ret)
     
     def getb(self, name):
         temp = self.get(name)
-        if temp in [None, "", "False", "false"]:
+        if temp in [None, "", "False"]:
             return False
         return True
     
-    #@self.configmanager.dbaccess
     def get_default(self,name):
         if name in self.defaults:
             return self.defaults[name]
         else:
             return None
+    @dbaccess
+    def list(self, dbcon):
+        _listitems = self.defaults.items()
+        if dbcon is not None:
+            cur = dbcon.cursor()
+            cur.execute('''SELECT name, val FROM main;''')
+            _in_db__ = cur.fetchall()
+            _in_db = {}
+            
+            if _in_db__ is not None:
+                for key, val in _in_db__:
+                    _in_db[key] = val
+        
+        for _key, _val in _listitems:
+            if _key in self.overlays:
+                if self.overlays[_key] is None:
+                    _val = "False"
+                else:
+                    _val = str(self.overlays[_key])
+            elif _key in _in_db:
+                _val = _in_db[key]
+            if _val in [None,"False", "false", False]:
+                _val = "False"
+            elif _val in ["True", "true", True]:
+                _val = "True"
+        return _listitems
+    
 
 
 class pluginmanager(object):
@@ -1201,7 +1229,11 @@ class certhash_db(object):
     def get(self, dbcon, _certhash):
         cur = dbcon.cursor()
         cur.execute('''SELECT name,type,priority,security,certreferenceid FROM certs WHERE certhash=?;''', (_certhash,))
-        return cur.fetchone()
+        ret = cur.fetchone()
+        if ret is not None and ret[0] == isself:
+            logger().critical("\"{}\" is in the db".format(isself))
+            return None
+        return ret
     
     @connecttodb
     def listhashes(self, dbcon, _name, _nodetype = None):

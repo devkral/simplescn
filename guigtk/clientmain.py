@@ -88,6 +88,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         localview=self.builder.get_object("localview")
         
         debug_stuff.__init__(self)
+        configuration_stuff.__init__(self)
         services_stuff.__init__(self)
         cmd_stuff.__init__(self)
         hashmanagement.__init__(self)
@@ -106,7 +107,6 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         self.delnodedia = self.builder.get_object("delnodedia")
         self.enternodedia = self.builder.get_object("enternodedia")
         self.renameentitydia = self.builder.get_object("renameentitydia")
-        self.configurationwin = self.builder.get_object("configurationwin")
         
         self.client_wintoggle = self.builder.get_object("useremoteclient")
         
@@ -154,7 +154,6 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         self.addnodedia.connect('delete-event',self.close_addnodedia)
         self.delnodedia.connect('delete-event',self.close_delnodedia)
         self.enternodedia.connect('delete-event',self.close_enternodedia)
-        self.configurationwin.connect('delete-event',self.close_configurationwin)
         self.renameentitydia.connect('delete-event',self.close_renameentitydia)
         self.win.connect('delete-event',self.close)
         
@@ -533,7 +532,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         if temp["localname"] is not None:
             logger().debug("Already exists")
             return
-        _hash = ["hash"]
+        _hash = temp["hash"]
         
         
         _sel = localview.get_selection().get_selected()
@@ -628,6 +627,13 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         
         self.addentitydia.show()
     
+    
+    def addentity_addnodedia(self,*args):
+        self.builder.get_object("addentityentry").set_text("")
+        self.close_addnodedia()
+        self._shallreload_addnodedia = True
+        self.addentitydia.show()
+    
     def addentity_confirm(self,*args):
         addentity=self.builder.get_object("addentityentry")
         localnames=self.builder.get_object("localnames")
@@ -638,7 +644,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
             self.empty_dic+=[_entity,]
             localnames.prepend((_entity,))
             self.localstore.insert_with_values(self.emptyit,-1,[0,],[_entity,])
-            
+                
     def delentity(self,*args):
         entity = self.builder.get_object("showentity")
         entity.set_text(self.curlocal[1])
