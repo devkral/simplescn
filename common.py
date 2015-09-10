@@ -930,8 +930,8 @@ def check_hash(_hashstr):
 def check_name(_name, maxlength = 64):
     if _name is None:
         return False
-    # name shouldn't be too long
-    if len(_name) > maxlength:
+    # name shouldn't be too long or 0
+    if len(_name) > maxlength or len(_name) == 0:
         return False
     # ensure no bad characters
     if any(c in " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name):
@@ -945,8 +945,8 @@ def check_name(_name, maxlength = 64):
 def check_typename(_type, maxlength = 15):
     if _type is None:
         return False
-    # type shouldn't be too long
-    if len(_type) > maxlength:
+    # type shouldn't be too long or 0
+    if len(_type) > maxlength or len(_type) == 0:
         return False
     # ensure no bad characters
     if _type.isalpha() == False:
