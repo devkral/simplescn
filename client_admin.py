@@ -55,6 +55,12 @@ class client_admin(object):
         """ delete hash """
         return self.hashdb.delhash(obdict["hash"])
     
+    
+    @check_argsdeco({"hash": (str, ), "security":(str,)})
+    def changesecurity(self, obdict):
+        """ change security level of hash """
+        return self.hashdb.changesecurity(obdict["hash"],obdict["security"])
+    
     @check_argsdeco({"hash": (str, ), "newname": (str, )})
     def movehash(self, obdict):
         """ move hash to entity """

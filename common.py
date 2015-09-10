@@ -350,7 +350,7 @@ def gen_sslcont(path):
 
 re_parse_url = re.compile("\\[?(.*)\\]?:([0-9]+)")
 def scnparse_url(url, force_port = False):
-    if type(url).__name__ != 'str':
+    if isinstance(url, str) ==False:
         raise(AddressFail)
     if url == "":
         raise(AddressEmptyFail)
@@ -380,6 +380,7 @@ class configmanager(object):
     def __getitem__(self, _name):
         self.get(_name)
     
+    @staticmethod
     def dbaccess(func):
         def funcwrap(self, *args, **kwargs):
             self.lock.acquire()
@@ -387,8 +388,8 @@ class configmanager(object):
             try:
                 temp=func(self, self.dbcon, *args, **kwargs)
             except Exception as e:
-                if hasattr(e,"tb_frame"):
-                    st="{}\n\n{}".format(e, traceback.format_tb(e))
+                if hasattr(e,"__traceback__"):
+                    st="{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
                 else:
                     st="{}".format(e)
                 logger().error(st)
@@ -573,8 +574,8 @@ class pluginmanager(object):
                 try:
                     pspec.loader.exec_module(pload)
                 except Exception as e:
-                    if "tb_frame" in e.__dict__:
-                        st = "{}\n\n{}".format(e, traceback.format_tb(e))
+                    if "__traceback__" in e.__dict__:
+                        st = "{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
                     else:
                         st = str(e)
                     logger().error("Plugin \"{}\":\n{}".format(plugin[0], st))
@@ -755,11 +756,11 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
     ret=""
     for ob in oblist:
         tmp = hasher.copy()
-        tmp.update(bytes(ret,"utf8"))
+        tmp.update(bytes(ret,"utf-8"))
         if isinstance(ob, bytes):
             tmp.update(ob)
         elif isinstance(ob, str):
-            tmp.update(bytes(ob, "utf8"))
+            tmp.update(bytes(ob, "utf-8"))
         else:
             logger().error("Object not hash compatible: {}".format(ob))
             continue
@@ -913,6 +914,10 @@ def check_reference_type(_reference_type):
         return False
     return True
 
+def check_security(_security):
+    if _security in ["compromised", "old", "valid"]:
+        return True
+    return False
 
 def check_hash(_hashstr):
     if _hashstr is None:
@@ -988,7 +993,7 @@ class certhash_db(object):
             return
         self.lock.acquire()
         try:
-            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, certreferenceid INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, security TEXT, certreferenceid INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
             con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, type TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
             #hack:
             con.execute('''CREATE TABLE if not exists certrefcount(certreferenceid INTEGER);''')
@@ -999,7 +1004,7 @@ class certhash_db(object):
             logger().error(e)
         con.close()
         self.lock.release()
-    
+    @staticmethod
     def connecttodb(func):
         import sqlite3
         def funcwrap(self, *args, **kwargs):
@@ -1059,7 +1064,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def addhash(self, dbcon, _name, _certhash, nodetype="unknown", priority=20):
+    def addhash(self, dbcon, _name, _certhash, nodetype="unknown", priority=20, _security="valid"):
         if _name is None:
             logger().error("name None")
         if nodetype is None:
@@ -1083,7 +1088,7 @@ class certhash_db(object):
         count = cur.fetchone()[0]
         cur.execute('''UPDATE certrefcount SET certreferenceid=?''', (count+1,))
         #hack end
-        cur.execute('''INSERT INTO certs(name,certhash,type,priority,certreferenceid) values(?,?,?,?,?);''', (_name, _certhash, nodetype, priority, count))
+        cur.execute('''INSERT INTO certs(name,certhash,type,priority,security,certreferenceid) values(?,?,?,?,?);''', (_name, _certhash, nodetype, priority, _security,count))
 
         dbcon.commit()
         return True
@@ -1107,59 +1112,72 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def changetype(self, dbcon, _name, _certhash, _type):
+    def changetype(self, dbcon, _certhash, _type):
         if check_typename(_type,15) == False:
             logger().info("type contains invalid characters or is too long (maxlen: {}): {}".format(15, _type))
-            return False
-        cur = dbcon.cursor()
-        cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
-        if cur.fetchone() is None:
-            logger().info("name does not exist: {}".format(_name))
             return False
         if check_hash(_certhash) == False:
             logger().info("hash contains invalid characters")
             return False
+        cur = dbcon.cursor()
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
             logger().info("hash does not exist: {}".format(_certhash))
             return False
-        cur.execute('''UPDATE certs SET type=? WHERE name=? AND certhash=?) values(?,?,?);''', (_type, _name, _certhash))
+        cur.execute('''UPDATE certs SET type=? WHERE certhash=? values(?,?,?);''', (_type, _certhash))
 
         dbcon.commit()
         return True
 
     @connecttodb
-    def changepriority(self, dbcon, _name, _certhash, _priority):
+    def changepriority(self, dbcon, _certhash, _priority):
         #convert str to int and fail if either no integer in string format
         # or datatype is something else except int
-        if type(_priority).__name__ == "str" and _priority.isdecimal() == False:
+        if isinstance(_priority, str) == True and _priority.isdecimal() == False:
             logger().info("priority can not parsed as integer: {}".format(_priority))
             return False
-        elif type(_priority).__name__ == "str":
+        elif isinstance(_priority, str) == True:
             _priority=int(_priority)
-        elif type(_priority).__name__ != "int":
+        elif isinstance(_priority, int) == False:
             logger().info("priority has unsupported datatype: {}".format(type(_priority).__name__))
             return False
 
         if _priority < 0 or _priority > 100:
             logger().info("priority too big (>100) or smaller 0")
             return False
-
-        cur = dbcon.cursor()
-        cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
-        if cur.fetchone() is None:
-            logger().info("name does not exist: {}".format(_name))
-            return False
+        
         if check_hash(_certhash) == False:
             logger().info("hash contains invalid characters: {}".format(_certhash))
             return False
+        cur = dbcon.cursor()
         
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
             logger().info("hash does not exist: {}".format(_certhash))
             return False
 
-        cur.execute('''UPDATE certs SET priority=? WHERE name=? AND certhash=?) values(?,?,?);''', (_priority, _name, _certhash))
+        cur.execute('''UPDATE certs SET priority=? WHERE certhash=? values(?,?,?);''', (_priority, _certhash))
+
+        dbcon.commit()
+        return True
+    
+    @connecttodb
+    def changesecurity(self, dbcon, _certhash, _security):
+        if check_hash(_certhash) == False:
+            logger().info("hash contains invalid characters: {}".format(_certhash))
+            return False
+        if check_security(_certhash) == False:
+            logger().info("hash contains invalid characters: {}".format(_certhash))
+            return False
+            
+        cur = dbcon.cursor()
+        
+        cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
+        if cur.fetchone() is None:
+            logger().info("hash does not exist: {}".format(_certhash))
+            return False
+
+        cur.execute('''UPDATE certs SET security=? WHERE certhash=?) values(?,?,?);''', (_security, _certhash))
 
         dbcon.commit()
         return True
@@ -1181,18 +1199,18 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def get(self, dbcon, _name, _certhash):
+    def get(self, dbcon, _certhash):
         cur = dbcon.cursor()
-        cur.execute('''SELECT type,priority,certreferenceid FROM certs WHERE name=? AND certhash=?;''', (_name, _certhash))
+        cur.execute('''SELECT name,type,priority,security,certreferenceid FROM certs WHERE certhash=?;''', (_certhash,))
         return cur.fetchone()
     
     @connecttodb
     def listhashes(self, dbcon, _name, _nodetype = None):
         cur = dbcon.cursor()
         if _nodetype is None:
-            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? AND certhash!='default' ORDER BY priority DESC;''', (_name,))
+            cur.execute('''SELECT certhash,type,priority,security,certreferenceid FROM certs WHERE name=? AND certhash!='default' ORDER BY priority DESC;''', (_name,))
         else:
-            cur.execute('''SELECT certhash,type,priority,certreferenceid FROM certs WHERE name=? AND certhash!='default' AND type=? ORDER BY priority DESC;''', (_name, _nodetype))
+            cur.execute('''SELECT certhash,type,priority,security,certreferenceid FROM certs WHERE name=? AND certhash!='default' AND type=? ORDER BY priority DESC;''', (_name, _nodetype))
         out = cur.fetchall()
         if out is None:
             return []
@@ -1227,27 +1245,22 @@ class certhash_db(object):
     def listnodeall(self, dbcon, _nodetype = None):
         cur = dbcon.cursor()
         if _nodetype is None:
-            cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority DESC;''')
+            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs ORDER BY priority DESC;''')
         else:
-            cur.execute('''SELECT name,certhash,type,priority,certreferenceid FROM certs ORDER BY priority WHERE type=? DESC;''', (_nodetype,))
+            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs ORDER BY priority WHERE type=? DESC;''', (_nodetype,))
         out = cur.fetchall()
         if out is None:
             return []
         else:
             return out
     
-    @connecttodb
-    def certhash_as_name(self, dbcon, _certhash):
-        cur = dbcon.cursor()
-        cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (_certhash,))
-        temp = cur.fetchone()
-        if temp is None:
-            return None
-        elif temp[0] == isself:
-            logger().error("reserved name in db: "+isself)
+    #@connecttodb
+    def certhash_as_name(self, _certhash):
+        ret = self.get(_certhash)
+        if ret is None:
             return None
         else:
-            return temp[0]
+            return ret[0]
     
     @connecttodb
     def exist(self, dbcon, _name, _hash = None):
@@ -1331,7 +1344,7 @@ class certhash_db(object):
     @connecttodb
     def findbyref(self, dbcon, _reference):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash,type,priority FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE reference=?);''', (_reference,))
+        cur.execute('''SELECT name,certhash,type,priority,security FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE reference=?);''', (_reference,))
         out = cur.fetchall()
         if out is None:
             return []

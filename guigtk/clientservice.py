@@ -41,7 +41,7 @@ class gtkclient_remoteservice(gtkclient_template):
             logging.info(ret[1])
             return
         servicel.clear()
-        for elem in ret[1]:
+        for elem in ret[1]["items"]:
             servicel.append((elem[0],elem[1]))
         
     

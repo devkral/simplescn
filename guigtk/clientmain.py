@@ -175,7 +175,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         
         #serverlist=self.builder.get_object("serverlist")
         #serverlist.clear()
-        for elem in _storage[1]:
+        for elem in _storage[1]["items"]:
             if elem[0] is None:
                 logger().critical("None element as name")
                 return
@@ -208,7 +208,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         if logger().check(_names)==False:
             return
         
-        for elem in _names[1]:
+        for elem in _names[1]["items"]:
             localnames.append((elem,))
         
     def update_serverlist_hash(self, _hash):
@@ -217,7 +217,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         _serverrefs=self.do_requestdo("getreferences",hash=_hash)
         if logger().check(_serverrefs)== False:
             return
-        for elem in _serverrefs[1]:
+        for elem in _serverrefs[1]["items"]:
             if elem[0] not in self.serverlist_dic:
                 if elem[1] == "name":
                     serverlist.append((elem[0],True))
@@ -229,9 +229,10 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
     def update_serverlist(self, _localname):
         _serverhashes=self.do_requestdo("listhashes",name=_localname)
         if logger().check(_serverhashes)==True:
-            for _hash in _serverhashes[1]:
+            _map = _serverhashes[1]["map"]
+            for _hash in _serverhashes[1]["items"]:
                 if _hash[0]!="default":
-                    self.update_serverlist_hash(_hash[0])
+                    self.update_serverlist_hash(_hash[_map["hash"]])
 
     def do_requestdo(self, action, **obdict):
         uselocal=self.builder.get_object("uselocal")

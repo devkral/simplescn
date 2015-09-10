@@ -58,7 +58,7 @@ class gtkclient_server(gtkclient_template):
         if _names[0]==False:
             logger().error(_names[1])
             return
-        for name, _hash, _localname in _names[1]:
+        for name, _hash, _localname in _names[1]["items"]:
             if _localname is None:
                 namestore.append(("remote",name,_hash,"{}/{}".format(name,_hash)))
             elif _localname is isself:

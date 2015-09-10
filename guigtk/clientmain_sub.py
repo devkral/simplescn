@@ -30,7 +30,7 @@ class services_stuff(object):
         services=self.do_requestdo("listservices")
         if services[0]==False:
             return
-        for elem in services[1]:
+        for elem in services[1]["items"]:
             localservicelist.append((elem[0], str(elem[1])))
     
         
