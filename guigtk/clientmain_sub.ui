@@ -256,15 +256,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
       <column type="gchararray"/>
     </columns>
   </object>
-  <object class="GtkListStore" id="preflist">
-    <columns>
-      <!-- column-name key -->
-      <column type="gchararray"/>
-      <!-- column-name value -->
-      <column type="gchararray"/>
-    </columns>
-  </object>
-  <object class="GtkApplicationWindow" id="prefswin">
+  <object class="GtkApplicationWindow" id="configurationwin">
     <property name="can_focus">False</property>
     <child>
       <object class="GtkGrid" id="grid1">
@@ -323,31 +315,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <object class="GtkGrid" id="grid3">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <child>
-              <object class="GtkScrolledWindow" id="scrolledwindow1">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <property name="shadow_type">in</property>
-                <property name="min_content_width">200</property>
-                <property name="min_content_height">100</property>
-                <child>
-                  <object class="GtkTreeView" id="prefview">
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="model">preflist</property>
-                    <child internal-child="selection">
-                      <object class="GtkTreeSelection" id="treeview-selection2"/>
-                    </child>
-                  </object>
-                </child>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">2</property>
-              </packing>
-            </child>
+            <property name="column_spacing">2</property>
             <child>
               <object class="GtkSeparator" id="separator1">
                 <property name="visible">True</property>
@@ -360,10 +328,44 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               </packing>
             </child>
             <child>
-              <object class="GtkSwitch" id="switch1">
+              <object class="GtkButtonBox" id="buttonbox1">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="halign">center</property>
+                <property name="can_focus">False</property>
+                <property name="layout_style">center</property>
+                <child>
+                  <object class="GtkRadioButton" id="usemainconf">
+                    <property name="label" translatable="yes">Main</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="xalign">0</property>
+                    <property name="active">True</property>
+                    <property name="draw_indicator">True</property>
+                    <signal name="group-changed" handler="toggle_configuration" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="useplugconf">
+                    <property name="label" translatable="yes">Plugins</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">False</property>
+                    <property name="xalign">0</property>
+                    <property name="active">True</property>
+                    <property name="draw_indicator">True</property>
+                    <property name="group">usemainconf</property>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -372,8 +374,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
               </packing>
             </child>
             <child>
-              <object class="GtkScrolledWindow" id="scrolledwindow3">
-                <property name="visible">True</property>
+              <object class="GtkScrolledWindow" id="prefpluginscroll">
                 <property name="can_focus">True</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
@@ -393,6 +394,32 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                 </child>
               </object>
               <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkScrolledWindow" id="prefmainscroll">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
+                <property name="shadow_type">in</property>
+                <property name="min_content_width">200</property>
+                <property name="min_content_height">100</property>
+                <child>
+                  <object class="GtkTreeView" id="prefview">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="model">preflist</property>
+                    <property name="search_column">0</property>
+                    <child internal-child="selection">
+                      <object class="GtkTreeSelection" id="treeview-selection2"/>
+                    </child>
+                  </object>
+                </child>
+              </object>
+              <packing>
                 <property name="left_attach">0</property>
                 <property name="top_attach">2</property>
               </packing>
@@ -405,5 +432,13 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         </child>
       </object>
     </child>
+  </object>
+  <object class="GtkListStore" id="preflist">
+    <columns>
+      <!-- column-name key -->
+      <column type="gchararray"/>
+      <!-- column-name value -->
+      <column type="gchararray"/>
+    </columns>
   </object>
 </interface>

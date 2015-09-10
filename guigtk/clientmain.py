@@ -14,7 +14,7 @@ from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node
 from guigtk.clientserver import gtkclient_server
 from guigtk.clientservice import gtkclient_remoteservice
-from guigtk.clientmain_sub import services_stuff, cmd_stuff, debug_stuff
+from guigtk.clientmain_sub import services_stuff, cmd_stuff, debug_stuff, configuration_stuff
 from guigtk.clientmain_managehash import hashmanagement
 
 from common import check_certs,default_sslcont, sharedir, init_config_folder, generate_certs, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
@@ -30,7 +30,7 @@ run=True
 implementedrefs=["surl", "url", "name"]
 #,"sname"
 
-class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, debug_stuff, hashmanagement):
+class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement):
     links=None
 
     curnode=None
@@ -106,6 +106,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         self.delnodedia = self.builder.get_object("delnodedia")
         self.enternodedia = self.builder.get_object("enternodedia")
         self.renameentitydia = self.builder.get_object("renameentitydia")
+        self.configurationwin = self.builder.get_object("configurationwin")
         
         self.client_wintoggle = self.builder.get_object("useremoteclient")
         
@@ -153,6 +154,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, cmd_stuff, 
         self.addnodedia.connect('delete-event',self.close_addnodedia)
         self.delnodedia.connect('delete-event',self.close_delnodedia)
         self.enternodedia.connect('delete-event',self.close_enternodedia)
+        self.configurationwin.connect('delete-event',self.close_configurationwin)
         self.renameentitydia.connect('delete-event',self.close_renameentitydia)
         self.win.connect('delete-event',self.close)
         

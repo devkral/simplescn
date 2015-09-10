@@ -82,6 +82,25 @@ class services_stuff(object):
         self.mswin.hide()
         return True
 
+class configuration_stuff(object):
+    
+    def toggle_configuration(self,*args):
+        usemaint = self.builder.get_object("usemainconf")
+        useplugt = self.builder.get_object("useplugconf")
+        prefmainscroll = self.builder.get_object("prefmainscroll")
+        prefpluginscroll = self.builder.get_object("prefpluginscroll")
+        
+        if usemaint.get_active():
+            prefmainscroll.show()
+            prefpluginscroll.hide()
+        else:
+            prefmainscroll.hide()
+            prefpluginscroll.show()
+            
+    def close_configurationwin(self,*args):
+        self.close_configurationwin.hide()
+        return True
+
 class cmd_stuff(object):
     cmdwin = None
     cmd_wintoggle = None

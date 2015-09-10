@@ -380,7 +380,6 @@ class configmanager(object):
     def __getitem__(self, _name):
         self.get(_name)
     
-    @staticmethod
     def dbaccess(func):
         def funcwrap(self, *args, **kwargs):
             self.lock.acquire()
@@ -1004,7 +1003,7 @@ class certhash_db(object):
             logger().error(e)
         con.close()
         self.lock.release()
-    @staticmethod
+
     def connecttodb(func):
         import sqlite3
         def funcwrap(self, *args, **kwargs):
