@@ -488,8 +488,7 @@ class configmanager(object):
                 cur = dbcon.cursor()
                 cur.execute('''SELECT val FROM main WHERE name=?;''', (_key,))
                 temp = cur.fetchone()
-                if temp is not None and temp[0] != "":
-                    ret = temp[0]
+                ret = temp[0]
         
         if ret in [None,"False", "false", False]:
             return "False"
@@ -564,6 +563,11 @@ class pluginmanager(object):
                 for plugin in os.listdir(path):
                     temp[plugin] = path
         return temp
+    
+    def plugin_is_active(self, plugin):
+        pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin, confdb_ending)))
+        return pconf.getb("state")
+             
     
     def clean_plugin_config(self):
         lplugins = self.list_plugins()

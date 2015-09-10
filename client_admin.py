@@ -4,7 +4,7 @@ from common import configmanager, check_reference, check_reference_type, confdb_
 #logger, isself
 
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "addreference", "updatereference", "delreference", "set_config", "set_pluginconfig", "clean_pluginconfig", "reset_configkey", "reset_pluginconfigkey"}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "addreference", "updatereference", "delreference", "set_config", "set_pluginconfig", "clean_pluginconfig", "reset_configkey", "reset_pluginconfigkey", "listplugins"}
     #, "connect"
     hashdb = None
     links = None
@@ -65,6 +65,18 @@ class client_admin(object):
     def movehash(self, obdict):
         """ move hash to entity """
         return self.hashdb.movehash(obdict["hash"],obdict["newname"])
+    
+    # don't expose to other plugins, at least not without question
+    # other plugins could check for insecure plugins
+    @check_argsdeco()
+    def listplugins(self, obdict):
+        """ list plugins """
+        pluginm = self.links["client_server"].pluginmanager
+        out = sorted(pluginm.list_plugins().items())
+        ret = []
+        for plugin, path in out:
+            ret.append((plugin, pluginm.plugin_is_active(plugin)))
+        return True, {"items":ret,"map":["plugin","state"]}
     
     @check_argsdeco({"hash": (str, ), "reference": (str, ), "reftype": (str, )})
     def addreference(self, obdict):
