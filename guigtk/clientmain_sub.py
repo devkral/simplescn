@@ -87,33 +87,115 @@ class configuration_stuff(object):
     configuration_wintoggle = None
     builder = None
     links = None
+    preflist = None
+    pluginlistview = None
+    
+    _changed_pluginconf = None
+    _changed_mainconf = None
     
     def __init__(self):
         self.configurationwin=self.builder.get_object("configurationwin")
         self.configurationwin.connect('delete-event',self.close_configurationwin)
+        self._changed_pluginconf = {}
+        self._changed_mainconf = {}
+        self.preflist = self.builder.get_object("preflist")
+        
+        
+        pluginlist= self.builder.get_object("pluginlist")
+        _listplugins = self.do_requestdo("listplugins")
+        if _listplugins[0] == False:
+            logger.error(_listplugins[1])
+            _listplugins = []
+        else:
+            _listplugins = _listplugins[1]["items"]
+        
+        for plugin in _listplugins:
+            pluginlist.append((plugin[0], ))
+        
+        self.pluginlistview = self.builder.get_object("pluginlistview")
+        col0 = Gtk.TreeViewColumn("Plugins", Gtk.CellRendererText(), text=0)
+        self.pluginlistview.append_column(col0)
+        
+        prefview = self.builder.get_object("prefview")
+        col10 = Gtk.TreeViewColumn("Key", Gtk.CellRendererText(), text=0)
+        prefview.append_column(col10)
+        col11 = Gtk.TreeViewColumn("Value", Gtk.CellRendererText(), text=1)
+        prefview.append_column(col11)
+        #col12 = Gtk.TreeViewColumn("Plugins", Gtk.CellRendererText(), text=2)
+        #prefview.append_column(col12)
         
     def configurationme(self,*args):
-        self.configuration_update()
+        self.init_config()
         self.configurationwin.show()
         self.configurationwin.grab_focus()
 
-    def configuration_update(self, *args):
+    def init_config(self, *args):
+        if self.configurationwin.is_visible() == False:
+            self.reset_config()
+
+    def reset_config(self, *args):
+        self._changed_pluginconf = {}
+        self._changed_mainconf = {}
+        
+        usemaint = self.builder.get_object("usemainconf")
+        #useplugt = self.builder.get_object("useplugconf")
+        #prefmainscroll = self.builder.get_object("prefmainscroll")
+        
+        
+        if usemaint.get_active():
+            self.load_mainconfig()
+        else:
+            self.load_pluginconfig
+    
+    def apply_config(self, *args):
+        for key, val in self._changed_mainconf.items():
+            self.do_requestdo("set_config", key=key, value=val)
+        
+        for plugin, kv in self._changed_pluginconf.items():
+            for key, val in kv.items():
+                self.do_requestdo("set_config", plugin=plugin,  key=key, value=val)
+        
+    def load_mainconfig(self, *args):
+        prefpluginscroll = self.builder.get_object("prefpluginscroll")
+        prefpluginscroll.hide()
+        self.preflist.clear()
+        _preflist = self.do_requestdo("list_config")
+        if _preflist[0] == False:
+            return
+        for _key, _val, _def in _preflist[1]["items"]:
+            self.preflist.append((_key, _val, _def))
+        
+    def load_pluginconfig(self, *args):
+        self.preflist.clear()
+        prefpluginscroll = self.builder.get_object("prefpluginscroll")
+        prefpluginscroll.show()
+        
+        
+        #localview=self.builder.get_object("localview")
+        _sel=self.pluginlistview.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        _plugin = _sel[0][_sel[1]][0]
+        
+        _preflist = self.do_requestdo("list_pluginconfig",  plugin=_plugin)
+        if _preflist[0] == False:
+            return
+        for _key, _val, _def in _preflist[1]["items"]:
+            self.preflist.append((_key, _val, _def))
+        
+    def use_default_config_key(self, *args):
         pass
 
     def toggle_configuration(self,*args):
         usemaint = self.builder.get_object("usemainconf")
-        useplugt = self.builder.get_object("useplugconf")
+        #useplugt = self.builder.get_object("useplugconf")
         #prefmainscroll = self.builder.get_object("prefmainscroll")
-        prefpluginscroll = self.builder.get_object("prefpluginscroll")
         # show pluginlist with checkbutton for active when useplugconf is active
         # elsewise show just the configurationwindow
-        
-        if usemaint.get_active():
-            prefpluginscroll.hide()
-            #self.load_mainconfig()
+        if usemaint.get_active() == True:
+            self.load_mainconfig()
         else:
-            prefpluginscroll.show()
-            #self.load_plugconfig
+            self.load_pluginconfig()
             
     def close_configurationwin(self,*args):
         self.configurationwin.hide()

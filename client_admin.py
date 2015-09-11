@@ -1,5 +1,4 @@
 
-import os
 from common import check_reference, check_reference_type, check_argsdeco
 #logger, isself
 

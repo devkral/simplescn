@@ -1,6 +1,7 @@
 
 import ssl
-from common import isself, check_hash, dhash, check_argsdeco, check_args, logger, scnparse_url,EnforcedPortFail
+from common import isself, check_hash, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail
+#logger
 from http import client
 
 class client_safe(object):

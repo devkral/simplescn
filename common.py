@@ -449,7 +449,7 @@ class configmanager(object):
             
         
         if value is None:
-            value="False"
+            value = ""
         """if isinstance(value, bool)==True:
             if value==True:
                 value="true"
@@ -490,7 +490,9 @@ class configmanager(object):
                 temp = cur.fetchone()
                 ret = temp[0]
         
-        if ret in [None,"False", "false", False]:
+        if ret is None:
+            return ""
+        elif ret in ["False", "false", False]:
             return "False"
         elif ret in ["True", "true", True]:
             return "True"
@@ -505,12 +507,18 @@ class configmanager(object):
     
     def get_default(self,name):
         if name in self.defaults:
-            return self.defaults[name]
+            if self.defaults[name] is None:
+                return ""
+            else:
+                return self.defaults[name]
         else:
             return None
     @dbaccess
     def list(self, dbcon):
-        _listitems = self.defaults.items()
+        ret = []
+        _tdic = self.defaults.copy()
+        _tdic.update(self.overlays)
+        _listitems = sorted(_tdic.items(), key=lambda t: t[0])
         if dbcon is not None:
             cur = dbcon.cursor()
             cur.execute('''SELECT name, val FROM main;''')
@@ -522,18 +530,24 @@ class configmanager(object):
                     _in_db[key] = val
         
         for _key, _val in _listitems:
+            _val2 = _val
             if _key in self.overlays:
-                if self.overlays[_key] is None:
-                    _val = "False"
-                else:
-                    _val = str(self.overlays[_key])
+                _val2 = self.overlays[_key]
             elif _key in _in_db:
-                _val = _in_db[key]
-            if _val in [None,"False", "false", False]:
-                _val = "False"
-            elif _val in ["True", "true", True]:
-                _val = "True"
-        return _listitems
+                _val2 = _in_db[key]
+            
+            if _val2 is None:
+                _val2 = ""
+            elif _val2 in ["False", "false", False]:
+                _val2 = "False"
+            elif _val2 in ["True", "true", True]:
+                _val2 = "True"
+            else:
+                _val2 = str(_val2)
+            if _key in ["state",] and _val2 in [None, "", "False"]:
+                _val2 = "False"
+            ret.append((_key, _val2, _val))
+        return ret
     
 
 

@@ -39,7 +39,7 @@ class client_config(object):
     @check_argsdeco()
     def list_config(self, obdict):
         """ list main configuration of client """
-        return True, self.links["configmanager"].list()
+        return True, {"items": self.links["configmanager"].list(), "map": ["key", "value", "default"]}
     
     @check_argsdeco({"key": (str, "config key"), "plugin": (str, "plugin name")})
     def reset_pluginconfigkey(self, obdict):
@@ -72,8 +72,8 @@ class client_config(object):
         if obdict["plugin"] not in listplugin:
             return False, "plugin does not exist"
         # last case shouldn't exist but be sure
-        if obdict["plugin"] not in pluginm.plugins or hasattr(pluginm.plugins[obdict["plugin"]]):
+        if obdict["plugin"] not in pluginm.plugins or hasattr(pluginm.plugins[obdict["plugin"]], "config"):
             config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
         else:
             config = pluginm.plugins[obdict["plugin"]].config
-        return True, config.list()
+        return True, {"items": config.list(), "map": ["key", "value", "default"]}

@@ -44,7 +44,7 @@ reference_header = \
 "Authorization": 'scn {}', 
 "Connection": 'close'
 }
-class client_client(client_admin, client_safe):
+class client_client(client_admin, client_safe, client_config):
     name=None
     cert_hash=None
     sslcont=None
@@ -82,7 +82,7 @@ class client_client(client_admin, client_safe):
             body.pop("headers", {})
         
         sendheaders = reference_header.copy()
-        for elem in headers.items():
+        for key,value in headers.items():
             if key in ["Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent"]:
                 continue
             key, value = elem
@@ -98,7 +98,7 @@ class client_client(client_admin, client_safe):
             proxycon.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
             proxycon.connect()
             
-            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            pcert = ssl.DER_cert_to_PEM_cert(proxycon.sock.getpeercert(True))
             hashpcert = dhash(pcert)
             
             if body.get("forceproxyhash") is not None and body.get("forceproxyhash") != hashpcert:
@@ -115,6 +115,7 @@ class client_client(client_admin, client_safe):
             
             if response.status == 200:
                 proxyerror = False
+                
                 # TODO: create httpsconnection from socket (con.sock)
             else:
                 proxyerror = True
@@ -940,7 +941,7 @@ if __name__ ==  "__main__":
     cm=client_init(confm,pluginm)
 
     if confm.getb("noplugins")==False:
-        # needs not much as ressource (interfaces)
+        # needs not much as ressource (interfaces) TODO: protect access_safe
         pluginm.resources["access"] = cm.links["client"].access_safe
         pluginm.init_plugins()
 
