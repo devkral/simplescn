@@ -92,6 +92,7 @@ class server(commonscn):
                         dump.append((_name,_hash))
                 if len(self.nhipmap[_name]) == 0:
                     del self.nhipmap[_name]
+            ### don't annote list with "map" dict structure on serverside (overhead)
             self.cache["dumpnames"] = json.dumps(gen_result(dump, True))
             self.cache["num_nodes"] = json.dumps(gen_result(count, True))
             self.changeip_lock.release()

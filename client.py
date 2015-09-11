@@ -17,8 +17,9 @@ if sharedir not in sys.path:
     sys.path.append(sharedir)
 
 
-from client_admin import client_admin
+from client_admin import client_admin, is_admin_func
 from client_safe import client_safe
+from client_config import client_config
 
 #import SSL as ssln
 #from OpenSSL import SSL,crypto
@@ -61,6 +62,7 @@ class client_client(client_admin, client_safe):
         # update as static variable
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
+        self.validactions.update(client_config.validactions_config)
         self._cache_help = self.cmdhelp()
         self.client_lock = threading.RLock()
     
@@ -319,7 +321,9 @@ class client_client(client_admin, client_safe):
             return authob
         obdict["pwcall_method"] = pw_auth_plugin
         if action in self.validactions:
-            if action not in self.validactions_safe:
+            if action in self.validactions_config:
+                return False, "{} tried to use protected config methods".format(requester)
+            if is_admin_func(action):
                 if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
                     return False, "no permission"
             return self.access_core(action, obdict)
@@ -347,7 +351,7 @@ hash <pw>: calculate hash for pw
 plugin <plugin>:<...>: speak with plugin
 """
         for funcname in self.validactions:
-            if funcname in client_admin.validactions_admin:
+            if is_admin_func(funcname):
                 eperm = " (admin)"
             else:
                 eperm = ""
@@ -425,7 +429,7 @@ class client_server(commonscn):
         self.update_cache()
     ### the primary way to add or remove a service
     ### can be called by every application on same client
-    
+    ### don't annote list with "map" dict structure on serverside (overhead)
     @check_argsdeco({"name": (str,), "port": (int,)})
     def registerservice(self, obdict):
         """ register a service = (map port to name) """
@@ -440,6 +444,7 @@ class client_server(commonscn):
             return True
         return False, "no permission"
     
+    ### don't annote list with "map" dict structure on serverside (overhead)
     @check_argsdeco({"name": (str, )})
     def delservice(self, obdict):
         """ delete a service"""
@@ -507,7 +512,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(403, "no permission - client")
             return
         
-        if action in self.links["client"].validactions_admin:
+        if is_admin_func(action):
             if "admin" in self.links["auth"].realms:
                 realm = "admin"
             else:

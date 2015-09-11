@@ -1,10 +1,13 @@
 
 import os
-from common import configmanager, check_reference, check_reference_type, confdb_ending, check_argsdeco
+from common import check_reference, check_reference_type, check_argsdeco
 #logger, isself
 
+from client_config import client_config
+
+
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "addreference", "updatereference", "delreference", "set_config", "set_pluginconfig", "clean_pluginconfig", "reset_configkey", "reset_pluginconfigkey", "listplugins"}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "addreference", "updatereference", "delreference", "listplugins"}
     #, "connect"
     hashdb = None
     links = None
@@ -122,48 +125,8 @@ class client_admin(object):
             return False, "name, hash not exist"
         return self.hashdb.delreference(_tref[2],obdict["reference"])
 
-    @check_argsdeco({"key": (str, "config key"), "value": (str, "key value")})
-    def set_config(self, obdict):
-        """ set key in main configuration of client """
-        return self.links["configmanager"].set(obdict["key"], obdict["value"])
 
-    @check_argsdeco({"key": (str, "config key"), "value": (str, "key value"), "plugin": (str, "plugin name")})
-    def set_pluginconfig(self, obdict):
-        """ set key in plugin configuration """
-        pluginm=self.links["client_server"].pluginmanager
-        listplugin = pluginm.list_plugins()
-        if obdict["plugin"] not in listplugin:
-            return False, "plugin does not exist"
-        # last case shouldn't exist but be sure
-        if obdict["plugin"] not in pluginm.plugins or hasattr(pluginm.plugins[obdict["plugin"]], "config"):
-            config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
-        else:
-            config = pluginm.plugins[obdict["plugin"]].config
-        return config.set(obdict["key"], obdict["value"])
-
-    @check_argsdeco({"key": (str, "config key"),})
-    def reset_configkey(self, obdict):
-        """ reset key in main configuration of client """
-        return self.links["configmanager"].set_default(obdict["key"])
-
-    @check_argsdeco({"key": (str, "config key"), "plugin": (str, "plugin name")})
-    def reset_pluginconfigkey(self, obdict):
-        """ reset key in plugin configuration """
-        pluginm=self.links["client_server"].pluginmanager
-        listplugin = pluginm.list_plugins()
-        if obdict["plugin"] not in listplugin:
-            return False, "plugin does not exist"
-        # last case shouldn't exist but be sure
-        if obdict["plugin"] not in pluginm.plugins or hasattr(pluginm.plugins[obdict["plugin"]]):
-            config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
-        else:
-            config = pluginm.plugins[obdict["plugin"]].config
-        return config.set_default(obdict["key"])
-        
-    
-    @check_argsdeco()
-    def clean_pluginconfig(self, obdict):
-        """ clean orphan plugin configurations """
-        pluginm=self.links["client_server"].pluginmanager
-        pluginm.clean_plugin_config()
+def is_admin_func(funcname):
+    if funcname in client_admin.validactions_admin or funcname in client_config.validactions_config:
         return True
+    return False
