@@ -802,47 +802,6 @@
           </packing>
         </child>
         <child>
-          <object class="GtkButtonBox" id="buttonbox1">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="spacing">3</property>
-            <property name="layout_style">end</property>
-            <child>
-              <object class="GtkButton" id="button3">
-                <property name="label" translatable="yes">Ok</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="addnodehash_confirm" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="button5">
-                <property name="label" translatable="yes">Cancel</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <signal name="clicked" handler="close_addnodedia" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">True</property>
-                <property name="position">1</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">3</property>
-            <property name="width">3</property>
-          </packing>
-        </child>
-        <child>
           <object class="GtkGrid" id="grid4">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
@@ -879,6 +838,46 @@
             <property name="top_attach">0</property>
           </packing>
         </child>
+        <child>
+          <object class="GtkGrid" id="grid11">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">end</property>
+            <property name="column_spacing">3</property>
+            <property name="column_homogeneous">True</property>
+            <child>
+              <object class="GtkButton" id="button3">
+                <property name="label" translatable="yes">Ok</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="addnodehash_confirm" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="button5">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <signal name="clicked" handler="close_addnodedia" swapped="no"/>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">3</property>
+            <property name="width">3</property>
+          </packing>
+        </child>
       </object>
     </child>
   </object>
@@ -905,13 +904,13 @@
             <property name="can_focus">False</property>
             <property name="halign">end</property>
             <property name="column_spacing">3</property>
+            <property name="column_homogeneous">True</property>
             <child>
               <object class="GtkButton" id="okbuttonclient">
                 <property name="label" translatable="yes">Ok</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="halign">end</property>
                 <signal name="clicked" handler="client_confirm" swapped="no"/>
               </object>
               <packing>
@@ -925,7 +924,6 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="halign">end</property>
                 <signal name="clicked" handler="close_clientdia" swapped="no"/>
               </object>
               <packing>
@@ -1060,6 +1058,7 @@
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
             <property name="column_spacing">3</property>
+            <property name="column_homogeneous">True</property>
             <child>
               <object class="GtkButton" id="okbuttonname1">
                 <property name="label" translatable="yes">Ok</property>
@@ -1191,6 +1190,7 @@
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
             <property name="column_spacing">3</property>
+            <property name="column_homogeneous">True</property>
             <child>
               <object class="GtkButton" id="okbuttonnode2">
                 <property name="label" translatable="yes">Ok</property>
@@ -1302,6 +1302,7 @@
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
             <property name="column_spacing">3</property>
+            <property name="column_homogeneous">True</property>
             <child>
               <object class="GtkButton" id="okbuttonref">
                 <property name="label" translatable="yes">Ok</property>
@@ -1481,6 +1482,7 @@
             <property name="can_focus">False</property>
             <property name="halign">end</property>
             <property name="column_spacing">2</property>
+            <property name="column_homogeneous">True</property>
             <child>
               <object class="GtkButton" id="okbuttonnodee">
                 <property name="label" translatable="yes">Ok</property>
@@ -1870,6 +1872,7 @@ Entity</property>
             <property name="halign">end</property>
             <property name="hexpand">True</property>
             <property name="column_spacing">3</property>
+            <property name="column_homogeneous">True</property>
             <child>
               <object class="GtkButton" id="button8">
                 <property name="label" translatable="yes">_Ok</property>
