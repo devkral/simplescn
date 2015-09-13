@@ -89,6 +89,7 @@ class configuration_stuff(object):
     links = None
     preflist = None
     pluginlistview = None
+    prefview = None
     
     _changed_pluginconf = None
     _changed_mainconf = None
@@ -100,27 +101,19 @@ class configuration_stuff(object):
         self._changed_mainconf = {}
         self.preflist = self.builder.get_object("preflist")
         
-        
-        pluginlist= self.builder.get_object("pluginlist")
-        _listplugins = self.do_requestdo("listplugins")
-        if _listplugins[0] == False:
-            logger.error(_listplugins[1])
-            _listplugins = []
-        else:
-            _listplugins = _listplugins[1]["items"]
-        
-        for plugin in _listplugins:
-            pluginlist.append((plugin[0], ))
+        self.loadplugins()
         
         self.pluginlistview = self.builder.get_object("pluginlistview")
         col0 = Gtk.TreeViewColumn("Plugins", Gtk.CellRendererText(), text=0)
         self.pluginlistview.append_column(col0)
         
-        prefview = self.builder.get_object("prefview")
+        self.prefview = self.builder.get_object("prefview")
         col10 = Gtk.TreeViewColumn("Key", Gtk.CellRendererText(), text=0)
-        prefview.append_column(col10)
-        col11 = Gtk.TreeViewColumn("Value", Gtk.CellRendererText(), text=1)
-        prefview.append_column(col11)
+        self.prefview.append_column(col10)
+        renderer_col11 = Gtk.CellRendererText(editable=True, editable_set=True)
+        renderer_col11.connect("edited", self.conf_change_key)
+        col11 = Gtk.TreeViewColumn("Value", renderer_col11, text=1)
+        self.prefview.append_column(col11)
         #col12 = Gtk.TreeViewColumn("Plugins", Gtk.CellRendererText(), text=2)
         #prefview.append_column(col12)
         
@@ -128,7 +121,35 @@ class configuration_stuff(object):
         self.init_config()
         self.configurationwin.show()
         self.configurationwin.grab_focus()
+    
+    def set_tainted(self, tainted):
+        applybut = self.builder.get_object("applyconfb")
+        resetbut = self.builder.get_object("resetconfb")
+        applybut.set_sensitive(tainted)
+        resetbut.set_sensitive(tainted)
+    
+    def conf_change_key(self, cell_renderer_text, path, new_text):
+        if self.preflist[path][1] == new_text:
+            return
+        
+        useplugin = self.builder.get_object("usepluginconf")
 
+        _key =self.preflist[path][0]
+        if useplugin.get_active() == True:
+            _selp=self.pluginlistview.get_selection().get_selected()
+            if _selp[1] is None:
+                return
+            _plugin = _selp[0][_selp[1]][0]
+            if _plugin not in self._changed_pluginconf:
+                self._changed_pluginconf[_plugin] = {}
+            self._changed_pluginconf[_plugin][_key] = new_text
+        else:
+            self._changed_mainconf[_key] = new_text
+            
+        self.preflist[path][1] = new_text
+        self.set_tainted(True)
+        #print(cell_renderer_text, path, new_text)
+    
     def init_config(self, *args):
         if self.configurationwin.is_visible() == False:
             self.reset_config()
@@ -136,9 +157,10 @@ class configuration_stuff(object):
     def reset_config(self, *args):
         self._changed_pluginconf = {}
         self._changed_mainconf = {}
+        self.set_tainted(False)
         
         usemaint = self.builder.get_object("usemainconf")
-        #useplugt = self.builder.get_object("useplugconf")
+        #useplugt = self.builder.get_object("usepluginconf")
         #prefmainscroll = self.builder.get_object("prefmainscroll")
         
         
@@ -148,29 +170,46 @@ class configuration_stuff(object):
             self.load_pluginconfig
     
     def apply_config(self, *args):
+        haderror = False
         for key, val in self._changed_mainconf.items():
-            self.do_requestdo("set_config", key=key, value=val)
+            if self.do_requestdo("set_config", key=key, value=val)[0] == False:
+                haderror = True
         
         for plugin, kv in self._changed_pluginconf.items():
             for key, val in kv.items():
-                self.do_requestdo("set_config", plugin=plugin,  key=key, value=val)
+                if self.do_requestdo("set_config", plugin=plugin,  key=key, value=val)[0] == False:
+                    haderror = True
         
+        if haderror == False:
+            self.reset_config()
+        #self._changed_pluginconf = {}
+        #self._changed_mainconf = {}
+        
+        #self.set_tainted(False)
+
     def load_mainconfig(self, *args):
         prefpluginscroll = self.builder.get_object("prefpluginscroll")
         prefpluginscroll.hide()
+        
+        cleanpluginsb = self.builder.get_object("cleanpluginsb")
+        cleanpluginsb.hide()
+        
         self.preflist.clear()
         _preflist = self.do_requestdo("list_config")
         if _preflist[0] == False:
             return
-        for _key, _val, _def in _preflist[1]["items"]:
-            self.preflist.append((_key, _val, _def))
+        for _key, _val, _default in _preflist[1]["items"]:
+            self.preflist.append((_key, _val, _default))
         
     def load_pluginconfig(self, *args):
         self.preflist.clear()
         prefpluginscroll = self.builder.get_object("prefpluginscroll")
         prefpluginscroll.show()
         
+        cleanpluginsb = self.builder.get_object("cleanpluginsb")
+        cleanpluginsb.show()
         
+        self.preflist.clear()
         #localview=self.builder.get_object("localview")
         _sel=self.pluginlistview.get_selection().get_selected()
         if _sel[1] is None:
@@ -180,17 +219,41 @@ class configuration_stuff(object):
         _preflist = self.do_requestdo("list_pluginconfig",  plugin=_plugin)
         if _preflist[0] == False:
             return
-        for _key, _val, _def in _preflist[1]["items"]:
-            self.preflist.append((_key, _val, _def))
+        for _key, _val, _default in _preflist[1]["items"]:
+            self.preflist.append((_key, _val, _default))
         
     def use_default_config_key(self, *args):
-        pass
-
+        _sel=self.prefview.get_selection().get_selected()
+        if _sel[1] is None:
+            return
+        #if _sel[0][_sel[1]][1] == _sel[0][_sel[1]][2]:
+        #    return
+        # renderer, path, defaultval
+        self.conf_change_key(None, _sel[1], _sel[0][_sel[1]][2])
+        #self.set_tainted(True)
+    
+    def loadplugins(self):
+        pluginlist= self.builder.get_object("pluginlist")
+        pluginlist.clear()
+        _listplugins = self.do_requestdo("listplugins")
+        if _listplugins[0] == False:
+            logger.error(_listplugins[1])
+            _listplugins = []
+        else:
+            _listplugins = _listplugins[1]["items"]
+        
+        for plugin in _listplugins:
+            pluginlist.append((plugin[0], ))
+    
+    def clean_plugins(self, *args):
+        ret = self.do_requestdo("clean_pluginconfig", plugin=_plugin)
+        #if ret[0]:
+        #    self.loadplugins()
     def toggle_configuration(self,*args):
         usemaint = self.builder.get_object("usemainconf")
-        #useplugt = self.builder.get_object("useplugconf")
+        #useplugt = self.builder.get_object("usepluginconf")
         #prefmainscroll = self.builder.get_object("prefmainscroll")
-        # show pluginlist with checkbutton for active when useplugconf is active
+        # show pluginlist with checkbutton for active when usepluginconf is active
         # elsewise show just the configurationwindow
         if usemaint.get_active() == True:
             self.load_mainconfig()
@@ -199,6 +262,7 @@ class configuration_stuff(object):
             
     def close_configurationwin(self,*args):
         self.configurationwin.hide()
+        self.reset_config()
         return True
 
 class cmd_stuff(object):
