@@ -344,6 +344,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
                     <property name="use_underline">True</property>
+                    <signal name="clicked" handler="use_default_config_key" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>

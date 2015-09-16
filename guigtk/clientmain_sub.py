@@ -226,10 +226,13 @@ class configuration_stuff(object):
         _sel=self.prefview.get_selection().get_selected()
         if _sel[1] is None:
             return
+        defvar = _sel[0][_sel[1]][2]
+        if defvar is None:
+            defvar = ""
         #if _sel[0][_sel[1]][1] == _sel[0][_sel[1]][2]:
         #    return
         # renderer, path, defaultval
-        self.conf_change_key(None, _sel[1], _sel[0][_sel[1]][2])
+        self.conf_change_key(None, _sel[1], defvar)
         #self.set_tainted(True)
     
     def loadplugins(self):

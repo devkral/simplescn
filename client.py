@@ -795,9 +795,9 @@ class client_init(object):
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read()
 
-        with open(_cpath+"_name", 'r') as readclient:
+        with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline()
-        with open(_cpath+"_message", 'r') as readinmes:
+        with open(_cpath+"_message.txt", 'r') as readinmes:
             _message = readinmes.read()
             if _message[-1] in "\n":
                 _message = _message[:-1]

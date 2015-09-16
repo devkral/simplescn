@@ -410,11 +410,11 @@ class server_init(object):
             logger().debug("Certificate(s) not found. Generate new...")
             generate_certs(_spath+"_cert")
             logger().debug("Certificate generation complete")
-        with open(_spath+"_name", 'r') as readserver:
+        with open(_spath+"_name.txt", 'r') as readserver:
             _name=readserver.readline()
         with open(_spath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert=readinpubkey.read()
-        with open(_spath+"_message", 'r') as readservmessage:
+        with open(_spath+"_message.txt", 'r') as readservmessage:
             _message=readservmessage.read()
             if _message[-1] in "\n":
                 _message=_message[:-1]

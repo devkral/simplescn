@@ -309,15 +309,15 @@ def init_config_folder(_dir, prefix):
     else:
         os.chmod(_dir, 0o700)
     _path = os.path.join(_dir, prefix)
-    if os.path.exists("{}_name".format(_path)) == False:
-        e = open("{}_name".format(_path), "w")
+    if os.path.exists("{}_name.txt".format(_path)) == False:
+        e = open("{}_name.txt".format(_path), "w")
         if prefix == "client":
             e.write("{}/{}".format(os.uname()[1], 0))
         else:
             e.write("{}/{}".format(os.uname()[1], server_port))
         e.close()
-    if os.path.exists(_path+"_message") == False:
-        e=open("{}_message".format(_path), "w")
+    if os.path.exists(_path+"_message.txt") == False:
+        e=open("{}_message.txt".format(_path), "w")
         e.write("<message>")
         e.close()
 
@@ -455,10 +455,9 @@ class configmanager(object):
                 value="true"
             else:
                 value="false" """
-        
         if name in self.overlays or dbcon is None:
             self.overlays[name] = str(value)
-        if dbcon is not None:
+        elif dbcon is not None:
             cur = dbcon.cursor()
             cur.execute('''UPDATE main SET val=? WHERE name=?;''', (str(value), name))
             dbcon.commit()
@@ -482,13 +481,14 @@ class configmanager(object):
             if _key not in self.defaults:
                 logger().error("\"{}\" is no key".format(_key))
                 return None
-            if self.defaults[_key] is None:
-                ret = self.defaults[_key]
+            #if self.defaults[_key] is None:
+            ret = self.defaults[_key]
             if dbcon is not None:
                 cur = dbcon.cursor()
                 cur.execute('''SELECT val FROM main WHERE name=?;''', (_key,))
                 temp = cur.fetchone()
-                ret = temp[0]
+                if ret is not None:
+                    ret = temp[0]
         
         if ret is None:
             return ""
@@ -517,24 +517,25 @@ class configmanager(object):
     def list(self, dbcon):
         ret = []
         _tdic = self.defaults.copy()
-        _tdic.update(self.overlays)
+        _tdic.update(self.overlays.copy())
         _listitems = sorted(_tdic.items(), key=lambda t: t[0])
         if dbcon is not None:
             cur = dbcon.cursor()
             cur.execute('''SELECT name, val FROM main;''')
-            _in_db__ = cur.fetchall()
+            _in_db_list = cur.fetchall()
             _in_db = {}
             
-            if _in_db__ is not None:
-                for key, val in _in_db__:
-                    _in_db[key] = val
+            if _in_db_list is not None:
+                for _key, _val in _in_db_list:
+                    _in_db[_key] = _val
         
-        for _key, _val in _listitems:
-            _val2 = _val
-            if _key in self.overlays:
+        for _key, _defaultval in _listitems:
+            _val2 = _defaultval
+            # ignore overlayentries with entry None
+            if _key in self.overlays: # and self.overlays[_key] is not None:
                 _val2 = self.overlays[_key]
             elif _key in _in_db:
-                _val2 = _in_db[key]
+                _val2 = _in_db[_key]
             
             if _val2 is None:
                 _val2 = ""
@@ -546,7 +547,7 @@ class configmanager(object):
                 _val2 = str(_val2)
             if _key in ["state",] and _val2 in [None, "", "False"]:
                 _val2 = "False"
-            ret.append((_key, _val2, _val))
+            ret.append((_key, _val2, _defaultval))
         return ret
     
 

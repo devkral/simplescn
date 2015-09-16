@@ -1,5 +1,6 @@
 
-from common import check_reference, check_reference_type, check_argsdeco
+from common import check_reference, check_reference_type, check_argsdeco, check_name
+import os
 #logger, isself
 
 from client_config import client_config
@@ -7,6 +8,7 @@ from client_config import client_config
 
 class client_admin(object): 
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "addreference", "updatereference", "delreference", "listplugins"}
+    #, "changemsg", "changename"} untested
     #, "connect"
     hashdb = None
     links = None
@@ -124,7 +126,35 @@ class client_admin(object):
             return False, "name, hash not exist"
         return self.hashdb.delreference(_tref[2],obdict["reference"])
 
-
+    @check_argsdeco({"message": (str, "message")})
+    def changemsg(self, obdict):
+        """ change message """
+        #_type = self.links.get("client_server").scn_type
+        configr = self.links["config_root"]
+        with open(os.path.join(configr,"client_message.txt"), "w") as wm:
+            wm.write(obdict.get("message"))
+        return True
+    
+    @check_argsdeco({"name": (str, "client name")},{"permanent":(bool, "store permanent (default:True)")})
+    def changename(self, obdict):
+        """ change name """
+        newname = obdict.get("name")
+        if check_name(newname) == False:
+            return False, "not a valid name"
+        #_type = self.links.get("client_server").scn_type
+        
+        
+        if obdict.get("permanent", True):
+            configr = self.links["config_root"]
+            oldt = None
+            with open(os.path.join(configr,"client_name.txt"), "r") as readn:
+                oldt = readn.read().strip().rstrip().split("/")
+            if oldt is None or len(oldt)!=2:
+                return False, "reading name failed or length"
+            with open(os.path.join(configr,"client_name.txt"), "w") as writen:
+                writen.write("{}/{}".format(newname, oldt[1]))
+        return True
+        
 def is_admin_func(funcname):
     if funcname in client_admin.validactions_admin or funcname in client_config.validactions_config:
         return True
