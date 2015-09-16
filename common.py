@@ -550,7 +550,17 @@ class configmanager(object):
         return ret
     
 
-
+def pluginressources_creater(_dict, requester):
+    def wrap(res,*args, **kwargs):
+        ob = _dict.get(res)
+        if ob is None:
+            return None
+        elif iscallable(ob):
+            kwargs["requester"] = requester
+            return ob(*args,**kwargs)
+        #elif hasattr(ob, "shared_with") and 
+        else:
+            return ob.copy()
 class pluginmanager(object):
     pluginenv = None
     pathes_plugins = None
@@ -636,7 +646,7 @@ class pluginmanager(object):
                 continue
             pconf.update(pload.defaults)
             pload.config = pconf # no copy because it is the only user
-            pload.resources = self.resources # no copy because they can change
+            pload.resources = pluginressources_creater(self.resources, plugin[0]) # no copy because they can change
             pload.interfaces = self.interfaces.copy() # copy because of isolation
             pload.path = pluginpath # no copy because it is the only user
             ret = False
@@ -981,6 +991,9 @@ def check_name(_name, maxlength = 64):
         return False
     # ensure no bad characters
     if any(c in " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name):
+        return False
+    # ensure no controlchars
+    if _name.isprintable() == False:
         return False
     # no .:[]to differ name from ip address
     #name shouldn't be isself as it is used 
