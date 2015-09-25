@@ -41,9 +41,10 @@ from getpass import getpass
 import logging
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID,ExtendedKeyUsageOID
+import datetime
 
 import ssl
 import socket
@@ -58,7 +59,7 @@ import time
 #from http import client
 from urllib import parse
 
-
+cert_sign_hash = hashes.SHA512()
 salt_size = 10
 key_size = 4096
 server_port = 4040
@@ -241,24 +242,24 @@ def notify(msg):
 ##### init ######
 
 def generate_certs(_path):
-    _key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=key_size,
-        backend=default_backend())
-    _pub_key = _key.public_key()
     _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key:")()
     if _passphrase != "":
         _passphrase2 = pwcallmethod("Retype:\n")()
         if _passphrase != _passphrase2:
             return False
+    
+    _key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=key_size,
+        backend=default_backend())
+    _pub_key = _key.public_key()
     _tname = [x509.NameAttribute(NameOID.COMMON_NAME, 'secure communication nodes'), ]
     _tname.append(x509.NameAttribute(NameOID.COUNTRY_NAME, 'IA'))
     _tname.append(x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, 'simple-scn'))
     _tname.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'secure communication nodes'))
     _tname = x509.Name(_tname)
     
-    extendedext = x509.ExtendedKeyUsage((
-    ExtendedKeyUsageOID.SERVER_AUTH, 
+    extendedext = x509.ExtendedKeyUsage((ExtendedKeyUsageOID.SERVER_AUTH, 
     ExtendedKeyUsageOID.CLIENT_AUTH))
     
     
@@ -266,10 +267,11 @@ def generate_certs(_path):
     subject_name = _tname, 
     public_key = _pub_key, 
     serial_number = 0, 
-    not_valid_before = 0, 
-    not_valid_after = 0, 
-    extensions = [extendedext,])
-    cert = builder.sign(_key, "sha512", default_backend())
+    not_valid_before = datetime.date.today() - datetime.timedelta(days=2), 
+    not_valid_after = datetime.date.today() + datetime.timedelta(days=200*365)) 
+    # extensions = [extendedext,]) doesn't work
+    builder = builder.add_extension(extendedext, critical=True)
+    cert = builder.sign(_key, cert_sign_hash, default_backend())
     if _passphrase == "":
         encryption_algorithm = serialization.NoEncryption()
     else:
@@ -278,13 +280,11 @@ def generate_certs(_path):
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm = encryption_algorithm)
-    pubkey = _key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8)
+    pubcert = cert.public_bytes(serialization.Encoding.PEM)
     with open("{}.priv".format(_path), 'wb') as writeout:
         writeout.write(privkey)
     with open("{}.pub".format(_path), 'wb') as writeout:
-        writeout.write(pubkey)
+        writeout.write(pubcert)
     return True
 
 def check_certs(_path):
@@ -293,7 +293,7 @@ def check_certs(_path):
     if os.path.exists(privpath) == False or os.path.exists(pubpath) == False:
         return False
     try:
-        _context = ssl.Context(ssl.TLSv1_2_METHOD)
+        _context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         _context.load_cert_chain(pubpath, keyfile=privpath, password = pwcallmethod("Enter passphrase for decrypting privatekey:"))
     except Exception as e:
         logger().error(e)
