@@ -262,15 +262,17 @@ def generate_certs(_path):
     extendedext = x509.ExtendedKeyUsage((ExtendedKeyUsageOID.SERVER_AUTH, 
     ExtendedKeyUsageOID.CLIENT_AUTH))
     
+    extensions = [x509.Extension(extendedext.oid, True, extendedext)]
     
     builder = x509.CertificateBuilder(issuer_name=_tname, 
     subject_name = _tname, 
     public_key = _pub_key, 
     serial_number = 0, 
     not_valid_before = datetime.date.today() - datetime.timedelta(days=2), 
-    not_valid_after = datetime.date.today() + datetime.timedelta(days=200*365)) 
-    # extensions = [extendedext,]) doesn't work
-    builder = builder.add_extension(extendedext, critical=True)
+    not_valid_after = datetime.date.today() + datetime.timedelta(days=200*365), 
+    extensions = extensions)
+    # builder = builder.add_extension(extendedext, critical=True) # = extensions
+    
     cert = builder.sign(_key, cert_sign_hash, default_backend())
     if _passphrase == "":
         encryption_algorithm = serialization.NoEncryption()
