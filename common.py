@@ -257,6 +257,7 @@ def generate_certs(_path):
     _tname.append(x509.NameAttribute(NameOID.COUNTRY_NAME, 'IA'))
     _tname.append(x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, 'simple-scn'))
     _tname.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'secure communication nodes'))
+    #_tname.append(x509.NameAttribute(NameOID.DOMAIN_COMPONENT, "simple.scn"))
     _tname = x509.Name(_tname)
     
     extendedext = x509.ExtendedKeyUsage((ExtendedKeyUsageOID.SERVER_AUTH, 
