@@ -8,8 +8,8 @@ Features:
 * entirely controllable by a webbrowser (frontend not finished)
 
 Dependencies:
-* python-openssl (python3 version)
-* python-gobject (python3 version)
+* python-cryptography (python3 version) (pip: cryptography)
+* python-gobject (python3 version) (pip: PyGObject???)
 * gtk3
 * python3
 

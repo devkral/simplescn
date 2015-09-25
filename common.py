@@ -39,7 +39,12 @@ from types import ModuleType # needed for ModuleType
 from getpass import getpass
 
 import logging
-from OpenSSL import SSL, crypto
+from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.x509.oid import NameOID,ExtendedKeyUsageOID
+
 import ssl
 import socket
 import traceback
@@ -53,8 +58,7 @@ import time
 #from http import client
 from urllib import parse
 
-# small nonces mean more collisions
-nonce_size = 20
+
 salt_size = 10
 key_size = 4096
 server_port = 4040
@@ -69,7 +73,7 @@ isself = 'isself'
 default_configdir = '~/.simplescn/'
 
 DEFAULT_HASHALGORITHM = "sha512"
-DEFAULT_HASHALGORITHM_len=128
+DEFAULT_HASHALGORITHM_len = 128
 
 ###### signaling ######
 
@@ -208,7 +212,7 @@ def init_logger(_logger = scn_logger()):
 
 def inp_passw_cmd(msg):
     def func(*args):
-        return getpass(msg)
+        return getpass(msg+"\n")
     return func
 pwcallmethodinst=inp_passw_cmd
 
@@ -236,41 +240,47 @@ def notify(msg):
 
 ##### init ######
 
-#cert_name.emailAddress=""
-#cert_name.localityName=""
 def generate_certs(_path):
-    _key = crypto.PKey()
-    _key.generate_key(crypto.TYPE_RSA, key_size)
-    _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key:\n")()
+    _key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=key_size,
+        backend=default_backend())
+    _pub_key = _key.public_key()
+    _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key:")()
     if _passphrase != "":
         _passphrase2 = pwcallmethod("Retype:\n")()
         if _passphrase != _passphrase2:
             return False
-    cert = crypto.X509()
-    cert_name = cert.get_issuer()
-    cert_name.countryName = "IA"
-    cert_name.stateOrProvinceName = "simple-scn"
-    cert_name.organizationName = "secure communication nodes"
-    cert_name.commonName = "secure communication nodes"
-    cert.set_issuer(cert_name)
-    cert.set_serial_number(0)
-    cert.set_version(0)
-    cert.set_pubkey(_key)
-    cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(0)
-    #cert.add_extensions([
-    #crypto.X509Extension("basicConstraints", True,
-    #                    "CA:TRUE, pathlen:0"),
-    #crypto.X509Extension("keyUsage", True,
-    #                    "keyCertSign, cRLSign"),
-    #crypto.X509Extension("subjectKeyIdentifier", False, "hash",
-    #                    subject=cert_name)])
-    cert.sign(_key, "sha512")
+    _tname = [x509.NameAttribute(NameOID.COMMON_NAME, 'secure communication nodes'), ]
+    _tname.append(x509.NameAttribute(NameOID.COUNTRY_NAME, 'IA'))
+    _tname.append(x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, 'simple-scn'))
+    _tname.append(x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'secure communication nodes'))
+    _tname = x509.Name(_tname)
+    
+    extendedext = x509.ExtendedKeyUsage((
+    ExtendedKeyUsageOID.SERVER_AUTH, 
+    ExtendedKeyUsageOID.CLIENT_AUTH))
+    
+    
+    builder = x509.CertificateBuilder(issuer_name=_tname, 
+    subject_name = _tname, 
+    public_key = _pub_key, 
+    serial_number = 0, 
+    not_valid_before = 0, 
+    not_valid_after = 0, 
+    extensions = [extendedext,])
+    cert = builder.sign(_key, "sha512", default_backend())
     if _passphrase == "":
-        privkey = crypto.dump_privatekey(crypto.FILETYPE_PEM, _key)
+        encryption_algorithm = serialization.NoEncryption()
     else:
-        privkey = crypto.dump_privatekey(crypto.FILETYPE_PEM, _key, "CAMELLIA256", _passphrase)
-    pubkey = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+        encryption_algorithm = serialization.BestAvailableEncryption(_passphrase)
+    privkey = _key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm = encryption_algorithm)
+    pubkey = _key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8)
     with open("{}.priv".format(_path), 'wb') as writeout:
         writeout.write(privkey)
     with open("{}.pub".format(_path), 'wb') as writeout:
@@ -278,29 +288,15 @@ def generate_certs(_path):
     return True
 
 def check_certs(_path):
-    if os.path.exists("{}.priv".format(_path)) == False or os.path.exists("{}.pub".format(_path)) == False:
+    privpath = "{}.priv".format(_path)
+    pubpath = "{}.pub".format(_path)
+    if os.path.exists(privpath) == False or os.path.exists(pubpath) == False:
         return False
-    _key = None
-    with open("{}.priv".format(_path), 'r') as readin:
-        #
-        #,interact_wrap
-        _key = crypto.load_privatekey(crypto.FILETYPE_PEM, readin.read(), input)
-    if _key is None:
-        return False
-
-    if os.path.exists("{}.pub".format(_path)) == True:
-        is_ok = False
-        with open("{}.pub".format(_path), 'r') as readin:
-            try:
-                _c = SSL.Context(SSL.TLSv1_2_METHOD)
-                #_c.use_privatekey(_key)
-                _c.use_certificate(crypto.load_certificate(crypto.FILETYPE_PEM, readin.read()))
-                #_c.check_privatekey()
-                is_ok = True
-            except Exception as e:
-                logger().error(e)
-        if is_ok == True:
-            return True
+    try:
+        _context = ssl.Context(ssl.TLSv1_2_METHOD)
+        _context.load_cert_chain(pubpath, keyfile=privpath, password = pwcallmethod("Enter passphrase for decrypting privatekey:"))
+    except Exception as e:
+        logger().error(e)
     return False
 
 def init_config_folder(_dir, prefix):
@@ -556,12 +552,13 @@ def pluginressources_creater(_dict, requester):
         ob = _dict.get(res)
         if ob is None:
             return None
-        elif iscallable(ob):
+        elif callable(ob):
             kwargs["requester"] = requester
             return ob(*args,**kwargs)
         #elif hasattr(ob, "shared_with") and 
         else:
             return ob.copy()
+    return wrap
 class pluginmanager(object):
     pluginenv = None
     pathes_plugins = None
@@ -640,7 +637,7 @@ class pluginmanager(object):
                 "init" not in pload.__dict__:
                 continue
             try:
-                # not changeable default
+                # no changeable default
                 pload.defaults["state"] = False
             except Exception as e:
                 logger().error("Plugin \"{}\":\ndefaults is a dict?:\n{}".format(plugin[0],e))
