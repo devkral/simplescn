@@ -297,6 +297,7 @@ def check_certs(_path):
     try:
         _context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         _context.load_cert_chain(pubpath, keyfile=privpath, password = pwcallmethod("Enter passphrase for decrypting privatekey:"))
+        return True
     except Exception as e:
         logger().error(e)
     return False
