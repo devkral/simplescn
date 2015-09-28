@@ -1,7 +1,8 @@
 
 from common import logger, scnparse_url
 import logging
-#from gi.repository import Gtk
+from gi.repository import Gtk
+
 
 from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node
@@ -14,6 +15,18 @@ class hashmanagement(object):
     links = None
     
     def __init__(self):
+        
+        hview=self.builder.get_object("hashview")
+        rview=self.builder.get_object("refview")
+        
+        hcol1= Gtk.TreeViewColumn("Node", Gtk.CellRendererText(),text=0)
+        
+        rcol1= Gtk.TreeViewColumn("Reference", Gtk.CellRendererText(),text=0)
+        rcol2= Gtk.TreeViewColumn("Type", Gtk.CellRendererText(),text=1)
+        
+        hview.append_column(hcol1)
+        rview.append_column(rcol1)
+        rview.append_column(rcol2)
         self.managehashdia = self.builder.get_object("managehashdia")
         self.managehashdia.connect('delete-event',self.close_managehashdia)
 
@@ -40,7 +53,7 @@ class hashmanagement(object):
             self.curlocal=("client",_name)
         else:
             self.curlocal=("unknown",_name)
-        self._intern_node_type="unknown"
+        self._intern_node_type = "unknown"
         self.update_hashes()
         self.managehashdia.set_title(_name)
         
@@ -56,7 +69,7 @@ class hashmanagement(object):
         if temp[0]==False:
             logger().debug("Exist?")
             return
-        for elem in temp[1]:
+        for elem in temp[1]["items"]:
             if elem[1] is None:
                 if elem[0]!="default":
                     logger().info("invalid element: {}".format(elem))
@@ -129,7 +142,7 @@ class hashmanagement(object):
         if temp[0]==False:
             logger().debug("Exist?")
             return
-        for elem in temp[1]:
+        for elem in temp[1]["items"]:
             reflist.append((elem[0],elem[1]))
     
     # update node type then open node 
@@ -166,7 +179,7 @@ class hashmanagement(object):
                 logger().info("getrefences failed")
                 return
             tempret=None
-            for elem in namesret[1]: #try all names
+            for elem in namesret[1]["items"]: #try all names
                 if elem[0] in ["", None]:
                     logger().warn("references type name contain invalid element: {}".format(elem[0]))
                 else:

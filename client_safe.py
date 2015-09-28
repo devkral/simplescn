@@ -241,20 +241,18 @@ class client_safe(object):
         else:
             return True, {"items":temp, "map": ["name","hash","type","priority","security","certreferenceid"]}
     
-    @check_argsdeco({"hash": (str, )}, optional={"filter":(str, )})
+    @check_argsdeco(optional={"filter":(str, ), "hash": (str, ), "certreferenceid": (int, )})
     def getreferences(self, obdict):
         """ get references of a hash """
-        _hash = obdict["hash"]
-        if check_hash(_hash) == True:
-            _localname = self.hashdb.certhash_as_name(_hash) #can return None to sort out invalid hashes
+        if obdict.get("certreferenceid") is None:
+            _hash = obdict.get("hash")
+            _tref = self.hashdb.get( _hash)
+            if _tref is None:
+                return False, "certhash does not exist: {}".format(_hash)
+            _tref = _tref[4]
         else:
-            _localname = None
-        if _localname is None:
-            return False, "certhash does not exist: {}".format(_hash)
-        _tref = self.hashdb.get(_localname, _hash)
-        if _tref is None:
-            return False,"error in hashdb"
-        temp = self.hashdb.getreferences(_tref[2], obdict.get("filter", None))
+            _tref = obdict.get("certreferenceid")
+        temp = self.hashdb.getreferences(_tref, obdict.get("filter", None))
         if temp is None:
             return False
         return True, {"items":temp, "map": ["reference","type"]}
@@ -264,5 +262,5 @@ class client_safe(object):
         """ find nodes in hashdb by reference """
         temp = self.hashdb.findbyref(obdict["reference"])
         if temp is None:
-            return False
-        return True, {"items":temp, "map": ["name","hash","type","priority","security"]}
+            return False, "reference does not exist: {}".format(obdict["reference"])
+        return True, {"name":temp[0],"hash":temp[1],"type":temp[2],"priority":temp[3],"security":temp[4]}

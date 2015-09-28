@@ -129,19 +129,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         recentview.append_column(recentcol)
         recentcol2 = Gtk.TreeViewColumn("Url", Gtk.CellRendererText(), text=1)
         recentview.append_column(recentcol2)
-        
-        hview=self.builder.get_object("hashview")
-        rview=self.builder.get_object("refview")
-        
-        hcol1= Gtk.TreeViewColumn("Node", Gtk.CellRendererText(),text=0)
-        
-        rcol1= Gtk.TreeViewColumn("Reference", Gtk.CellRendererText(),text=0)
-        rcol2= Gtk.TreeViewColumn("Type", Gtk.CellRendererText(),text=1)
-        
-        hview.append_column(hcol1)
-        rview.append_column(rcol1)
-        rview.append_column(rcol2)
-        
+                
         self.localstore=self.builder.get_object("localstore")
         
         
@@ -212,10 +200,10 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         for elem in _names[1]["items"]:
             localnames.append((elem,))
         
-    def update_serverlist_hash(self, _hash):
+    def update_serverlist_refid(self, _refid):
         serverlist=self.builder.get_object("serverlist")
         
-        _serverrefs=self.do_requestdo("getreferences",hash=_hash)
+        _serverrefs=self.do_requestdo("getreferences",certreferenceid=_refid)
         if logger().check(_serverrefs)== False:
             return
         for elem in _serverrefs[1]["items"]:
@@ -233,7 +221,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
             _map = _serverhashes[1]["map"]
             for _hash in _serverhashes[1]["items"]:
                 if _hash[0]!="default":
-                    self.update_serverlist_hash(_hash[_map["hash"]])
+                    self.update_serverlist_refid(_hash[4])
 
     def do_requestdo(self, action, **obdict):
         uselocal=self.builder.get_object("uselocal")
@@ -529,9 +517,6 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
             logger().debug("Something failed")
             return
             
-        if temp["localname"] is not None:
-            logger().debug("Already exists")
-            return
         _hash = temp["hash"]
         
         
@@ -542,9 +527,19 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
             _name = _sel[0][_sel[1]][0]
         
         self.managehashdia.hide()
-        serverurl.find("")
-        
-        self.addnodehash_intern(_name, _hash, "server",refstoadd=(("url",serverurl),))
+        #serverurl.find("")
+        if temp["localname"] is None:
+            self.addnodehash_intern(_name, _hash, "server",refstoadd=(("url",serverurl),))
+        else:
+            temp = self.do_requestdo("findbyref",reference=serverurl)
+            if temp[0] == True:
+                logger().debug("Already exists")
+                return
+                
+            res=self.do_requestdo("addreference", hash=_hash, reference=serverurl, reftype="url")
+            if res[0] == True:
+                logger().error("Adding the reference failed")
+                return
     
         
     
@@ -627,12 +622,6 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         
         self.addentitydia.show()
     
-    
-    def addentity_addnodedia(self,*args):
-        self.builder.get_object("addentityentry").set_text("")
-        self.close_addnodedia()
-        self._shallreload_addnodedia = True
-        self.addentitydia.show()
     
     def addentity_confirm(self,*args):
         addentity=self.builder.get_object("addentityentry")

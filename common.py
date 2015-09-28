@@ -856,7 +856,7 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
     for argname, value in search:
         if len(value) not in [1, 2]:
             raise(IndexError("len invalid: "+str(value)))
-        _type = value[0] # remove documentation string
+        _type = value[0]
         if argname not in _moddict:
             if argname in optional:
                 continue
@@ -899,6 +899,8 @@ def check_argsdeco(requires={}, optional={}):
             if check_args(obdict, requires, optional, error=error) == False:
                 return False, "check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), isself, self.cert_hash
             resp = func(self, obdict)
+            if resp is None:
+                return False, "bug: no return value in function {}".format(type(func).__name__), isself, self.cert_hash
             if isinstance(resp, bool) == True or len(resp)==1:
                 if isinstance(resp, bool) == False:
                     resp = resp[0]
@@ -916,7 +918,7 @@ def check_argsdeco(requires={}, optional={}):
         return get_args
     return func_to_check
 
-def safe_mdecode(inp, encoding=None, charset="utf-8"):
+def safe_mdecode(inp, encoding, charset="utf-8"):
     try:
         splitted=encoding.split(";",1)
         enctype=splitted[0].strip().rstrip()
@@ -926,9 +928,6 @@ def safe_mdecode(inp, encoding=None, charset="utf-8"):
         elif isinstance(inp, str) == True:
             string = inp
         else:
-            if encoding is None:
-                logger().error("no encoding specified and not parsed as string")
-                return None
             if len(splitted)==2:
                 #splitted in format charset=utf-8
                 split2 = splitted[1].split("=")
@@ -966,11 +965,6 @@ def safe_mdecode(inp, encoding=None, charset="utf-8"):
     except Exception as e:
         logger().error(e)
         return None
-"""def check_sqlitesafe(_name):
-    if all(c not in " \n\\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name) and \
-        "sqlite_" not in str(_name).lower():
-        return True
-    return False"""
 
 def check_reference(_reference):
     if _reference is None:
@@ -1189,7 +1183,7 @@ class certhash_db(object):
         count = cur.fetchone()[0]
         cur.execute('''UPDATE certrefcount SET certreferenceid=?''', (count+1,))
         #hack end
-        cur.execute('''INSERT INTO certs(name,certhash,type,priority,security,certreferenceid) values(?,?,?,?,?);''', (_name, _certhash, nodetype, priority, _security,count))
+        cur.execute('''INSERT INTO certs(name,certhash,type,priority,security,certreferenceid) values(?,?,?,?,?,?);''', (_name, _certhash, nodetype, priority, _security, count))
 
         dbcon.commit()
         return True
@@ -1301,6 +1295,11 @@ class certhash_db(object):
 
     @connecttodb
     def get(self, dbcon, _certhash):
+        if _certhash is None:
+            return None
+        if check_hash(_certhash) == False:
+            logger().error("Invalid certhash: {}".format(_certhash))
+            return None
         cur = dbcon.cursor()
         cur.execute('''SELECT name,type,priority,security,certreferenceid FROM certs WHERE certhash=?;''', (_certhash,))
         ret = cur.fetchone()
@@ -1311,6 +1310,9 @@ class certhash_db(object):
     
     @connecttodb
     def listhashes(self, dbcon, _name, _nodetype = None):
+        #if check_name(_name) == False:
+        #    return None
+        
         cur = dbcon.cursor()
         if _nodetype is None:
             cur.execute('''SELECT certhash,type,priority,security,certreferenceid FROM certs WHERE name=? AND certhash!='default' ORDER BY priority DESC;''', (_name,))
@@ -1428,6 +1430,9 @@ class certhash_db(object):
 
     @connecttodb
     def getreferences(self, dbcon, _referenceid, _reftype = None):
+        if isinstance(_referenceid, int) == False:
+            logger().error("invalid referenceid")
+            return None
         cur = dbcon.cursor()
         if _reftype is None:
             cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''', (_referenceid,))
@@ -1448,10 +1453,16 @@ class certhash_db(object):
     #untested
     @connecttodb
     def findbyref(self, dbcon, _reference):
+        if check_reference(_reference) == False:
+            logger().error("invalid reference")
+            return None
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash,type,priority,security FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE reference=?);''', (_reference,))
-        out = cur.fetchall()
-        if out is None:
-            return []
-        else:
-            return out
+        cur.execute('''SELECT name,certhash,type,priority,security FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=?);''', (_reference,))
+        out = cur.fetchone()
+        logger().info("ksksks {}".format(out))
+        return out
+        
+        #if out is None:
+        #    return []
+        #else:
+        #    return out

@@ -103,8 +103,8 @@ class client_admin(object):
         if check_reference_type(obdict["reftype"])==False:
             return False, "reference type invalid"
             
-        _tref=self.hashdb.get(_name,obdict["hash"])
-        return self.hashdb.addreference(_tref[2],obdict["reference"],obdict["reftype"])
+        _tref=self.hashdb.get(obdict["hash"])
+        return self.hashdb.addreference(_tref[4],obdict["reference"],obdict["reftype"])
 
     @check_argsdeco({"hash": (str, ), "reference": (str, ), "newreference": (str, ), "newreftype": (str, )})
     def updatereference(self, obdict):
@@ -119,21 +119,21 @@ class client_admin(object):
         if check_reference_type(obdict["newreftype"]) == False:
             return False, "reference type invalid"
             
-        _tref=self.hashdb.get(_name, obdict["hash"])
+        _tref=self.hashdb.get(obdict["hash"])
         if _tref is None:
             return False,"name, hash not exist"
         
-        return self.hashdb.updatereference(_tref[2],obdict["reference"],obdict["newreference"],obdict["newreftype"])
+        return self.hashdb.updatereference(_tref[4],obdict["reference"],obdict["newreference"],obdict["newreftype"])
 
     @check_argsdeco({"hash": (str, "hash"), "reference":(str, "reference")})
     def delreference(self, obdict):
         """ delete reference """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
         
-        _tref=self.hashdb.get(_name,obdict["hash"])
+        _tref=self.hashdb.get(obdict["hash"])
         if _tref is None:
             return False, "name, hash not exist"
-        return self.hashdb.delreference(_tref[2],obdict["reference"])
+        return self.hashdb.delreference(_tref[4],obdict["reference"])
 
     @check_argsdeco({"message": (str, "message")})
     def changemsg(self, obdict):
