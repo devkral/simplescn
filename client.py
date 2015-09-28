@@ -54,6 +54,7 @@ class client_client(client_admin, client_safe, client_config):
     validactions = {"cmd_plugin", "remember_auth" }
     
     def __init__(self, _name, _pub_cert_hash, _certdbpath, _links):
+        client_admin.__init__(self)
         self.links = _links
         self.name = _name
         self.cert_hash = _pub_cert_hash
@@ -807,7 +808,7 @@ class client_init(object):
         
         _name = _name.split("/")
         if len(_name)>2 or check_name(_name[0]) == False:
-            logger().error("Configuration error in {}\nshould be: <name>/<port>\nName has some restricted characters".format(_cpath+"_name"))
+            logger().error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_cpath+"_name"))
             sys.exit(1)
 
         if confm.getb("port") == True:

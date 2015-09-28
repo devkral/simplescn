@@ -328,9 +328,9 @@ def init_config_folder(_dir, prefix):
     if os.path.exists("{}_name.txt".format(_path)) == False:
         e = open("{}_name.txt".format(_path), "w")
         if prefix == "client":
-            e.write("{}/{}".format(os.uname()[1], 0))
+            e.write("{}/{}".format(normalize_name(os.uname()[1]), 0))
         else:
-            e.write("{}/{}".format(os.uname()[1], server_port))
+            e.write("{}/{}".format(normalize_name(os.uname()[1]), server_port))
         e.close()
     if os.path.exists(_path+"_message.txt") == False:
         e=open("{}_message.txt".format(_path), "w")
@@ -1004,21 +1004,43 @@ def check_hash(_hashstr):
         return False
     return True
 
-def check_name(_name, maxlength = 64):
+badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"
+# no .:[]to differ name from ip address
+badnamechars += ".:[]"
+
+def normalize_name(_name, maxlength=64):
+    if _name is None:
+        return None
+    # name shouldn't be too long or ""
+    _name = _name[:maxlength]
+    if len(_name)==0:
+        _name = "empty"
+        return _name
+    _oldname = _name
+    _name = ""
+    for c in _oldname:
+        # ensure no bad, control characters
+        if any(c in badnamechars) or c.isprintable() == False:
+            pass
+        else:
+            _name += c
+    #name shouldn't be isself as it is used 
+    if _name == isself:
+        _name = "fake_"+isself
+    return _name
+
+def check_name(_name, maxlength=64):
     if _name is None:
         return False
     # name shouldn't be too long or 0
     if len(_name) > maxlength or len(_name) == 0:
         return False
-    # ensure no bad characters
-    if any(c in " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/" for c in _name):
-        return False
-    # ensure no controlchars
-    if _name.isprintable() == False:
-        return False
-    # no .:[]to differ name from ip address
+    for c in _name:
+        # ensure no bad, control characters
+        if any(c in badnamechars) or c.isprintable() == False:
+            return False
     #name shouldn't be isself as it is used 
-    if any(c in ".:[]" for c in _name) or _name == isself:
+    if _name == isself:
         return False
     return True
 

@@ -14,6 +14,14 @@ class client_admin(object):
     links = None
     cert_hash = None
     
+    write_msg_lock = None
+    change_name_lock = None
+    
+    def __init__(self):
+        self.write_msg_lock = threading.Lock()
+        self.change_name_lock = threading.Lock()
+    
+    
     @check_argsdeco({"priority":(int, "priority of client")}) 
     def setpriority(self, obdict):
         """ set priority of client """ 
@@ -131,29 +139,33 @@ class client_admin(object):
         """ change message """
         #_type = self.links.get("client_server").scn_type
         configr = self.links["config_root"]
-        with open(os.path.join(configr,"client_message.txt"), "w") as wm:
-            wm.write(obdict.get("message"))
+        with self.write_msg_lock:
+            with open(os.path.join(configr,"client_message.txt"), "w") as wm:
+                wm.write(obdict.get("message"))
         return True
     
     @check_argsdeco({"name": (str, "client name")},{"permanent":(bool, "store permanent (default:True)")})
     def changename(self, obdict):
         """ change name """
-        newname = obdict.get("name")
-        if check_name(newname) == False:
-            return False, "not a valid name"
-        #_type = self.links.get("client_server").scn_type
+        with self.change_name_lock:
+            newname = obdict.get("name")
+            if check_name(newname) == False:
+                return False, "not a valid name"
+            #_type = self.links.get("client_server").scn_type
         
-        
-        if obdict.get("permanent", True):
-            configr = self.links["config_root"]
-            oldt = None
-            with open(os.path.join(configr,"client_name.txt"), "r") as readn:
-                oldt = readn.read().strip().rstrip().split("/")
-            if oldt is None or len(oldt)!=2:
-                return False, "reading name failed or length"
-            with open(os.path.join(configr,"client_name.txt"), "w") as writen:
-                writen.write("{}/{}".format(newname, oldt[1]))
-        return True
+            if obdict.get("permanent", True):
+                configr = self.links["config_root"]
+                oldt = None
+                with open(os.path.join(configr,"client_name.txt"), "r") as readn:
+                    oldt = readn.read().strip().rstrip().split("/")
+                if oldt is None:
+                    return False, "reading name failed"
+                with open(os.path.join(configr,"client_name.txt"), "w") as writen:
+                    if len(oldt) == 2:
+                        writen.write("{}/{}".format(newname, oldt[1]))
+                    else:
+                        writen.write("{}/0".format(newname))
+            return True
         
 def is_admin_func(funcname):
     if funcname in client_admin.validactions_admin or funcname in client_config.validactions_config:
