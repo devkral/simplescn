@@ -1020,7 +1020,7 @@ def normalize_name(_name, maxlength=64):
     _name = ""
     for c in _oldname:
         # ensure no bad, control characters
-        if any(c in badnamechars) or c.isprintable() == False:
+        if c in badnamechars or c.isprintable() == False:
             pass
         else:
             _name += c
@@ -1037,7 +1037,7 @@ def check_name(_name, maxlength=64):
         return False
     for c in _name:
         # ensure no bad, control characters
-        if any(c in badnamechars) or c.isprintable() == False:
+        if c in badnamechars or c.isprintable() == False:
             return False
     #name shouldn't be isself as it is used 
     if _name == isself:
