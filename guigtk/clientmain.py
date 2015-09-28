@@ -531,15 +531,10 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         if temp["localname"] is None:
             self.addnodehash_intern(_name, _hash, "server",refstoadd=(("url",serverurl),))
         else:
-            temp = self.do_requestdo("findbyref",reference=serverurl)
-            if temp[0] == True:
-                logger().debug("Already exists")
-                return
-                
+            #temp = self.do_requestdo("findbyref",reference=serverurl)
             res=self.do_requestdo("addreference", hash=_hash, reference=serverurl, reftype="url")
-            if res[0] == True:
-                logger().error("Adding the reference failed")
-                return
+            if res[0] == False:
+                logger().debug("Already exists")
     
         
     

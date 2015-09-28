@@ -1458,9 +1458,11 @@ class certhash_db(object):
             return None
         cur = dbcon.cursor()
         cur.execute('''SELECT name,certhash,type,priority,security FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=?);''', (_reference,))
-        out = cur.fetchone()
-        logger().info("ksksks {}".format(out))
-        return out
+        out = cur.fetchall()
+        if out is None:
+            return []
+        else:
+            return out
         
         #if out is None:
         #    return []
