@@ -173,13 +173,11 @@ class server_handler(BaseHTTPRequestHandler):
     server_version = 'simplescn/0.5 (server)'
     sys_version = "" # would say python xy, no need and maybe security hole
     
-    links=None
+    links = None
     
-    #tunnel stuff
-    istunnel=False
-    #tbsize=1500
-    ttimeout=None
-    webgui=True
+    istunnel = False
+    ttimeout = None
+    webgui = True
     
     auth_info = None
     statics = {}
@@ -220,7 +218,8 @@ class server_handler(BaseHTTPRequestHandler):
         method, _auth = _auth.split(" ", 1)
         _auth= _auth.strip().rstrip()
         if method == "scn":
-            self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type", "application/json; charset=utf-8"))
+            self.auth_info = safe_mdecode(_auth)
+            # self.headers.get("Content-Type", should be always utf-8, as decoded already
         else:
             self.auth_info = None
 
@@ -410,23 +409,21 @@ class server_init(object):
         if kwargs["spwhash"] is not None:
             self.links["auth"].init_realm("server", kwargs["spwhash"])
         elif kwargs["spwfile"] is not None:
-            op=open(kwargs["spwfile"], "r")
-            pw=op.readline()
-            if pw[-1] == "\n":
-                pw = pw[:-1]
-            pw.close()
-            self.links["auth"].init_realm("server", dhash(pw))
-        if kwargs["tunnel"] is not None:
+            with open(kwargs["spwfile"], "r") as op:
+                pw = op.readline()
+                if pw[-1] == "\n":
+                    pw = pw[:-1]
+                self.links["auth"].init_realm("server", dhash(pw))
+        if kwargs["tpwhash"] is not None:
+            self.links["auth"].init_realm("proxy", kwargs["tpwhash"])
             server_handler.istunnel = True
-        #if kwargs["tpwhash"] is not None:
-        #    self.links["auth"].kwargs["tpwhash"]
-        #elif kwargs["tpwfile"] is not None:
-        #    op=open(kwargs["tpwfile"], "r")
-        #    pw=op.readline()
-        #    if pw[-1] == "\n":
-        #        pw = pw[:-1]
-        #    server_handler.tpwhash = dhash(pw)
-        #    op.close()
+        elif kwargs["tpwfile"] is not None:
+            with open(kwargs["tpwfile"], "r") as op:
+                pw = op.readline()
+                if pw[-1] == "\n":
+                    pw = pw[:-1]
+                self.links["auth"].init_realm("proxy", dhash(pw))
+                server_handler.istunnel = True
         _message=None
         _name=None
         if check_certs(_spath+"_cert")==False:
@@ -491,11 +488,12 @@ def paramhelp():
 ### parameters ###
 config=<dir>: path to config dir
 port=<number>: Port
-spwhash=<hash>: sha256 hash of pw, higher preference than pwfile
+spwhash=<hash>: hash of pw, higher preference than pwfile
 spwfile=<file>: file with password (cleartext)
+tpwhash=<hash>: hash of pw, higher preference than pwfile (activates proxy/tunnel)
+tpwfile=<file>: file with password (cleartext) (activates proxy/tunnel)
 priority=<number>: set priority
 timeout: socket timeout
-tunnel: enable tunnel
 webgui: enables webgui
 """)
 
@@ -507,7 +505,6 @@ server_args={"config":default_configdir,
              "port":None,
              "spwhash":None,
              "spwfile":None,
-             "tunnel":None, 
              "tpwhash":None,
              "tpwfile":None,
              "webgui":None,

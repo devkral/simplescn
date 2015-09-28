@@ -916,21 +916,24 @@ def check_argsdeco(requires={}, optional={}):
         return get_args
     return func_to_check
 
-def safe_mdecode(inp, encoding, charset="utf-8"):
+def safe_mdecode(inp, encoding=None, charset="utf-8"):
     try:
         splitted=encoding.split(";",1)
         enctype=splitted[0].strip().rstrip()
         if isinstance(inp, dict) == True:
             logger().warning("already parsed")
             return None
-        elif isinstance(inp, str) == False:
+        elif isinstance(inp, str) == True:
+            string = inp
+        else:
+            if encoding is None:
+                logger().error("no encoding specified and not parsed as string")
+                return None
             if len(splitted)==2:
                 #splitted in format charset=utf-8
                 split2 = splitted[1].split("=")
                 charset = split2[1].strip().rstrip()
             string = str(inp,charset)
-        else:
-            string = inp
         if string == "":
             logger().debug("Input empty")
             return None

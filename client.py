@@ -664,7 +664,8 @@ class client_handler(BaseHTTPRequestHandler):
         method, _auth = _auth.split(" ", 1)
         _auth= _auth.strip().rstrip()
         if method == "scn":
-            self.auth_info = safe_mdecode(_auth, self.headers.get("Content-Type", "application/json; charset=utf-8"))
+            self.auth_info = safe_mdecode(_auth)
+            # self.headers.get("Content-Type", should be always utf-8, as decoded already
         else:
             self.auth_info = None
 
