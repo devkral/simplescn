@@ -500,7 +500,6 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(404, "file not found")
         else:
             self.scn_send_answer(200, fullob, "text/html")
-        #.format(name=self.links["client_server"].name,message=self.links["client_server"].message),"utf8"))
 
         
     ### GET ###
@@ -573,9 +572,9 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - server")
             return
         
-        contsize=int(self.headers.get("Content-Length", str(max_serverrequest_size)))
-        if contsize>max_serverrequest_size:
-            self.send_error(431, "request too large")
+        contsize = int(self.headers.get("Content-Length", str(max_serverrequest_size+1)))
+        if contsize > max_serverrequest_size:
+            self.send_error(431, "request too large/no Content-Length given")
                 
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")

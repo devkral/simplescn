@@ -25,7 +25,7 @@ import logging
 import json, base64
 import ssl
 
-from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result
+from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError
 #configmanager
 
 
@@ -35,24 +35,28 @@ class server(commonscn):
     capabilities = ["basic",]
     nhipmap = None
     nhipmap_cache = ""
-    sleep_time = 1
     refreshthread = None
     links = None
-    expire_time = 100
     cert_hash = None
     scn_type = "server"
+    
+    # auto set by load balancer
+    expire_time = None
+    sleep_time = None
 
     validactions={"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes"}
     
     def __init__(self,d):
-        self.expire_time = int(d["expire"])*60 #in minutes
         self.nhipmap = {}
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()
-        self.refreshthread = threading.Thread(target=self.refresh_nhipmap)
-        self.refreshthread.daemon = True
-        self.refreshthread.start()
+        if len(very_low_load) != 2 or len(low_load) != 3 or len(medium_load) != 3 or len(high_load) != 3:
+            raise (InvalidLoadSizeError())
+            
+        if high_load[0] < medium_load[0] or medium_load[0] < low_load[0]:
+            raise (InvalidLoadLevelError())
         
+
         if d["name"] is None or len(d["name"]) == 0:
             logger().debug("Name empty")
             d["name"] = "<noname>"
@@ -67,6 +71,11 @@ class server(commonscn):
         self.name = d["name"]
         self.message = d["message"]
         self.update_cache()
+        
+        self.load_balance(0)
+        self.refreshthread = threading.Thread(target=self.refresh_nhipmap, daemon=True)
+        self.refreshthread.start()
+        
 
     def __del__(self):
         commonscn.__del__(self)
@@ -76,7 +85,7 @@ class server(commonscn):
         except Exception as e:
             logger().error(e)
             
-            
+    # private, do not include in validactions
     def refresh_nhipmap(self):
         while self.isactive:
             self.changeip_lock.acquire()
@@ -97,11 +106,25 @@ class server(commonscn):
             self.cache["num_nodes"] = json.dumps(gen_result(count, True))
             self.changeip_lock.release()
             self.nhipmap_cond.clear()
+            
+            self.load_balance(count)
             time.sleep(self.sleep_time)
             # wait until hashes change
             self.nhipmap_cond.wait()
-
-    #private, do not include in validactions
+    
+    # private, do not include in validactions
+    def load_balance(self, size_nh):
+        if size_nh >= high_load[0]:
+            self.sleep_time, self.expire_time = high_load[1:]
+        elif size_nh >= medium_load[0]:
+            self.sleep_time, self.expire_time = medium_load[1:]
+        elif size_nh >= low_load[0]:
+            self.sleep_time, self.expire_time = low_load[1:]
+        else:
+            # very_low_load tuple mustn't have three items
+            self.sleep_time, self.expire_time = very_low_load
+    
+    # private, do not include in validactions
     def check_register(self, addresst, _hash):
         try:
             _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2)
@@ -206,9 +229,9 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - server")
             return
         
-        contsize=int(self.headers.get("Content-Length", str(max_serverrequest_size)))
+        contsize=int(self.headers.get("Content-Length", str(max_serverrequest_size+1)))
         if contsize>max_serverrequest_size:
-            self.send_error(431, "request too large")
+            self.send_error(431, "request too large/no Content-Length given")
         
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
@@ -240,7 +263,7 @@ class server_handler(BaseHTTPRequestHandler):
             error = generate_error("unknown")
             if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
-            ob = bytes(json.dumps(gen_result(error, False)), "utf8")
+            ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
             self.scn_send_answer(500, ob)
             return
         if success == False:
@@ -435,8 +458,7 @@ class server_init(object):
         
         
         serverd={"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": kwargs["priority"], "message":_message,
-                "expire": kwargs["expire"]}
+                "priority": kwargs["priority"], "message":_message}
         
         server_handler.links=self.links
         
@@ -473,7 +495,6 @@ spwhash=<hash>: sha256 hash of pw, higher preference than pwfile
 spwfile=<file>: file with password (cleartext)
 priority=<number>: set priority
 timeout: socket timeout
-expire: time until client entry expires
 tunnel: enable tunnel
 webgui: enables webgui
 """)
@@ -492,7 +513,6 @@ server_args={"config":default_configdir,
              "webgui":None,
              "useplugins":None,
              "priority":"20",
-             "expire":"30",
              #"ttimeout":"600",
              "timeout":"30"}
     

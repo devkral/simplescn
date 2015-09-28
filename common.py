@@ -67,8 +67,13 @@ default_buffer_size = 1400
 #maxread = 1500
 max_serverrequest_size = 4000
 confdb_ending=".confdb"
-#client_port=4041
 
+# loads: min_items, refresh, expire
+high_load = (100000, 1*60*60, 2*60*60)
+medium_load = (1000, 10*60, 4*60*60)
+low_load = (500, 30, 4*60*60)
+# special load just: refresh, exire
+very_low_load = (10, 24*60*60)
 
 isself = 'isself'
 default_configdir = '~/.simplescn/'
@@ -86,13 +91,24 @@ class EnforcedPortFail(AddressFail):
 class AddressEmptyFail(AddressFail):
     msg = '{} address is empty'.format(AddressFail.msg)
 
+class InvalidLoadError(Exception):
+    pass
+class InvalidLoadSizeError(InvalidLoadError):
+    msg = 'Load is invalid tuple/list (needs 3 items or 2 in case of very_low_load)'
+    args = (msg, )
+class InvalidLoadLevelError(InvalidLoadError):
+    msg = 'Load levels invalid (not high_load>medium_load>low_load)'
+    args = (msg, )
 
 class VALError(Exception):
     msg = 'validation failed'
+    args = (msg, )
 class VALNameError(VALError):
     msg = 'Name spoofed/does not match'
+    args = (msg, )
 class VALHashError(VALError):
     msg = 'Hash does not match'
+    args = (msg, )
 class VALMITMError(VALError):
     msg = 'MITM-attack suspected: nonce missing or check failed'
     args = (msg, )
@@ -702,7 +718,7 @@ class scnauth_server(object):
     def __init__(self, _hashalgo=DEFAULT_HASHALGORITHM):
         self.realms = {}
         self.hashalgorithm=_hashalgo
-        self.salt = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf8")
+        self.salt = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf-8")
 
     def request_auth(self,  realm):
         rauth = authrequest_struct.copy()
