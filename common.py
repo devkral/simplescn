@@ -565,7 +565,6 @@ class configmanager(object):
                 _val2 = "False"
             ret.append((_key, _val2, _defaultval))
         return ret
-    
 
 def pluginressources_creater(_dict, requester):
     def wrap(res,*args, **kwargs):
@@ -579,6 +578,7 @@ def pluginressources_creater(_dict, requester):
         else:
             return ob.copy()
     return wrap
+
 class pluginmanager(object):
     pluginenv = None
     pathes_plugins = None

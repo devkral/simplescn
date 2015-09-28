@@ -25,7 +25,7 @@ import logging
 import json, base64
 import ssl
 
-from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError
+from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError,generate_error_deco
 #configmanager
 
 
@@ -166,6 +166,18 @@ class server(commonscn):
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
             return False, "hash not exist"
         return True, self.nhipmap[obdict["name"]][obdict["hash"]]
+    
+    
+    @generate_error_deco
+    def access_server(self, action, requester=None, **obdict):
+        if action in self.cache:
+            return self.cache[action]
+        if action not in ["get",]:
+            return False, "no permission"
+        try:
+            return getattr(self, action)(obdict)
+        except Exception as e:
+            return False, e
     
     
     
@@ -497,9 +509,8 @@ timeout: socket timeout
 webgui: enables webgui
 """)
 
-#### don't port to sqlite for now as it increases complexity and needed libs
-#### but libs needed anyway by common
-#### support plugins?
+#### don't base on sqlite, configmanager as it increases complexity and needed libs
+#### but optionally support plugins (some risk)
 
 server_args={"config":default_configdir,
              "port":None,
@@ -563,6 +574,7 @@ if __name__ == "__main__":
         if server_args["webgui"] is not None:
             pluginm.interfaces+=["web",]
         cm.links["server_server"].pluginmanager=pluginm
+        pluginm.resources["access"] = cm.links["server_server"].access_server
         pluginm.init_plugins()
         
     logger().debug("server started. Enter mainloop")
