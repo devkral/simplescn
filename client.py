@@ -33,7 +33,7 @@ import json
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco,VALError
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port
 #VALMITMError
 
 from common import logger
@@ -318,7 +318,7 @@ class client_client(client_admin, client_safe, client_config):
 hash <pw>: calculate hash for pw
 plugin <plugin>:<...>: speak with plugin
 """
-        for funcname in self.validactions:
+        for funcname in sorted(self.validactions):
             if is_admin_func(funcname):
                 eperm = " (admin)"
             else:
@@ -767,7 +767,7 @@ class client_init(object):
         
 
         with open(_cpath+"_name.txt", 'r') as readclient:
-            _name = readclient.readline()
+            _name = readclient.readline()[:-1] # remove \n
         with open(_cpath+"_message.txt", 'r') as readinmes:
             _message = readinmes.read()
             if _message[-1] in "\n":
@@ -782,11 +782,12 @@ class client_init(object):
             sys.exit(1)
 
         if confm.getb("port") == True:
-            port = int(confm.get("port"))
+            pass
         elif len(_name) >= 2:
-            port = int(_name[1])
-        else:
-            port = 0
+            confm.set("port",_name[1])
+        else: # fallback
+            confm.set("port", str(client_port))
+        port = int(confm.get("port"))
         
         clientserverdict={"name": _name[0], "certhash": dhash(pub_cert),
                 "priority": confm.get("priority"), "message":_message, 

@@ -90,6 +90,8 @@ class configuration_stuff(object):
     preflist = None
     pluginlistview = None
     prefview = None
+    defaultvall = None
+    
     
     _changed_pluginconf = None
     _changed_mainconf = None
@@ -100,7 +102,8 @@ class configuration_stuff(object):
         self._changed_pluginconf = {}
         self._changed_mainconf = {}
         self.preflist = self.builder.get_object("preflist")
-        
+        self.defaultvall = self.builder.get_object("defaultvall")
+        self.permanentl = self.builder.get_object("permanentl")
         self.loadplugins()
         
         self.pluginlistview = self.builder.get_object("pluginlistview")
@@ -114,8 +117,6 @@ class configuration_stuff(object):
         renderer_col11.connect("edited", self.conf_change_key)
         col11 = Gtk.TreeViewColumn("Value", renderer_col11, text=1)
         self.prefview.append_column(col11)
-        #col12 = Gtk.TreeViewColumn("Plugins", Gtk.CellRendererText(), text=2)
-        #prefview.append_column(col12)
         
     def configurationme(self,*args):
         self.init_config()
@@ -128,13 +129,28 @@ class configuration_stuff(object):
         applybut.set_sensitive(tainted)
         resetbut.set_sensitive(tainted)
     
+    def select_config_row(self, *args):
+        _sel=self.prefview.get_selection().get_selected()
+        defvar = ""
+        permvar = ""
+        if _sel[1] is not None:
+            defvar = _sel[0][_sel[1]][3]
+            if defvar is None:
+                defvar = ""
+            if _sel[0][_sel[1]][2]:
+                permvar = "Permanent: yes"
+            else:
+                permvar = "Permanent: no"
+        self.defaultvall.set_text(defvar)
+        self.permanentl.set_text(permvar)
+    
     def conf_change_key(self, cell_renderer_text, path, new_text):
         if self.preflist[path][1] == new_text:
             return
         
         useplugin = self.builder.get_object("usepluginconf")
 
-        _key =self.preflist[path][0]
+        _key = self.preflist[path][0]
         if useplugin.get_active() == True:
             _selp=self.pluginlistview.get_selection().get_selected()
             if _selp[1] is None:
@@ -177,7 +193,7 @@ class configuration_stuff(object):
         
         for plugin, kv in self._changed_pluginconf.items():
             for key, val in kv.items():
-                if self.do_requestdo("set_config", plugin=plugin,  key=key, value=val)[0] == False:
+                if self.do_requestdo("set_pluginconfig", plugin=plugin,  key=key, value=val)[0] == False:
                     haderror = True
         
         if haderror == False:
@@ -198,8 +214,8 @@ class configuration_stuff(object):
         _preflist = self.do_requestdo("list_config")
         if _preflist[0] == False:
             return
-        for _key, _val, _default in _preflist[1]["items"]:
-            self.preflist.append((_key, _val, _default))
+        for _key, _val, _default, ispermanent in _preflist[1]["items"]:
+            self.preflist.append((_key, _val, ispermanent, _default))
         
     def load_pluginconfig(self, *args):
         self.preflist.clear()
@@ -216,17 +232,17 @@ class configuration_stuff(object):
             return
         _plugin = _sel[0][_sel[1]][0]
         
-        _preflist = self.do_requestdo("list_pluginconfig",  plugin=_plugin)
+        _preflist = self.do_requestdo("list_pluginconfig", plugin=_plugin)
         if _preflist[0] == False:
             return
-        for _key, _val, _default in _preflist[1]["items"]:
-            self.preflist.append((_key, _val, _default))
+        for _key, _val, _default, ispermanent in _preflist[1]["items"]:
+            self.preflist.append((_key, _val, ispermanent, _default))
         
     def use_default_config_key(self, *args):
         _sel=self.prefview.get_selection().get_selected()
         if _sel[1] is None:
             return
-        defvar = _sel[0][_sel[1]][2]
+        defvar = _sel[0][_sel[1]][3]
         if defvar is None:
             defvar = ""
         #if _sel[0][_sel[1]][1] == _sel[0][_sel[1]][2]:

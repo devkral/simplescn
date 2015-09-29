@@ -73,6 +73,10 @@ confdb_ending = ".confdb"
 isself = 'isself'
 default_configdir = '~/.simplescn/'
 
+# ports
+client_port = 0
+server_port = 4040
+
 # hash algorithms
 algorithms_strong = ['sha512', 'sha384', 'sha256', 'whirlpool']
 DEFAULT_HASHALGORITHM = "sha512"
@@ -80,8 +84,7 @@ DEFAULT_HASHALGORITHM_len = 128
 
 cert_sign_hash = hashes.SHA512()
 
-# server only:
-server_port = 4040
+# server only
 
 # loads: min_items, refresh, expire
 high_load = (100000, 1*60*60, 2*60*60)
@@ -219,7 +222,7 @@ class scn_logger(logging.Logger):
 
 
 #global loggerinst
-loggerinst=None
+loggerinst = None
 
 def logger():
     global loggerinst
@@ -467,10 +470,10 @@ class configmanager(object):
     @dbaccess
     def set(self, dbcon, name, value):
         if isinstance(name, str) == False:
-            logger.error("name not string")
+            logger().error("name not string")
             return False
-        if name not in self.defaults:
-            logger.error("not in defaults")
+        if name not in self.defaults and name not in self.overlays:
+            logger().error("not in defaults/overlays")
             return False
             
         
@@ -540,7 +543,7 @@ class configmanager(object):
         else:
             return None
     @dbaccess
-    def list(self, dbcon):
+    def list(self, dbcon, onlypermanent=False):
         ret = []
         _tdic = self.defaults.copy()
         _tdic.update(self.overlays.copy())
@@ -557,12 +560,14 @@ class configmanager(object):
         
         for _key, _defaultval in _listitems:
             _val2 = _defaultval
+            ispermanent = True
             # ignore overlayentries with entry None
             if _key in self.overlays: # and self.overlays[_key] is not None:
                 _val2 = self.overlays[_key]
+                ispermanent = False
             elif _key in _in_db:
                 _val2 = _in_db[_key]
-            
+                ispermanent = True
             if _val2 is None:
                 _val2 = ""
             elif _val2 in ["False", "false", False]:
@@ -573,7 +578,10 @@ class configmanager(object):
                 _val2 = str(_val2)
             if _key in ["state",] and _val2 in [None, "", "False"]:
                 _val2 = "False"
-            ret.append((_key, _val2, _defaultval))
+            if onlypermanent == True and ispermanent == True:
+                ret.append((_key, _val2, _defaultval, ispermanent))
+            elif onlypermanent == False:
+                ret.append((_key, _val2, _defaultval, ispermanent))
         return ret
 
 def pluginressources_creater(_dict, requester):

@@ -401,12 +401,12 @@ class server_init(object):
                 if pw[-1] == "\n":
                     pw = pw[:-1]
                 self.links["auth"].init_realm("server", dhash(pw))
-        _message=None
-        _name=None
+        _message = None
+        _name = None
         with open(_spath+"_name.txt", 'r') as readserver:
-            _name=readserver.readline()
+            _name = readserver.readline()[:-1] # remove \n
         with open(_spath+"_message.txt", 'r') as readservmessage:
-            _message=readservmessage.read()
+            _message = readservmessage.read()
             if _message[-1] in "\n":
                 _message=_message[:-1]
         if None in [pub_cert,_name,_message]:
@@ -434,8 +434,6 @@ class server_init(object):
         self.links["server_server"]=server(serverd)
         #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
             #self.links["server_server"].pluginmanager.interfaces+=["server"]
-            
-        
         
         # use timeout argument of BaseServer
         http_server_server.timeout = int(kwargs["timeout"])
@@ -531,5 +529,5 @@ if __name__ == "__main__":
         pluginm.resources["access"] = cm.links["server_server"].access_server
         pluginm.init_plugins()
         
-    logger().debug("server started. Enter mainloop")
+    logger().debug("server initialized. Enter serveloop")
     cm.serve_forever_block()

@@ -13,6 +13,19 @@ Dependencies:
 * gtk3
 * python3
 
+Security:
+
+Man in the middle is possible if:
+* attacker knows password or no password is set
+* and the client has no hash of the public cert of the communication partner
+* or the certificate is hacked (obvious)
+As worse it sounds as unavoidable this risk is. Even OTR suffers from these problems.
+Its nature lies in the decentral structure.
+This means the user has to verify (server) hashes. This is not hard and is assisted by a friendlist and servers, 
+which both use is strongly recommended.
+In contrast to similar solution it is up to the user putting certificates into the friendlist.
+
+
 
 This is a rewrite of scn.
 It got too complex because of unnecessary features (channels and nodes), too much lowlevel work (an own protocol), focus on gui and a client and serverside account management.
