@@ -42,7 +42,7 @@ reference_header = \
 {
 "User-Agent": "simplescn/0.5 (client)",
 "Authorization": 'scn {}', 
-"Connection": 'close'
+"Connection": 'close' # keep-alive
 }
 class client_client(client_admin, client_safe, client_config):
     name=None
@@ -50,22 +50,24 @@ class client_client(client_admin, client_safe, client_config):
     sslcont=None
     hashdb = None
     links = None
-    client_lock = None
+    # client_lock = None
     validactions = {"cmd_plugin", "remember_auth" }
     
     def __init__(self, _name, _pub_cert_hash, _certdbpath, _links):
         client_admin.__init__(self)
+        client_safe.__init__(self)
+        client_config.__init__(self)
+        # self.client_lock = threading.RLock()
         self.links = _links
         self.name = _name
         self.cert_hash = _pub_cert_hash
         self.hashdb = certhash_db(_certdbpath)
         self.sslcont = default_sslcont()
-        # update as static variable
+        # update self.validactions
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
         self.validactions.update(client_config.validactions_config)
         self._cache_help = self.cmdhelp()
-        self.client_lock = threading.RLock()
     
     def pw_auth(self, hashpcert, reqob, reauthcount):
         if reauthcount == 0:
@@ -537,10 +539,6 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - server")
             return
         
-        contsize = int(self.headers.get("Content-Length", str(max_serverrequest_size+1)))
-        if contsize > max_serverrequest_size:
-            self.send_error(431, "request too large/no Content-Length given")
-                
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
@@ -556,6 +554,11 @@ class client_handler(BaseHTTPRequestHandler):
         if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
             self.send_error(411,"POST data+data length needed")
             return
+            
+        contsize=int(self.headers.get("Content-Length"))
+        if contsize>max_serverrequest_size:
+            self.send_error(431, "request too large")
+        
         readob = self.rfile.read(int(self.headers.get("Content-Length")))
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
         obdict = safe_mdecode(readob,self.headers.get("Content-Type"))
@@ -698,12 +701,21 @@ class client_init(object):
     
     def __init__(self,confm,pluginm):
         self.links = {}
-        self.links["auth"] = scnauth_server()
-        self.links["config"]=confm
-        self.links["config_root"]=confm.get("config")
+        self.links["config"] = confm
+        self.links["config_root"] = confm.get("config")
         
         _cpath=os.path.join(self.links["config_root"],"client")
         init_config_folder(self.links["config_root"],"client")
+        
+        
+        if check_certs(_cpath+"_cert") == False:
+            logger().info("Certificate(s) not found. Generate new...")
+            generate_certs(_cpath+"_cert")
+            logger().info("Certificate generation complete")
+        with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
+            pub_cert = readinpubkey.read()
+        
+        self.links["auth"] = scnauth_server(dhash(pub_cert))
         
         if confm.getb("webgui")!=False:
             logger().debug("webgui enabled")
@@ -753,12 +765,6 @@ class client_init(object):
             self.links["auth"].init_realm("server", confm.get(dhash(pw)))
             op.close()
         
-        if check_certs(_cpath+"_cert") == False:
-            logger().info("Certificate(s) not found. Generate new...")
-            generate_certs(_cpath+"_cert")
-            logger().info("Certificate generation complete")
-        with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
-            pub_cert = readinpubkey.read()
 
         with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline()

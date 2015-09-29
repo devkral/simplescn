@@ -56,30 +56,40 @@ import threading
 import json
 import base64
 import time
-#from http import client
 from urllib import parse
 
-cert_sign_hash = hashes.SHA512()
+# sizes
 salt_size = 10
 key_size = 4096
-server_port = 4040
+# size of chunks (only in use by rw_socket?)
 default_buffer_size = 1400
-#maxread = 1500
 max_serverrequest_size = 4000
-confdb_ending=".confdb"
+
+# time out for auth requests
+auth_request_expire_time = 60*3
+
+# file positions
+confdb_ending = ".confdb"
+isself = 'isself'
+default_configdir = '~/.simplescn/'
+
+# hash algorithms
+algorithms_strong = ['sha512', 'sha384', 'sha256', 'whirlpool']
+DEFAULT_HASHALGORITHM = "sha512"
+DEFAULT_HASHALGORITHM_len = 128
+
+cert_sign_hash = hashes.SHA512()
+
+# server only:
+server_port = 4040
 
 # loads: min_items, refresh, expire
 high_load = (100000, 1*60*60, 2*60*60)
 medium_load = (1000, 10*60, 4*60*60)
 low_load = (500, 30, 4*60*60)
-# special load just: refresh, exire
+# special load just: refresh, expire
 very_low_load = (10, 24*60*60)
 
-isself = 'isself'
-default_configdir = '~/.simplescn/'
-
-DEFAULT_HASHALGORITHM = "sha512"
-DEFAULT_HASHALGORITHM_len = 128
 
 ###### signaling ######
 
@@ -699,7 +709,7 @@ authrequest_struct = {
 
 
 auth_struct = {
-"auth": None,
+"auth": None, 
 "timestamp": None
 #"nonce": None,
 #"saveserver": None
@@ -708,28 +718,32 @@ auth_struct = {
 
 
 class scnauth_server(object):
-    request_expire_time = 300 # in secs
+    request_expire_time = None # in secs
     # internal salt for memory protection
     salt = None
     # auth realms
     realms = None
-    hashalgorithm = None
+    hash_algorithm = None
+    serverpubcert_hash = None
     
-    def __init__(self, _hashalgo=DEFAULT_HASHALGORITHM):
+    def __init__(self, serverpubcert_hash, hash_algorithm=DEFAULT_HASHALGORITHM, request_expire_time=auth_request_expire_time):
         self.realms = {}
-        self.hashalgorithm=_hashalgo
+        self.hash_algorithm = hash_algorithm
         self.salt = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf-8")
+        self.serverpubcert_hash = serverpubcert_hash
+        self.request_expire_time = request_expire_time
 
-    def request_auth(self,  realm):
+    def request_auth(self, realm):
+        if realm not in self.realms:
+            logger().error("Not a valid realm: {}".format(realm))
         rauth = authrequest_struct.copy()
-        rauth["algo"] = self.hashalgorithm
+        rauth["algo"] = self.hash_algorithm
         rauth["salt"] = self.salt
         rauth["timestamp"] = int(time.time())
         rauth["realm"] = realm
         return rauth
     
-    # deactivate clientpubcert_hash for now as ssl doesn't send clientcert
-    def verify(self, realm, authdict, clientpubcert_hash=""):
+    def verify(self, realm, authdict):
         if realm not in self.realms or self.realms[realm] is None:
             return True
         if realm not in authdict:
@@ -739,12 +753,11 @@ class scnauth_server(object):
             return False
         if int(authdict["timestamp"])< int(time.time())-self.request_expire_time:
             return False
-        a=self.realms[realm]
-        if dhash((a[0], clientpubcert_hash,authdict[realm]["timestamp"]), a[1]) == authdict[realm]["auth"]: #, authdict["nonce"]
+        if dhash((self.realms[realm], self.clientpubcert_hash, authdict[realm]["timestamp"]), self.hash_algorithm) == authdict[realm]["auth"]: #, authdict["nonce"]
             return True
         return False
     def init_realm(self,realm, pwhash):
-        self.realms[realm] = dhash((pwhash, realm, self.salt), self.hashalgorithm)
+        self.realms[realm] = dhash((pwhash, realm, self.salt), self.hash_algorithm)
 
 
 class scnauth_client(object):
@@ -754,8 +767,7 @@ class scnauth_client(object):
     def __init__(self):
         self.save_auth = {}
     
-    # deactivate pubcert_hash for now as ssl doesn't send clientcert
-    def auth(self, pw, authreq_ob, pubcert_hash="", savedata=None):
+    def auth(self, pw, authreq_ob, serverpubcert_hash, savedata=None):
         #nonce = str(base64.urlsafe_b64encode(os.urandom(nonce_size)))
         realm = authreq_ob["realm"]
         #dauth["nonce"] = nonce
@@ -765,9 +777,9 @@ class scnauth_client(object):
             if saveid not in self.save_auth:
                 self.save_auth[saveid]={}
             self.save_auth[saveid][realm] = (pre, authreq_ob["algo"])
-        return self.asauth(pre,  authreq_ob, pubcert_hash=pubcert_hash)
+        return self.asauth(pre, authreq_ob, serverpubcert_hash)
     
-    def asauth(self, pre, authreq_ob, pubcert_hash=""):
+    def asauth(self, pre, authreq_ob, pubcert_hash):
         if pre is None:
             return None
         dauth = auth_struct.copy()
@@ -820,7 +832,7 @@ class commonscn(object):
 
 
 def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
-    if algo not in hashlib.algorithms_available:
+    if algo not in algorithms_strong:
         logger().error("Hashalgorithm not available: {}".format(algo))
         return None
     if isinstance(oblist, (list, tuple))==False:

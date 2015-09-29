@@ -234,9 +234,6 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - server")
             return
         
-        contsize=int(self.headers.get("Content-Length", str(max_serverrequest_size+1)))
-        if contsize>max_serverrequest_size:
-            self.send_error(431, "request too large/no Content-Length given")
         
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
@@ -249,9 +246,17 @@ class server_handler(BaseHTTPRequestHandler):
             self.scn_send_answer(200, ob)
             return
         
+        
         if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
             self.send_error(411,"POST data+data length needed")
             return
+            
+        contsize=int(self.headers.get("Content-Length"))
+        if contsize>max_serverrequest_size:
+            self.send_error(431, "request too large")
+        
+        
+        
         readob = self.rfile.read(int(self.headers.get("Content-Length")))
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
         obdict = safe_mdecode(readob, self.headers.get("Content-Type", "application/json; charset=utf-8"))
@@ -372,11 +377,20 @@ class server_init(object):
     
     def __init__(self,_configpath, **kwargs):
         self.links = {}
-        self.links["auth"] = scnauth_server()
         self.config_path=_configpath
         _spath=os.path.join(self.config_path,"server")
         port=kwargs["port"]
         init_config_folder(self.config_path,"server")
+        
+        if check_certs(_spath+"_cert")==False:
+            logger().debug("Certificate(s) not found. Generate new...")
+            generate_certs(_spath+"_cert")
+            logger().debug("Certificate generation complete")
+        
+        with open(_spath+"_cert.pub", 'rb') as readinpubkey:
+            pub_cert=readinpubkey.read()
+        
+        self.links["auth"] = scnauth_server(dhash(pub_cert))
         
         #server_handler.salt = os.urandom(8)
         if kwargs["spwhash"] is not None:
@@ -389,14 +403,8 @@ class server_init(object):
                 self.links["auth"].init_realm("server", dhash(pw))
         _message=None
         _name=None
-        if check_certs(_spath+"_cert")==False:
-            logger().debug("Certificate(s) not found. Generate new...")
-            generate_certs(_spath+"_cert")
-            logger().debug("Certificate generation complete")
         with open(_spath+"_name.txt", 'r') as readserver:
             _name=readserver.readline()
-        with open(_spath+"_cert.pub", 'rb') as readinpubkey:
-            pub_cert=readinpubkey.read()
         with open(_spath+"_message.txt", 'r') as readservmessage:
             _message=readservmessage.read()
             if _message[-1] in "\n":
