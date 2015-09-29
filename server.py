@@ -186,16 +186,10 @@ class server_handler(BaseHTTPRequestHandler):
     sys_version = "" # would say python xy, no need and maybe security hole
     
     links = None
-    
-    istunnel = False
-    ttimeout = None
-    webgui = True
+    webgui = False
     
     auth_info = None
     statics = {}
-    
-    def __init__(self, *args):
-        BaseHTTPRequestHandler.__init__(self, *args)
     
     
     def scn_send_answer(self, status, ob, _type="application/json"):
@@ -206,7 +200,7 @@ class server_handler(BaseHTTPRequestHandler):
         self.wfile.write(ob)
         
     def html(self,page,lang="en"):
-        if self.webgui==False:
+        if self.webgui == False:
             self.send_error(404,"no webgui")
             return
             
@@ -316,39 +310,6 @@ class server_handler(BaseHTTPRequestHandler):
             self.handle_server(_path[0])
             return
         self.send_error(404, "not -found")
-    
-    def do_CONNECT(self):
-        # deactivate
-        if True or self.istunnel==False:
-            self.send_error(404,"no tunnel/proxy allowed")
-            return
-        #if self.check_tpw()==False:
-        #    self.send_error(407,self.salt)
-        #    return
-        splitted = self.path[1:].split("/")
-        if len(splitted) != 2:
-            self.send_error(400, "invalid path")
-            return
-        name, _hash = splitted
-        _clientt = self.links["server_server"].get({"name":name, "hash":_hash})
-        if _clientt[0] == False:
-            self.send_error(500)
-            return
-        try:
-            sockd=self.connection.create_connection(client[1],self.ttimeout)
-                
-        except Exception:
-            self.send_error(400,"Connection failed")
-            return
-        
-        self.send_response(200)
-        #self.send_header('Connection established')
-        #self.send_header(self.version_string())
-        self.end_headers()
-        redout=threading.Thread(target=rw_socket,args=(self.connection,sockd))
-        redout.daemon=True
-        redout.run()
-        rw_socket(sockd,self.connection)
 
     def do_POST(self):
         self.init_scn_stuff()
@@ -426,16 +387,6 @@ class server_init(object):
                 if pw[-1] == "\n":
                     pw = pw[:-1]
                 self.links["auth"].init_realm("server", dhash(pw))
-        if kwargs["tpwhash"] is not None:
-            self.links["auth"].init_realm("proxy", kwargs["tpwhash"])
-            server_handler.istunnel = True
-        elif kwargs["tpwfile"] is not None:
-            with open(kwargs["tpwfile"], "r") as op:
-                pw = op.readline()
-                if pw[-1] == "\n":
-                    pw = pw[:-1]
-                self.links["auth"].init_realm("proxy", dhash(pw))
-                server_handler.istunnel = True
         _message=None
         _name=None
         if check_certs(_spath+"_cert")==False:
@@ -502,8 +453,6 @@ config=<dir>: path to config dir
 port=<number>: Port
 spwhash=<hash>: hash of pw, higher preference than pwfile
 spwfile=<file>: file with password (cleartext)
-tpwhash=<hash>: hash of pw, higher preference than pwfile (activates proxy/tunnel)
-tpwfile=<file>: file with password (cleartext) (activates proxy/tunnel)
 priority=<number>: set priority
 timeout: socket timeout
 webgui: enables webgui
@@ -516,12 +465,9 @@ server_args={"config":default_configdir,
              "port":None,
              "spwhash":None,
              "spwfile":None,
-             "tpwhash":None,
-             "tpwfile":None,
              "webgui":None,
              "useplugins":None,
              "priority":"20",
-             #"ttimeout":"600",
              "timeout":"30"}
     
 if __name__ == "__main__":
@@ -551,7 +497,7 @@ if __name__ == "__main__":
         configpath=configpath[:-1]
     #should be gui agnostic so specify here
     if server_args["webgui"] is not None:
-        server_handler.webgui=True
+        server_handler.webgui = True
         #load static files  
         for elem in os.listdir(os.path.join(sharedir, "static")):
             with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
@@ -560,8 +506,8 @@ if __name__ == "__main__":
                 if len(server_handler.statics[elem])==0:
                     server_handler.statics[elem]=b" "
     else:
-        server_handler.webgui=False
-    
+        server_handler.webgui = False
+
     cm=server_init(configpath ,**server_args)
     if server_args["useplugins"] is not None:
         pluginpathes=[os.path.join(sharedir, "plugins")]

@@ -93,83 +93,52 @@ class client_client(client_admin, client_safe, client_config):
         
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             _addr = scnparse_url(_addr_or_con,force_port=forceport)
-            proxycon = client.HTTPSConnection(_addr[0],_addr[1], context=self.sslcont)
-        
+            con = client.HTTPSConnection(_addr[0],_addr[1], context=self.sslcont)
+        else:
+            con = _addr_or_con
+        con.connect()
         if body.get("destname") is not None and body.get("desthash") is not None:
-            proxycon.set_tunnel("/{}/{}".format(body.get("destname"), body.get("desthash") ),{"Proxy-Authorization": sendheaders.get("Proxy-Authorization","scn {}"),})
-            proxycon.connect()
-            
-            pcert = ssl.DER_cert_to_PEM_cert(proxycon.sock.getpeercert(True))
-            hashpcert = dhash(pcert)
-            
-            if body.get("forceproxyhash") is not None and body.get("forceproxyhash") != hashpcert:
+            del body["destname"]
+            body["forcehash"] = body["desthash"]
+            del body["desthash"]
+         
+        pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+        hashpcert=dhash(pcert)
+        if clientforcehash is not None:
+            if clientforcehash == hashpcert:
+                raise(VALHashError)
+        elif body.get("forcehash") is not None:
+            if body.get("forcehash") != hashpcert:
                 raise(VALHashError)
 
-            if hashpcert == self.cert_hash:
-                validated_name = isself
-            else:
-                validated_name = self.hashdb.certhash_as_name(hashpcert)
-                if validated_name == isself:
-                    raise(VALNameError)
-            
-            response = proxycon.getresponse()
-            
-            if response.status == 200:
-                proxyerror = False
-                
-                # TODO: create httpsconnection from socket (con.sock)
-            else:
-                proxyerror = True
-                con = proxycon
-                
+        if hashpcert==self.cert_hash:
+            validated_name = isself
         else:
-            proxycon.connect()
-            con = proxycon
-            proxyerror = False
-        
-        if proxyerror == False:
-            if body.get("destname") is not None and body.get("desthash") is not None:
-                del body["destname"]
-                body["forcehash"] = body["desthash"]
-                del body["desthash"]
-         
-            pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-            hashpcert=dhash(pcert)
-            if clientforcehash is not None:
-                if clientforcehash == hashpcert:
-                    raise(VALHashError)
-            elif body.get("forcehash") is not None:
-                if body.get("forcehash") != hashpcert:
-                    raise(VALHashError)
-
-            if hashpcert==self.cert_hash:
-                validated_name = isself
-            else:
-                validated_name = self.hashdb.certhash_as_name(hashpcert)
-                if validated_name == isself:
-                    raise(VALNameError)
+            validated_name = self.hashdb.certhash_as_name(hashpcert)
+            if validated_name == isself:
+                raise(VALNameError)
             
-            #start connection
-            con.putrequest("POST", _path)
-            for key, value in sendheaders.items():
-                if key != "Proxy-Authorization":
-                    con.putheader(key, value)
-            pwcallm = body.get("pwcall_method")
-            if pwcallm:
-                del body["pwcall_method"]
+        #start connection
+        con.putrequest("POST", _path)
+        for key, value in sendheaders.items():
+            #if key != "Proxy-Authorization":
+            con.putheader(key, value)
+        pwcallm = body.get("pwcall_method")
+        if pwcallm:
+            del body["pwcall_method"]
             
             
             
-            ob=bytes(json.dumps(body), "utf-8")
-            con.putheader("Content-Length", str(len(ob)))
-            con.endheaders()
-            con.send(ob)
-            #if requesttype == "POST" and body is None:
-            #    return con.sock
-            response = con.getresponse()
+        ob=bytes(json.dumps(body), "utf-8")
+        con.putheader("Content-Length", str(len(ob)))
+        con.endheaders()
+        con.send(ob)
+        #if requesttype == "POST" and body is None:
+        #    return con.sock
+        response = con.getresponse()
         servertype = response.headers.get("Server", "")
         logger().debug("Servertype: {}".format(servertype))
-        if response.status == 401 and callable(pwcallm) == True:
+        if response.status == 401:
             body["pwcall_method"] = pwcallm
             auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ")[1])
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
@@ -190,13 +159,8 @@ class client_client(client_admin, client_safe, client_config):
                 con.close()
                 return False, "Authorization object invalid", validated_name, hashpcert
             reauthcount+=1
-            if realm == "proxy":
-                proxy_parsed = {}
-                proxy_parsed["proxy"] = authob
-                sendheaders["Proxy-Authorization"] = "scn {}".format(json.dumps(proxy_parsed))
-            else:
-                auth_parsed[realm] = authob
-                sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
+            auth_parsed[realm] = authob
+            sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
             return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport)
         else:
             #if len()>0:
