@@ -41,6 +41,9 @@ TODO:
 * STUN for traversing firewall, NAT (on serverside, with STUN-plugin?)
 * chatplugin
 
+future:
+* webgui
+
 
 This is a rewrite of scn.
 It got too complex because of unnecessary features (channels and nodes), too much lowlevel work (an own protocol), focus on gui and a client and serverside account management.
