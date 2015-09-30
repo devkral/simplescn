@@ -133,11 +133,11 @@ class client_client(client_admin, client_safe, client_config):
         ob=bytes(json.dumps(body), "utf-8")
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
-        con.send(ob)
         if certrewrap:
             con.sock = con.sock.unwrap()
             con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
-        #    return con.sock
+        con.send(ob)
+        
         response = con.getresponse()
         servertype = response.headers.get("Server", "")
         logger().debug("Servertype: {}".format(servertype))
