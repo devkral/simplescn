@@ -28,8 +28,8 @@ In contrast to similar solutions it is up to the user putting certificates into 
 
 
 Problems:
-restrictive firewall (for now):
-(problem ports in high range are still blocked)
+very restrictive firewall (for now):
+(ports in high ranges are still blocked)
 choose a port for client, set it by changing in the client_name file /0 to /<port>
 this is necessary because no STUN support yet
 
