@@ -228,6 +228,16 @@ class server_handler(BaseHTTPRequestHandler):
             self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8") 
         else:
             self.auth_info = None
+        
+        # hack around not transmitted client cert
+        _rewrapcert = self.headers.get("X-certrewrap")
+        if _rewrapcert is not None:
+            cont = self.connection.context
+            self.connection = self.connection.unwrap()
+            self.connection = cont.wrap_socket(self.connection, server_side=False)
+            self.client_certhash = self.connection.getpeercert(True)
+        else:
+            self.client_certhash = None
 
     def handle_server(self, action):
         if action not in self.links["server_server"].validactions:
@@ -332,20 +342,11 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
                 return
             plugin, action = split2
-            if pluginm.redirect_addr not in ["", None]:
-                sockd = self.links["server_server"].do_request(pluginm.redirect_addr, \
-                                        self.path, requesttype = "POST")
-                redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
-                redout.daemon=True
-                redout.run()
-                rw_socket(sockd, self.connection)
-                return
-            
-            if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "receive"):
+            if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
             try:
-                pluginm.plugins[plugin].receive(action, self.connection)
+                pluginm.plugins[plugin].sreceive(action, self.connection, self.client_certhash)
             except Exception as e:
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))

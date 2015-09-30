@@ -50,7 +50,11 @@ gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"option
 # iterable, for server actions, just shows up in gui, do localization in plugin
 gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
 
+
 # uncomment for being accessable by internet
+# client:
 # def receive(action, _socket, certhash):
 #     pass
-
+# server:
+# def sreceive(action, _socket, certhash):
+#     pass

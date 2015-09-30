@@ -78,7 +78,7 @@ class client_client(client_admin, client_safe, client_config):
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
 
-    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, reauthcount=0):
+    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, certrewrap=False, _reauthcount=0, _certtupel=None):
         if headers is None:
             headers = body.pop("headers", {})
         else:
@@ -86,12 +86,14 @@ class client_client(client_admin, client_safe, client_config):
         
         sendheaders = reference_header.copy()
         for key,value in headers.items():
-            if key in ["Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent"]:
+            if key in ["Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent", "X-certrewrap"]:
                 continue
             key, value = elem
             sendheaders[key] = value
         
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
+        if certrewrap:
+            sendheaders["X-certrewrap"] = self.cert_hash
         
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             _addr = scnparse_url(_addr_or_con,force_port=forceport)
@@ -101,22 +103,23 @@ class client_client(client_admin, client_safe, client_config):
             con = _addr_or_con
             if headers.get("Connection", "") != "keep-alive":
                 con.connect()
-         
-        pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-        hashpcert = dhash(pcert)
-        if clientforcehash is not None:
-            if clientforcehash == hashpcert:
-                raise(VALHashError)
-        elif body.get("forcehash") is not None:
-            if body.get("forcehash") != hashpcert:
-                raise(VALHashError)
-
-        if hashpcert == self.cert_hash:
-            validated_name = isself
-        else:
-            validated_name = self.hashdb.certhash_as_name(hashpcert)
-            if validated_name == isself:
-                raise(VALNameError)
+        
+        if _certtupel is None:
+            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            hashpcert = dhash(pcert)
+            if clientforcehash is not None:
+                if clientforcehash == hashpcert:
+                    raise(VALHashError)
+            elif body.get("forcehash") is not None:
+                if body.get("forcehash") != hashpcert:
+                    raise(VALHashError)
+            if hashpcert == self.cert_hash:
+                validated_name = isself
+            else:
+                validated_name = self.hashdb.certhash_as_name(hashpcert)
+                if validated_name == isself:
+                    raise(VALNameError)
+            _certtupel = (validated_name, hashpcert)
             
         #start connection
         con.putrequest("POST", _path)
@@ -131,7 +134,9 @@ class client_client(client_admin, client_safe, client_config):
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
         con.send(ob)
-        #if requesttype == "POST" and body is None:
+        if certrewrap:
+            con.sock = con.sock.unwrap()
+            con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
         #    return con.sock
         response = con.getresponse()
         servertype = response.headers.get("Server", "")
@@ -141,37 +146,29 @@ class client_client(client_admin, client_safe, client_config):
             auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ")[1])
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
-                return False, "no content length", validated_name, hashpcert
+                return False, "no content length", _certtupel[:]
             readob = response.read(int(response.headers.get("Content-Length")))
             reqob = safe_mdecode(readob, response.headers.get("Content-Type","application/json; charset=utf-8"))
             if reqob is None:
                 con.close()
-                return False, "Invalid Authorization request object", validated_name, hashpcert
+                return False, "Invalid Authorization request object", _certtupel[:]
             realm = reqob.get("realm")
             if callable(pwcallm) == True:
-                authob = pwcallm(hashpcert, reqob, reauthcount)
+                authob = pwcallm(hashpcert, reqob, _reauthcount)
             else:
                 authob = None
 
             if authob is None:
                 con.close()
-                return False, "Authorization object invalid", validated_name, hashpcert
-            reauthcount+=1
+                return False, "Authorization object invalid", _certtupel[:]
+            _reauthcount += 1
             auth_parsed[realm] = authob
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
-            return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport)
+            return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, _reauthcount=_reauthcount)
         else:
-            #if len()>0:
-            #    pass
-                #implement later
-                #if r.getheader("Authorization-Answer") is None:
-                #    raise(VALMITMError)
-                #for elem in pwhashes.items():
-                #    if r.getheader(elem[0], "") != dhash_salt(hashpcert, "{}:{}".format(_nonce,elem[1])):
-                #        raise(VALMITMError)
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
-                return False, "No content length", validated_name, hashpcert
+                return False, "No content length", _certtupel[:]
             readob = response.read(int(response.getheader("Content-Length")))
             if isinstance(_addr_or_con, client.HTTPSConnection) == False:
                 con.close()
@@ -185,21 +182,24 @@ class client_client(client_admin, client_safe, client_config):
             else:
                 obdict = safe_mdecode(readob, response.headers.get("Content-Type", "application/json"))
             if check_result(obdict, status) == False:
-                return False, "error parsing request\n{}".format(readob), validated_name, hashpcert
+                return False, "error parsing request\n{}".format(readob), _certtupel[:]
             
             if status == True:
-                return status, obdict["result"], validated_name, hashpcert
+                return status, obdict["result"], _certtupel[:]
             else:
-                return status, obdict["error"], validated_name, hashpcert
+                return status, obdict["error"], _certtupel[:]
     
     def use_plugin(self, address, plugin, paction, clientforcehash=None, forceport=False, requester=None):
-        _addr = scnparse_url(_addr_or_con, force_port=forceport)
-        con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
+        _addr = scnparse_url(_addr_or_con, force_port=forceport, context=self.context)
+        con = client.HTTPSConnection(_addr[0], _addr[1])
         con.putrequest("POST", "/plugin/{}".format(plugin))
-        con.putheader("X-certtestport", self.links["server"].socket.getsockname()[1])
-        con.putheader("X-certcompare", self.cert_hash)
+        con.putheader("X-certrewrap", self.cert_hash)
         con.endheaders()
-        return con
+        sock = con.sock
+        con.sock = None
+        sock = sock.unwrap()
+        sock = self.sslcont.wrap_socket(sock, server_side=True)
+        return sock
         
     @check_argsdeco({"plugin": (str, "name of plugin"), "paction": (str, "action of plugin")})
     def cmd_plugin(self, obdict):
@@ -639,28 +639,21 @@ class client_handler(BaseHTTPRequestHandler):
             self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8") 
         else:
             self.auth_info = None
-            
-        # hack around missing, not transmitted client cert
-        _totestport = self.headers.get("X-certtestport")
-        _tocompcert = self.headers.get("X-certcompare")
-        if _totestport is not None and _tocompcert is not None and _totestport.isdecimal() == True:
-            _totestport = int(_totestport)
-            temp = self.links["client"].access_core("gethash", {"address": "{}:{}".format(self.client_address[0],_totestport)})
-            if temp[0] == False:
-                logger().info(temp[1])
-                self.client_certhash = None
-            if _tocompcert == temp[1]["hash"]:
-                self.client_certhash = _tocompcert
-            else:
-                self.client_certhash = temp[1].get("hash")
-            
+        
+        # hack around not transmitted client cert
+        _rewrapcert = self.headers.get("X-certrewrap")
+        if _rewrapcert is not None:
+            cont = self.connection.context
+            self.connection = self.connection.unwrap()
+            self.connection = cont.wrap_socket(self.connection, server_side=False)
+            self.client_certhash = self.connection.getpeercert(True)
         else:
             self.client_certhash = None
+            
 
     def do_POST(self):
         self.init_scn_stuff()
         splitted = self.path[1:].split("/", 1)
-        pluginm = self.links["client_server"].pluginmanager
         if len(splitted) == 1:
             resource = splitted[0]
             sub = ""
@@ -669,6 +662,7 @@ class client_handler(BaseHTTPRequestHandler):
             sub = splitted[1]
         
         if resource == "plugin":
+            pluginm = self.links["client_server"].pluginmanager
             split2 = sub.split("/", 1)
             if len(split2) != 2:
                 self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
@@ -677,7 +671,7 @@ class client_handler(BaseHTTPRequestHandler):
             # not supported yet
             if pluginm.redirect_addr not in ["", None]:
                 sockd = self.links["client"].do_request(pluginm.redirect_addr, \
-                                        self.path, headers={"X-certhash": self.client_certhash}, requesttype = "POST")
+                                        self.path, headers={"X-certhash": self.client_certhash})
                 redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
                 redout.daemon=True
                 redout.run()
