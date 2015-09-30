@@ -15,16 +15,31 @@ Dependencies:
 
 Security:
 
-Man in the middle is possible if:
-* attacker knows password or no password is set
+Man in the middle attacks are possible if:
+* attacker knows the password or no password is set
 * and the client has no hash of the public cert of the communication partner
 * or the certificate is hacked (obvious)
-As worse it sounds as unavoidable this risk is. Even OTR suffers from these problems.
+As worse it sounds it is an unavoidable risk. Even OTR suffers from these problems.
 Its nature lies in the decentral structure.
-This means the user has to verify (server) hashes. This is not hard and is assisted by a friendlist and servers, 
+This means the user has to verify (server) hashes. This is not hard and is assisted by a friendlist and scn servers, 
 which both use is strongly recommended.
-In contrast to similar solution it is up to the user putting certificates into the friendlist.
+In contrast to similar solutions it is up to the user putting certificates into the friendlist.
 
+
+
+Problems:
+restrictive firewall (for now):
+(problem ports in high range are still blocked)
+choose a port for client, set it by changing in the client_name file /0 to /<port>
+this is necessary because no STUN support yet
+
+NAT:
+not traversable yet. No STUN support yet
+
+
+TODO:
+* STUN for traversing firewall, NAT (on serverside, with STUN-plugin?)
+* chatplugin
 
 
 This is a rewrite of scn.

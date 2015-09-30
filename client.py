@@ -78,7 +78,7 @@ class client_client(client_admin, client_safe, client_config):
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
 
-    def do_request(self, _addr_or_con, _path, body={}, headers = None, forceport=False, clientforcehash = None, reauthcount=0):
+    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, reauthcount=0):
         if headers is None:
             headers = body.pop("headers", {})
         else:
@@ -95,17 +95,15 @@ class client_client(client_admin, client_safe, client_config):
         
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             _addr = scnparse_url(_addr_or_con,force_port=forceport)
-            con = client.HTTPSConnection(_addr[0],_addr[1], context=self.sslcont)
+            con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
+            con.connect()
         else:
             con = _addr_or_con
-        con.connect()
-        if body.get("destname") is not None and body.get("desthash") is not None:
-            del body["destname"]
-            body["forcehash"] = body["desthash"]
-            del body["desthash"]
+            if headers.get("Connection", "") != "keep-alive":
+                con.connect()
          
-        pcert=ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-        hashpcert=dhash(pcert)
+        pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+        hashpcert = dhash(pcert)
         if clientforcehash is not None:
             if clientforcehash == hashpcert:
                 raise(VALHashError)
@@ -113,7 +111,7 @@ class client_client(client_admin, client_safe, client_config):
             if body.get("forcehash") != hashpcert:
                 raise(VALHashError)
 
-        if hashpcert==self.cert_hash:
+        if hashpcert == self.cert_hash:
             validated_name = isself
         else:
             validated_name = self.hashdb.certhash_as_name(hashpcert)
@@ -128,8 +126,6 @@ class client_client(client_admin, client_safe, client_config):
         pwcallm = body.get("pwcall_method")
         if pwcallm:
             del body["pwcall_method"]
-            
-            
             
         ob=bytes(json.dumps(body), "utf-8")
         con.putheader("Content-Length", str(len(ob)))
@@ -196,6 +192,15 @@ class client_client(client_admin, client_safe, client_config):
             else:
                 return status, obdict["error"], validated_name, hashpcert
     
+    def use_plugin(self, address, plugin, paction, clientforcehash=None, forceport=False, requester=None):
+        _addr = scnparse_url(_addr_or_con, force_port=forceport)
+        con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
+        con.putrequest("POST", "/plugin/{}".format(plugin))
+        con.putheader("X-certtestport", self.links["server"].socket.getsockname()[1])
+        con.putheader("X-certcompare", self.cert_hash)
+        con.endheaders()
+        return con
+        
     @check_argsdeco({"plugin": (str, "name of plugin"), "paction": (str, "action of plugin")})
     def cmd_plugin(self, obdict):
         """ trigger commandline action of plugin """ 
@@ -441,6 +446,7 @@ class client_handler(BaseHTTPRequestHandler):
     sys_version = "" # would say python xy, no need and maybe security hole
     auth_info = None
     
+    client_certhash = None
     links = None
     handle_local = False
     # overwrite handle_local
@@ -468,8 +474,6 @@ class client_handler(BaseHTTPRequestHandler):
         else:
             self.scn_send_answer(200, fullob, "text/html")
 
-        
-    ### GET ###
     def handle_client(self, action):
         if action not in self.links["client"].validactions:
             self.send_error(400, "invalid action - client")
@@ -545,7 +549,6 @@ class client_handler(BaseHTTPRequestHandler):
             self.scn_send_answer(401, ob)
             return
         
-        
         if action in self.links["client_server"].cache:
             ob = bytes(self.links["client_server"].cache[action], "utf-8")
             self.scn_send_answer(200, ob)
@@ -561,7 +564,7 @@ class client_handler(BaseHTTPRequestHandler):
         
         readob = self.rfile.read(int(self.headers.get("Content-Length")))
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
-        obdict = safe_mdecode(readob,self.headers.get("Content-Type"))
+        obdict = safe_mdecode(readob,self.headers.get("Content-Type", "application/json; charset=utf-8"))
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
@@ -636,6 +639,23 @@ class client_handler(BaseHTTPRequestHandler):
             self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8") 
         else:
             self.auth_info = None
+            
+        # hack around missing, not transmitted client cert
+        _totestport = self.headers.get("X-certtestport")
+        _tocompcert = self.headers.get("X-certcompare")
+        if _totestport is not None and _tocompcert is not None and _totestport.isdecimal() == True:
+            _totestport = int(_totestport)
+            temp = self.links["client"].access_core("gethash", {"address": "{}:{}".format(self.client_address[0],_totestport)})
+            if temp[0] == False:
+                logger().info(temp[1])
+                self.client_certhash = None
+            if _tocompcert == temp[1]["hash"]:
+                self.client_certhash = _tocompcert
+            else:
+                self.client_certhash = temp[1].get("hash")
+            
+        else:
+            self.client_certhash = None
 
     def do_POST(self):
         self.init_scn_stuff()
@@ -654,9 +674,10 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
                 return
             plugin, action = split2
+            # not supported yet
             if pluginm.redirect_addr not in ["", None]:
                 sockd = self.links["client"].do_request(pluginm.redirect_addr, \
-                                        self.path, requesttype = "POST")
+                                        self.path, headers={"X-certhash": self.client_certhash}, requesttype = "POST")
                 redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
                 redout.daemon=True
                 redout.run()
@@ -667,7 +688,7 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(sub))
                 return
             try:
-                pluginm.plugins[plugin].receive(action, self.connection)
+                pluginm.plugins[plugin].receive(action, self.connection, self.client_certhash)
             except Exception as e:
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))
@@ -866,14 +887,14 @@ if __name__ ==  "__main__":
     pluginpathes=[os.path.join(sharedir, "plugins")]
     
     if len(sys.argv) > 1:
-        tparam=()
+        tparam = ()
         for elem in sys.argv[1:]: #strip filename from arg list
             elem = elem.strip("-")
             if elem in ["help","h"]:
                 print(paramhelp())
                 sys.exit(0)
             else:
-                tparam=elem.split("=")
+                tparam = elem.split("=")
                 if len(tparam) == 1:
                     tparam = elem.split(":")
                 if len(tparam) == 1:
@@ -884,11 +905,11 @@ if __name__ ==  "__main__":
                     continue
                 client_args[tparam[0]] = tparam[1]
 
-    configpath=client_args["config"]
-    configpath=path.expanduser(configpath)
-    if configpath[-1]==os.sep:
-        configpath=configpath[:-1]
-    client_args["config"]=configpath
+    configpath = client_args["config"]
+    configpath = path.expanduser(configpath)
+    if configpath[-1] == os.sep:
+        configpath = configpath[:-1]
+    client_args["config"] = configpath
     # path  to plugins in config folder
     pluginpathes.insert(1,os.path.join(configpath, "plugins"))
     
@@ -902,29 +923,29 @@ if __name__ ==  "__main__":
     confm = configmanager(os.path.join(configpath, "config", "clientmain{}".format(confdb_ending)))
     confm.update(default_client_args,client_args)
 
-    if confm.getb("noplugins")==False:
+    if confm.getb("noplugins") == False:
         pluginm=pluginmanager(pluginpathes, configpath_plugins, "client")
-        if confm.getb("webgui")!=False:
-            pluginm.interfaces+=["web",]
-        if confm.getb("cmd")!=False:
-            pluginm.interfaces+=["cmd",]
+        if confm.getb("webgui") != False:
+            pluginm.interfaces += ["web",]
+        if confm.getb("cmd") != False:
+            pluginm.interfaces += ["cmd",]
     else:
         pluginm=None
     cm=client_init(confm,pluginm)
 
-    if confm.getb("noplugins")==False:
-        # needs not much as ressource (interfaces) TODO: protect access_safe
+    if confm.getb("noplugins") == False:
+        pluginm.resources["plugin"] = cm.links["client"].use_plugin
         pluginm.resources["access"] = cm.links["client"].access_safe
         pluginm.init_plugins()
 
     logger().debug("start servercomponent (client)")
-    if confm.getb("cmd")!=False:
+    if confm.getb("cmd") != False:
         cm.serve_forever_nonblock()
         logger().debug("start console")
         for name, value in cm.links["client"].show({})[1].items():
             print(name, value, sep=":")
         while True:
-            inp=input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
+            inp = input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
             if inp in ["exit", "close", "quit"]:
                 break
             # help
