@@ -30,7 +30,7 @@ class client_safe(object):
         """ show client stats """
         if "server" in self.links:
             return True,{"name": self.name, "hash": self.cert_hash,
-                "port":str(self.links["server"].socket.getsockname()[1])}
+                "port":str(self.links["hserver"].socket.getsockname()[1])}
         else:
             return True,{"name": self.name, "hash": self.cert_hash,
                 "port":str(None)}

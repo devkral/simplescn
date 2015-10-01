@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
-import sys,os
+import sys, os
+import socket
 
 sharedir = None
 if "__file__" not in globals():
@@ -697,16 +698,21 @@ class client_handler(BaseHTTPRequestHandler):
 class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
     """server part of client; inheritates client_server to provide
         client information"""
-    #address_family = socket.AF_INET6
     sslcont = None
     
-    
-    def __init__(self, _client_address, certfpath):
-        HTTPServer.__init__(self, _client_address, client_handler)
+    def __init__(self, _client_address, certfpath, address_family):
+        self.address_family = address_family
+        HTTPServer.__init__(self, _client_address, client_handler, False)
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        try:
+            self.server_bind()
+            self.server_activate()
+        except:
+            self.server_close()
+            raise
         self.sslcont = default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
         self.socket = self.sslcont.wrap_socket(self.socket)
-        
 
 
 class client_init(object):
@@ -784,9 +790,7 @@ class client_init(object):
         with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline()[:-1] # remove \n
         with open(_cpath+"_message.txt", 'r') as readinmes:
-            _message = readinmes.read()
-            if _message[-1] in "\n":
-                _message = _message[:-1]
+            _message = readinmes.read().strip().rstrip()
         #report missing file
         if None in [pub_cert,_name,_message]:
             raise(Exception("missing"))
@@ -817,16 +821,16 @@ class client_init(object):
         # use timeout argument of BaseServer
         http_client_server.timeout=confm.get("timeout")
         if confm.getb("noserver") == False:
-            self.links["server"]=http_client_server(("", port), _cpath+"_cert")
+            self.links["hserver"] = http_client_server(("", port), _cpath+"_cert", socket.AF_INET6)
         self.links["client"]=client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), self.links)
         
         
     def serve_forever_block(self):
-        self.links["server"].serve_forever()
+        self.links["hserver"].serve_forever()
+
     def serve_forever_nonblock(self):
-        self.sthread = threading.Thread(target=self.serve_forever_block)
-        self.sthread.daemon = True
-        self.sthread.start()
+        sthread = threading.Thread(target=self.serve_forever_block, daemon=True)
+        sthread.start()
         
 
 def paramhelp():

@@ -25,6 +25,8 @@ import logging
 import json, base64
 import ssl
 
+import socket
+
 from common import server_port, check_certs,generate_certs,init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError,generate_error_deco
 #configmanager
 
@@ -356,31 +358,33 @@ class server_handler(BaseHTTPRequestHandler):
         else:
             self.send_error(404, "resource not found", "could not find {}".format(resource))
     
-class http_server_server(socketserver.ThreadingMixIn,HTTPServer):
+class http_server_server(socketserver.ThreadingMixIn, HTTPServer):
     sslcont = None
-    #address_family = socket.AF_INET6
-    
-    #def __del__(self):
-    #    self.crappyssl.close()
-  
-    def __init__(self, server_address,certfpath):
-        socketserver.TCPServer.__init__(self, server_address, server_handler)
-        #self.crappyssl=workaround_ssl(certs[1])
+
+    def __init__(self, server_address, certfpath, address_family):
+        self.address_family = address_family
+        HTTPServer.__init__(self, server_address, server_handler, False)
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        try:
+            self.server_bind()
+            self.server_activate()
+        except:
+            self.server_close()
+            raise
         self.sslcont = default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv", pwcallmethod)
         self.socket = self.sslcont.wrap_socket(self.socket)
 
 
 class server_init(object):
-    config_path=None
-    links=None
-    sthread=None
+    config_path = None
+    links = None
     
     def __init__(self,_configpath, **kwargs):
         self.links = {}
         self.config_path=_configpath
         _spath=os.path.join(self.config_path,"server")
-        port=kwargs["port"]
+        port = kwargs["port"]
         init_config_folder(self.config_path,"server")
         
         if check_certs(_spath+"_cert")==False:
@@ -407,9 +411,7 @@ class server_init(object):
         with open(_spath+"_name.txt", 'r') as readserver:
             _name = readserver.readline()[:-1] # remove \n
         with open(_spath+"_message.txt", 'r') as readservmessage:
-            _message = readservmessage.read()
-            if _message[-1] in "\n":
-                _message=_message[:-1]
+            _message = readservmessage.read().strip().rstrip()
         if None in [pub_cert,_name,_message]:
             raise(Exception("missing"))
 
@@ -419,33 +421,31 @@ class server_init(object):
             logger().error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_spath+"_name"))
         
         if port is not None:
-            _port=int(port)
-        elif len(_name)>=2:
-            _port=int(_name[1])
+            _port = int(port)
+        elif len(_name) >= 2:
+            _port = int(_name[1])
         else:
-            _port=server_port
+            _port = server_port
         
         
         serverd={"name": _name[0], "certhash": dhash(pub_cert),
                 "priority": kwargs["priority"], "message":_message}
         
-        server_handler.links=self.links
+        server_handler.links = self.links
         
         
-        self.links["server_server"]=server(serverd)
-        #self.links["server_server"].configmanager=configmanager(self.config_path+os.sep+"main.config")
-            #self.links["server_server"].pluginmanager.interfaces+=["server"]
+        self.links["server_server"] = server(serverd)
         
         # use timeout argument of BaseServer
         http_server_server.timeout = int(kwargs["timeout"])
-        self.links["hserver"]=http_server_server(("",_port),_spath+"_cert")
+        self.links["hserver"] = http_server_server(("", _port), _spath+"_cert", socket.AF_INET6)
         
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
+
     def serve_forever_nonblock(self):
-        self.sthread = threading.Thread(target=self.serve_forever_block)
-        self.sthread.daemon = True
-        self.sthread.start()
+        sthread = threading.Thread(target=self.serve_forever_block, daemon=True)
+        sthread.start()
 
 
 
