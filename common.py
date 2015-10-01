@@ -710,7 +710,7 @@ class pluginmanager(object):
 
 authrequest_struct = {
 "algo": None,
-"salt": None,
+"nonce": None,
 "timestamp": None,
 "realm": None
 }
@@ -719,16 +719,12 @@ authrequest_struct = {
 auth_struct = {
 "auth": None, 
 "timestamp": None
-#"nonce": None,
-#"saveserver": None
 }
 
 
 
 class scnauth_server(object):
     request_expire_time = None # in secs
-    # internal salt for memory protection
-    salt = None
     # auth realms
     realms = None
     hash_algorithm = None
@@ -737,7 +733,6 @@ class scnauth_server(object):
     def __init__(self, serverpubcert_hash, hash_algorithm=DEFAULT_HASHALGORITHM, request_expire_time=auth_request_expire_time):
         self.realms = {}
         self.hash_algorithm = hash_algorithm
-        self.salt = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf-8")
         self.serverpubcert_hash = serverpubcert_hash
         self.request_expire_time = request_expire_time
 
@@ -746,26 +741,36 @@ class scnauth_server(object):
             logger().error("Not a valid realm: {}".format(realm))
         rauth = authrequest_struct.copy()
         rauth["algo"] = self.hash_algorithm
-        rauth["salt"] = self.salt
-        rauth["timestamp"] = int(time.time())
+        # send server time, client time should not be used because timeouts are on serverside
+        rauth["timestamp"] = str(int(time.time()))
         rauth["realm"] = realm
+        rauth["nonce"] = self.realms[realm][1]
         return rauth
-    
+
     def verify(self, realm, authdict):
         if realm not in self.realms or self.realms[realm] is None:
             return True
         if realm not in authdict:
+            logger().warning("realm not in authdict")
             return False
-        if authdict["timestamp"].isdecimal() == False:
-            logger().warning("Timestamp not a number")
+        if isinstance(authdict[realm].get("timestamp"),str) == False:
+            logger().error("no timestamp")
             return False
-        if int(authdict["timestamp"])< int(time.time())-self.request_expire_time:
+        
+        if authdict[realm].get("timestamp","").isdecimal() == False:
+            logger().error("Timestamp not a number")
             return False
-        if dhash((self.realms[realm], self.clientpubcert_hash, authdict[realm]["timestamp"]), self.hash_algorithm) == authdict[realm]["auth"]: #, authdict["nonce"]
+        timestamp = int(authdict[realm].get("timestamp"))
+        if timestamp < int(time.time())-self.request_expire_time:
+            return False
+        if dhash(authdict[realm].get("timestamp"), self.hash_algorithm, prehash=self.realms[realm][0]) == authdict[realm]["auth"]:
             return True
         return False
+
     def init_realm(self,realm, pwhash):
-        self.realms[realm] = dhash((pwhash, realm, self.salt), self.hash_algorithm)
+        # internal salt for memory protection+nonce
+        nonce = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf-8")
+        self.realms[realm] = (dhash((pwhash, realm, nonce, self.serverpubcert_hash), self.hash_algorithm), nonce)
 
 
 class scnauth_client(object):
@@ -776,14 +781,12 @@ class scnauth_client(object):
         self.save_auth = {}
     
     def auth(self, pw, authreq_ob, serverpubcert_hash, savedata=None):
-        #nonce = str(base64.urlsafe_b64encode(os.urandom(nonce_size)))
         realm = authreq_ob["realm"]
-        #dauth["nonce"] = nonce
         pre = dhash((dhash(pw, authreq_ob["algo"]), authreq_ob["realm"]), authreq_ob["algo"])
         if savedata != None:
             saveid = savedata 
             if saveid not in self.save_auth:
-                self.save_auth[saveid]={}
+                self.save_auth[saveid] = {}
             self.save_auth[saveid][realm] = (pre, authreq_ob["algo"])
         return self.asauth(pre, authreq_ob, serverpubcert_hash)
     
@@ -792,26 +795,23 @@ class scnauth_client(object):
             return None
         dauth = auth_struct.copy()
         dauth["timestamp"] = authreq_ob["timestamp"]
-        authreq_ob["realm"]
-        dauth["auth"] = dhash((pre, pubcert_hash, authreq_ob["timestamp"]), authreq_ob["algo"])
+        dauth["auth"] = dhash((authreq_ob["nonce"], pubcert_hash, authreq_ob["timestamp"]), authreq_ob["algo"], prehash=pre)
         return dauth
 
-    def saveauth(self, realm, pw, savedata):
+    def saveauth(self, realm, pw, savedata, algo=DEFAULT_HASHALGORITHM):
         saveid = savedata
-        pre = dhash((dhash(pw, DEFAULT_HASHALGORITHM), realm), DEFAULT_HASHALGORITHM)
+        pre = dhash((dhash(pw, algo), realm), algo)
         if saveid not in self.save_auth:
-            self.save_auth[saveid]={}
-        self.save_auth[saveid][realm] = (pre, DEFAULT_HASHALGORITHM)
-        
-    
-    # deactivate pubcert_hash for now as ssl doesn't send clientcert
-    def reauth(self, savedata, authreq_ob, pubcert_hash=""):
+            self.save_auth[saveid] = {}
+        self.save_auth[saveid][realm] = (pre, algo)
+
+    def reauth(self, savedata, authreq_ob, pubcert_hash):
         saveid = savedata
         if saveid not in self.save_auth:
             return authreq_ob.get("realm"), None
         if authreq_ob.get("realm") not in self.save_auth[saveid]:
             return authreq_ob.get("realm"), None
-        return self.auth(self.save_auth[saveid][authreq_ob["realm"]], authreq_ob, pubcert_hash=pubcert_hash)
+        return self.auth(self.save_auth[saveid][authreq_ob["realm"]], authreq_ob, pubcert_hash)
 
 
 class commonscn(object):
@@ -839,17 +839,17 @@ class commonscn(object):
         self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
 
 
-def dhash(oblist, algo=DEFAULT_HASHALGORITHM):
+def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
     if algo not in algorithms_strong:
         logger().error("Hashalgorithm not available: {}".format(algo))
         return None
     if isinstance(oblist, (list, tuple))==False:
         oblist = [oblist,]
-    hasher=hashlib.new(algo)
-    ret=""
+    hasher = hashlib.new(algo)
+    ret = prehash
     for ob in oblist:
         tmp = hasher.copy()
-        tmp.update(bytes(ret,"utf-8"))
+        tmp.update(bytes(ret, "utf-8"))
         if isinstance(ob, bytes):
             tmp.update(ob)
         elif isinstance(ob, str):
