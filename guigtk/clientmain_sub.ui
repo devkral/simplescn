@@ -311,7 +311,6 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
-                    <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <signal name="toggled" handler="toggle_configuration" swapped="no"/>
@@ -327,7 +326,6 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
-                    <property name="xalign">0</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">usemainconf</property>

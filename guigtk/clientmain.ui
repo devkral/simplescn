@@ -74,8 +74,6 @@
       <object class="GtkGrid" id="mainwinmaingrid">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="margin_left">5</property>
-        <property name="margin_right">5</property>
         <property name="margin_bottom">1</property>
         <property name="hexpand">True</property>
         <property name="row_spacing">3</property>
@@ -83,8 +81,6 @@
           <object class="GtkStatusbar" id="mainstatusbar">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="margin_left">10</property>
-            <property name="margin_right">10</property>
             <property name="margin_start">10</property>
             <property name="margin_end">10</property>
             <property name="margin_top">6</property>
@@ -174,7 +170,6 @@
               <object class="GtkFrame" id="frame1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label_xalign">0</property>
                 <property name="shadow_type">in</property>
                 <child>
                   <object class="GtkGrid" id="grid6">
@@ -213,7 +208,7 @@
                         <property name="can_focus">True</property>
                         <property name="receives_default">True</property>
                         <property name="halign">start</property>
-                        <property name="margin_right">3</property>
+                        <property name="margin_end">3</property>
                         <property name="margin_bottom">3</property>
                         <property name="use_underline">True</property>
                         <signal name="clicked" handler="opennode" swapped="no"/>
@@ -939,7 +934,6 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">False</property>
                 <property name="halign">start</property>
-                <property name="xalign">0</property>
                 <property name="active">True</property>
                 <property name="draw_indicator">True</property>
                 <signal name="toggled" handler="client_localtoggle" swapped="no"/>
@@ -1770,8 +1764,6 @@ Entity</property>
               <object class="GtkStatusbar" id="hashstatusbar">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="margin_left">10</property>
-                <property name="margin_right">10</property>
                 <property name="margin_start">10</property>
                 <property name="margin_end">10</property>
                 <property name="margin_top">6</property>
