@@ -6,7 +6,7 @@ from http import client
 
 class client_safe(object):
     
-    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref"}
+    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
 
     hashdb = None
     links = None
@@ -23,12 +23,12 @@ class client_safe(object):
     @check_argsdeco({"server":(str, ),})
     def register(self, obdict):
         """ register client """
-        return self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "hash": self.cert_hash, "port": self.show(obdict)[1]["port"], "pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"))
+        return self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": self.show(obdict)[1]["port"], "pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), sendclientcert=True)
     
     @check_argsdeco()
     def show(self, obdict):
         """ show client stats """
-        if "server" in self.links:
+        if "hserver" in self.links:
             return True,{"name": self.name, "hash": self.cert_hash,
                 "port":str(self.links["hserver"].socket.getsockname()[1])}
         else:
@@ -38,12 +38,12 @@ class client_safe(object):
     @check_argsdeco({"name": (str, ),"port": (int, )})
     def registerservice(self, obdict):
         """ register service (second way) """
-        return self.do_request("localhost:{}".format(self.links["server"].socket.getsockname()[1]),"/server/registerservice", obdict)
+        return self.do_request("localhost:{}".format(self.links["hserver"].socket.getsockname()[1]),"/server/registerservice", obdict)
     
     @check_argsdeco({"name": (str, )})
     def delservice(self, obdict):
         """ delete service (second way) """
-        return self.do_request("localhost:{}".format(self.links["server"].socket.getsockname()[1]),"/server/delservice", obdict)
+        return self.do_request("localhost:{}".format(self.links["hserver"].socket.getsockname()[1]),"/server/delservice", obdict)
     
     @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})
     def get(self,obdict):
@@ -63,11 +63,7 @@ class client_safe(object):
             return False, "address is empty"
         try:
             _addr = scnparse_url(obdict["address"],force_port=False)
-            con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
-            con.connect()
-            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-            con.close()
-            
+            pcert = ssl.get_server_certificate(_addr, ssl_version=ssl.PROTOCOL_TLSv1_2)
             return True, {"hash":dhash(pcert), "cert":pcert}
         except ssl.SSLError:
             return False, "server speaks no tls 1.2"
@@ -85,7 +81,7 @@ class client_safe(object):
         if _ha[0] == False:
             return _ha
         if _ha[1]["hash"] == self.cert_hash:
-            return True, {"localname":isself, "hash":self.cert_hash}
+            return True, {"localname":isself, "hash":self.cert_hash, "cert":_ha[1]["cert"]}
         temp = self.hashdb.certhash_as_name(_ha[1]["hash"])
         return True, {"localname":temp, "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
 
@@ -120,7 +116,7 @@ class client_safe(object):
             client_addr = obdict["client"]
             del obdict["client"]
         else:
-            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+            client_addr="localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
         _tservices = self.do_request(client_addr, "/server/dumpservices", headers=obdict.get("headers"), forceport=True)
         if _tservices[0] == False:
             return _tservices
@@ -134,7 +130,7 @@ class client_safe(object):
             _addr=obdict["address"]
             del obdict["address"]
         else:
-            _addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
+            _addr="localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/info", headers=obdict.get("headers"), forceport=True)
 
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
@@ -144,7 +140,7 @@ class client_safe(object):
             _addr = obdict["address"]
             del obdict["address"]
         else:
-            _addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
+            _addr = "localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/cap", headers=obdict.get("headers"), forceport=True)
     
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
@@ -154,7 +150,7 @@ class client_safe(object):
             _addr = obdict["address"]
             del obdict["address"]
         else:
-            _addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
+            _addr = "localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/prioty", headers=obdict.get("headers"), forceport=True)
 
     @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})

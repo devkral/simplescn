@@ -8,7 +8,7 @@ from client_config import client_config
 
 
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "delservice", "addreference", "updatereference", "delreference", "listplugins"}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins"}
     #, "changemsg", "changename"} untested
     #, "connect"
     hashdb = None

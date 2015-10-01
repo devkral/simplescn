@@ -138,36 +138,43 @@ class server(commonscn):
             return False, "hash does not match"
         return True, "registered_ip"
     
-    @check_argsdeco({"hash": (str, "client hash"),"name": (str, "client name"),"port": (str, "port on which the client runs")})
+    @check_argsdeco({"name": (str, "client name"),"port": (str, "port on which the client runs")})
     def register(self, obdict):
         """ register client """
         if check_name(obdict["name"])==False:
             return False, "invalid name"
-        ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), obdict["hash"])
+        if obdict["clientcert"] is None:
+            return False, "no cert"
+        clientcerthash = dhash(obdict["clientcert"])
+        ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
         if ret[0] == False:
             return ret
         self.changeip_lock.acquire(False)
         if obdict["name"] not in self.nhipmap:
             self.nhipmap[obdict["name"]]={}
-        if obdict["hash"] not in self.nhipmap[obdict["name"]]:
-            self.nhipmap[obdict["name"]][obdict["hash"]] = {}
-        self.nhipmap[obdict["name"]][obdict["hash"]]["address"] = obdict["clientaddress"][0]
-        self.nhipmap[obdict["name"]][obdict["hash"]]["port"] = obdict["port"]
-        self.nhipmap[obdict["name"]][obdict["hash"]]["updatetime"] = int(time.time())
+        if clientcerthash not in self.nhipmap[obdict["name"]]:
+            self.nhipmap[obdict["name"]][clientcerthash] = {}
+        self.nhipmap[obdict["name"]][clientcerthash]["address"] = obdict["clientaddress"][0]
+        self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
+        self.nhipmap[obdict["name"]][clientcerthash]["updatetime"] = int(time.time())
+        self.nhipmap[obdict["name"]][clientcerthash]["stunsock"] = None
         self.changeip_lock.release()
         # notify that change happened
         self.nhipmap_cond.set()
         return ret
     
     
-    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")})
+    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"stun":(bool, "shall open a stun connection when neccessary (default: False)")})
     def get(self, obdict):
         """ get address of a client with name, hash """
         if obdict["name"] not in self.nhipmap:
             return False, "name not exist"
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
             return False, "hash not exist"
-        return True, self.nhipmap[obdict["name"]][obdict["hash"]]
+        _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
+        if obdict.get("stun", True) and _obj["stunsock"]:
+            pass# TO implement
+        return True, {"address": _obj["address"], "port": _obj["port"], "stun": _obj["stunsock"]!=None}
     
     
     @generate_error_deco
@@ -237,9 +244,12 @@ class server_handler(BaseHTTPRequestHandler):
             cont = self.connection.context
             self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=False)
-            self.client_certhash = self.connection.getpeercert(True)
+            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True))
+            self.rfile = self.connection.makefile(mode='rb')
+            self.wfile = self.connection.makefile(mode='wb')
+            
         else:
-            self.client_certhash = None
+            self.client_cert = None
 
     def handle_server(self, action):
         if action not in self.links["server_server"].validactions:
@@ -275,7 +285,11 @@ class server_handler(BaseHTTPRequestHandler):
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
-        obdict["clientaddress"] = self.client_address
+        if self.client_address[:7] == "::ffff:":
+            obdict["clientaddress"] = self.client_address[7:]
+        else:
+            obdict["clientaddress"] = self.client_address
+        obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         try:
             func = getattr(self.links["server_server"], action)
@@ -348,7 +362,7 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
             try:
-                pluginm.plugins[plugin].sreceive(action, self.connection, self.client_certhash)
+                pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert)
             except Exception as e:
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))

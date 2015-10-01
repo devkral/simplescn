@@ -22,8 +22,6 @@ from client_admin import client_admin, is_admin_func
 from client_safe import client_safe
 from client_config import client_config
 
-#import SSL as ssln
-#from OpenSSL import SSL,crypto
 from http.server  import BaseHTTPRequestHandler,HTTPServer
 from http import client
 import socketserver
@@ -54,7 +52,7 @@ class client_client(client_admin, client_safe, client_config):
     # client_lock = None
     validactions = {"cmd_plugin", "remember_auth" }
     
-    def __init__(self, _name, _pub_cert_hash, _certdbpath, _links):
+    def __init__(self, _name, _pub_cert_hash, _certdbpath, certfpath, _links):
         client_admin.__init__(self)
         client_safe.__init__(self)
         client_config.__init__(self)
@@ -63,7 +61,8 @@ class client_client(client_admin, client_safe, client_config):
         self.name = _name
         self.cert_hash = _pub_cert_hash
         self.hashdb = certhash_db(_certdbpath)
-        self.sslcont = default_sslcont()
+        self.sslcont = self.links["hserver"].sslcont #default_sslcont()
+        #self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
         # update self.validactions
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
@@ -79,7 +78,7 @@ class client_client(client_admin, client_safe, client_config):
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
 
-    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, certrewrap=False, _reauthcount=0, _certtupel=None):
+    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, sendclientcert=False, _reauthcount=0, _certtupel=None):
         if headers is None:
             headers = body.pop("headers", {})
         else:
@@ -93,7 +92,7 @@ class client_client(client_admin, client_safe, client_config):
             sendheaders[key] = value
         
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
-        if certrewrap:
+        if sendclientcert:
             sendheaders["X-certrewrap"] = self.cert_hash
         
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
@@ -134,7 +133,7 @@ class client_client(client_admin, client_safe, client_config):
         ob=bytes(json.dumps(body), "utf-8")
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
-        if certrewrap:
+        if sendclientcert:
             con.sock = con.sock.unwrap()
             con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
         con.send(ob)
@@ -507,6 +506,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "bad arguments")
             return
         obdict["clientaddress"] = self.client_address
+        obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         response = self.links["client"].access_core(action, obdict)
 
@@ -569,7 +569,11 @@ class client_handler(BaseHTTPRequestHandler):
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
-        obdict["clientaddress"] = self.client_address
+        if self.client_address[:7] == "::ffff:":
+            obdict["clientaddress"] = self.client_address[7:]
+        else:
+            obdict["clientaddress"] = self.client_address
+        obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         try:
             func = getattr(self.links["client_server"], action)
@@ -647,9 +651,11 @@ class client_handler(BaseHTTPRequestHandler):
             cont = self.connection.context
             self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=False)
-            self.client_certhash = self.connection.getpeercert(True)
+            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True))
+            self.rfile = self.connection.makefile(mode='rb')
+            self.wfile = self.connection.makefile(mode='wb')
         else:
-            self.client_certhash = None
+            self.client_cert = None
             
 
     def do_POST(self):
@@ -672,7 +678,7 @@ class client_handler(BaseHTTPRequestHandler):
             # not supported yet
             if pluginm.redirect_addr not in ["", None]:
                 sockd = self.links["client"].do_request(pluginm.redirect_addr, \
-                                        self.path, headers={"X-certhash": self.client_certhash})
+                                        self.path, headers={"X-client_cert": self.client_cert})
                 redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
                 redout.daemon=True
                 redout.run()
@@ -683,7 +689,7 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(sub))
                 return
             try:
-                pluginm.plugins[plugin].receive(action, self.connection, self.client_certhash)
+                pluginm.plugins[plugin].receive(action, self.connection, self.client_cert)
             except Exception as e:
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))
@@ -809,8 +815,7 @@ class client_init(object):
         port = int(confm.get("port"))
         
         clientserverdict={"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": confm.get("priority"), "message":_message, 
-                "nonces": None}
+                "priority": confm.get("priority"), "message":_message}
         
         self.links["client_server"] = client_server(clientserverdict)#_name[0], confm.get("priority"), dhash(pub_cert), _message)
         self.links["client_server"].pluginmanager=pluginm
@@ -822,7 +827,7 @@ class client_init(object):
         http_client_server.timeout=confm.get("timeout")
         if confm.getb("noserver") == False:
             self.links["hserver"] = http_client_server(("", port), _cpath+"_cert", socket.AF_INET6)
-        self.links["client"]=client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), self.links)
+        self.links["client"]=client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), _cpath+"_cert", self.links)
         
         
     def serve_forever_block(self):
