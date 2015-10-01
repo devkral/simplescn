@@ -167,7 +167,17 @@ class client_admin(object):
                     else:
                         writen.write("{}/0".format(newname))
             return True
+
+    @check_argsdeco({"client": (str, "client address"), "entities":(list, "list with entities"), "hashes":(list, "list with hashes")})
+    def massimporter(self, obdict):
+        """ import hashes and entities """
+        for entity in obdict.get("entities"):
+            pass #TODO
         
+        for _hash in obdict.get("hashes"):
+            pass
+        return True, "import finished"
+
 def is_admin_func(funcname):
     if funcname in client_admin.validactions_admin or funcname in client_config.validactions_config:
         return True

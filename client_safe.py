@@ -38,12 +38,36 @@ class client_safe(object):
     @check_argsdeco({"name": (str, ),"port": (int, )})
     def registerservice(self, obdict):
         """ register service (second way) """
-        return self.do_request("localhost:{}".format(self.links["hserver"].socket.getsockname()[1]),"/server/registerservice", obdict)
+        return self.do_request("localhost:{}".format(self.links["hserver"].socket.getsockname()[1]), "/server/registerservice", obdict)
     
     @check_argsdeco({"name": (str, )})
     def delservice(self, obdict):
         """ delete service (second way) """
-        return self.do_request("localhost:{}".format(self.links["hserver"].socket.getsockname()[1]),"/server/delservice", obdict)
+        return self.do_request("localhost:{}".format(self.links["hserver"].socket.getsockname()[1]), "/server/delservice", obdict)
+    
+    @check_argsdeco({"name": (str, "service name"), }, {"client":(str, )})
+    def getservice(self, obdict):
+        """ get port of a service """
+        if obdict.get("client") == False:
+            client_addr = obdict["client"]
+            del obdict["client"]
+        else:
+            client_addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
+        return self.do_request(client_addr, "/server/getservice", obdict, headers=obdict.get("headers"))
+    
+    @check_argsdeco(optional={"client":(str, )})
+    def listservices(self, obdict):
+        """ list services with ports """
+        if obdict.get("client") == False:
+            client_addr = obdict["client"]
+            del obdict["client"]
+        else:
+            client_addr="localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
+        _tservices = self.do_request(client_addr, "/server/dumpservices", headers=obdict.get("headers"), forceport=True)
+        if _tservices[0] == False:
+            return _tservices
+        out=sorted(_tservices[1].items(), key=lambda t: t[0])
+        return _tservices[0], {"items": out, "map":["name", "port"]}, _tservices[2], _tservices[3]
     
     @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})
     def get(self,obdict):
@@ -98,30 +122,6 @@ class client_safe(object):
             else:
                 out.append((name, _hash, self.hashdb.certhash_as_name(_hash)))
         return _tnames[0], {"items": out, "map":["name",]}, _tnames[2], _tnames[3]
-    
-    @check_argsdeco({"name": (str, "service name"), }, {"client":(str, )})
-    def getservice(self, obdict):
-        """ get port of a service """
-        if obdict.get("client") == False:
-            client_addr = obdict["client"]
-            del obdict["client"]
-        else:
-            client_addr="localhost:{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(client_addr, "/server/getservice",obdict,headers=obdict.get("headers"))
-    
-    @check_argsdeco(optional={"client":(str, )})
-    def listservices(self, obdict):
-        """ list services with ports """
-        if obdict.get("client") == False:
-            client_addr = obdict["client"]
-            del obdict["client"]
-        else:
-            client_addr="localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
-        _tservices = self.do_request(client_addr, "/server/dumpservices", headers=obdict.get("headers"), forceport=True)
-        if _tservices[0] == False:
-            return _tservices
-        out=sorted(_tservices[1].items(), key=lambda t: t[0])
-        return _tservices[0], {"items": out, "map":["name", "port"]}, _tservices[2], _tservices[3]
     
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
     def info(self, obdict):
