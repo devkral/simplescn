@@ -150,9 +150,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="opacity">0.98999999999999999</property>
                 <property name="halign">start</property>
-                <property name="resize_mode">immediate</property>
                 <property name="popup">actions</property>
                 <child>
                   <object class="GtkLabel" id="label1">

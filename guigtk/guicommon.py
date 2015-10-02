@@ -24,9 +24,9 @@ class gtkclient_template(Gtk.Builder):
         self.address = _address
         
     def init2(self, _file):
-        classname=type(self).__name__
+        classname = type(self).__name__
         if self.address not in open_addresses:
-            open_addresses[self.address]=[classname, self]
+            open_addresses[self.address] = [classname, self]
         elif open_addresses[self.address][0] is classname:
             open_addresses[self.address][1].win.grab_focus()
             open_addresses[self.address][1].win.activate_focus()

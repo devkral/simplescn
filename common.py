@@ -915,7 +915,7 @@ def check_argsdeco(requires={}, optional={}):
                 logger().error("check_args:wrong functioncall: {}: {}".format(func.__name__, args))
             #    return False, "check_args failed ({}) wrong amount args: {}".format(func.__name__, args), isself, self.cert_hash
             self, obdict = args
-            error=[]
+            error = []
             if check_args(obdict, requires, optional, error=error) == False:
                 return False, "check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), isself, self.cert_hash
             resp = func(self, obdict)

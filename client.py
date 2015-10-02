@@ -146,12 +146,12 @@ class client_client(client_admin, client_safe, client_config):
             auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ")[1])
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
-                return False, "no content length", _certtupel[:]
+                return False, "no content length", _certtupel[0], _certtupel[1]
             readob = response.read(int(response.headers.get("Content-Length")))
             reqob = safe_mdecode(readob, response.headers.get("Content-Type","application/json; charset=utf-8"))
             if reqob is None:
                 con.close()
-                return False, "Invalid Authorization request object", _certtupel[:]
+                return False, "Invalid Authorization request object", _certtupel[0], _certtupel[1]
             realm = reqob.get("realm")
             if callable(pwcallm) == True:
                 authob = pwcallm(hashpcert, reqob, _reauthcount)
@@ -160,7 +160,7 @@ class client_client(client_admin, client_safe, client_config):
 
             if authob is None:
                 con.close()
-                return False, "Authorization object invalid", _certtupel[:]
+                return False, "Authorization object invalid", _certtupel[0], _certtupel[1]
             _reauthcount += 1
             auth_parsed[realm] = authob
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
@@ -168,7 +168,7 @@ class client_client(client_admin, client_safe, client_config):
         else:
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
-                return False, "No content length", _certtupel[:]
+                return False, "No content length", _certtupel[0], _certtupel[1]
             readob = response.read(int(response.getheader("Content-Length")))
             if isinstance(_addr_or_con, client.HTTPSConnection) == False:
                 con.close()
@@ -182,12 +182,12 @@ class client_client(client_admin, client_safe, client_config):
             else:
                 obdict = safe_mdecode(readob, response.headers.get("Content-Type", "application/json"))
             if check_result(obdict, status) == False:
-                return False, "error parsing request\n{}".format(readob), _certtupel[:]
+                return False, "error parsing request\n{}".format(readob), _certtupel[0], _certtupel[1]
             
             if status == True:
-                return status, obdict["result"], _certtupel[:]
+                return status, obdict["result"], _certtupel[0], _certtupel[1]
             else:
-                return status, obdict["error"], _certtupel[:]
+                return status, obdict["error"], _certtupel[0], _certtupel[1]
     
     def use_plugin(self, address, plugin, paction, clientforcehash=None, forceport=False, requester=None):
         _addr = scnparse_url(_addr_or_con, force_port=forceport, context=self.context)
@@ -505,7 +505,10 @@ class client_handler(BaseHTTPRequestHandler):
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
-        obdict["clientaddress"] = self.client_address
+        if self.client_address[0][:7] == "::ffff:":
+            obdict["clientaddress"] = (self.client_address[0][7:], self.client_address[1])
+        else:
+            obdict["clientaddress"] = (self.client_address[0], self.client_address[1])
         obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         response = self.links["client"].access_core(action, obdict)
@@ -569,10 +572,10 @@ class client_handler(BaseHTTPRequestHandler):
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
-        if self.client_address[:7] == "::ffff:":
-            obdict["clientaddress"] = self.client_address[7:]
+        if self.client_address[0][:7] == "::ffff:":
+            obdict["clientaddress"] = (self.client_address[0][7:], self.client_address[1])
         else:
-            obdict["clientaddress"] = self.client_address
+            obdict["clientaddress"] = (self.client_address[0], self.client_address[1])
         obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         try:

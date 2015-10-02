@@ -145,6 +145,7 @@ class server(commonscn):
             return False, "invalid name"
         if obdict["clientcert"] is None:
             return False, "no cert"
+        
         clientcerthash = dhash(obdict["clientcert"])
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
         if ret[0] == False:
@@ -277,18 +278,16 @@ class server_handler(BaseHTTPRequestHandler):
         if contsize>max_serverrequest_size:
             self.send_error(431, "request too large")
         
-        
-        
         readob = self.rfile.read(int(self.headers.get("Content-Length")))
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
         obdict = safe_mdecode(readob, self.headers.get("Content-Type", "application/json; charset=utf-8"))
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
-        if self.client_address[:7] == "::ffff:":
-            obdict["clientaddress"] = self.client_address[7:]
+        if self.client_address[0][:7] == "::ffff:":
+            obdict["clientaddress"] = (self.client_address[0][7:], self.client_address[1])
         else:
-            obdict["clientaddress"] = self.client_address
+            obdict["clientaddress"] = (self.client_address[0], self.client_address[1])
         obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         try:

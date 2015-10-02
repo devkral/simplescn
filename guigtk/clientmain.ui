@@ -66,6 +66,7 @@
     <property name="visible">True</property>
     <property name="can_focus">True</property>
     <property name="can_default">True</property>
+    <property name="border_width">3</property>
     <property name="title" translatable="yes">Simple Communication Nodes</property>
     <property name="icon">icon.png</property>
     <property name="show_menubar">False</property>
@@ -287,7 +288,6 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="halign">start</property>
                 <signal name="clicked" handler="retrieve_server" swapped="no"/>
               </object>
               <packing>

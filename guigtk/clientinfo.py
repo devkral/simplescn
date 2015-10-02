@@ -44,16 +44,15 @@ class gtkclient_info(gtkclient_template):
         if self.name is isself:
             self.col_entry("Name (this client) ","")
         else:
-            self.col_entry("Name: ",self.name)
-        self.col_entry("Address: ",self.address)
+            self.col_entry("Name: ", self.name)
+        self.col_entry("Address: ", self.address)
     
         _info=self.do_requestdo("info", address=self.address)
-        if _info[0]==True:
+        if _info[0] == True:
             if _info[1]["type"] == "server":
                 serviceb.hide()
             else:
                 serviceb.show()
-            
             self.col_entry("Hash: ", _info[3])
             messagebuf.set_text(_info[1]["message"],-1)
             
@@ -68,8 +67,8 @@ class gtkclient_info(gtkclient_template):
         label2=Gtk.Label(val)
         label2.set_selectable(True)
         label2.set_visible(True)
-        grid.attach(label1,0,0,1,1)
-        grid.attach(label2,1,0,1,1)
+        grid.attach(label1, 0, 0, 1, 1)
+        grid.attach(label2, 1, 0, 1, 1)
         self.col.pack_end(grid,False,False,0)
         
     def openservices(self,*args):
