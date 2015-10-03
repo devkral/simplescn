@@ -866,7 +866,7 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "local" : ["False", bool, "reachable from localhost (overwrites remote)"],
              "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
              "priority": [str(default_priority), int, "<number>: set priority"],
-             "timeout": [str(default_timeout), int, "<number>: set priority"], ,
+             "timeout": [str(default_timeout), int, "<number>: set priority"],
              "webgui": ["False", bool, "enables webgui"],
              "cmd": ["False", bool, "enables cmd"]}
              
