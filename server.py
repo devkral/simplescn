@@ -27,7 +27,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError,generate_error_deco
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout
 #configmanager
 
 
@@ -482,13 +482,13 @@ webgui: enables webgui
 #### but optionally support plugins (some risk)
 
 server_args={"config":default_configdir,
-             "port":None,
-             "spwhash":None,
-             "spwfile":None,
-             "webgui":None,
-             "useplugins":None,
-             "priority":"20",
-             "timeout":"30"}
+             "port": None,
+             "spwhash": None,
+             "spwfile": None,
+             "webgui": None,
+             "useplugins": None,
+             "priority": str(default_priority),
+             "timeout": str(default_timeout)}
     
 if __name__ == "__main__":
     from common import scn_logger, init_logger
@@ -512,9 +512,9 @@ if __name__ == "__main__":
                     continue
                 server_args[tparam[0]] = tparam[1]
     
-    configpath=os.path.expanduser(server_args["config"])
-    if configpath[-1]==os.sep:
-        configpath=configpath[:-1]
+    configpath = os.path.expanduser(server_args["config"])
+    if configpath[-1] == os.sep:
+        configpath = configpath[:-1]
     #should be gui agnostic so specify here
     if server_args["webgui"] is not None:
         server_handler.webgui = True
@@ -523,23 +523,23 @@ if __name__ == "__main__":
             with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
                 server_handler.statics[elem]=_staticr.read()
                 #against ssl failures
-                if len(server_handler.statics[elem])==0:
-                    server_handler.statics[elem]=b" "
+                if len(server_handler.statics[elem]) == 0:
+                    server_handler.statics[elem] = b" "
     else:
         server_handler.webgui = False
 
-    cm=server_init(configpath ,**server_args)
+    cm = server_init(configpath ,**server_args)
     if server_args["useplugins"] is not None:
-        pluginpathes=[os.path.join(sharedir, "plugins")]
+        pluginpathes = [os.path.join(sharedir, "plugins")]
         pluginpathes.insert(1, os.path.join(configpath, "plugins"))
         plugins_config = os.path.join(configpath, "config", "plugins")
 
         os.makedirs(plugins_config, 0o750, True)
     
-        pluginm=pluginmanager(pluginpathes, plugins_config, "server{}".format(confdb_ending))
+        pluginm = pluginmanager(pluginpathes, plugins_config, "server{}".format(confdb_ending))
         if server_args["webgui"] is not None:
             pluginm.interfaces+=["web",]
-        cm.links["server_server"].pluginmanager=pluginm
+        cm.links["server_server"].pluginmanager = pluginm
         pluginm.resources["access"] = cm.links["server_server"].access_server
         pluginm.init_plugins()
         

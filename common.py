@@ -58,33 +58,34 @@ import base64
 import time
 from urllib import parse
 
-# sizes
+## sizes ##
 salt_size = 10
 key_size = 4096
 # size of chunks (only in use by rw_socket?)
 default_buffer_size = 1400
 max_serverrequest_size = 4000
 
+## timeouts ##
 # time out for auth requests
 auth_request_expire_time = 60*3
 
-# file positions
+## file positions ##
 confdb_ending = ".confdb"
 isself = 'isself'
 default_configdir = '~/.simplescn/'
 
-# ports
+## ports ##
 client_port = 0
 server_port = 4040
 
-# hash algorithms
+## hash algorithms ##
 algorithms_strong = ['sha512', 'sha384', 'sha256', 'whirlpool']
 DEFAULT_HASHALGORITHM = "sha512"
 DEFAULT_HASHALGORITHM_len = 128
 
 cert_sign_hash = hashes.SHA512()
 
-# server only
+## server only ##
 
 # loads: min_items, refresh, expire
 high_load = (100000, 1*60*60, 2*60*60)
@@ -93,6 +94,9 @@ low_load = (500, 30, 4*60*60)
 # special load just: refresh, expire
 very_low_load = (10, 24*60*60)
 
+## defaults (most probably no change needed) ##
+default_priority = 20
+default_timeout = 60
 
 ###### signaling ######
 

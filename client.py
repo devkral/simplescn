@@ -32,7 +32,7 @@ import json
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout
 #VALMITMError
 
 from common import logger
@@ -865,8 +865,8 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "noserver": ["False", bool, "deactivate server component"],
              "local" : ["False", bool, "reachable from localhost (overwrites remote)"],
              "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
-             "priority": ["20", int, "<number>: set priority"],
-             "timeout": ["30", int, "<number>: set priority"],
+             "priority": [str(default_priority), int, "<number>: set priority"],
+             "timeout": [str(default_timeout), int, "<number>: set priority"], ,
              "webgui": ["False", bool, "enables webgui"],
              "cmd": ["False", bool, "enables cmd"]}
              
