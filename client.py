@@ -788,8 +788,8 @@ class client_init(object):
         if confm.getb("spwhash") == True:
             self.links["auth"].init_realm("server", confm.get("spwhash"))
         elif confm.getb("spwfile") == True:
-            op=open(confm.get("spwfile"),"r")
-            pw=op.readline()
+            op = open(confm.get("spwfile"),"r")
+            pw = op.readline()
             if pw[-1] == "\n":
                 pw = pw[:-1]
             self.links["auth"].init_realm("server", confm.get(dhash(pw)))
@@ -801,7 +801,7 @@ class client_init(object):
         with open(_cpath+"_message.txt", 'r') as readinmes:
             _message = readinmes.read().strip().rstrip()
         #report missing file
-        if None in [pub_cert,_name,_message]:
+        if None in [pub_cert, _name, _message]:
             raise(Exception("missing"))
         
         _name = _name.split("/")
@@ -818,10 +818,10 @@ class client_init(object):
         port = int(confm.get("port"))
         
         clientserverdict={"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": confm.get("priority"), "message":_message}
+                "priority": confm.get("priority"), "message": _message}
         
-        self.links["client_server"] = client_server(clientserverdict)#_name[0], confm.get("priority"), dhash(pub_cert), _message)
-        self.links["client_server"].pluginmanager=pluginm
+        self.links["client_server"] = client_server(clientserverdict)
+        self.links["client_server"].pluginmanager = pluginm
         self.links["configmanager"] = confm
 
         client_handler.links=self.links
@@ -842,47 +842,36 @@ class client_init(object):
         
 
 def paramhelp():
-    return """
-### parameters ###
-config=<dir>: path to config dir
-port=<number>: Port
-(c/a/s)pwhash=<hash>: sha256 hash of pw, higher preference than pwfile
-(c/a/s)pwfile=<file>: file with password (cleartext)
-noserver: don't start server component
-local: reachable from localhost (overwrites remote)
-remote: remote reachable (not localhost) (needs cpwhash/file)
-priority=<number>: set priority
-timeout=<number>: socket timeout
-webgui: enables webgui
-cmd: opens cmd
-c: set password for using client webcontrol
-a: set password for using client webcontrol admin panel
-s: set password for contacting client
-"""
-    
+    t = "### parameters (permanent) ###\n"
+    for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
+        t += _key+":"+elem[0]+":"+elem[2]+"\n"
+    t += "### parameters (non-permanent) ###\n"
+    for _key, elem in sorted(client_args.items(), key=lambda x: x[0]):
+        t += _key+":"+elem[0]+":"+elem[2]+"\n"
+    return t
 def signal_handler(_signal, frame):
   sys.exit(0)
 
 
 #specified seperately because of chicken egg problem
 #"config":default_configdir
-default_client_args={"noplugins": None,
-             "cpwhash": None,
-             "cpwfile": None,
-             "apwhash": None,
-             "apwfile": None,
-             "spwhash": None,
-             "spwfile": None,
-             "noserver": None,
-             "local" : None,
-             "remote": None,
-             "priority": "20",
-             "timeout": "30",
-             "webgui": None,
-             "cmd": None}
+default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
+             "cpwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
+             "cpwfile": ["", str, "<file>: file with password (cleartext)"],
+             "apwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
+             "apwfile": ["", str, "<file>: file with password (cleartext)"],
+             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
+             "spwfile": ["", str, "<file>: file with password (cleartext)"],
+             "noserver": ["False", bool, "deactivate server component"],
+             "local" : ["False", bool, "reachable from localhost (overwrites remote)"],
+             "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
+             "priority": ["20", int, "<number>: set priority"],
+             "timeout": ["30", int, "<number>: set priority"],
+             "webgui": ["False", bool, "enables webgui"],
+             "cmd": ["False", bool, "enables cmd"]}
              
-client_args={"config":default_configdir,
-             "port":None}
+client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
+             "port": ["-1", int, "<number>: Port"]}
 
 if __name__ ==  "__main__":
     from common import scn_logger, init_logger
@@ -904,20 +893,26 @@ if __name__ ==  "__main__":
                 if len(tparam) == 1:
                     tparam = elem.split(":")
                 if len(tparam) == 1:
-                    client_args[tparam[0]] = "True"
+                    if tparam[0] not in client_args:
+                        client_args[tparam[0]] = ["True"]
+                    else:
+                        client_args[tparam[0]][0] = "True"
                     continue
                 if tparam[0] in ["pluginpath", "pp"]:
                     pluginpathes += [tparam[1], ]
                     continue
-                client_args[tparam[0]] = tparam[1]
-
-    configpath = client_args["config"]
+                if tparam[0] not in client_args:
+                    client_args[tparam[0]] = [tparam[1], None]
+                else:
+                    client_args[tparam[0]][0] = tparam[1]
+    
+    configpath = client_args["config"][0]
     configpath = path.expanduser(configpath)
     if configpath[-1] == os.sep:
         configpath = configpath[:-1]
-    client_args["config"] = configpath
+    client_args["config"][0] = configpath
     # path  to plugins in config folder
-    pluginpathes.insert(1,os.path.join(configpath, "plugins"))
+    pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     
     # path to config folder of plugins
     configpath_plugins=os.path.join(configpath, "config", "plugins")
@@ -926,9 +921,9 @@ if __name__ ==  "__main__":
     
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
+    
     confm = configmanager(os.path.join(configpath, "config", "clientmain{}".format(confdb_ending)))
-    confm.update(default_client_args,client_args)
-
+    confm.update(default_client_args, client_args)
     if confm.getb("noplugins") == False:
         pluginm=pluginmanager(pluginpathes, configpath_plugins, "client")
         if confm.getb("webgui") != False:

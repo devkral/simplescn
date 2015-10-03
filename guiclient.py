@@ -25,7 +25,7 @@ from guigtk import clientmain
 from guigtk.clientmain import gtkclient_init, do_gtkiteration
 
 import client
-
+from client import paramhelp, client_args
 
 from common import configmanager, pluginmanager, confdb_ending
 
@@ -37,17 +37,6 @@ from common import logger
 
 #cm = None
 
-def paramhelp():
-    print(\
-"""
-### parameters ###
-config=<dir>: path to config dir
-timeout=<number>: #########not implemented yet ###############
-noserver: shall start no own server
-port=<number>: Port in connection with server
-client: url to connect
-clientpw: pw for the url
-""")
 
 
 def signal_handler(*args):
@@ -64,7 +53,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     dclargs = client.default_client_args.copy()
     #del dclargs["cmd"]
-    clargs = client.client_args.copy()
+    #clargs = client.client_args.copy()
     #del clargs["cmd"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
 
@@ -80,26 +69,32 @@ if __name__ == "__main__":
                 if len(tparam) == 1:
                     tparam = elem.split(":")
                 if len(tparam) == 1:
-                    clargs[tparam[0]] = "True"
+                    if tparam[0] not in client_args:
+                        client_args[tparam[0]] = ["True"]
+                    else:
+                        client_args[tparam[0]][0] = "True"
                     continue
                 if tparam[0] in ["pluginpath", "pp"]:
-                    pluginpathes += [tparam[1],]
+                    pluginpathes += [tparam[1], ]
                     continue
-                clargs[tparam[0]] = tparam[1]
+                if tparam[0] not in client_args:
+                    client_args[tparam[0]] = [tparam[1], None]
+                else:
+                    client_args[tparam[0]][0] = tparam[1]
 
-    configpath = clargs["config"]
+    configpath = client_args["config"][0]
     configpath = path.expanduser(configpath)
     if configpath[-1] == os.sep:
         configpath = configpath[:-1]
-    clargs["config"] = configpath
-    pluginpathes.insert(1,os.path.join(configpath, "plugins"))
+    client_args["config"][0] = configpath
+    pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     
     configpath_plugins = os.path.join(configpath, "config", "plugins")
 
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
     confm = configmanager(os.path.join(configpath, "config", "clientgtkgui{}".format(confdb_ending)))
-    confm.update(dclargs, clargs)
+    confm.update(dclargs, client_args)
 
     if confm.getb("noplugins") == False:
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")

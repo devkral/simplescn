@@ -43,7 +43,7 @@ class client_config(object):
     @check_argsdeco(optional={"onlypermanent":(bool, "shall only permanent settings be included (default: False)")})
     def list_config(self, obdict):
         """ list main configuration of client """
-        return True, {"items": self.links["configmanager"].list(obdict.get("onlypermanent", False)), "map": ["key", "value", "default", "ispermanent"]}
+        return True, {"items": self.links["configmanager"].list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
     
     @check_argsdeco({"key": (str, "config key"), "plugin": (str, "plugin name")})
     def reset_pluginconfigkey(self, obdict):
@@ -93,4 +93,4 @@ class client_config(object):
             config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
         else:
             config = pluginm.plugins[obdict["plugin"]].config
-        return True, {"items": config.list(obdict.get("onlypermanent", False)), "map": ["key", "value", "default", "ispermanent"]}
+        return True, {"items": config.list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}

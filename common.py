@@ -390,13 +390,15 @@ def scnparse_url(url, force_port = False):
         return (url, server_port)
     raise(EnforcedPortFail)
 
+
+
 class configmanager(object):
     db_path = None
     dbcon = None
     lock = None
     imported = False
     overlays = {}
-    defaults = {"state": "False"}
+    defaults = {"state":("False", bool, "is component active")}
     def __init__(self, _dbpath):
         self.db_path = _dbpath
         self.lock = threading.Lock()
@@ -412,14 +414,14 @@ class configmanager(object):
     def dbaccess(func):
         def funcwrap(self, *args, **kwargs):
             self.lock.acquire()
-            temp=None
+            temp = None
             try:
-                temp=func(self, self.dbcon, *args, **kwargs)
+                temp = func(self, self.dbcon, *args, **kwargs)
             except Exception as e:
-                if hasattr(e,"__traceback__"):
-                    st="{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
+                if hasattr(e, "__traceback__"):
+                    st = "{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
                 else:
-                    st="{}".format(e)
+                    st = "{}".format(e)
                 logger().error(st)
             self.lock.release()
             return temp
@@ -449,16 +451,54 @@ class configmanager(object):
     @dbaccess
     def update(self, dbcon, _defaults, _overlays = {}):
         # insert False, don't let it change
-        _defaults["state"] = "False"
-        self.defaults = _defaults
-        self.overlays = _overlays
+        _defaults["state"] = ("False", bool, "is component active")
+        self.defaults = {}
+        self.overlays = {}
+        for _key, elem  in _defaults.items():
+            tmp = None
+            if len(elem) == 2:
+                tmp = [elem[0], elem[1], ""]
+            elif len(elem) == 3:
+                tmp = list(elem)
+            if tmp is None:
+                logger().error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
+                return False
+            if check_conftype(tmp[0], tmp[1]) == False:
+                return False
+            self.defaults[_key] = tmp
+        
+        for _key, elem  in _overlays.items():
+            tmp = None
+            if len(elem) == 1 or (len(elem) == 2 and elem[1] is None):
+                if _key in self.defaults:
+                    tmp = self.defaults[_key].copy()
+                    tmp[0] = elem[0]
+                else:
+                    continue
+            elif len(elem) == 2:
+                tmp = [elem[0], elem[1], ""]
+            elif len(elem) == 3:
+                tmp = list(elem)
+            if tmp is None:
+                logger().error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
+                return False
+            if _key in self.defaults:
+                if tmp[1] != self.defaults[_key][1]:
+                    logger().error("converter mismatch between defaults: {} and overlays: {}".format(self.defaults[_key][1], tmp[1]))
+                    return False
+
+            if check_conftype(tmp[0], tmp[1]) == False:
+                return False
+            self.overlays[_key] = tmp
+
         if dbcon is None:
             return True
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM main;''')
         _in_db = cur.fetchall()
-        for elem in _defaults:
-            cur.execute('''INSERT OR IGNORE INTO main(name,val) values (?,?);''', (elem, _defaults[elem]))
+        
+        for _key, (_value, _type, _doc) in _defaults.items():
+            cur.execute('''INSERT OR IGNORE INTO main(name,val) values (?,?);''', (_key, _value))
         if _in_db == None:
             return True
         for elem in _in_db:
@@ -472,10 +512,16 @@ class configmanager(object):
         if isinstance(name, str) == False:
             logger().error("name not string")
             return False
-        if name not in self.defaults and name not in self.overlays:
+        
+        if name in self.overlays and check_conftype(*self.overlays[name][:2]) == False:
+            #logger().error("overlays value type missmatch")
+            return False
+        elif name in self.defaults and check_conftype(*self.defaults[name][:2]) == False:
+            #logger().error("invalid defaults value type")
+            return False
+        elif name not in self.defaults and name not in self.overlays:
             logger().error("not in defaults/overlays")
             return False
-            
         
         if value is None:
             value = ""
@@ -485,7 +531,7 @@ class configmanager(object):
             else:
                 value="false" """
         if name in self.overlays or dbcon is None:
-            self.overlays[name] = str(value)
+            self.overlays[name][0] = str(value)
         elif dbcon is not None:
             cur = dbcon.cursor()
             cur.execute('''UPDATE main SET val=? WHERE name=?;''', (str(value), name))
@@ -495,8 +541,9 @@ class configmanager(object):
     def set_default(self, name):
         if name not in self.defaults:
             return False
-        return self.set(name, self.defaults[name])
-        
+        return self.set(name, self.defaults[name][0])
+    
+    # get converted value
     @dbaccess
     def get(self, dbcon, _key):
         if isinstance(_key, str) == False:
@@ -505,11 +552,13 @@ class configmanager(object):
         
         # key can be in overlays but not in defaults
         if _key in self.overlays:
-            ret = self.overlays[_key]
+            ret = self.overlays[_key][0]
+            _converter = self.overlays[_key][1]
         else:
             if _key not in self.defaults:
                 logger().error("\"{}\" is no key".format(_key))
                 return None
+            _converter = self.defaults[_key][1]
             #if self.defaults[_key] is None:
             ret = self.defaults[_key]
             if dbcon is not None:
@@ -522,26 +571,35 @@ class configmanager(object):
         if ret is None:
             return ""
         elif ret in ["False", "false", False]:
-            return "False"
+            return False
         elif ret in ["True", "true", True]:
-            return "True"
+            return True
         else:
-            return str(ret)
+            return _converter(ret)
     
     def getb(self, name):
         temp = self.get(name)
-        if temp in [None, "", "False"]:
+        if temp in [None, "-1", -1, "", False]:
             return False
         return True
     
-    def get_default(self,name):
+    def get_default(self, name):
         if name in self.defaults:
             if self.defaults[name] is None:
                 return ""
             else:
-                return self.defaults[name]
+                return self.defaults[name][0]
         else:
             return None
+    
+    def get_meta(self, name):
+        if name in self.overlays:
+            return self.overlays[name][1:]
+        elif name in self.defaults:
+            return self.defaults[name][1:]
+        else:
+            return None
+    
     @dbaccess
     def list(self, dbcon, onlypermanent=False):
         ret = []
@@ -558,12 +616,17 @@ class configmanager(object):
                 for _key, _val in _in_db_list:
                     _in_db[_key] = _val
         
-        for _key, _defaultval in _listitems:
+        for elem in _listitems:
+            if len(elem) != 2 or len(elem[1]) != 3:
+                logger().error("invalid element {}".format(elem))
+                continue
+            _key, (_defaultval, _converter, _doc) = elem
             _val2 = _defaultval
             ispermanent = True
             # ignore overlayentries with entry None
             if _key in self.overlays: # and self.overlays[_key] is not None:
-                _val2 = self.overlays[_key]
+                _val2 = self.overlays[_key][0]
+                _converter, _doc = self.overlays[_key][1:]
                 ispermanent = False
             elif _key in _in_db:
                 _val2 = _in_db[_key]
@@ -579,9 +642,9 @@ class configmanager(object):
             if _key in ["state",] and _val2 in [None, "", "False"]:
                 _val2 = "False"
             if onlypermanent == True and ispermanent == True:
-                ret.append((_key, _val2, _defaultval, ispermanent))
+                ret.append((_key, _val2, str(_converter), _defaultval, _doc, ispermanent))
             elif onlypermanent == False:
-                ret.append((_key, _val2, _defaultval, ispermanent))
+                ret.append((_key, _val2, str(_converter), _defaultval, _doc, ispermanent))
         return ret
 
 def pluginressources_creater(_dict, requester):
@@ -676,7 +739,7 @@ class pluginmanager(object):
                 continue
             try:
                 # no changeable default
-                pload.defaults["state"] = False
+                pload.defaults["state"] = ("False", bool, "is plugin active")
             except Exception as e:
                 logger().error("Plugin \"{}\":\ndefaults is a dict?:\n{}".format(plugin[0],e))
                 continue
@@ -1072,6 +1135,14 @@ def check_typename(_type, maxlength = 15):
         return False
     return True
 
+
+def check_conftype(_value, _converter):
+    try:
+        _converter(str(_value))
+    except Exception as e:
+        logger().error("invalid value converter:{} value:{} error:{}".format(_converter, _value, e))
+        return False
+    return True
 
 def rw_socket(sockr, sockw):
     while True:
