@@ -769,19 +769,15 @@ class client_init(object):
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
             op=open(confm.get("cpwfile"),"r")
-            pw=op.readline()
-            if pw[-1] == "\n":
-                pw = pw[:-1]
+            pw = op.readline().strip().rstrip()
             self.links["auth"].init_realm("client", dhash(pw))
             op.close()
         
         if confm.getb("apwhash") == True:
             self.links["auth"].init_realm("admin", confm.get("apwhash"))
         elif confm.getb("apwfile") == True:
-            op=open("r")
-            pw=op.readline()
-            if pw[-1] == "\n":
-                pw = pw[:-1]
+            op = open(confm.get("apwfile"), "r")
+            pw = op.readline().strip().rstrip()
             self.links["auth"].init_realm("admin", dhash(pw))
             op.close()
             
@@ -789,9 +785,7 @@ class client_init(object):
             self.links["auth"].init_realm("server", confm.get("spwhash"))
         elif confm.getb("spwfile") == True:
             op = open(confm.get("spwfile"),"r")
-            pw = op.readline()
-            if pw[-1] == "\n":
-                pw = pw[:-1]
+            pw = op.readline().strip().rstrip()
             self.links["auth"].init_realm("server", confm.get(dhash(pw)))
             op.close()
         
@@ -879,7 +873,7 @@ if __name__ ==  "__main__":
     logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
     
-    pluginpathes=[os.path.join(sharedir, "plugins")]
+    pluginpathes = [os.path.join(sharedir, "plugins")]
     
     if len(sys.argv) > 1:
         tparam = ()

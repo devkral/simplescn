@@ -563,14 +563,14 @@ class configmanager(object):
                 logger().error("\"{}\" is no key".format(_key))
                 return None
             _converter = self.defaults[_key][1]
-            #if self.defaults[_key] is None:
-            ret = self.defaults[_key]
+            ret = self.defaults[_key][0]
             if dbcon is not None:
                 cur = dbcon.cursor()
                 cur.execute('''SELECT val FROM main WHERE name=?;''', (_key,))
                 temp = cur.fetchone()
-                if ret is not None:
+                if temp is not None and temp[0] is not None:
                     ret = temp[0]
+                    
         
         if ret is None:
             return ""
@@ -637,11 +637,14 @@ class configmanager(object):
                 ispermanent = True
             if _val2 is None:
                 _val2 = ""
-            elif _val2 in ["False", "false", False]:
+            
+            if _val2 in ["False", "false", False]:
                 _val2 = "False"
             elif _val2 in ["True", "true", True]:
                 _val2 = "True"
             else:
+                if _converter is bool:
+                    _val2 = bool(_val2)
                 _val2 = str(_val2)
             if _key in ["state",] and _val2 in [None, "", "False"]:
                 _val2 = "False"
