@@ -768,7 +768,7 @@ class client_init(object):
             # ensure that password is set when allowing remote
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
-            op=open(confm.get("cpwfile"),"r")
+            op=open(confm.get("cpwfile"), "r")
             pw = op.readline().strip().rstrip()
             self.links["auth"].init_realm("client", dhash(pw))
             op.close()
@@ -784,7 +784,7 @@ class client_init(object):
         if confm.getb("spwhash") == True:
             self.links["auth"].init_realm("server", confm.get("spwhash"))
         elif confm.getb("spwfile") == True:
-            op = open(confm.get("spwfile"),"r")
+            op = open(confm.get("spwfile"), "r")
             pw = op.readline().strip().rstrip()
             self.links["auth"].init_realm("server", confm.get(dhash(pw)))
             op.close()
