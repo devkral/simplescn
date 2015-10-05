@@ -51,10 +51,14 @@ gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"option
 gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
 
 
-# uncomment for being accessable by internet
-# client:
+
+### uncomment for being accessable by internet
+### client:
 # def receive(action, _socket, certhash):
 #     pass
-# server:
+## executed when redirected, return False, when redirect should not be executed
+# def rreceive(action, _socket, certhash):
+#     pass
+### server:
 # def sreceive(action, _socket, certhash):
 #     pass

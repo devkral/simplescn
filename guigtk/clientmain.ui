@@ -351,7 +351,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Manage _services</property>
                         <property name="use_underline">True</property>
-                        <signal name="activate" handler="manageservices" swapped="no"/>
+                        <signal name="activate" handler="open_servicemanage" swapped="no"/>
                       </object>
                     </child>
                     <child>

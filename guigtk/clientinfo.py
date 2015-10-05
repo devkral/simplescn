@@ -58,7 +58,7 @@ class gtkclient_info(gtkclient_template):
             
     
     def col_entry(self,key,val):
-        grid=Gtk.Grid()
+        grid = Gtk.Grid()
         grid.set_visible(True)
         grid.set_column_spacing(3)
         label1=Gtk.Label(key)

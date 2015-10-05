@@ -678,25 +678,41 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
                 return
             plugin, action = split2
-            # not supported yet
-            if pluginm.redirect_addr not in ["", None]:
-                sockd = self.links["client"].do_request(pluginm.redirect_addr, \
-                                        self.path, headers={"X-client_cert": self.client_cert})
-                redout = threading.Thread(target=rw_socket, args=(self.connection, sockd))
-                redout.daemon=True
-                redout.run()
-                rw_socket(sockd, self.connection)
-                return
             
-            if plugin not in pluginm.plugins or "receive" not in pluginm.plugins[plugin].__dict__:
-                self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(sub))
+            if plugin not in pluginm.plugins:
+                self.send_error(404, "plugin not available", "Plugin with name {} does not exist".format(sub))
                 return
-            try:
-                pluginm.plugins[plugin].receive(action, self.connection, self.client_cert)
-            except Exception as e:
-                logger().error(e)
-                self.send_error(500, "plugin error", str(e))
-                return
+
+            
+            # gui receive
+            if hasattr(pluginm.plugins[plugin], "receive") == True:
+                # not supported yet
+                if pluginm.redirect_addr not in ["", None]:
+                    if hasattr(pluginm.plugins[plugin], "rreceive") == True:
+                        try:
+                            ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert)
+                        except Exception as e:
+                            logger().error(e)
+                            self.send_error(500, "plugin error", str(e))
+                            ret = False
+                    else:
+                        ret = True
+                    if ret == False:
+                        return
+                    sockd = self.links["client"].do_request(pluginm.redirect_addr, \
+                                        self.path, headers={"X-client_cert": self.client_cert})
+                    redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
+                    redout.run()
+                    rw_socket(sockd, self.connection)
+                    return
+                else:
+                    try:
+                        pluginm.plugins[plugin].receive(action, self.connection, self.client_cert)
+                    except Exception as e:
+                        logger().error(e)
+                        self.send_error(500, "plugin error", str(e))
+                        return
+            
         elif resource == "server":
             self.handle_server(sub)
         elif resource == "client":

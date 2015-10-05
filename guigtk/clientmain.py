@@ -10,11 +10,11 @@ import logging
 import time, threading
 
 from gi.repository import Gtk,Gdk #,Pango
-from guigtk.clientinfo import gtkclient_info
+#from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node
-from guigtk.clientserver import gtkclient_server
-from guigtk.clientservice import gtkclient_remoteservice
-from guigtk.clientmain_sub import services_stuff, cmd_stuff, debug_stuff, configuration_stuff
+#from guigtk.clientserver import gtkclient_server
+#from guigtk.clientservice import gtkclient_remoteservice
+from guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
 from guigtk.clientmain_managehash import hashmanagement
 
 from common import check_certs,default_sslcont, sharedir, init_config_folder, generate_certs, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
@@ -30,7 +30,7 @@ run=True
 implementedrefs=["surl", "url", "name"]
 #,"sname"
 
-class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement):
+class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement):
     links=None
 
     curnode=None
@@ -89,7 +89,6 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
         
         debug_stuff.__init__(self)
         configuration_stuff.__init__(self)
-        services_stuff.__init__(self)
         cmd_stuff.__init__(self)
         hashmanagement.__init__(self)
         
@@ -347,7 +346,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
                 name="Own server"
             else:
                 name=askinfo["localname"]
-            gtkclient_info(self.links,"{}:{}".format(*scnparse_url(serverurl)), name, forcehash=askinfo["hash"])
+            gtkclient_node(self.links,"{}:{}".format(*scnparse_url(serverurl)), name, forcehash=askinfo["hash"],switchfrominfo=False)
 
     
     def retrieve_server(self,*args):
@@ -361,7 +360,7 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
             name = "Own server"
         else:
             name = askinfo["localname"]
-        gtkclient_server(self.links,"{}:{}".format(*scnparse_url(serverurl)), name, forcehash=askinfo["hash"])
+        gtkclient_node(self.links,"{}:{}".format(*scnparse_url(serverurl)), name, forcehash=askinfo["hash"], switchfrominfo=True)
         
     
     #### node actions ####
@@ -472,19 +471,24 @@ class gtkclient_main(logging.Handler,Gtk.Application,services_stuff, configurati
     
     def opennode(self,*args):
         if self.curnode is not None:
-            gtkclient_node(self.links,self.curnode[1],self.curnode[0], forcehash=self.curnode[3])
+            gtkclient_node(self.links,self.curnode[1], self.curnode[0], forcehash=self.curnode[3], switchfrominfo=True)
     
     def opennode_self(self,*args):
         ret=self.do_requestdo("show")
         if ret[0] == True:
-            gtkclient_node(self.links,"localhost:{}".format(ret[1]["port"]),isself, forcehash=ret[1]["hash"])
+            gtkclient_node(self.links,"localhost:{}".format(ret[1]["port"]), isself, forcehash=ret[1]["hash"], switchfrominfo=False)
     
+    
+    def open_servicemanage(self,*args):
+        ret=self.do_requestdo("show")
+        if ret[0] == True:
+            gtkclient_node(self.links,"localhost:{}".format(ret[1]["port"]), isself, forcehash=ret[1]["hash"], switchfrominfo=True)
     
         
     def infonode(self,*args):
         #serverurl=self.builder.get_object("servercomboentry").get_text()
         if self.curnode is not None:
-            gtkclient_info(self.links,"{}:{}".format(*scnparse_url(self.curnode[1])),self.curnode[0], forcehash=self.curnode[3])
+            gtkclient_node(self.links,"{}:{}".format(*scnparse_url(self.curnode[1])), self.curnode[0], forcehash=self.curnode[3], switchfrominfo=False)
             
     def activate_recent(self,*args):
         view=self.builder.get_object("recentstore")
