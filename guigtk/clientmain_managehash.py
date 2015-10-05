@@ -4,9 +4,7 @@ import logging
 from gi.repository import Gtk
 
 
-from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node
-from guigtk.clientserver import gtkclient_server
 
 
 class hashmanagement(object):
@@ -212,11 +210,11 @@ class hashmanagement(object):
                 pass
             elif action == 1:
                 if self.curlocal[0] == "server":
-                    gtkclient_server(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash)
+                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash, switchfrominfo=True)
                 else:
-                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash)
+                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash, switchfrominfo=True)
             elif action == 2:
-                gtkclient_info(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash)
+                gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash, switchfrominfo=False)
         else:
             logger().error(ret[1])
     
