@@ -35,20 +35,23 @@ class gtkclient_node(gtkclient_template):
         else:
             self.get_object("servicegetgrid").show()
             
-        g = Gtk.Grid()
-        g.attach(Gtk.Label("Hash: "), 0, 0, 1, 1)
-        _thash = Gtk.Label(_infoob[3])
-        width_chars = 40
-        _thash.set_line_wrap_mode(Pango.WrapMode.CHAR)
+        g = Gtk.Grid(row_spacing=3, column_spacing=3, margin=3)
+        g.attach(Gtk.Label("Hash: ", halign=Gtk.Align.END), 0, 0, 1, 1)
+        _thash = Gtk.Label(_infoob[3], halign=Gtk.Align.START, wrap_mode=Pango.WrapMode.CHAR, selectable=True, hexpand=True)
+        width_chars = 30
         _thash.set_max_width_chars(width_chars)
         _thash.set_width_chars(width_chars)
         _thash.set_line_wrap(True)
         _thash.set_lines(-1)
         g.attach(_thash, 1, 0, 1, 1)
-        g.attach(Gtk.Label("Type: "), 0, 1, 1, 1)
-        g.attach(Gtk.Label(_infoob[1]["type"]), 1, 1, 1, 1)
+        
+        g2 = Gtk.Grid(row_spacing=3, column_spacing=3)
+        g.attach(g2, 0, 1, 2, 1)
+        g2.attach(Gtk.Label("Type: ", halign=Gtk.Align.END, valign=Gtk.Align.START), 0, 0, 1, 1)
+        g2.attach(Gtk.Label(_infoob[1]["type"], halign=Gtk.Align.START, valign=Gtk.Align.START, selectable=True), 1, 0, 1, 1)
         t = Gtk.TextBuffer()
-        g.attach(Gtk.TextView(buffer=t), 2, 1, 1, 1)
+        tw = Gtk.TextView(buffer=t, editable=False,vexpand=True, hexpand=True)
+        g2.attach(Gtk.Frame(label="Message:", child=tw, vexpand=True, hexpand=True), 2, 0, 1, 1)
         t.set_text(_infoob[1]["message"],-1)
         
         return g
@@ -67,7 +70,7 @@ class gtkclient_node(gtkclient_template):
                 namestore.append(("remote",name,_hash,"{}/{}".format(name,_hash)))
             elif _localname is isself:
                 self.isregistered=True
-                namestore.append(("self",name,_hash,"{}/{}".format(name,_hash)))
+                namestore.append(("This Client",name,_hash,"{}/{}".format(name,_hash)))
             else:
                 namestore.append(("local","{} ({})".format(name, _localname),_hash,"{}/{}".format(name,_hash)))
         if self.isregistered==False:
@@ -82,13 +85,13 @@ class gtkclient_node(gtkclient_template):
         self.sfilter = self.get_object("snodefilter")
         view = self.get_object("servernodeview")
         col0renderer = Gtk.CellRendererText()
-        col0 = Gtk.TreeViewColumn("state", col0renderer, text=0)
+        col0 = Gtk.TreeViewColumn("State", col0renderer, text=0)
         view.append_column(col0)
         col1renderer=Gtk.CellRendererText()
         col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
         view.append_column(col1)
         col2renderer=Gtk.CellRendererText()
-        col2 = Gtk.TreeViewColumn("Hash", col2renderer, text=2)
+        col2 = Gtk.TreeViewColumn("Hash", col2renderer, text=2) #, wrap_mode=Pango.WrapMode.CHAR,max_width_chars=20)
         view.append_column(col2)
         self.update_server()
         return sgrid
@@ -312,7 +315,7 @@ class gtkclient_node(gtkclient_template):
                 logger().error(res[1])
                 return
             self.isregistered=True
-            namestore.prepend(("self", res_show[1]["name"], res_show[1]["hash"], "{}/{}".format(res_show[1]["name"], res_show[1]["hash"])))
+            namestore.prepend(("This Client", res_show[1]["name"], res_show[1]["hash"], "{}/{}".format(res_show[1]["name"], res_show[1]["hash"])))
             registerb.set_label("Update Address")
 
 
