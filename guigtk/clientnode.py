@@ -222,7 +222,6 @@ class gtkclient_node(gtkclient_template):
         if port == "" or port.isdecimal() == False:
             logger().debug("port invalid")
             return
-        print("\""+port+"\"")
         ret = self.do_requestdo("registerservice", name=service, port=port)
         if ret[0] == False:
             logger().debug(ret[1])
@@ -259,7 +258,7 @@ class gtkclient_node(gtkclient_template):
         
         
 # server extras
-    def action_snode(self, action):
+    def action_snode(self, justselect):
         _entry = self.get_object("servernodeentry")
         val = _entry.get_text()
         if val == "" or val.find("/") == -1:
@@ -270,18 +269,15 @@ class gtkclient_node(gtkclient_template):
             logger().error(_node[1])
             return
         self.links["gtkclient"].set_curnode("{}:{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.address)
-        #TODO: enum
-        if action == 0:
-            pass
-        elif action == 1:
+        if justselect == False:
             gtkclient_node(self.links, "{}:{}".format(_node[1]["address"],_node[1]["port"]), _name, **self.resdict)
         self.close()
         
     def get_snode(self,*args):
-        self.action_snode(1)
+        self.action_snode(True)
         
     def select_snode(self,*args):
-        self.action_snode(0)
+        self.action_snode(False)
         
     def snode_activate(self,*args):
         view=self.get_object("servernodeview")
@@ -290,7 +286,7 @@ class gtkclient_node(gtkclient_template):
         if _sel[1] is None:
             return
         _entry.set_text(_sel[0][_sel[1]][0])
-        self.snode_get()
+        self.snode_get(True)
         
         
     
