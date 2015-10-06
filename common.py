@@ -80,8 +80,8 @@ server_port = 4040
 
 ## hash algorithms ##
 algorithms_strong = ['sha512', 'sha384', 'sha256', 'whirlpool']
-DEFAULT_HASHALGORITHM = "sha512"
-DEFAULT_HASHALGORITHM_len = 128
+DEFAULT_HASHALGORITHM = "sha256"
+DEFAULT_HASHALGORITHM_len = 64
 
 cert_sign_hash = hashes.SHA512()
 

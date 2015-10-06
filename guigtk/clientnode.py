@@ -9,6 +9,8 @@ from common import sharedir,isself, logger
 
 
 class gtkclient_node(gtkclient_template):
+    isregistered = False
+    sfilter = None
     def __init__(self, links, _address, switchfrominfo=False, **obdict):
         gtkclient_template.__init__(self, links, _address, **obdict)
         if self.init2(os.path.join(sharedir, "guigtk", "clientnode.ui"))==False:
@@ -16,6 +18,14 @@ class gtkclient_node(gtkclient_template):
         self.win = self.get_object("nodewin")
         self.win.connect('delete-event', self.close)
         self.init_nodebook(switchfrominfo)
+    
+    def visible_func (self,_model,_iter,_data):
+        _entry = self.get_object("servernodeentry")
+        _val = _entry.get_text()
+        if _val == _model[_iter][3][:len(_val)]:
+            return True
+        else:
+            return False
     
     def create_info_slate(self, _infoob=None):
         #self.col.foreach(clearme)
@@ -51,8 +61,8 @@ class gtkclient_node(gtkclient_template):
     def update_server(self,*args):
         namestore=self.get_object("servernodelist")
         registerb=self.get_object("registerbutton")
-        self.isregistered=False
-        namestore.clear()
+        self.isregistered = False
+        namestore.clear() 
         _names=self.do_requestdo("listnames",server=self.address)
         if _names[0]==False:
             logger().error(_names[1])
@@ -61,20 +71,21 @@ class gtkclient_node(gtkclient_template):
             if _localname is None:
                 namestore.append(("remote",name,_hash,"{}/{}".format(name,_hash)))
             elif _localname is isself:
-                self.isregistered=True
+                self.isregistered = True
                 namestore.append(("This Client",name,_hash,"{}/{}".format(name,_hash)))
             else:
                 namestore.append(("local","{} ({})".format(name, _localname),_hash,"{}/{}".format(name,_hash)))
-        if self.isregistered==False:
+        if self.isregistered == False:
             registerb.set_label("Register")
         else:
             registerb.set_label("Update Address")
     
     def create_server_slate(self):
         #self.add_objects_from_file(_file, ["servermaingrid"])
-        sgrid = self.get_object("servermaingrid")
         self.get_object("registerbutton").show()
+        sgrid = self.get_object("servermaingrid")
         self.sfilter = self.get_object("snodefilter")
+        self.sfilter.set_visible_func(self.visible_func)
         view = self.get_object("servernodeview")
         col0renderer = Gtk.CellRendererText()
         col0 = Gtk.TreeViewColumn("State", col0renderer, text=0)
@@ -109,7 +120,6 @@ class gtkclient_node(gtkclient_template):
         servicecol2 = Gtk.TreeViewColumn("Port", Gtk.CellRendererText(), text=1)
         serviceview.append_column(servicecol2)
         self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        self.connect_signals(self)
         self.win.connect('delete-event',self.close)
         self.update_services()
         return sgrid
@@ -125,6 +135,10 @@ class gtkclient_node(gtkclient_template):
         if name == isself:
             self.win.set_title("This client")
             veristate.set_text("This client")
+        elif name is None:
+            self.win.set_title("Unknown Node: {}".format(infoob[3][:20]+"..."))
+            veristate.set_text("Unknown Node: {}".format(infoob[3][:20]+"..."))
+            
         else:
             self.win.set_title("Node: {}".format(name))
             veristate.set_text("Node: {}".format(name))
@@ -149,10 +163,12 @@ class gtkclient_node(gtkclient_template):
         else:
             logger().warning("Category not exist")
             noteb.show_all()
+            self.connect_signals(self)
             return
         
         noteb.append_page(_tmp, _tmplabel)
         noteb.set_tab_detachable(_tmp, False)
+        self.connect_signals(self)
         
         for name, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
             if hasattr(plugin, cat) == True:
@@ -165,6 +181,7 @@ class gtkclient_node(gtkclient_template):
                     logger().error(e)
         
         noteb.show_all()
+        self.connect_signals(self)
         if switchfrominfo:
             noteb.set_current_page(1)
         else:
@@ -265,7 +282,7 @@ class gtkclient_node(gtkclient_template):
             return
         _name,_hash=_entry.get_text().split("/",1)
         _node = self.do_requestdo("get", server=self.address, name=_name, hash=_hash)
-        if _node[0]==False:
+        if _node[0] == False:
             logger().error(_node[1])
             return
         self.links["gtkclient"].set_curnode("{}:{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.address)
@@ -280,14 +297,13 @@ class gtkclient_node(gtkclient_template):
         self.action_snode(False)
         
     def snode_activate(self,*args):
-        view=self.get_object("servernodeview")
-        _entry=self.get_object("servernodeentry")
-        _sel=view.get_selection().get_selected()
+        view = self.get_object("servernodeview")
+        _entry = self.get_object("servernodeentry")
+        _sel = view.get_selection().get_selected()
         if _sel[1] is None:
             return
-        _entry.set_text(_sel[0][_sel[1]][0])
-        self.snode_get(True)
-        
+        _entry.set_text(_sel[0][_sel[1]][3])
+        self.get_snode(True)
         
     
     def snode_row_select(self,*args):
@@ -305,13 +321,13 @@ class gtkclient_node(gtkclient_template):
     def register_ownnode(self,*args):
         registerb = self.get_object("registerbutton")
         namestore = self.get_object("servernodelist")
-        res = self.do_requestdo("register",server=self.address)
+        res = self.do_requestdo("register", server=self.address)
         if res[0] == False:
             logger().error(res[1])
             return
         if self.isregistered==False:
-            res_show=self.do_requestdo("show")
-            if res_show==False:
+            res_show = self.do_requestdo("show")
+            if res_show == False:
                 logger().error(res[1])
                 return
             self.isregistered=True
