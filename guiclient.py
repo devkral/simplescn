@@ -52,9 +52,9 @@ if __name__ == "__main__":
     logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
     dclargs = client.default_client_args.copy()
-    #del dclargs["cmd"]
+    del dclargs["cmd"]
     #clargs = client.client_args.copy()
-    #del clargs["cmd"]
+    #del client_args["cmd"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
 
     if len(sys.argv) > 1:
