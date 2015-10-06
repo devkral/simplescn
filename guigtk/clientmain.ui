@@ -272,7 +272,7 @@
                   <object class="GtkEntry" id="servercomboentry">
                     <property name="can_focus">True</property>
                     <property name="hexpand">True</property>
-                    <signal name="activate" handler="retrieve_server" swapped="no"/>
+                    <signal name="activate" handler="open_server" swapped="no"/>
                     <signal name="focus-out-event" handler="veristate_server" swapped="no"/>
                   </object>
                 </child>
@@ -288,7 +288,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <signal name="clicked" handler="retrieve_server" swapped="no"/>
+                <signal name="clicked" handler="open_server" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">3</property>
@@ -343,15 +343,6 @@
                         <property name="label" translatable="yes">Use Client...</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="clientme" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="manageservices">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Manage _services</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="open_servicemanage" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -442,16 +433,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Open server</property>
                         <property name="use_underline">True</property>
-                        <signal name="activate" handler="retrieve_server" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="infoserver">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Info server</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="server_info" swapped="no"/>
+                        <signal name="activate" handler="open_server" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -502,30 +484,12 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkMenuItem" id="infonode">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Info node</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="infonode" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
                       <object class="GtkMenuItem" id="opennode">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Open node</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="opennode" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="listservices">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Services</property>
-                        <property name="use_underline">True</property>
-                        <signal name="activate" handler="listservices" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -1791,7 +1755,7 @@ Entity</property>
             <property name="halign">start</property>
             <property name="valign">center</property>
             <property name="orientation">vertical</property>
-            <property name="row_spacing">5</property>
+            <property name="row_spacing">3</property>
             <child>
               <object class="GtkButton" id="selectnodebut">
                 <property name="label" translatable="yes">Select</property>
@@ -1808,7 +1772,7 @@ Entity</property>
             </child>
             <child>
               <object class="GtkButton" id="getnodebut">
-                <property name="label" translatable="yes">Get</property>
+                <property name="label" translatable="yes">Open</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -1818,20 +1782,6 @@ Entity</property>
               <packing>
                 <property name="left_attach">0</property>
                 <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="infonodebut">
-                <property name="label" translatable="yes">Info</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="valign">center</property>
-                <signal name="clicked" handler="info_node" swapped="no"/>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">2</property>
               </packing>
             </child>
           </object>

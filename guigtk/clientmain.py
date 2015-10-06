@@ -335,21 +335,8 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             opennodeb.set_sensitive(True)
             self.curnode=(_ask[1]["localname"],_clientaddress,_name,_hash,_serveraddress)
 
-        
-    def server_info(self,*args):
-        serverurl=self.builder.get_object("servercomboentry").get_text()
-        askinfo=self._verifyserver(serverurl)
-        if askinfo is not None:
-            if askinfo["localname"] is None:
-                name=serverurl[:20]
-            elif askinfo["localname"] == isself:
-                name="Own server"
-            else:
-                name=askinfo["localname"]
-            gtkclient_node(self.links, "{}:{}".format(*scnparse_url(serverurl)), forcehash=askinfo["hash"],switchfrominfo=False)
-
     
-    def retrieve_server(self,*args):
+    def open_server(self,*args):
         serverurl = self.builder.get_object("servercomboentry").get_text()
         askinfo = self._verifyserver(serverurl)
         if askinfo is None:
@@ -479,17 +466,6 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             gtkclient_node(self.links, "localhost:{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], switchfrominfo=False)
     
     
-    def open_servicemanage(self,*args):
-        ret=self.do_requestdo("show")
-        if ret[0] == True:
-            gtkclient_node(self.links, "localhost:{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], switchfrominfo=True)
-    
-        
-    def infonode(self,*args):
-        #serverurl=self.builder.get_object("servercomboentry").get_text()
-        if self.curnode is not None:
-            gtkclient_node(self.links, "{}:{}".format(*scnparse_url(self.curnode[1])), forcehash=self.curnode[3], switchfrominfo=False)
-            
     def activate_recent(self,*args):
         view=self.builder.get_object("recentstore")
         _sel=view.get_selection().get_selected()
@@ -499,13 +475,6 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         _name=_sel[0][_sel[1]][2]
         _hash=_sel[0][_sel[1]][3]
         self.set_curnode(_address,_name,_hash, None)
-        
-    
-    
-    def listservices(self,*args):
-        if self.curnode is not None:
-            gtkclient_remoteservice(self.links,"{}:{}".format(*scnparse_url(self.curnode[1])), self.curnode[0], forcehash=self.curnode[3])
-    
     
     
     #### server actions ####

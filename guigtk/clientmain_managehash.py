@@ -144,7 +144,7 @@ class hashmanagement(object):
             reflist.append((elem[0],elem[1]))
     
     # update node type then open node 
-    def action__node(self, action):
+    def action__node(self, justselect):
         servercombo = self.builder.get_object("servercomboentry")
         rview = self.builder.get_object("refview")
         _selr=rview.get_selection().get_selected()
@@ -205,28 +205,19 @@ class hashmanagement(object):
                 self.veristate_server()
             else:
                 self.set_curnode(_url, self.curlocal[1], _hash, serverurl)
-            # TODO: use enum
-            if action == 0:
+            if justselect == True:
                 pass
-            elif action == 1:
-                if self.curlocal[0] == "server":
-                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, switchfrominfo=True)
-                else:
-                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, switchfrominfo=True)
-            elif action == 2:
-                gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, switchfrominfo=False)
+            else:
+                gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, switchfrominfo=True)
         else:
             logger().error(ret[1])
     
     def select_node(self, action):
-        self.action__node(0)
+        self.action__node(True)
         
     def get_node(self, action):
-        self.action__node(1)
+        self.action__node(False)
     
-    def info_node(self, action):
-        self.action__node(1)
-        
     def close_managehashdia(self,*args):
         self.managehashdia.hide()
         return True
