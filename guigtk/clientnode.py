@@ -9,18 +9,11 @@ from common import sharedir,isself, logger
 
 
 class gtkclient_node(gtkclient_template):
-    def __init__(self, links, _address, name="", switchfrominfo=False, **obdict):
+    def __init__(self, links, _address, switchfrominfo=False, **obdict):
         gtkclient_template.__init__(self, links, _address, **obdict)
         if self.init2(os.path.join(sharedir, "guigtk", "clientnode.ui"))==False:
             return
         self.win = self.get_object("nodewin")
-        veristate = self.get_object("veristate")
-        if name == isself:
-            self.win.set_title("This client")
-            veristate.set_text("This client")
-        else:
-            self.win.set_title("Node: {}".format(name))
-            veristate.set_text("Node: {}".format(name))
         self.win.connect('delete-event', self.close)
         self.init_nodebook(switchfrominfo)
     
@@ -37,10 +30,9 @@ class gtkclient_node(gtkclient_template):
             
         g = Gtk.Grid(row_spacing=3, column_spacing=3, margin=3)
         g.attach(Gtk.Label("Hash: ", halign=Gtk.Align.END), 0, 0, 1, 1)
-        _thash = Gtk.Label(_infoob[3], halign=Gtk.Align.START, wrap_mode=Pango.WrapMode.CHAR, selectable=True, hexpand=True)
         width_chars = 30
-        _thash.set_max_width_chars(width_chars)
-        _thash.set_width_chars(width_chars)
+        _thash = Gtk.Label(_infoob[3], halign=Gtk.Align.START, wrap_mode=Pango.WrapMode.CHAR, selectable=True, hexpand=True, \
+        width_chars=width_chars, max_width_chars=width_chars)
         _thash.set_line_wrap(True)
         _thash.set_lines(-1)
         g.attach(_thash, 1, 0, 1, 1)
@@ -128,7 +120,15 @@ class gtkclient_node(gtkclient_template):
         infoob = self.do_requestdo("info", address=self.address)
         if infoob[0] == False:
             return
-        
+        name = infoob[2]
+        veristate = self.get_object("veristate")
+        if name == isself:
+            self.win.set_title("This client")
+            veristate.set_text("This client")
+        else:
+            self.win.set_title("Node: {}".format(name))
+            veristate.set_text("Node: {}".format(name))
+            
         _tmp = self.create_info_slate(infoob)
         noteb.append_page(_tmp, Gtk.Label("Info"))
         noteb.set_tab_detachable(_tmp, False)
@@ -156,9 +156,13 @@ class gtkclient_node(gtkclient_template):
         
         for name, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
             if hasattr(plugin, cat) == True:
-                _tmp = plugin.gtk_node_iface
-                noteb.append_page(_tmp, Gtk.Label(name))
-                noteb.set_tab_detachable(_tmp, False)
+                try:
+                    _tmp = getattr(plugin, cat)("gtk", infoob[2], infoob[3], self.address)
+                    if _tmp is not None:
+                        noteb.append_page(_tmp, Gtk.Label(name))
+                        noteb.set_tab_detachable(_tmp, False)
+                except Exception as e:
+                    logger().error(e)
         
         noteb.show_all()
         if switchfrominfo:

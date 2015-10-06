@@ -210,11 +210,11 @@ class hashmanagement(object):
                 pass
             elif action == 1:
                 if self.curlocal[0] == "server":
-                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash, switchfrominfo=True)
+                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, switchfrominfo=True)
                 else:
-                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash, switchfrominfo=True)
+                    gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, switchfrominfo=True)
             elif action == 2:
-                gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), self.curlocal[1], forcehash=_hash, switchfrominfo=False)
+                gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, switchfrominfo=False)
         else:
             logger().error(ret[1])
     

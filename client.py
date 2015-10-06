@@ -189,17 +189,22 @@ class client_client(client_admin, client_safe, client_config):
             else:
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
     
-    def use_plugin(self, address, plugin, paction, clientforcehash=None, forceport=False, requester=None):
-        _addr = scnparse_url(_addr_or_con, force_port=forceport, context=self.context)
-        con = client.HTTPSConnection(_addr[0], _addr[1])
-        con.putrequest("POST", "/plugin/{}".format(plugin))
+    def use_plugin(self, address, plugin, paction, forcehash=None, forceport=False, requester=None):
+        _addr = scnparse_url(address, force_port=forceport)
+        con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
+        con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
         con.putheader("X-certrewrap", self.cert_hash)
         con.endheaders()
         sock = con.sock
         con.sock = None
+        cert = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True))
+        _hash = dhash(cert)
+        if _hash != forcehash:
+            sock.close()
+            return None, cert, _hash
         sock = sock.unwrap()
         sock = self.sslcont.wrap_socket(sock, server_side=True)
-        return sock
+        return sock, cert, _hash
         
     @check_argsdeco({"plugin": (str, "name of plugin"), "paction": (str, "action of plugin")})
     def cmd_plugin(self, obdict):
@@ -629,6 +634,15 @@ class client_handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(self.statics[_path[1]])
                 return
+        # for e.g. GET stuck jabber server
+        #elif  _path[0]=="service" and len(_path)==2:
+        #    ret = self.links["client_server"].get(_path[1])
+        #    if ret[0]:
+        #        self.send_response(307)
+        #        self.end_headers()
+                #self.wfile.write(self.statics[_path[1]])
+        #        return
+        
         elif len(_path)==2:
             self.handle_server(_path[0])
             return
@@ -690,7 +704,7 @@ class client_handler(BaseHTTPRequestHandler):
                 if pluginm.redirect_addr not in ["", None]:
                     if hasattr(pluginm.plugins[plugin], "rreceive") == True:
                         try:
-                            ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert)
+                            ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
                         except Exception as e:
                             logger().error(e)
                             self.send_error(500, "plugin error", str(e))
@@ -707,7 +721,7 @@ class client_handler(BaseHTTPRequestHandler):
                     return
                 else:
                     try:
-                        pluginm.plugins[plugin].receive(action, self.connection, self.client_cert)
+                        pluginm.plugins[plugin].receive(action, self.connection, self.client_cert, dhash(self.client_cert))
                     except Exception as e:
                         logger().error(e)
                         self.send_error(500, "plugin error", str(e))

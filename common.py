@@ -655,13 +655,16 @@ class configmanager(object):
         return ret
 
 def pluginressources_creater(_dict, requester):
-    def wrap(res,*args, **kwargs):
+    def wrap(res):
         ob = _dict.get(res)
         if ob is None:
+            logger().error("Resource: {} not available".format(res))
             return None
-        elif callable(ob):
-            kwargs["requester"] = requester
-            return ob(*args,**kwargs)
+        elif callable(ob) == True:
+            def wrap2(*args, **kwargs):
+                kwargs["requester"] = requester
+                return ob(*args,**kwargs)
+            return wrap2
         #elif hasattr(ob, "shared_with") and 
         else:
             return ob.copy()
@@ -1145,7 +1148,11 @@ def check_typename(_type, maxlength = 15):
 
 def check_conftype(_value, _converter):
     try:
-        _converter(str(_value))
+        if _converter is bool:
+            if str(_value) not in ["False", "True"]:
+                return False
+        else:
+            _converter(str(_value))
     except Exception as e:
         logger().error("invalid value converter:{} value:{} error:{}".format(_converter, _value, e))
         return False

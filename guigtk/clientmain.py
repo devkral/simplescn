@@ -346,7 +346,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
                 name="Own server"
             else:
                 name=askinfo["localname"]
-            gtkclient_node(self.links,"{}:{}".format(*scnparse_url(serverurl)), name, forcehash=askinfo["hash"],switchfrominfo=False)
+            gtkclient_node(self.links, "{}:{}".format(*scnparse_url(serverurl)), forcehash=askinfo["hash"],switchfrominfo=False)
 
     
     def retrieve_server(self,*args):
@@ -360,7 +360,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             name = "Own server"
         else:
             name = askinfo["localname"]
-        gtkclient_node(self.links,"{}:{}".format(*scnparse_url(serverurl)), name, forcehash=askinfo["hash"], switchfrominfo=True)
+        gtkclient_node(self.links, "{}:{}".format(*scnparse_url(serverurl)), forcehash=askinfo["hash"], switchfrominfo=True)
         
     
     #### node actions ####
@@ -464,31 +464,31 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             logger().info("address wrong")
             return
         ret=self.do_requestdo("info",hash=_hash)
-        if logger().check(ret,logging.ERROR)==False:
+        if logger().check(ret, logging.ERROR)==False:
             return
-        self.set_curnode(_address,ret[1]["hash"],_hash, None)
+        self.set_curnode(_address, ret[1]["hash"], _hash, None)
         self.close_enternodedia()
     
     def opennode(self,*args):
         if self.curnode is not None:
-            gtkclient_node(self.links,self.curnode[1], self.curnode[0], forcehash=self.curnode[3], switchfrominfo=True)
+            gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], switchfrominfo=True)
     
     def opennode_self(self,*args):
         ret=self.do_requestdo("show")
         if ret[0] == True:
-            gtkclient_node(self.links,"localhost:{}".format(ret[1]["port"]), isself, forcehash=ret[1]["hash"], switchfrominfo=False)
+            gtkclient_node(self.links, "localhost:{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], switchfrominfo=False)
     
     
     def open_servicemanage(self,*args):
         ret=self.do_requestdo("show")
         if ret[0] == True:
-            gtkclient_node(self.links,"localhost:{}".format(ret[1]["port"]), isself, forcehash=ret[1]["hash"], switchfrominfo=True)
+            gtkclient_node(self.links, "localhost:{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], switchfrominfo=True)
     
         
     def infonode(self,*args):
         #serverurl=self.builder.get_object("servercomboentry").get_text()
         if self.curnode is not None:
-            gtkclient_node(self.links,"{}:{}".format(*scnparse_url(self.curnode[1])), self.curnode[0], forcehash=self.curnode[3], switchfrominfo=False)
+            gtkclient_node(self.links, "{}:{}".format(*scnparse_url(self.curnode[1])), forcehash=self.curnode[3], switchfrominfo=False)
             
     def activate_recent(self,*args):
         view=self.builder.get_object("recentstore")

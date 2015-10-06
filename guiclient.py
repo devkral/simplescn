@@ -108,6 +108,7 @@ if __name__ == "__main__":
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
         pluginm.resources["access"] = cm.links["client"].access_safe
+        pluginm.resources["plugin"] = cm.links["client"].use_plugin
         pluginm.init_plugins()
     do_gtkiteration()
     #del cm

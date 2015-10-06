@@ -361,7 +361,7 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
             try:
-                pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert)
+                pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
             except Exception as e:
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))

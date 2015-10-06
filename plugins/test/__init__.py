@@ -51,14 +51,22 @@ gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"option
 gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
 
 
+#def gui_server_iface(gui, _name, _hash, _address):
+#    pass
+#    return widget
+
+#def gui_node_iface(gui, _name, _hash, _address):
+#    pass
+#    return widget
+
 
 ### uncomment for being accessable by internet
 ### client:
-# def receive(action, _socket, certhash):
+# def receive(action, _socket, _cert, certhash):
 #     pass
 ## executed when redirected, return False, when redirect should not be executed
-# def rreceive(action, _socket, certhash):
+# def rreceive(action, _socket, _cert, certhash):
 #     pass
 ### server:
-# def sreceive(action, _socket, certhash):
+# def sreceive(action, _socket, _cert, certhash):
 #     pass
