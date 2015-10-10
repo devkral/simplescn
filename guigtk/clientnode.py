@@ -213,7 +213,8 @@ class gtkclient_node(gtkclient_template):
             logger().warning("Category not exist")
             cat = "gui_node_actions"
         actionmenub = self.get_object("nodeactionbutton")
-        issensibleset = False
+        issensitiveset = False
+        actionmenub.set_sensitive(False)
         for plugin in self.links["client_server"].pluginmanager.plugins.values():
             if hasattr(plugin, cat):
                 try:
@@ -232,9 +233,9 @@ class gtkclient_node(gtkclient_template):
                         item.show()
                         item.connect('activate', activate_shielded(action["action"], self.address, **self.resdict))
                         menu.append(item)
-                        if issensibleset == False:
-                            actionmenub.set_sensible(True)
-                            issensibleset = True
+                        if issensitiveset == False:
+                            actionmenub.set_sensitive(True)
+                            issensitiveset = True
                 except Exception as e:
                     logger().error(e)
 
