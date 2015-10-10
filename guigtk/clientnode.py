@@ -27,7 +27,7 @@ class gtkclient_node(gtkclient_template):
     def visible_func (self,_model,_iter,_data):
         _entry = self.get_object("servernodeentry")
         _val = _entry.get_text()
-        if _val == _model[_iter][3][:len(_val)]:
+        if _val in _model[_iter][1] or _val in _model[_iter][2]:
             return True
         else:
             return False
@@ -65,12 +65,12 @@ class gtkclient_node(gtkclient_template):
             return
         for name, _hash, _localname in _names[1]["items"]:
             if _localname is None:
-                namestore.append(("remote",name,_hash,"{}/{}".format(name,_hash)))
+                namestore.append(("remote",name,_hash, name))
             elif _localname is isself:
                 self.isregistered = True
-                namestore.append(("This Client",name,_hash,"{}/{}".format(name,_hash)))
+                namestore.append(("This Client",name,_hash, name))
             else:
-                namestore.append(("local","{} ({})".format(name, _localname),_hash,"{}/{}".format(name,_hash)))
+                namestore.append(("local","{} ({})".format(name, _localname),_hash, name))
         if self.isregistered == False:
             registerb.set_label("Register")
         else:
@@ -212,6 +212,8 @@ class gtkclient_node(gtkclient_template):
         else:
             logger().warning("Category not exist")
             cat = "gui_node_actions"
+        actionmenub = self.get_object("nodeactionbutton")
+        issensibleset = False
         for plugin in self.links["client_server"].pluginmanager.plugins.values():
             if hasattr(plugin, cat):
                 try:
@@ -230,6 +232,9 @@ class gtkclient_node(gtkclient_template):
                         item.show()
                         item.connect('activate', activate_shielded(action["action"], self.address, **self.resdict))
                         menu.append(item)
+                        if issensibleset == False:
+                            actionmenub.set_sensible(True)
+                            issensibleset = True
                 except Exception as e:
                     logger().error(e)
 
@@ -316,11 +321,13 @@ class gtkclient_node(gtkclient_template):
         
 # server extras
     def action_snode(self, justselect):
-        _entry = self.get_object("servernodeentry")
-        val = _entry.get_text()
-        if val == "" or val.find("/") == -1:
+        view = self.get_object("servernodeview")
+        
+        _sel = view.get_selection().get_selected()
+        if _sel[1] is None:
             return
-        _name,_hash=_entry.get_text().split("/",1)
+        #_entry.set_text(_sel[0][_sel[1]][3])
+        _hash, _name = _sel[0][_sel[1]][2:] #_entry.get_text().split("/",1)
         _node = self.do_requestdo("get", server=self.address, name=_name, hash=_hash)
         if _node[0] == False:
             logger().error(_node[1])
@@ -337,22 +344,16 @@ class gtkclient_node(gtkclient_template):
         self.action_snode(True)
         
     def snode_activate(self,*args):
-        view = self.get_object("servernodeview")
-        _entry = self.get_object("servernodeentry")
-        _sel = view.get_selection().get_selected()
-        if _sel[1] is None:
-            return
-        _entry.set_text(_sel[0][_sel[1]][3])
         self.get_snode(True)
         
     
-    def snode_row_select(self,*args):
-        view=self.get_object("servernodeview")
-        _entry=self.get_object("servernodeentry")
-        _sel=view.get_selection().get_selected()
-        if _sel[1] is None:
-            return
-        _entry.set_text(_sel[0][_sel[1]][3])
+#    def snode_row_select(self,*args):
+#        view = self.get_object("servernodeview")
+#        _entry =self.get_object("servernodeentry")
+#        _sel = view.get_selection().get_selected()
+#        if _sel[1] is None:
+#            return
+#        _entry.set_text(_sel[0][_sel[1]][3])
         
     
     def snode_filter(self,*args):
@@ -371,7 +372,7 @@ class gtkclient_node(gtkclient_template):
                 logger().error(res[1])
                 return
             self.isregistered=True
-            namestore.prepend(("This Client", res_show[1]["name"], res_show[1]["hash"], "{}/{}".format(res_show[1]["name"], res_show[1]["hash"])))
+            namestore.prepend(("This Client", res_show[1]["name"], res_show[1]["hash"], res_show[1]["name"]))
             registerb.set_label("Update Address")
 
 

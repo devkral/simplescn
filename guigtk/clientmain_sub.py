@@ -43,8 +43,8 @@ class configuration_stuff(object):
         
     def configurationme(self,*args):
         self.init_config()
-        self.configurationwin.show()
-        self.configurationwin.grab_focus()
+        self.configurationwin.present()
+        self.configurationwin.set_accept_focus(True)
     
     def set_tainted(self, tainted):
         applybut = self.builder.get_object("applyconfb")
@@ -241,8 +241,8 @@ class cmd_stuff(object):
         cmdview.scroll_to_mark(out.get_mark("scroll"),0.4,True,0,1)
     def cmdme(self,*args):
         if self.cmd_wintoggle.get_active()==True:
-            self.cmdwin.show()
-            self.cmdwin.grab_focus()
+            self.cmdwin.present()
+            self.cmdwin.set_accept_focus(True)
             
         else:
             self.cmdwin.hide()
@@ -272,8 +272,8 @@ class debug_stuff(object):
         
     def debugme(self,*args):
         if self.debug_wintoggle.get_active()==True:
-            self.debugwin.show()
-            self.debugwin.grab_focus()
+            self.debugwin.present()
+            self.debugwin.set_accept_focus(True)
         else:
             self.debugwin.hide()
             

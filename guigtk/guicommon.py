@@ -30,9 +30,8 @@ class gtkclient_template(Gtk.Builder):
         if self.address not in open_addresses:
             open_addresses[self.address] = [classname, self]
         elif open_addresses[self.address][0] is classname:
-            open_addresses[self.address][1].win.grab_focus()
-            open_addresses[self.address][1].win.activate_focus()
-            open_addresses[self.address][1].win.set_focus()
+            open_addresses[self.address][1].win.present()
+            open_addresses[self.address][1].win.set_accept_focus(True)
             return False
         else:
             open_addresses[self.address][1].close()
