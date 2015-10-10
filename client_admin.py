@@ -174,6 +174,7 @@ class client_admin(object):
                     else:
                         writen.write("{}/0".format(newname))
 
+            self.links["client"].name = newname
             self.links["client_server"].name = newname
             self.links["client_server"].update_cache()
             return True

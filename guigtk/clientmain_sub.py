@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 
 from common import isself, logger
+import gi
+gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 class configuration_stuff(object):

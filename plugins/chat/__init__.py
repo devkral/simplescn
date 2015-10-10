@@ -33,9 +33,11 @@ port_to_answer = None
 # initialises plugin. Returns False or Exception for not loading  (needed)
 def init():
     global port_to_answer
-    if "gui" not in interfaces:
+    if "gtk" not in interfaces:
         return False
     global Gtk, Gdk
+    import gi
+    gi.require_version('Gtk', '3.0')
     from gi.repository import Gtk, Gdk
 
     port_to_answer = resources("access")("show")[1]["port"]

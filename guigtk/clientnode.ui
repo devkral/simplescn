@@ -16,13 +16,13 @@
       <object class="GtkGrid" id="grid1">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="border_width">3</property>
         <property name="row_spacing">3</property>
         <child>
           <object class="GtkGrid" id="grid2">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="column_spacing">2</property>
+            <property name="border_width">3</property>
+            <property name="column_spacing">3</property>
             <child>
               <object class="GtkMenuButton" id="nodeactionbutton">
                 <property name="visible">True</property>
@@ -110,7 +110,6 @@
   <object class="GtkGrid" id="infomaingrid">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="border_width">3</property>
     <property name="orientation">vertical</property>
     <property name="row_spacing">3</property>
     <property name="column_spacing">3</property>
@@ -127,7 +126,7 @@
         <property name="track_visited_links">False</property>
       </object>
       <packing>
-        <property name="left_attach">1</property>
+        <property name="left_attach">2</property>
         <property name="top_attach">1</property>
         <property name="width">2</property>
       </packing>
@@ -137,8 +136,8 @@
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="halign">end</property>
-        <property name="valign">start</property>
-        <property name="label" translatable="yes">Hash:</property>
+        <property name="valign">center</property>
+        <property name="label" translatable="yes">Hash</property>
         <property name="justify">right</property>
         <property name="track_visited_links">False</property>
       </object>
@@ -153,7 +152,7 @@
         <property name="can_focus">False</property>
         <property name="halign">end</property>
         <property name="valign">start</property>
-        <property name="label" translatable="yes">Type:</property>
+        <property name="label" translatable="yes">Type</property>
         <property name="justify">right</property>
         <property name="track_visited_links">False</property>
       </object>
@@ -172,7 +171,7 @@
         <property name="track_visited_links">False</property>
       </object>
       <packing>
-        <property name="left_attach">1</property>
+        <property name="left_attach">2</property>
         <property name="top_attach">2</property>
       </packing>
     </child>
@@ -182,8 +181,7 @@
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
         <property name="vexpand">True</property>
-        <property name="label_xalign">0</property>
-        <property name="shadow_type">none</property>
+        <property name="label_xalign">0.05000000074505806</property>
         <child>
           <object class="GtkGrid" id="grid4">
             <property name="visible">True</property>
@@ -256,7 +254,7 @@
         </child>
       </object>
       <packing>
-        <property name="left_attach">2</property>
+        <property name="left_attach">3</property>
         <property name="top_attach">2</property>
       </packing>
     </child>
@@ -264,7 +262,9 @@
       <object class="GtkLabel" id="rnamedescribtl">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="label" translatable="yes">Remote name:</property>
+        <property name="valign">center</property>
+        <property name="label" translatable="yes">Remote
+name</property>
         <property name="justify">right</property>
         <property name="track_visited_links">False</property>
       </object>
@@ -332,9 +332,42 @@
         </child>
       </object>
       <packing>
-        <property name="left_attach">1</property>
+        <property name="left_attach">2</property>
         <property name="top_attach">0</property>
         <property name="width">2</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkArrow" id="arrow1">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="valign">center</property>
+      </object>
+      <packing>
+        <property name="left_attach">1</property>
+        <property name="top_attach">0</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkArrow" id="arrow2">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="valign">center</property>
+      </object>
+      <packing>
+        <property name="left_attach">1</property>
+        <property name="top_attach">1</property>
+      </packing>
+    </child>
+    <child>
+      <object class="GtkArrow" id="arrow3">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="valign">start</property>
+      </object>
+      <packing>
+        <property name="left_attach">1</property>
+        <property name="top_attach">2</property>
       </packing>
     </child>
   </object>
@@ -374,7 +407,6 @@
   <object class="GtkGrid" id="servermaingrid">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="border_width">3</property>
     <property name="orientation">vertical</property>
     <property name="row_spacing">3</property>
     <child>
@@ -487,7 +519,6 @@
   <object class="GtkGrid" id="servicemaingrid">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
-    <property name="border_width">3</property>
     <property name="row_spacing">3</property>
     <property name="column_spacing">3</property>
     <child>

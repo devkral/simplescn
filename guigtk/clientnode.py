@@ -1,10 +1,12 @@
 #! /usr/bin/env python3
 
 import os, locale
+import gi
+gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
 
 from guigtk.guicommon import gtkclient_template, activate_shielded
-from common import sharedir,isself, logger
+from common import sharedir,isself, logger, check_name
 
 
 
@@ -249,7 +251,7 @@ class gtkclient_node(gtkclient_template):
         if check_name(_name) == False:
             logger().info("Invalid name: {}".format(_name))
             return
-        ret = self.do_requestdo("changename", name=_text, permanent=self.get_object("changenamepermanent").get_active())
+        ret = self.do_requestdo("changename", name=_name, permanent=self.get_object("changenamepermanent").get_active())
         #if ret[0] == False:
         #    
         

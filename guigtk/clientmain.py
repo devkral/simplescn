@@ -9,6 +9,8 @@ import logging
 
 import time, threading
 
+import gi
+gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk,Gdk #,Pango
 #from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node

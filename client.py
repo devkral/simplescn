@@ -44,9 +44,9 @@ reference_header = \
 "Connection": 'close' # keep-alive
 }
 class client_client(client_admin, client_safe, client_config):
-    name=None
-    cert_hash=None
-    sslcont=None
+    name = None
+    cert_hash = None
+    sslcont = None
     hashdb = None
     links = None
     # client_lock = None
@@ -854,10 +854,10 @@ class client_init(object):
         client_handler.links=self.links
         
         # use timeout argument of BaseServer
-        http_client_server.timeout=confm.get("timeout")
+        http_client_server.timeout = confm.get("timeout")
         if confm.getb("noserver") == False:
             self.links["hserver"] = http_client_server(("", port), _cpath+"_cert", socket.AF_INET6)
-        self.links["client"]=client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), _cpath+"_cert", self.links)
+        self.links["client"] = client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), _cpath+"_cert", self.links)
         
         
     def serve_forever_block(self):

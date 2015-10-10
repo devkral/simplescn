@@ -413,7 +413,7 @@ class configmanager(object):
     def __del__(self):
         if self.dbcon is not None:
             self.dbcon.close()
-    
+        
     def __getitem__(self, _name):
         self.get(_name)
     
