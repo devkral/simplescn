@@ -16,7 +16,8 @@
 
 ###### created by pluginmanager end ######
 
-
+# localized name
+#lname = {"*": "global name", "de": "German name", "de_D"}
 
 # defaults for config (needed)
 defaults={}
@@ -29,9 +30,8 @@ def init():
     return True
 
 
-def sampleaction(url, dheader):
-    print("Hello actions: "+url)
-    return "Hello actions, return: "+url
+def sampleaction(gui, url, dheader):
+    print("Hello actions: ", url, gui)
 
 
 def sampleaction_cmd():

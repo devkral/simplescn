@@ -17,6 +17,8 @@
 ###### created by pluginmanager end ######
 
 
+# localized name
+lname = {"*": "Test", "de_DE": "Deutsch: Test"}
 
 # defaults for config (needed)
 defaults={}
@@ -28,14 +30,12 @@ def init():
     return True
 
 
-def sampleaction(url, dheader):
-    print("Hello actions: "+url)
-    return "Hello actions, return: "+url
+def sampleaction(gui, url, dheader):
+    print("Hello actions: ", url, gui)
 
 
 def sampleaction_cmd():
     print("Hello actions world")
-    return "Hello actions world"
     
 # dict, just shows up in cmd, do localisation in plugin 
 # please don't localise dict keys

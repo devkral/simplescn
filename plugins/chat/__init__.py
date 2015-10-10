@@ -1,5 +1,4 @@
 
-from gi.repository import Gtk, Gdk
 from threading import Lock
 #import os
 import os.path
@@ -20,42 +19,50 @@ import os.path
 
 ###### created by pluginmanager end ######
 
+lname = {"*": "Chat"}
 
 
 # defaults for config (needed)
-defaults={}
+defaults = {}
+
+chatbuf = {}
+chatlock = {}
+openforeign = 0
+port_to_answer = None
 
 # initialises plugin. Returns False or Exception for not loading  (needed)
 def init():
-    global chatbuf
-    global chatlock
-    chatbuf = {}
-    chatlock = {}
-    
+    global port_to_answer
+    if "gui" not in interfaces:
+        return False
+    global Gtk, Gdk
+    from gi.repository import Gtk, Gdk
+
+    port_to_answer = resources("access")("show")[1]["port"]
     return True
 
 
-def sampleaction(url, dheader):
+def send_file_gui(gui, url, dheader):
     print("Hello actions: "+url)
-    return "Hello actions, return: "+url
+    #return "Hello actions, return: "+url
 
 
 def sampleaction_cmd():
     print("Hello actions world")
-    return "Hello actions world"
+    #return "Hello actions world"
     
 # dict, just shows up in cmd, do localisation in plugin 
 # please don't localise dict keys
-cmd_node_actions={"foo-action": (sampleaction_cmd, "localized description")}
+#cmd_node_actions={"foo-action": (sampleaction_cmd, "localized description")}
 
 # do it this way
-cmd_node_localized_actions={"Aktion": "foo-action"}
+#cmd_node_localized_actions={"Aktion": "foo-action"}
 
 # iterable, for node actions, just shows up in gui, do localization in plugin
-gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
+gui_node_actions=[{"text":" Send file","action":send_file_gui}, ]
 
 # iterable, for server actions, just shows up in gui, do localization in plugin
-gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
+#gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
 
 
 
@@ -65,17 +72,18 @@ gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"opti
 
 def send_text(_address, certhash, _text, private_state):
     _text = bytes(_text, "utf-8")
-    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}".format(private_state, len(_text)), forcehash=certhash)
+    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format(private_state, len(_text), port_to_answer), forcehash=certhash)
     if sock is None:
-        return
+        return False
     sock.send(_text)
     sock.close()
+    return True
 
 def gtk_send_text(widget, _address, certhash, private_state):
     _text = widget.get_text()
-    send_text(_address, certhash, _text, private_state)
-    widget.set_text("")
     with chatlock[certhash]:
+        send_text(_address, certhash, _text, private_state)
+        widget.set_text("")
         _oldlineno = chatbuf[certhash].get_line_count()
         chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text+"\n")
         _newiter = chatbuf[certhash].get_end_iter()
@@ -105,10 +113,18 @@ def gui_node_iface(gui, _name, _hash, _address):
 ### uncomment for being accessable by internet
 ### client:
 def receive(action, _socket, _cert, certhash):
-    splitted = action.split("/",2)
-    if len(splitted)!=3:
+    splitted = action.split("/",3)
+    if len(splitted) != 4:
         return
-    private, action, _size = splitted
+    private, action, answerport, _size = splitted
+    if certhash not in chatlock:
+        if resources("access")("getlocal", hash=certhash)[0] == False:
+            return
+        resources("open_node")("{}:{}".format(_socket.getaddrinfo()[0], answerport), page="chat")
+        
+    if certhash not in chatlock:
+        return
+    
     with chatlock[certhash]:
         if action == "send_text":
             if private != "private":

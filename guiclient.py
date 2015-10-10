@@ -23,6 +23,7 @@ import signal
 
 from guigtk import clientmain
 from guigtk.clientmain import gtkclient_init, do_gtkiteration
+from guigtk.clientnode import gtkclient_node
 
 import client
 from client import paramhelp, client_args
@@ -35,15 +36,18 @@ from common import logger
 
 #logger=getlogger()
 
-#cm = None
+cm = None
 
-
+def open_gtk_node(_address, forcehash=None, switchfrominfo=False):
+    gtkclient_node(cm.links, _address, forcehash=forcehash, switchfrominfo=switchfrominfo)
+    
 
 def signal_handler(*args):
     #global run
     #win.close()
     clientmain.run = False
     #app.close()
+
 
 
 if __name__ == "__main__":
@@ -109,6 +113,7 @@ if __name__ == "__main__":
     if confm.getb("noplugins") == False:
         pluginm.resources["access"] = cm.links["client"].access_safe
         pluginm.resources["plugin"] = cm.links["client"].use_plugin
+        pluginm.resources["open_node"] = open_gtk_node
         pluginm.init_plugins()
     do_gtkiteration()
     #del cm

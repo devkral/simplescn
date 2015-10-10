@@ -8,7 +8,7 @@ open_addresses={}
 
 def activate_shielded(action, url, **obdict):
     def shielded(widget):
-        action(url, {"forcehash": obdict.get("forcehash")})
+        action("gtk", url, {"forcehash": obdict.get("forcehash")})
     return shielded
 
 class gtkclient_template(Gtk.Builder):

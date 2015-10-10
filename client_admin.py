@@ -8,8 +8,7 @@ from client_config import client_config
 
 
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins"}
-    #, "changemsg", "changename"} untested
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename"}
     #, "connect"
     hashdb = None
     links = None
@@ -22,7 +21,6 @@ class client_admin(object):
         self.write_msg_lock = threading.Lock()
         self.change_name_lock = threading.Lock()
     
-    
     @check_argsdeco({"priority":(int, "priority of client")}) 
     def setpriority(self, obdict):
         """ set priority of client """ 
@@ -30,7 +28,7 @@ class client_admin(object):
             return False, "out of range"
         
         self.links["server"].priority = obdict["priority"]
-        self.links["server"].update_prioty()
+        self.links["server"].update_cache()
         return True
         
     #local management
@@ -49,12 +47,13 @@ class client_admin(object):
         """ rename entity """
         return self.hashdb.renameentity(obdict["name"],obdict["newname"])
 
-    @check_argsdeco({"name": (str, "entity"),"hash": (str, "hash of client/server/notimagined yet")},{"type": (str, "type (=client/server/notimagined yet)")}) 
+    @check_argsdeco({"name": (str, "entity"),"hash": (str, "hash of client/server/notimagined yet")}, optional={"type": (str, "type (=client/server/notimagined yet)"), "priority": (int, "initial priority")})
     def addhash(self, obdict):
         """ add hash to entity """
-        _type = obdict.get("type")
+        _type = obdict.get("type", "unknown")
+        _priority = obdict.get("priority", 20)
         _name,  _certhash = obdict["name"], obdict["hash"]
-        return self.hashdb.addhash(_name,_certhash,_type)
+        return self.hashdb.addhash(_name, _certhash, _type)
 
     #def deljusthash(self,_certhash,dheader):
     #    temp=self.hashdb.delhash(_certhash)
@@ -73,6 +72,11 @@ class client_admin(object):
     def changesecurity(self, obdict):
         """ change security level of hash """
         return self.hashdb.changesecurity(obdict["hash"],obdict["security"])
+    
+    #@check_argsdeco({"hash": (str, )}, optional={"security":(str,), "priority":(str,), "type":(str,)})
+    #def updatehash(self, obdict):
+    
+    #    pass
     
     @check_argsdeco({"hash": (str, ), "newname": (str, )})
     def movehash(self, obdict):
@@ -135,17 +139,20 @@ class client_admin(object):
             return False, "name, hash not exist"
         return self.hashdb.delreference(_tref[4],obdict["reference"])
 
-    @check_argsdeco({"message": (str, "message")})
+    @check_argsdeco({"message": (str, "message")},optional={"permanent":(bool, "store permanent (default:True)")})
     def changemsg(self, obdict):
         """ change message """
         #_type = self.links.get("client_server").scn_type
         configr = self.links["config_root"]
         with self.write_msg_lock:
-            with open(os.path.join(configr,"client_message.txt"), "w") as wm:
-                wm.write(obdict.get("message"))
+            self.links["client_server"].message = obdict.get("message")
+            self.links["client_server"].update_cache()
+            if obdict.get("permanent", True):
+                with open(os.path.join(configr,"client_message.txt"), "w") as wm:
+                    wm.write(obdict.get("message"))
         return True
     
-    @check_argsdeco({"name": (str, "client name")},{"permanent":(bool, "store permanent (default:True)")})
+    @check_argsdeco({"name": (str, "client name")},optional={"permanent":(bool, "store permanent (default:True)")})
     def changename(self, obdict):
         """ change name """
         with self.change_name_lock:
@@ -166,16 +173,47 @@ class client_admin(object):
                         writen.write("{}/{}".format(newname, oldt[1]))
                     else:
                         writen.write("{}/0".format(newname))
+
+            self.links["client_server"].name = newname
+            self.links["client_server"].update_cache()
             return True
 
     @check_argsdeco({"client": (str, "client address"), "entities":(list, "list with entities"), "hashes":(list, "list with hashes")})
     def massimporter(self, obdict):
         """ import hashes and entities """
-        for entity in obdict.get("entities"):
-            pass #TODO
+        #listhashes = obdict.get("hashes")
+        listall = self.do_request(obdict.get("client"), "/client/listnodeall")
         
-        for _hash in obdict.get("hashes"):
-            pass
+        _imp_ent = obdict.get("entities")
+        _imp_hash = obdict.get("hashes")
+        
+        for _name, _hash, _type, _priority, _security, _certreferenceid in listall:
+            if _name not in _imp_ent and _hash not in _imp_hash:
+                continue
+            if self.hashdb.exists(_name) == False:
+                self.hashdb.addentity(_name)
+            if self.hashdb.exists(_name, _hash) == True:
+                pass
+                #self.hashdb.updatehash(_hash, _type, _priority, _security)
+            elif self.hashdb.get(_hash) is not None:
+                pass
+            else:
+                self.hashdb.addhash(_name, _hash, _type, _priority, _security)
+            localref = self.hashdb.get(_hash)
+            if localref is None:
+                return False, "could not write entry"
+            else:
+                localref = localref[4]
+            localreferences = self.hashdb.getreferences(localref)
+            
+            _retreferences = self.do_request(obdict.get("client"), "/client/getreferences", {"hash":_hash})
+            if _retreferences[0] == True:
+                for _ref, _reftype in _retreferences[1]["items"]:
+                    if (_ref, _reftype) in localreferences:
+                        pass
+                    else:
+                        self.hashdb.addreference(localref, _ref, _reftype)
+                
         return True, "import finished"
 
 def is_admin_func(funcname):

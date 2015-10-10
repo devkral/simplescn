@@ -208,7 +208,7 @@ class hashmanagement(object):
             if justselect == True:
                 pass
             else:
-                gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, switchfrominfo=True)
+                gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, page=1)
         else:
             logger().error(ret[1])
     

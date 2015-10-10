@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import os
+import os, locale
 from gi.repository import Gtk, Gdk, Pango
 
 from guigtk.guicommon import gtkclient_template, activate_shielded
@@ -11,13 +11,16 @@ from common import sharedir,isself, logger
 class gtkclient_node(gtkclient_template):
     isregistered = False
     sfilter = None
-    def __init__(self, links, _address, switchfrominfo=False, **obdict):
+    page_names = None
+    messagebuf = None
+    def __init__(self, links, _address, page="info", **obdict):
+        self.page_names = {}
         gtkclient_template.__init__(self, links, _address, **obdict)
         if self.init2(os.path.join(sharedir, "guigtk", "clientnode.ui"))==False:
             return
         self.win = self.get_object("nodewin")
         self.win.connect('delete-event', self.close)
-        self.init_nodebook(switchfrominfo)
+        self.init_nodebook(page)
     
     def visible_func (self,_model,_iter,_data):
         _entry = self.get_object("servernodeentry")
@@ -33,30 +36,21 @@ class gtkclient_node(gtkclient_template):
             _infoob = self.do_requestdo("info", address=self.address)
         if _infoob[0] == False:
             return
-        if _infoob[2] == isself:
-            self.get_object("servicecreategrid").show()
-        else:
-            self.get_object("servicegetgrid").show()
             
-        g = Gtk.Grid(row_spacing=3, column_spacing=3, margin=3)
-        g.attach(Gtk.Label("Hash: ", halign=Gtk.Align.END), 0, 0, 1, 1)
-        width_chars = 30
-        _thash = Gtk.Label(_infoob[3], halign=Gtk.Align.START, wrap_mode=Pango.WrapMode.CHAR, selectable=True, hexpand=True, \
-        width_chars=width_chars, max_width_chars=width_chars)
-        _thash.set_line_wrap(True)
-        _thash.set_lines(-1)
-        g.attach(_thash, 1, 0, 1, 1)
-        
-        g2 = Gtk.Grid(row_spacing=3, column_spacing=3)
-        g.attach(g2, 0, 1, 2, 1)
-        g2.attach(Gtk.Label("Type: ", halign=Gtk.Align.END, valign=Gtk.Align.START), 0, 0, 1, 1)
-        g2.attach(Gtk.Label(_infoob[1]["type"], halign=Gtk.Align.START, valign=Gtk.Align.START, selectable=True), 1, 0, 1, 1)
-        t = Gtk.TextBuffer()
-        tw = Gtk.TextView(buffer=t, editable=False,vexpand=True, hexpand=True)
-        g2.attach(Gtk.Frame(label="Message:", child=tw, vexpand=True, hexpand=True), 2, 0, 1, 1)
-        t.set_text(_infoob[1]["message"],-1)
-        
-        return g
+        maininfo = self.get_object("infomaingrid")
+        self.get_object("hashexpandl").set_text(_infoob[3])
+        self.get_object("typeshowl").set_text(_infoob[1]["type"])
+        self.get_object("messagebuffer").set_text(_infoob[1]["message"])
+        self.get_object("rnamee").set_text(_infoob[1]["name"])
+        if _infoob[2] is isself:
+            self.get_object("messageview").set_editable(True)
+            self.get_object("updatemessageb").show()
+            self.get_object("changemsgpermanent").show()
+            self.get_object("updatenameg").show()
+            self.get_object("rnamee").set_editable(True)
+            self.get_object("rnamee").set_has_frame(True)
+            
+        return maininfo
     
     def update_server(self,*args):
         namestore=self.get_object("servernodelist")
@@ -125,7 +119,8 @@ class gtkclient_node(gtkclient_template):
         return sgrid
         
     
-    def init_nodebook(self, switchfrominfo):
+    def init_nodebook(self, page):
+        counter = 0
         noteb = self.get_object("nodebook")
         infoob = self.do_requestdo("info", address=self.address)
         if infoob[0] == False:
@@ -135,17 +130,22 @@ class gtkclient_node(gtkclient_template):
         if name == isself:
             self.win.set_title("This client")
             veristate.set_text("This client")
+            self.get_object("servicecreategrid").show()
         elif name is None:
             self.win.set_title("Unknown Node: {}".format(infoob[3][:20]+"..."))
             veristate.set_text("Unknown Node: {}".format(infoob[3][:20]+"..."))
-            
+            self.get_object("servicegetgrid").show()
         else:
             self.win.set_title("Node: {}".format(name))
             veristate.set_text("Node: {}".format(name))
+            self.get_object("servicegetgrid").show()
             
         _tmp = self.create_info_slate(infoob)
         noteb.append_page(_tmp, Gtk.Label("Info"))
         noteb.set_tab_detachable(_tmp, False)
+        self.page_names["info"] = counter
+        counter += 1
+        
         
         category = infoob[1]["type"]
         self.init_actions(category)
@@ -155,10 +155,14 @@ class gtkclient_node(gtkclient_template):
         if category == "server":
             cat = "gui_server_iface"
             _tmp = self.create_server_slate()
+            self.page_names["server"] = counter
+            counter += 1
             _tmplabel = Gtk.Label("Serverlist")
         elif category == "client":
             cat = "gui_node_iface"
             _tmp = self.create_service_slate()
+            self.page_names["services"] = counter
+            counter += 1
             _tmplabel = Gtk.Label("Servicelist")
         else:
             logger().warning("Category not exist")
@@ -169,24 +173,34 @@ class gtkclient_node(gtkclient_template):
         noteb.append_page(_tmp, _tmplabel)
         noteb.set_tab_detachable(_tmp, False)
         self.connect_signals(self)
-        
-        for name, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
+        for pname, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
             if hasattr(plugin, cat) == True:
                 try:
                     _tmp = getattr(plugin, cat)("gtk", infoob[2], infoob[3], self.address)
                     if _tmp is not None:
-                        noteb.append_page(_tmp, Gtk.Label(name))
+                        if getattr(plugin, "lname"): #  and getattr(plugin, "lname") is dict:
+                            llocale = locale.getlocale()[0]
+                            lname = plugin.lname.get(llocale)
+                            if lname is None:
+                                lname = plugin.lname.get(llocale.split("_",1)[0])
+                            if lname is None:
+                                lname = plugin.lname.get("*", pname)
+                        else:
+                            lname = pname
+                        noteb.append_page(_tmp, Gtk.Label(lname, tooltip_text="{} ({})".format(lname, pname)))
                         noteb.set_tab_detachable(_tmp, False)
+                        self.page_names[pname] = counter
+                        counter += 1
                 except Exception as e:
                     logger().error(e)
         
         noteb.show_all()
         self.connect_signals(self)
-        if switchfrominfo:
-            noteb.set_current_page(1)
+        if isinstance(page, int):
+            noteb.set_current_page(page)
         else:
-            noteb.set_current_page(0)
-    
+            noteb.set_current_page(self.page_names.get(page,0))
+        
     def init_actions(self, category):
         menu = self.get_object("actions")
         if category == "server":
@@ -214,7 +228,29 @@ class gtkclient_node(gtkclient_template):
                         menu.append(item)
                 except Exception as e:
                     logger().error(e)
+
+# update message
+    def update_message(self, *args):
+        messagebuf = self.get_object("messagebuffer")
+        if messagebuf.get_modified() == False:
+            return
+            
+        start, end = messagebuf.get_bounds()
+        _text = messagebuf.get_text(start, end, True)
+        
+        ret = self.do_requestdo("changemsg", message=_text, permanent=self.get_object("changemsgpermanent").get_active())
+        #if ret[0] == False:
+        #    
     
+    def update_name(self, *args):
+        _name = self.get_object("rnamee").get_text()
+        if check_name(_name) == False:
+            logger().info("Invalid name: {}".format(_name))
+            return
+        ret = self.do_requestdo("changename", name=_text, permanent=self.get_object("changenamepermanent").get_active())
+        #if ret[0] == False:
+        #    
+        
 # service extras
     def copy_service(self,*args):
         view = self.get_object("nodeserviceview")
@@ -291,10 +327,10 @@ class gtkclient_node(gtkclient_template):
         self.close()
         
     def get_snode(self,*args):
-        self.action_snode(True)
+        self.action_snode(False)
         
     def select_snode(self,*args):
-        self.action_snode(False)
+        self.action_snode(True)
         
     def snode_activate(self,*args):
         view = self.get_object("servernodeview")

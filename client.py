@@ -194,6 +194,7 @@ class client_client(client_admin, client_safe, client_config):
         con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
         con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
         con.putheader("X-certrewrap", self.cert_hash)
+        con.putheader("User-Agent", "simplescn/0.5 (client-plugin)")
         con.endheaders()
         sock = con.sock
         con.sock = None
@@ -390,6 +391,7 @@ class client_server(commonscn):
     local_client_service_control = False
     wlock = None
     def __init__(self, dcserver):
+        commonscn.__init__(self)
         self.wlock = threading.Lock()
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
             logger().info("Name empty")

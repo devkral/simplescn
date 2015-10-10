@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.18.3 -->
+<!-- Generated with glade 3.19.0 -->
 <interface>
-  <requires lib="gtk+" version="3.12"/>
+  <requires lib="gtk+" version="3.16"/>
   <object class="GtkListStore" id="hashlist">
     <columns>
       <!-- column-name hash -->
@@ -116,10 +116,9 @@
               <object class="GtkScrolledWindow" id="scrolledwindow1">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
                 <property name="shadow_type">in</property>
-                <property name="min_content_width">100</property>
+                <property name="min_content_width">80</property>
                 <property name="min_content_height">30</property>
                 <child>
                   <object class="GtkTreeView" id="localview">
@@ -144,10 +143,11 @@
               <object class="GtkScrolledWindow" id="recentwindow">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
+                <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
                 <property name="shadow_type">in</property>
-                <property name="min_content_width">104</property>
-                <property name="min_content_height">91</property>
+                <property name="min_content_width">60</property>
+                <property name="min_content_height">60</property>
                 <child>
                   <object class="GtkTreeView" id="recentview">
                     <property name="visible">True</property>
@@ -171,6 +171,7 @@
               <object class="GtkFrame" id="frame1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="label_xalign">0</property>
                 <property name="shadow_type">in</property>
                 <child>
                   <object class="GtkGrid" id="grid6">
@@ -898,6 +899,7 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">False</property>
                 <property name="halign">start</property>
+                <property name="xalign">0.5</property>
                 <property name="active">True</property>
                 <property name="draw_indicator">True</property>
                 <signal name="toggled" handler="client_localtoggle" swapped="no"/>

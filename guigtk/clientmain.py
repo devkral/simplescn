@@ -31,38 +31,38 @@ implementedrefs=["surl", "url", "name"]
 #,"sname"
 
 class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement):
-    links=None
+    links = None
 
-    curnode=None
-    curlocal=None
+    curnode = None
+    curlocal = None
     
-    builder=None
-    clip=None
-    win=None
-    backlog=[]
-    statusbar=None
+    builder = None
+    clip = None
+    win = None
+    backlog = []
+    statusbar = None
     
-    localstore=None
-    serverlist_dic=[]
+    localstore = None
+    serverlist_dic = []
     
-    recentstore=None
-    recentcount=0
-    remote_client=None
+    recentstore = None
+    recentcount = 0
+    remote_client = None
     #use_remote_client=False
     
 
-    clientwin=None
-    client_wintoggle=None
+    clientwin = None
+    client_wintoggle = None
     
     
-    remoteclient_url=""
-    remoteclient_hash=""
-    use_localclient=True
+    remoteclient_url = ""
+    remoteclient_hash = ""
+    use_localclient = True
     
 
-    cert_hash=None
+    cert_hash = None
     #start_url_hash=(None,None)
-    _old_serverurl=""
+    _old_serverurl = ""
     
     
     def __init__(self,_links):
@@ -276,7 +276,9 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     
     def _verifyserver(self,serverurl):
         _veri=self.builder.get_object("veristateserver")
-        
+        if serverurl == "":
+            _veri.set_text("")
+            return None
         _hash=self.do_requestdo("ask",address=serverurl)
         if _hash[0]==False:
             _veri.set_text("")
@@ -347,7 +349,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             name = "Own server"
         else:
             name = askinfo["localname"]
-        gtkclient_node(self.links, "{}:{}".format(*scnparse_url(serverurl)), forcehash=askinfo["hash"], switchfrominfo=True)
+        gtkclient_node(self.links, "{}:{}".format(*scnparse_url(serverurl)), forcehash=askinfo["hash"], page="server")
         
     
     #### node actions ####
@@ -458,12 +460,12 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     
     def opennode(self,*args):
         if self.curnode is not None:
-            gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], switchfrominfo=True)
+            gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], page="services")
     
     def opennode_self(self,*args):
         ret=self.do_requestdo("show")
         if ret[0] == True:
-            gtkclient_node(self.links, "localhost:{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], switchfrominfo=False)
+            gtkclient_node(self.links, "localhost:{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], page="services")
     
     
     def activate_recent(self,*args):

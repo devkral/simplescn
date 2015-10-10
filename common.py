@@ -98,6 +98,8 @@ very_low_load = (10, 24*60*60)
 default_priority = 20
 default_timeout = 60
 
+
+
 ###### signaling ######
 
 
@@ -897,19 +899,21 @@ class commonscn(object):
     scn_type = "unknown"
     pluginmanager = None
     isactive = True
+    update_cache_lock = None
     
     cache={"cap":"", "info":"", "prioty":""}
     
+    def __init__(self):
+        self.update_cache_lock = threading.Lock()
     def __del__(self):
         self.isactive = False
     
     def update_cache(self):
-        self.cache["cap"] = json.dumps(gen_result({"caps": self.capabilities}, True))
-        self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
-        self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
+        with self.update_cache_lock:
+            self.cache["cap"] = json.dumps(gen_result({"caps": self.capabilities}, True))
+            self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
+            self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
 
-    def update_prioty(self):
-        self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
 
 
 def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
@@ -1381,6 +1385,18 @@ class certhash_db(object):
 
         dbcon.commit()
         return True
+    
+    def updatehash(self, _certhash, certtype=None, priority=None, security=None):
+        if certtype is not None:
+            if self.changetype(_certhash, certtype) == False:
+                return False
+        if priority is not None:
+            if self.changepriority(_certhash, priority) == False:
+                return False
+        if certtype is not None:
+            if self.changesecurity(_certhash, security) == False:
+                return False
+        
     
     @connecttodb
     def delhash(self, dbcon, _certhash):

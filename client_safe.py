@@ -190,6 +190,8 @@ class client_safe(object):
     def getlocal(self, obdict):
         """ get information about entity identified by name and hash in hashdb """
         out = self.hashdb.get(obdict["hash"])
+        if out is None:
+            return False, "Not in db"
         ret = {
         "name": out[0],
         "type": out[1],

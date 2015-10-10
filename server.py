@@ -49,6 +49,7 @@ class server(commonscn):
     validactions={"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes"}
     
     def __init__(self,d):
+        commonscn.__init__(self)
         self.nhipmap = {}
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()
