@@ -823,9 +823,10 @@ class client_init(object):
         
 
         with open(_cpath+"_name.txt", 'r') as readclient:
-            _name = readclient.readline()[:-1] # remove \n
+            _name = readclient.readline().strip().rstrip() # remove \n
+            
         with open(_cpath+"_message.txt", 'r') as readinmes:
-            _message = readinmes.read().strip().rstrip()
+            _message = readinmes.read()
         #report missing file
         if None in [pub_cert, _name, _message]:
             raise(Exception("missing"))
@@ -838,7 +839,7 @@ class client_init(object):
         if confm.getb("port") == True:
             pass
         elif len(_name) >= 2:
-            confm.set("port",_name[1])
+            confm.set("port", _name[1])
         else: # fallback
             confm.set("port", str(client_port))
         port = int(confm.get("port"))
@@ -897,7 +898,7 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "cmd": ["False", bool, "enables cmd"]}
              
 client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
-             "port": ["-1", int, "<number>: Port"]}
+             "port": [str(client_port), int, "<number>: Port"]}
 
 if __name__ ==  "__main__":
     from common import scn_logger, init_logger
@@ -958,7 +959,7 @@ if __name__ ==  "__main__":
             pluginm.interfaces += ["cmd",]
     else:
         pluginm=None
-    cm=client_init(confm,pluginm)
+    cm = client_init(confm,pluginm)
 
     if confm.getb("noplugins") == False:
         pluginm.resources["plugin"] = cm.links["client"].use_plugin

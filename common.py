@@ -518,11 +518,10 @@ class configmanager(object):
         if isinstance(name, str) == False:
             logger().error("name not string")
             return False
-        
-        if name in self.overlays and check_conftype(*self.overlays[name][:2]) == False:
+        if name in self.overlays and check_conftype(value, self.overlays[name][1]) == False:
             #logger().error("overlays value type missmatch")
             return False
-        elif name in self.defaults and check_conftype(*self.defaults[name][:2]) == False:
+        elif name in self.defaults and check_conftype(value, self.defaults[name][1]) == False:
             #logger().error("invalid defaults value type")
             return False
         elif name not in self.defaults and name not in self.overlays:
@@ -531,6 +530,7 @@ class configmanager(object):
         
         if value is None:
             value = ""
+            
         """if isinstance(value, bool)==True:
             if value==True:
                 value="true"

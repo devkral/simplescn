@@ -104,7 +104,7 @@ if __name__ == "__main__":
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
         if confm.getb("webgui") != False:
             pluginm.interfaces += ["web",]
-        pluginm.interfaces += ["cmd","gui"]
+        pluginm.interfaces += ["cmd","gtk"]
     else:
         pluginm = None
     #logger().debug("start client")

@@ -46,10 +46,12 @@ cmd_node_actions={"foo-action": (sampleaction_cmd, "localized description")}
 cmd_node_localized_actions={"Aktion": "foo-action"}
 
 # iterable, for node actions, just shows up in gui, do localization in plugin
-gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
+gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation", \
+"interfaces": ["gtk",], "description": "foo"}, ]
 
 # iterable, for server actions, just shows up in gui, do localization in plugin
-gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
+gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation", \
+"interfaces": ["gtk",], "description": "foo"}, ]
 
 
 

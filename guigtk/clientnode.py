@@ -213,8 +213,8 @@ class gtkclient_node(gtkclient_template):
         for plugin in self.links["client_server"].pluginmanager.plugins.values():
             if hasattr(plugin, cat):
                 try:
-                    for action in plugin.gui_node_actions:
-                        if "action" not in action or "text" not in action:
+                    for action in getattr(plugin, cat):
+                        if "action" not in action or "text" not in action or "gtk" not in action.get("interfaces", []):
                             continue
                         item = Gtk.MenuItem()
                         itemb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -222,6 +222,8 @@ class gtkclient_node(gtkclient_template):
                         itemb.pack_end(Gtk.Label(action["text"]), True, True, 0)
                         if "icon" in action:
                             itemb.pack_end(Gtk.Image.new_from_file(action["icon"]), True, True, 0)
+                        if "description" in action:
+                            itemb.set_tooltip_text(action["description"])
                         itemb.show_all()
                         item.show()
                         item.connect('activate', activate_shielded(action["action"], self.address, **self.resdict))

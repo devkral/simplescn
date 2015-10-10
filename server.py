@@ -423,9 +423,9 @@ class server_init(object):
         _message = None
         _name = None
         with open(_spath+"_name.txt", 'r') as readserver:
-            _name = readserver.readline()[:-1] # remove \n
+            _name = readserver.readline().strip().rstrip()
         with open(_spath+"_message.txt", 'r') as readservmessage:
-            _message = readservmessage.read().strip().rstrip()
+            _message = readservmessage.read()
         if None in [pub_cert,_name,_message]:
             raise(Exception("missing"))
 
