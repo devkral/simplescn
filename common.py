@@ -759,7 +759,8 @@ class pluginmanager(object):
             pload.config = pconf # no copy because it is the only user
             pload.resources = pluginressources_creater(self.resources, plugin[0]) # no copy because they can change
             pload.interfaces = self.interfaces.copy() # copy because of isolation
-            pload.path = pluginpath # no copy because it is the only user
+            pload.proot = pluginpath # no copy because it is the only user
+            pload.module = pload
             ret = False
             # load plugin init method
             try:

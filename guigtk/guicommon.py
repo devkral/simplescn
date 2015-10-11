@@ -13,6 +13,20 @@ def activate_shielded(action, url, **obdict):
         action("gtk", url, {"forcehash": obdict.get("forcehash")})
     return shielded
 
+
+def toggle_shielded(action, togglewidget, url, **obdict):
+    togglewidget._toggle_state_scn = togglewidget.get_active()
+    def shielded(widget):
+        if togglewidget._toggle_state_scn == True:
+            action("gtk", url, False, {"forcehash": obdict.get("forcehash")})
+            togglewidget.set_active(False)
+            togglewidget._toggle_state_scn = False
+        else:
+            action("gtk", url, True, {"forcehash": obdict.get("forcehash")})
+            togglewidget.set_active(True)
+            togglewidget._toggle_state_scn = True
+    return shielded
+
 class gtkclient_template(Gtk.Builder):
     links = None
     win = None

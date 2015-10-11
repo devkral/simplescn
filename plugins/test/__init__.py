@@ -11,7 +11,7 @@
 # resources
 
 # plugin path
-# path
+# proot
 
 
 ###### created by pluginmanager end ######

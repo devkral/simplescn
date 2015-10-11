@@ -1,6 +1,7 @@
 
 from threading import Lock
 #import os
+import sys
 import os.path
 
 ###### created by pluginmanager ######
@@ -14,8 +15,10 @@ import os.path
 # resources
 
 # plugin path
-# path
+# proot
 
+# this module
+# module
 
 ###### created by pluginmanager end ######
 
@@ -23,12 +26,14 @@ lname = {"*": "Chat"}
 
 
 # defaults for config (needed)
-defaults = {}
+defaults = {"chatdir": ["logs", str, "directory for chatlogs"]}
 
 chatbuf = {}
 chatlock = {}
+private_state = {}
 openforeign = 0
 port_to_answer = None
+
 
 # initialises plugin. Returns False or Exception for not loading  (needed)
 def init():
@@ -48,10 +53,12 @@ def send_file_gui(gui, url, dheader):
     print("Hello actions: "+url)
     #return "Hello actions, return: "+url
 
+def toggle_private(gui, url, state, dheader):
+    if state:
+        private_state[dheader.get("forcehash")] = "private"
+    else:
+        private_state[dheader.get("forcehash")] = "normal"
 
-def sampleaction_cmd():
-    print("Hello actions world")
-    #return "Hello actions world"
     
 # dict, just shows up in cmd, do localisation in plugin 
 # please don't localise dict keys
@@ -61,8 +68,9 @@ def sampleaction_cmd():
 #cmd_node_alias_actions={"Aktion": "foo-action"}
 
 # iterable, for node actions, just shows up in gui, do localization in plugin
-gui_node_actions=[{"text":" Send file", "action": send_file_gui, \
-"interfaces": ["gtk",], "description": "Send a file"}, ]
+gui_node_actions=[{"text": "Send file", "action": send_file_gui, \
+"interfaces": ["gtk",], "description": "Send a file"},{"text":"private", "action": toggle_private, \
+"interfaces": ["gtk",], "description": "Toggle private chat", "state": False}, ]
 
 # iterable, for server actions, just shows up in gui, do localization in plugin
 #gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation"}, ]
@@ -73,20 +81,22 @@ gui_node_actions=[{"text":" Send file", "action": send_file_gui, \
 #    pass
 #    return widget
 
-def send_text(_address, certhash, _text, private_state):
+def send_text(_address, certhash, _text):
     _text = bytes(_text, "utf-8")
-    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format(private_state, len(_text), port_to_answer), forcehash=certhash)
+    if len(_text) == 0:
+        return True
+    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format(private_state.get(certhash, "normal"), len(_text), port_to_answer), forcehash=certhash)
     if sock is None:
         return False
     sock.send(_text)
     sock.close()
     return True
 
-def gtk_send_text(widget, _address, certhash, private_state):
-    _text = widget.get_text()
+def gtk_send_text(widget, _textwidget, _address, certhash):
+    _text = _textwidget.get_text()
     with chatlock[certhash]:
-        send_text(_address, certhash, _text, private_state)
-        widget.set_text("")
+        send_text(_address, certhash, _text)
+        _textwidget.set_text("")
         _oldlineno = chatbuf[certhash].get_line_count()
         chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text+"\n")
         _newiter = chatbuf[certhash].get_end_iter()
@@ -101,16 +111,16 @@ def gui_node_iface(gui, _name, _hash, _address):
     if _hash not in chatbuf:
         chatbuf[_hash] = Gtk.TextBuffer()
         chatbuf[_hash].create_tag("ownposts", justification=Gtk.Justification.RIGHT, justification_set=True, foreground_rgba=Gdk.RGBA(red=0.0, green=1.0, blue=0.9, alpha=1.0), foreground_set=True)
-    chatgrid = Gtk.Grid()
-    chatin = Gtk.Entry()
-    chatin.connect("activate", gtk_send_text, _address, _hash, "public")
-    chattview = Gtk.TextView(buffer=chatbuf[_hash], editable=False, hexpand=True, vexpand=True)
-    
-    chatswin = Gtk.ScrolledWindow(child=chattview, hexpand=True, vexpand=True)
-    
-    chatgrid.attach(chatswin, 0, 0, 1, 1)
-    chatgrid.attach(chatin, 0, 1, 1, 1)
-    return chatgrid
+    builder = Gtk.Builder()
+    builder.add_from_file(os.path.join(proot, "chat.ui"))
+    builder.connect_signals(module)
+    textsende = builder.get_object("textsende")
+    textsende.connect("activate", gtk_send_text, textsende, _address, _hash)
+    sendchatb = builder.get_object("sendchatb")
+    sendchatb.connect("clicked", gtk_send_text, textsende, _address, _hash)
+    cview = builder.get_object("chatview")
+    cview.set_buffer(chatbuf[_hash])
+    return builder.get_object("chatin")
 
 
 ### uncomment for being accessable by internet

@@ -891,20 +891,12 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
 class gtkclient_init(client.client_init):
     
     def __init__(self,confm,pluginpathes):
-        self.config_path=confm.get("config")
-        _cpath="{}{}{}".format(self.config_path,os.sep,"client")
-        init_config_folder(self.config_path,"client")
-        
-        if check_certs(_cpath+"_cert")==False:
-            logger().debug("Certificate(s) not found. Generate new...")
-            generate_certs(_cpath+"_cert")
-            logger().debug("Certificate generation complete")
         client.client_init.__init__(self, confm, pluginpathes)
         if confm.getb("noserver") == False:
             logger().debug("start client server")
             self.serve_forever_nonblock()
         logger().debug("start gtkclient")
-        self.links["gtkclient"]=gtkclient_main(self.links)
+        self.links["gtkclient"] = gtkclient_main(self.links)
         logger().replaceHandler(self.links["gtkclient"])
 
 def do_gtkiteration():

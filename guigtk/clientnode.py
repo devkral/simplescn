@@ -5,7 +5,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
 
-from guigtk.guicommon import gtkclient_template, activate_shielded
+from guigtk.guicommon import gtkclient_template, activate_shielded, toggle_shielded
 from common import sharedir,isself, logger, check_name
 
 
@@ -27,6 +27,8 @@ class gtkclient_node(gtkclient_template):
     def visible_func (self,_model,_iter,_data):
         _entry = self.get_object("servernodeentry")
         _val = _entry.get_text()
+        if _model[_iter] is None:
+            return False
         if _val in _model[_iter][1] or _val in _model[_iter][2]:
             return True
         else:
@@ -58,11 +60,13 @@ class gtkclient_node(gtkclient_template):
         namestore=self.get_object("servernodelist")
         registerb=self.get_object("registerbutton")
         self.isregistered = False
-        namestore.clear() 
+        
+        namestore.clear()
         _names=self.do_requestdo("listnames",server=self.address)
         if _names[0]==False:
             logger().error(_names[1])
             return
+        
         for name, _hash, _localname in _names[1]["items"]:
             if _localname is None:
                 namestore.append(("remote",name,_hash, name))
@@ -97,12 +101,12 @@ class gtkclient_node(gtkclient_template):
     
     
     def update_services(self,*args):
-        servicel=self.get_object("servicelist")
-        ret=self.do_requestdo("listservices", address=self.address)
-        if ret[0]==False:
+        servicel = self.get_object("servicelist")
+        ret = self.do_requestdo("listservices", address=self.address)
+        servicel.clear()
+        if ret[0] == False:
             logging.info(ret[1])
             return
-        servicel.clear()
         for elem in ret[1]["items"]:
             servicel.append((elem[0],elem[1]))
         
@@ -224,20 +228,31 @@ class gtkclient_node(gtkclient_template):
                         item = Gtk.MenuItem()
                         itemb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
                         item.add(itemb)
-                        itemb.pack_end(Gtk.Label(action["text"]), True, True, 0)
+                        
+                        
                         if "icon" in action:
                             itemb.pack_end(Gtk.Image.new_from_file(action["icon"]), True, True, 0)
+                        
+                        if action.get("state") is not None:
+                            tb = Gtk.CheckButton(active=action.get("state"))
+                            itemb.pack_start(tb, True, True, 0)
+
+                        itemb.pack_end(Gtk.Label(action["text"]), True, True, 0)
                         if "description" in action:
                             itemb.set_tooltip_text(action["description"])
                         itemb.show_all()
                         item.show()
-                        item.connect('activate', activate_shielded(action["action"], self.address, **self.resdict))
+                        if action.get("state") is not None:
+                            item.connect('activate', toggle_shielded(action["action"], tb, self.address, **self.resdict))
+                        else:
+                            item.connect('activate', activate_shielded(action["action"], self.address, **self.resdict))
                         menu.append(item)
                         if issensitiveset == False:
                             actionmenub.set_sensitive(True)
                             issensitiveset = True
                 except Exception as e:
                     logger().error(e)
+                    
 
 # update message
     def update_message(self, *args):

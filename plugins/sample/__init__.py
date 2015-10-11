@@ -11,8 +11,10 @@
 # resources
 
 # plugin path
-# path
+# proot
 
+# this module (maybe removed)
+# module
 
 ###### created by pluginmanager end ######
 
