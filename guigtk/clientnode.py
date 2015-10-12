@@ -67,14 +67,14 @@ class gtkclient_node(gtkclient_template):
             logger().error(_names[1])
             return
         
-        for name, _hash, _localname in _names[1]["items"]:
+        for name, _hash, _security, _localname in _names[1]["items"]:
             if _localname is None:
-                namestore.append(("remote",name,_hash, name))
+                namestore.append(("remote ({})".format(_security),name,_hash, name))
             elif _localname is isself:
                 self.isregistered = True
-                namestore.append(("This Client",name,_hash, name))
+                namestore.append(("This Client ({})".format(_security), name, _hash, name))
             else:
-                namestore.append(("local","{} ({})".format(name, _localname),_hash, name))
+                namestore.append(("local","{} ({}) ({})".format(name, _localname, _security), _hash, name))
         if self.isregistered == False:
             registerb.set_label("Register")
         else:

@@ -31,12 +31,20 @@ import socket
 from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout
 #configmanager,, rw_socket
 
-server_reference_header = \
+server_broadcast_header = \
 {
 "User-Agent": "simplescn/0.5 (broadcast)",
 "Authorization": 'scn {}', 
 "Connection": 'close' # keep-alive
 }
+
+server_update_header = \
+{
+"User-Agent": "simplescn/0.5 (broadcast)",
+"Authorization": 'scn {}', 
+"Connection": 'keep-alive'
+}
+
 
 def broadcast_helper(_addr, _path, payload, _certhash, _timeout):
     try:
@@ -46,7 +54,7 @@ def broadcast_helper(_addr, _path, payload, _certhash, _timeout):
         hashpcert = dhash(pcert)
         if hashpcert != _certhash:
             return
-        _headers = server_reference_header.copy()
+        _headers = server_broadcast_header.copy()
         _headers["X-client_cert"] = pcert
         con.request("POST", _path, body=payload, headers=_headers)
         con.close()
@@ -127,7 +135,7 @@ class server(commonscn):
                         del self.nhipmap[_name][_hash]
                     else:
                         count += 1
-                        dump.append((_name,_hash))
+                        dump.append((_name, _hash, val.get("reason")))
                 if len(self.nhipmap[_name]) == 0:
                     del self.nhipmap[_name]
             ### don't annote list with "map" dict structure on serverside (overhead)
@@ -160,39 +168,52 @@ class server(commonscn):
             _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2)
         except ConnectionRefusedError:
             return False, "use_stun"
+        except ssl.SSLError:
+            return False, "use_stun"
         if _cert is None:
-            return False, "no cert"
+            return False, "no_cert"
         if dhash(_cert) != _hash:
-            return False, "hash does not match"
+            return False, "hash_mismatch"
         return True, "registered_ip"
     
-    @check_argsdeco({"name": (str, "client name"),"port": (str, "port on which the client runs")}, optional={"update": (list, "list of compromised name/hashes")})
+    def check_updated(self, _address, _port, _name, certhashlist, timeout=None):
+        update_list = []
+        con = HTTPSConnection(_address, _port)
+        #con.putheader("")
+        for _hash, _security in certhashlist:
+            con.request("/usebroken/{hash}".format(hash=_hash), headers=server_update_header)
+            if dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))) == _hash:
+                update_list.append((_name, _hash, _security))
+        con.close()
+        return update_list
+    
+    @check_argsdeco({"name": (str, "client name"),"port": (str, "listen port of client")}, optional={"update": (list, "list of compromised name/hashes")})
     def register(self, obdict):
         """ register client """
         if check_name(obdict["name"])==False:
-            return False, "invalid name"
+            return False, "invalid_name"
         if obdict["clientcert"] is None:
-            return False, "no cert"
+            return False, "no_cert"
         
         clientcerthash = dhash(obdict["clientcert"])
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
         if ret[0] == False:
             return ret
-        #con = HTTPSConnection(obdict["clientaddress"][0], obdict["port"])
-        #for _upd in obdict.get("update", []):
-            
-            #check ownership broken certs by requesting them
-        #    pass
-        #con.close()
+        update_list = self.check_updated(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []))
         self.changeip_lock.acquire(False)
+        update_time = int(time.time())
         if obdict["name"] not in self.nhipmap:
-            self.nhipmap[obdict["name"]]={}
+            self.nhipmap[obdict["name"]] = {}
         if clientcerthash not in self.nhipmap[obdict["name"]]:
-            self.nhipmap[obdict["name"]][clientcerthash] = {}
-        self.nhipmap[obdict["name"]][clientcerthash]["address"] = obdict["clientaddress"][0]
-        self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
-        self.nhipmap[obdict["name"]][clientcerthash]["updatetime"] = int(time.time())
-        self.nhipmap[obdict["name"]][clientcerthash]["stunsock"] = None
+            self.nhipmap[obdict["name"]][clientcerthash] = {"security": "valid"}
+        for _uname, _uhash, _usecurity in update_list:
+            self.nhipmap[_uname][_uhash] = {"security": _usecurity, "hash": clientcerthash, "name": obdict["name"],"updatetime": update_time}
+        if self.nhipmap[obdict["name"]][clientcerthash].get("security", "valid") == "valid":
+            self.nhipmap[obdict["name"]][clientcerthash]["address"] = obdict["clientaddress"][0]
+            self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
+            self.nhipmap[obdict["name"]][clientcerthash]["updatetime"] = update_time
+            self.nhipmap[obdict["name"]][clientcerthash]["security"] = "valid"
+            self.nhipmap[obdict["name"]][clientcerthash]["stunsock"] = None
         self.changeip_lock.release()
         # notify that change happened
         self.nhipmap_cond.set()
@@ -208,15 +229,15 @@ class server(commonscn):
             return False, "hash not exist"
             
         _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
-        if _obj.get("update"):
-            _update = _obj.get("update")
+        if _obj.get("security"):
+            _usecurity, _uname, _uhash = _obj.get("security"), _obj["name"], _obj["hash"]
             _obj = self.nhipmap[_obj["name"]][_obj["hash"]]
         else:
-            _update = None
+            _usecurity = None
         if obdict.get("stun", True) and _obj["stunsock"]:
             pass# TO implement
-        if _update:
-            return True, {"address": _obj["address"], "port": _obj["port"], "stun": _obj["stunsock"]!=None, "update":_update}
+        if _usecurity:
+            return True, {"address": _obj["address"], "port": _obj["port"], "security": _usecurity, "name": _uname, "hash": _uhash, "stun": _obj["stunsock"]!=None}
         else:
             return True, {"address": _obj["address"], "port": _obj["port"], "stun": _obj["stunsock"]!=None}
     
@@ -305,6 +326,11 @@ class server_handler(BaseHTTPRequestHandler):
         else:
             self.auth_info = None
         
+        if self.client_address[0][:7] == "::ffff:":
+            self.client_address2 = (self.client_address[0][7:], self.client_address[1])
+        else:
+            self.client_address2 = (self.client_address[0], self.client_address[1])
+            
         # hack around not transmitted client cert
         _rewrapcert = self.headers.get("X-certrewrap")
         if _rewrapcert is not None:
@@ -352,10 +378,7 @@ class server_handler(BaseHTTPRequestHandler):
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
-        if self.client_address[0][:7] == "::ffff:":
-            obdict["clientaddress"] = (self.client_address[0][7:], self.client_address[1])
-        else:
-            obdict["clientaddress"] = (self.client_address[0], self.client_address[1])
+        obdict["clientaddress"] = self.client_address2
         obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         try:
@@ -364,7 +387,7 @@ class server_handler(BaseHTTPRequestHandler):
             jsonnized = json.dumps(gen_result(result, success))
         except Exception as e:
             error = generate_error("unknown")
-            if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
+            if self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
             ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
             self.scn_send_answer(500, ob)

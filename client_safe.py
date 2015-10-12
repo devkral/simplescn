@@ -116,12 +116,12 @@ class client_safe(object):
         if _tnames[0] == False:
             return _tnames
         out = []
-        for name, _hash in sorted(_tnames[1], key=lambda t: t[0]):
+        for name, _hash, _security in sorted(_tnames[1], key=lambda t: t[0]):
             if _hash == self.cert_hash:
-                out.append((name, _hash, isself))
+                out.append((name, _hash, _security, isself))
             else:
-                out.append((name, _hash, self.hashdb.certhash_as_name(_hash)))
-        return _tnames[0], {"items": out, "map":["name",]}, _tnames[2], _tnames[3]
+                out.append((name, _hash, _security, self.hashdb.certhash_as_name(_hash)))
+        return _tnames[0], {"items": out, "map":["name", "hash", "security", "localname"]}, _tnames[2], _tnames[3]
     
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
     def info(self, obdict):

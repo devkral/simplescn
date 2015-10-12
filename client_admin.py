@@ -8,7 +8,7 @@ from client_config import client_config
 
 
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename"}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert"}
     #, "connect"
     hashdb = None
     links = None
@@ -138,6 +138,42 @@ class client_admin(object):
         if _tref is None:
             return False, "name, hash not exist"
         return self.hashdb.delreference(_tref[4],obdict["reference"])
+
+    @check_argsdeco({"reason": (str, "reason for breaking cert")})
+    def invalidatecert(self, obdict):
+        """ invalidate certificate """
+        if check_security(obdict.get("reason")) == False or obdict.get("reason") == "valid":
+            return False, "wrong reason"
+        _cpath = os.path.join(self.links["config_root"],"client")
+        if os.path.isfile(_cpath+".pub"):
+            with open(_cpath+".pub", "r") as re:
+                _hash = dhash(re.read().strip().rstrip())
+            _brokenpath = os.path.join(self.links["config_root"], "broken", _hash)
+            if os.path.isfile(_cpath+".priv"):
+                os.rename(_cpath+".pub", _brokenpath+".pub")
+            else:
+                os.remove(_cpath+".pub")
+            os.rename(_cpath+".priv", _brokenpath+".priv")
+            with open(_cpath+".reason", "w") as wr:
+                wr.write(obdict.get("reason"))
+        else:
+            return False, "no pubcert"
+        _sock = self.links["hserver"].socket
+        port = _sock.getsockname()[1]
+        self.links["hserver"].socket = None
+        _sock.close()
+        ret = generate_certs(_cpath)
+        if ret == False:
+            logger().critical("Fatal error: certs could not be regenerated")
+            # in case logger is catched and handler doesn't output
+            print("Fatal error: certs could not be regenerated")
+            sys.exit(1)
+        with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
+            pub_cert = readinpubkey.read().strip().rstrip()
+        self.links["client"].cert_hash = dhash(pub_cert)
+        self.links["client_server"].cert_hash = dhash(pub_cert)
+        self.links["hserver"] = http_client_server(("", port), _cpath+"_cert", socket.AF_INET6)
+        return True
 
     @check_argsdeco({"message": (str, "message")},optional={"permanent":(bool, "store permanent (default:True)")})
     def changemsg(self, obdict):

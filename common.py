@@ -88,11 +88,11 @@ cert_sign_hash = hashes.SHA512()
 ## server only ##
 
 # loads: min_items, refresh, expire
-high_load = (100000, 1*60*60, 2*60*60)
-medium_load = (1000, 10*60, 4*60*60)
-low_load = (500, 30, 4*60*60)
+high_load = (100000, 10*60, 2*60*60)
+medium_load = (1000, 60, 4*60*60)
+low_load = (500, 10, 4*60*60)
 # special load just: refresh, expire
-very_low_load = (10, 24*60*60)
+very_low_load = (1, 24*60*60)
 
 ## defaults (most probably no change needed) ##
 default_priority = 20
@@ -343,6 +343,10 @@ def init_config_folder(_dir, prefix):
         os.makedirs(_dir, 0o700)
     else:
         os.chmod(_dir, 0o700)
+    if os.path.exists(os.path.join(_dir, "broken")) == False:
+        os.makedirs(os.path.join(_dir, "broken"), 0o700)
+    else:
+        os.chmod(os.path.join(_dir, "broken"), 0o700)
     _path = os.path.join(_dir, prefix)
     if os.path.exists("{}_name.txt".format(_path)) == False:
         e = open("{}_name.txt".format(_path), "w")

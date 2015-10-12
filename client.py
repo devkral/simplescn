@@ -496,7 +496,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - client")
             return
         if self.handle_remote == False and (self.handle_local == False \
-                and not self.client_address[0] in ["localhost", "127.0.0.1", "::1"]):
+                and not self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]):
             self.send_error(403, "no permission - client")
             return
         
@@ -522,10 +522,7 @@ class client_handler(BaseHTTPRequestHandler):
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
-        if self.client_address[0][:7] == "::ffff:":
-            obdict["clientaddress"] = (self.client_address[0][7:], self.client_address[1])
-        else:
-            obdict["clientaddress"] = (self.client_address[0], self.client_address[1])
+        obdict["clientaddress"] = self.client_address2
         obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         response = self.links["client"].access_core(action, obdict)
@@ -539,7 +536,7 @@ class client_handler(BaseHTTPRequestHandler):
                     del generror["stacktrace"]
                 jsonnized = json.dumps(gen_result(generror, False))
             else:
-                if self.client_address[0] not in ["localhost", "127.0.0.1", "::1"]:
+                if self.client_address2[0] not in ["localhost", "127.0.0.1", "::1"]:
                     generror = generate_error("unknown")
                 ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
                 self.scn_send_answer(500, ob)
@@ -589,10 +586,7 @@ class client_handler(BaseHTTPRequestHandler):
         if obdict is None:
             self.send_error(400, "bad arguments")
             return
-        if self.client_address[0][:7] == "::ffff:":
-            obdict["clientaddress"] = (self.client_address[0][7:], self.client_address[1])
-        else:
-            obdict["clientaddress"] = (self.client_address[0], self.client_address[1])
+        obdict["clientaddress"] = self.client_address2
         obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
         try:
@@ -601,7 +595,7 @@ class client_handler(BaseHTTPRequestHandler):
             jsonnized = json.dumps(gen_result(response[1],response[0]))
         except Exception as e:
             error = generate_error("unknown")
-            if self.client_address[0] in ["localhost", "127.0.0.1", "::1"]:
+            if self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
             ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
             self.scn_send_answer(500, ob)
@@ -675,6 +669,10 @@ class client_handler(BaseHTTPRequestHandler):
         else:
             self.auth_info = None
         
+        if self.client_address[0][:7] == "::ffff:":
+            self.client_address2 = (self.client_address[0][7:], self.client_address[1])
+        else:
+            self.client_address2 = (self.client_address[0], self.client_address[1])
         
         # hack around not transmitted client cert
         _rewrapcert = self.headers.get("X-certrewrap")
@@ -759,7 +757,7 @@ class client_handler(BaseHTTPRequestHandler):
             if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
                 cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
                 self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=False)
+                self.connection = cont.wrap_socket(self.connection, server_side=True)
             self.connection.read(1)
         elif resource == "server":
             self.handle_server(sub)
@@ -874,7 +872,7 @@ class client_init(object):
             confm.set("port", _name[1])
         else: # fallback
             confm.set("port", str(client_port))
-        port = int(confm.get("port"))
+        port = confm.get("port")
         
         clientserverdict={"name": _name[0], "certhash": dhash(pub_cert),
                 "priority": confm.get("priority"), "message": _message}
@@ -882,6 +880,7 @@ class client_init(object):
         self.links["client_server"] = client_server(clientserverdict)
         self.links["client_server"].pluginmanager = pluginm
         self.links["configmanager"] = confm
+        
 
         client_handler.links=self.links
         
