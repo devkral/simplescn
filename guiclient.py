@@ -24,11 +24,13 @@ import signal
 from guigtk import clientmain
 from guigtk.clientmain import gtkclient_init, do_gtkiteration
 from guigtk.clientnode import gtkclient_node
+from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify
 
 import client
 from client import paramhelp, client_args
 
 from common import configmanager, pluginmanager, confdb_ending
+#, pwcallmethod, notify
 
 #VALError
 from common import logger
@@ -38,9 +40,14 @@ from common import logger
 
 cm = None
 
-def open_gtk_node(_address, forcehash=None, switchfrominfo=False):
-    gtkclient_node(cm.links, _address, forcehash=forcehash, switchfrominfo=switchfrominfo)
+def open_gtk_node(_address, forcehash=None, page=0):
+    gtkclient_node(cm.links, _address, forcehash=forcehash, page=page)
     
+def open_gtk_pwcall_plugin(msg, requester=None):
+    return gtkclient_pw(msg, requester, ismain=False)
+    
+def open_gtk_notify_plugin(msg, requester=None):
+    return gtkclient_notify(msg, requester, ismain=False)
 
 def signal_handler(*args):
     #global run
@@ -114,6 +121,8 @@ if __name__ == "__main__":
         pluginm.resources["access"] = cm.links["client"].access_safe
         pluginm.resources["plugin"] = cm.links["client"].use_plugin
         pluginm.resources["open_node"] = open_gtk_node
+        pluginm.resources["open_pwrequest"] = open_gtk_pwcall_plugin
+        pluginm.resources["open_notify"] = open_gtk_notify_plugin
         pluginm.init_plugins()
     do_gtkiteration()
     #del cm

@@ -37,6 +37,12 @@ from common import check_certs, generate_certs, init_config_folder, default_conf
 
 from common import logger
 
+def open_pwcall_plugin(msg, requester=None):
+    pwcallmethod("{}: {}".format(requester, msg))()
+
+def open_notify_plugin(msg, requester=None):
+    notify("{}: {}".format(requester, msg))
+
 reference_header = \
 {
 "User-Agent": "simplescn/0.5 (client)",
@@ -49,6 +55,8 @@ class client_client(client_admin, client_safe, client_config):
     sslcont = None
     hashdb = None
     links = None
+    redirect_addr = None
+    redirect_hash = None
     # client_lock = None
     validactions = {"cmd_plugin", "remember_auth" }
     
@@ -189,12 +197,14 @@ class client_client(client_admin, client_safe, client_config):
             else:
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
     
-    def use_plugin(self, address, plugin, paction, forcehash=None, forceport=False, requester=None):
+    def use_plugin(self, address, plugin, paction, forcehash=None,originalcert=None,  forceport=False, requester=None):
         _addr = scnparse_url(address, force_port=forceport)
         con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
         con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
         con.putheader("X-certrewrap", self.cert_hash)
         con.putheader("User-Agent", "simplescn/0.5 (client-plugin)")
+        if originalcert:
+            con.putheader("X-original_cert", originalcert)
         con.endheaders()
         sock = con.sock
         con.sock = None
@@ -613,7 +623,8 @@ class client_handler(BaseHTTPRequestHandler):
         self.wfile.write(ob)
     
     def do_GET(self):
-        self.init_scn_stuff()
+        if self.init_scn_stuff() == False:
+            return
         if self.path == "/favicon.ico":
             if "favicon.ico" in self.statics:
                 self.send_response(200)
@@ -664,21 +675,33 @@ class client_handler(BaseHTTPRequestHandler):
         else:
             self.auth_info = None
         
+        
         # hack around not transmitted client cert
         _rewrapcert = self.headers.get("X-certrewrap")
+        _origcert = self.headers.get("X-original_cert")
         if _rewrapcert is not None:
             cont = self.connection.context
             self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=False)
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True))
+            if _rewrapcert != dhash(self.client_cert):
+                return False
+            if _origcert:
+                if _rewrapcert == self.links.get("trusted_certhash"):
+                    self.client_cert = _origcert
+                else:
+                    logger().debug("rewrapcert incorrect")
+                    return False
+            
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
         else:
             self.client_cert = None
-            
+        return True
 
     def do_POST(self):
-        self.init_scn_stuff()
+        if self.init_scn_stuff() == False:
+            return
         splitted = self.path[1:].split("/", 1)
         if len(splitted) == 1:
             resource = splitted[0]
@@ -703,7 +726,8 @@ class client_handler(BaseHTTPRequestHandler):
             # gui receive
             if hasattr(pluginm.plugins[plugin], "receive") == True:
                 # not supported yet
-                if pluginm.redirect_addr not in ["", None]:
+                # don't forget redirect_hash
+                if self.links["client"].redirect_addr not in ["", None]:
                     if hasattr(pluginm.plugins[plugin], "rreceive") == True:
                         try:
                             ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
@@ -715,8 +739,8 @@ class client_handler(BaseHTTPRequestHandler):
                         ret = True
                     if ret == False:
                         return
-                    sockd = self.links["client"].do_request(pluginm.redirect_addr, \
-                                        self.path, headers={"X-client_cert": self.client_cert})
+                    sockd = self.links["client"].use_plugin(self.links["client"].redirect_addr, \
+                                        plugin, action, forcehash=self.links["client"].redirect_hash, originalcert=self.client_cert)
                     redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
                     redout.run()
                     rw_socket(sockd, self.connection)
@@ -728,7 +752,15 @@ class client_handler(BaseHTTPRequestHandler):
                         logger().error(e)
                         self.send_error(500, "plugin error", str(e))
                         return
-            
+        # for invalidating and updating
+        elif resource == "usebroken":
+            cont = default_sslcont()
+            certfpath = os.path.join(self.links["config_root"], "broken", sub)
+            if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
+                cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+                self.connection = self.connection.unwrap()
+                self.connection = cont.wrap_socket(self.connection, server_side=False)
+            self.connection.read(1)
         elif resource == "server":
             self.handle_server(sub)
         elif resource == "client":

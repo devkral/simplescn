@@ -43,7 +43,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.backends import default_backend
-from cryptography.x509.oid import NameOID,ExtendedKeyUsageOID
+from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
 import datetime
 
 import ssl
@@ -295,10 +295,10 @@ def generate_certs(_path):
     #_tname.append(x509.NameAttribute(NameOID.DOMAIN_COMPONENT, "simple.scn"))
     _tname = x509.Name(_tname)
     
-    extendedext = x509.ExtendedKeyUsage((ExtendedKeyUsageOID.SERVER_AUTH, 
-    ExtendedKeyUsageOID.CLIENT_AUTH))
+    #extendedext = x509.ExtendedKeyUsage((ExtendedKeyUsageOID.SERVER_AUTH, 
+    #ExtendedKeyUsageOID.CLIENT_AUTH))
     
-    extensions = [x509.Extension(extendedext.oid, True, extendedext)]
+    extensions = []#x509.Extension(extendedext.oid, True, extendedext)]
     
     builder = x509.CertificateBuilder(issuer_name=_tname, 
     subject_name = _tname, 
@@ -677,7 +677,6 @@ class pluginmanager(object):
     pathes_plugins = None
     path_plugins_config = None
     resources = None
-    redirect_addr = ""
     interfaces = []
     plugins = {}
     
@@ -1087,10 +1086,10 @@ def check_security(_security):
         return True
     return False
 
-def check_hash(_hashstr):
+def check_hash(_hashstr, _hashlen=None):
     if _hashstr is None:
         return False
-    if len(_hashstr) != DEFAULT_HASHALGORITHM_len:
+    if _hashlen and len(_hashstr) != _hashlen: #DEFAULT_HASHALGORITHM_len:
         return False
     if all(c in "0123456789abcdefABCDEF" for c in _hashstr) == False:
         return False

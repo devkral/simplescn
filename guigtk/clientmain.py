@@ -19,6 +19,9 @@ from guigtk.clientnode import gtkclient_node
 from guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
 from guigtk.clientmain_managehash import hashmanagement
 
+import common
+from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify
+
 from common import check_certs,default_sslcont, sharedir, init_config_folder, generate_certs, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
 
 from common import logger
@@ -898,6 +901,8 @@ class gtkclient_init(client.client_init):
         logger().debug("start gtkclient")
         self.links["gtkclient"] = gtkclient_main(self.links)
         logger().replaceHandler(self.links["gtkclient"])
+        common.pwcallmethodinst = gtkclient_pw
+        common.notifyinst = gtkclient_notify
 
 def do_gtkiteration():
     

@@ -15,24 +15,46 @@ if sharedir[-1] == os.sep:
 if sharedir not in sys.path:
     sys.path.append(sharedir)
 
-from http import client
+from http.client import HTTPSConnection 
 from http.server import BaseHTTPRequestHandler,HTTPServer
 import time
-#import socket
 import signal,threading
-import socketserver #,socket
+import socketserver
 import logging
-import json, base64
+import json
+#, base64
 import ssl
+
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, rw_socket, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout
-#configmanager
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout
+#configmanager,, rw_socket
 
+server_reference_header = \
+{
+"User-Agent": "simplescn/0.5 (broadcast)",
+"Authorization": 'scn {}', 
+"Connection": 'close' # keep-alive
+}
 
-
-
+def broadcast_helper(_addr, _path, payload, _certhash, _timeout):
+    try:
+        con = HTTPSConnection(_addr,  timeout=_timeout)
+        con.connect()
+        pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+        hashpcert = dhash(pcert)
+        if hashpcert != _certhash:
+            return
+        _headers = server_reference_header.copy()
+        _headers["X-client_cert"] = pcert
+        con.request("POST", _path, body=payload, headers=_headers)
+        con.close()
+    except socket.timeout:
+        pass
+    except Exception as e:
+        logger().debug(e)
+        
 class server(commonscn):
     capabilities = ["basic",]
     nhipmap = None
@@ -42,11 +64,15 @@ class server(commonscn):
     cert_hash = None
     scn_type = "server"
     
+    # explicitly allowed, note: server plugin can activate
+    # this by their own version of this variable
+    allowed_plugin_broadcasts = set()
+    
     # auto set by load balancer
     expire_time = None
     sleep_time = None
 
-    validactions={"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes"}
+    validactions = {"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes"}
     
     def __init__(self,d):
         commonscn.__init__(self)
@@ -107,6 +133,7 @@ class server(commonscn):
             ### don't annote list with "map" dict structure on serverside (overhead)
             self.cache["dumpnames"] = json.dumps(gen_result(dump, True))
             self.cache["num_nodes"] = json.dumps(gen_result(count, True))
+            self.cache["update_time"] = json.dumps(gen_result(int(time.time()), True))
             self.changeip_lock.release()
             self.nhipmap_cond.clear()
             
@@ -139,7 +166,7 @@ class server(commonscn):
             return False, "hash does not match"
         return True, "registered_ip"
     
-    @check_argsdeco({"name": (str, "client name"),"port": (str, "port on which the client runs")})
+    @check_argsdeco({"name": (str, "client name"),"port": (str, "port on which the client runs")}, optional={"update": (list, "list of compromised name/hashes")})
     def register(self, obdict):
         """ register client """
         if check_name(obdict["name"])==False:
@@ -151,6 +178,12 @@ class server(commonscn):
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
         if ret[0] == False:
             return ret
+        #con = HTTPSConnection(obdict["clientaddress"][0], obdict["port"])
+        #for _upd in obdict.get("update", []):
+            
+            #check ownership broken certs by requesting them
+        #    pass
+        #con.close()
         self.changeip_lock.acquire(False)
         if obdict["name"] not in self.nhipmap:
             self.nhipmap[obdict["name"]]={}
@@ -173,17 +206,49 @@ class server(commonscn):
             return False, "name not exist"
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
             return False, "hash not exist"
+            
         _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
+        if _obj.get("update"):
+            _update = _obj.get("update")
+            _obj = self.nhipmap[_obj["name"]][_obj["hash"]]
+        else:
+            _update = None
         if obdict.get("stun", True) and _obj["stunsock"]:
             pass# TO implement
-        return True, {"address": _obj["address"], "port": _obj["port"], "stun": _obj["stunsock"]!=None}
+        if _update:
+            return True, {"address": _obj["address"], "port": _obj["port"], "stun": _obj["stunsock"]!=None, "update":_update}
+        else:
+            return True, {"address": _obj["address"], "port": _obj["port"], "stun": _obj["stunsock"]!=None}
     
+    
+    # limited by maxrequest size
+    @check_argsdeco({"plugin":(str, "plugin"), "receivers": (list, "list with receivertuples"), "paction":(str, "plugin action"), "payload": (str, "stringpayload")})
+    def broadcast_plugin(self, obdict):
+        """ Broadcast to client plugins """
+        _plugin = obdict.get("plugin")
+        paction = obdict.get("paction").split("/", 1)[0]
+        if (_plugin, paction) not in self.allowed_plugin_broadcasts:
+            return False, "not in allowed_plugin_broadcasts"
+        for elem in obdict.get("receivers"):
+            if len(elem)!=2:
+                logger.debug("invalid element: {}".format(elem))
+                continue
+            _name, _hash = elem
+            if _name not in self.nhipmap:
+                continue
+            if _hash not in self.nhipmap[_name]:
+                continue
+            _telem2 = self.nhipmap[_name]
+            broadcast_helper("{}:{}".format(_telem2.get("address", ""), _telem2.get("port", -1)), "/plugin/{}/{}".format(_plugin, obdict.get("paction")), bytes(obdict.get("payload"), "utf-8"))
+        #requester=None):
+
+
     
     @generate_error_deco
     def access_server(self, action, requester=None, **obdict):
         if action in self.cache:
             return self.cache[action]
-        if action not in ["get",]:
+        if action not in ["get", "broadcast_plugin"]:
             return False, "no permission"
         try:
             return getattr(self, action)(obdict)
@@ -247,12 +312,14 @@ class server_handler(BaseHTTPRequestHandler):
             self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=False)
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True))
+            if _rewrapcert != dhash(self.client_cert):
+                return False
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
             
         else:
             self.client_cert = None
-
+        return True
     def handle_server(self, action):
         if action not in self.links["server_server"].validactions:
             self.send_error(400, "invalid action - server")
@@ -314,7 +381,8 @@ class server_handler(BaseHTTPRequestHandler):
         self.wfile.write(ob)
         
     def do_GET(self):
-        self.init_scn_stuff()
+        if self.init_scn_stuff() == False:
+            return
         if self.path=="/favicon.ico":
             if "favicon.ico" in self.statics:
                 self.send_response(200)
@@ -343,7 +411,8 @@ class server_handler(BaseHTTPRequestHandler):
         self.send_error(404, "not -found")
 
     def do_POST(self):
-        self.init_scn_stuff()
+        if self.init_scn_stuff() == False:
+            return
         splitted = self.path[1:].split("/",1)
         pluginm = self.links["server_server"].pluginmanager
         if len(splitted) == 1:
@@ -543,6 +612,11 @@ if __name__ == "__main__":
         cm.links["server_server"].pluginmanager = pluginm
         pluginm.resources["access"] = cm.links["server_server"].access_server
         pluginm.init_plugins()
+        _broadc = cm.links["server_server"].allowed_plugin_broadcasts
+        for _name, plugin in pluginm.plugins.items():
+            if hasattr(plugin, "allowed_plugin_broadcasts"):
+                for _broadfuncname in getattr(plugin, "allowed_plugin_broadcasts"):
+                    _broadc.insert((_name, _broadfuncname))
         
     logger().debug("server initialized. Enter serveloop")
     cm.serve_forever_block()
