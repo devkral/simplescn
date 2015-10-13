@@ -1,6 +1,6 @@
 
 from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs
-import os
+import os, sys
 import threading
 #logger, isself
 import socket
