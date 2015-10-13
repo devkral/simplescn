@@ -175,6 +175,7 @@ class client_admin(object):
         #self.links["hserver"].socket = None
         #self.links["hserver"] = client.http_client_server(("", port), _cpath, socket.AF_INET6)
         #self.sslcont = self.links["hserver"].sslcont
+        print("Keydestruction Success - Please restart process")
         sys.exit(0)
         #return True
 
