@@ -232,11 +232,11 @@ class cmd_stuff(object):
             elif resp[2] == isself:
                 cmdveri.set_text("Is own client")
             else:
-                cmdveri.set_text("Verified as: "+resp[2])
+                cmdveri.set_text("Verified as: "+resp[2][0]+"(resp[2][1])")
             inp.set_text("")
         else:
             out.insert(out.get_end_iter(),"Error:\n")
-        out.insert(out.get_end_iter(),resp[1]+"\n")
+        out.insert(out.get_end_iter(), str(resp[1])+"\n")
         out.move_mark_by_name("scroll", out.get_end_iter())
         cmdview.scroll_to_mark(out.get_mark("scroll"),0.4,True,0,1)
     def cmdme(self,*args):

@@ -2,7 +2,8 @@
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
+from guigtk import clientdialogs
 
 run = True
 open_addresses={}
@@ -27,9 +28,35 @@ def toggle_shielded(action, togglewidget, url, **obdict):
             togglewidget._toggle_state_scn = True
     return shielded
 
-class gtkclient_template(Gtk.Builder):
-    links = None
+class set_parent_template(object):
     win = None
+    added = False
+    
+    def init_connects(self):
+        self.win.connect("window-state-event", self.select_byfocus)
+    
+    def select_byfocus(self, widget, event):
+        if event.new_window_state&Gdk.WindowState.FOCUSED != 0:
+            self.addstack()
+        else:
+            self.delstack()
+        
+    
+    def addstack(self, *args):
+        if self.added == False:
+            clientdialogs.parentlist.append(self.win)
+            self.added = True
+    
+    def delstack(self, *args):
+        if self.added == True:
+            clientdialogs.parentlist.remove(self.win)
+            self.added = False
+        
+
+
+
+class gtkclient_template(Gtk.Builder, set_parent_template):
+    links = None
     resdict = None
     address = None
     #autoclose=0 #closes window after a timeperiod

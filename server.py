@@ -28,7 +28,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs
 #configmanager,, rw_socket
 
 server_broadcast_header = \
@@ -36,13 +36,6 @@ server_broadcast_header = \
 "User-Agent": "simplescn/0.5 (broadcast)",
 "Authorization": 'scn {}', 
 "Connection": 'close' # keep-alive
-}
-
-server_update_header = \
-{
-"User-Agent": "simplescn/0.5 (broadcast)",
-"Authorization": 'scn {}', 
-"Connection": 'keep-alive'
 }
 
 
@@ -135,7 +128,7 @@ class server(commonscn):
                         del self.nhipmap[_name][_hash]
                     else:
                         count += 1
-                        dump.append((_name, _hash, val.get("reason")))
+                        dump.append((_name, _hash, val.get("security")))
                 if len(self.nhipmap[_name]) == 0:
                     del self.nhipmap[_name]
             ### don't annote list with "map" dict structure on serverside (overhead)
@@ -176,17 +169,6 @@ class server(commonscn):
             return False, "hash_mismatch"
         return True, "registered_ip"
     
-    def check_updated(self, _address, _port, _name, certhashlist, timeout=None):
-        update_list = []
-        con = HTTPSConnection(_address, _port)
-        #con.putheader("")
-        for _hash, _security in certhashlist:
-            con.request("/usebroken/{hash}".format(hash=_hash), headers=server_update_header)
-            if dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))) == _hash:
-                update_list.append((_name, _hash, _security))
-        con.close()
-        return update_list
-    
     @check_argsdeco({"name": (str, "client name"),"port": (str, "listen port of client")}, optional={"update": (list, "list of compromised name/hashes")})
     def register(self, obdict):
         """ register client """
@@ -199,15 +181,15 @@ class server(commonscn):
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
         if ret[0] == False:
             return ret
-        update_list = self.check_updated(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []))
+        update_list = check_updated_certs(obdict["clientaddress"][0], obdict["port"], obdict.get("update", []), newhash=clientcerthash)
         self.changeip_lock.acquire(False)
         update_time = int(time.time())
         if obdict["name"] not in self.nhipmap:
             self.nhipmap[obdict["name"]] = {}
         if clientcerthash not in self.nhipmap[obdict["name"]]:
             self.nhipmap[obdict["name"]][clientcerthash] = {"security": "valid"}
-        for _uname, _uhash, _usecurity in update_list:
-            self.nhipmap[_uname][_uhash] = {"security": _usecurity, "hash": clientcerthash, "name": obdict["name"],"updatetime": update_time}
+        for _uhash, _usecurity in update_list:
+            self.nhipmap[obdict["name"]][_uhash] = {"security": _usecurity, "hash": clientcerthash, "name": obdict["name"],"updatetime": update_time}
         if self.nhipmap[obdict["name"]][clientcerthash].get("security", "valid") == "valid":
             self.nhipmap[obdict["name"]][clientcerthash]["address"] = obdict["clientaddress"][0]
             self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
@@ -229,7 +211,7 @@ class server(commonscn):
             return False, "hash not exist"
             
         _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
-        if _obj.get("security"):
+        if _obj.get("security", "") != "valid":
             _usecurity, _uname, _uhash = _obj.get("security"), _obj["name"], _obj["hash"]
             _obj = self.nhipmap[_obj["name"]][_obj["hash"]]
         else:
@@ -239,7 +221,7 @@ class server(commonscn):
         if _usecurity:
             return True, {"address": _obj["address"], "port": _obj["port"], "security": _usecurity, "name": _uname, "hash": _uhash, "stun": _obj["stunsock"]!=None}
         else:
-            return True, {"address": _obj["address"], "port": _obj["port"], "stun": _obj["stunsock"]!=None}
+            return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "stun": _obj["stunsock"]!=None}
     
     
     # limited by maxrequest size
@@ -260,7 +242,7 @@ class server(commonscn):
             if _hash not in self.nhipmap[_name]:
                 continue
             _telem2 = self.nhipmap[_name]
-            broadcast_helper("{}:{}".format(_telem2.get("address", ""), _telem2.get("port", -1)), "/plugin/{}/{}".format(_plugin, obdict.get("paction")), bytes(obdict.get("payload"), "utf-8"))
+            broadcast_helper("{}-{}".format(_telem2.get("address", ""), _telem2.get("port", -1)), "/plugin/{}/{}".format(_plugin, obdict.get("paction")), bytes(obdict.get("payload"), "utf-8"))
         #requester=None):
 
 

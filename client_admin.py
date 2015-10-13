@@ -1,14 +1,15 @@
 
-from common import check_reference, check_reference_type, check_argsdeco, check_name
+from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs
 import os
 import threading
 #logger, isself
-
+import socket
+import client
 from client_config import client_config
 
 
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert"}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity"}
     #, "connect"
     hashdb = None
     links = None
@@ -113,10 +114,7 @@ class client_admin(object):
     @check_argsdeco({"hash": (str, ), "reference": (str, ), "newreference": (str, ), "newreftype": (str, )})
     def updatereference(self, obdict):
         """ update reference (child of hash) """
-        _name=self.hashdb.certhash_as_name(obdict["hash"])
-        if _name is None:
-            return False,"hash not in db: {}".format(obdict["hash"])
-            
+        
         if check_reference(obdict["newreference"]) == False:
             return False, "reference invalid"
         
@@ -125,7 +123,7 @@ class client_admin(object):
             
         _tref=self.hashdb.get(obdict["hash"])
         if _tref is None:
-            return False,"name, hash not exist"
+            return False,"hash not exist"
         
         return self.hashdb.updatereference(_tref[4],obdict["reference"],obdict["newreference"],obdict["newreftype"])
 
@@ -144,7 +142,10 @@ class client_admin(object):
         """ invalidate certificate """
         if check_security(obdict.get("reason")) == False or obdict.get("reason") == "valid":
             return False, "wrong reason"
-        _cpath = os.path.join(self.links["config_root"],"client")
+        #if notify() == False:
+        #    
+        _cpath = os.path.join(self.links["config_root"],"client_cert")
+        
         if os.path.isfile(_cpath+".pub"):
             with open(_cpath+".pub", "r") as re:
                 _hash = dhash(re.read().strip().rstrip())
@@ -154,26 +155,28 @@ class client_admin(object):
             else:
                 os.remove(_cpath+".pub")
             os.rename(_cpath+".priv", _brokenpath+".priv")
-            with open(_cpath+".reason", "w") as wr:
+            with open(_brokenpath+".reason", "w") as wr:
                 wr.write(obdict.get("reason"))
         else:
             return False, "no pubcert"
-        _sock = self.links["hserver"].socket
-        port = _sock.getsockname()[1]
-        self.links["hserver"].socket = None
-        _sock.close()
+        port = self.links["hserver"].socket.getsockname()[1]
         ret = generate_certs(_cpath)
         if ret == False:
             logger().critical("Fatal error: certs could not be regenerated")
             # in case logger is catched and handler doesn't output
             print("Fatal error: certs could not be regenerated")
             sys.exit(1)
-        with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
+        with open(_cpath+".pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip()
         self.links["client"].cert_hash = dhash(pub_cert)
         self.links["client_server"].cert_hash = dhash(pub_cert)
-        self.links["hserver"] = http_client_server(("", port), _cpath+"_cert", socket.AF_INET6)
-        return True
+        self.links["hserver"].shutdown()
+        self.links["hserver"].socket.close()
+        #self.links["hserver"].socket = None
+        #self.links["hserver"] = client.http_client_server(("", port), _cpath, socket.AF_INET6)
+        #self.sslcont = self.links["hserver"].sslcont
+        sys.exit(0)
+        #return True
 
     @check_argsdeco({"message": (str, "message")},optional={"permanent":(bool, "store permanent (default:True)")})
     def changemsg(self, obdict):

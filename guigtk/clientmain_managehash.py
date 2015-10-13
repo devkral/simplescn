@@ -147,7 +147,7 @@ class hashmanagement(object):
             reflist.append((elem[0],elem[1]))
     
     # update node type then open node 
-    def action__node(self, justselect):
+    def action_node(self, justselect):
         servercombo = self.builder.get_object("servercomboentry")
         rview = self.builder.get_object("refview")
         _selr=rview.get_selection().get_selected()
@@ -172,7 +172,7 @@ class hashmanagement(object):
             turl = self.do_requestdo("get", server=serverurl, reference=_ref, hash=_hash)
             if logger().check(turl, logging.INFO)==False:
                 return
-            _url="{}:{}".format(*turl[1])
+            _url="{address}-{port}".format(**turl[1])
         elif _type == "surl":
             serverurl=_ref
             namesret=self.do_requestdo("getreferences", hash=_hash, type="name")
@@ -184,18 +184,18 @@ class hashmanagement(object):
                 if elem[0] in ["", None]:
                     logger().warn("references type name contain invalid element: {}".format(elem[0]))
                 else:
-                    tempret=self.do_requestdo("get", server=serverurl, name=elem[0], hash=_hash)
+                    tempret = self.do_requestdo("get", server=serverurl, name=elem[0], hash=_hash)
                     if tempret[0]==True:
                         break
             if tempret is None or logger().check(tempret, logging.INFO)==False:
                 return
-            _url="{}:{}".format(*tempret[1])
+            _url="{address}-{port}".format(**tempret[1])
         elif _type == "url":
             _url=_ref
         else:
             logger().info("invalid type")
             return
-        if ":"  not in _url:
+        if "-"  not in _url:
             logger().info("invalid url: {}".format(_url))
             return
         
@@ -211,7 +211,7 @@ class hashmanagement(object):
             if justselect == True:
                 pass
             else:
-                gtkclient_node(self.links,"{}:{}".format(*scnparse_url(_url)), forcehash=_hash, page=1)
+                gtkclient_node(self.links,"{}-{}".format(*scnparse_url(_url)), forcehash=_hash, page=1)
         else:
             logger().error(ret[1])
     

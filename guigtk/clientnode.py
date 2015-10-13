@@ -6,7 +6,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
 
 from guigtk.guicommon import gtkclient_template, activate_shielded, toggle_shielded
-from common import sharedir,isself, logger, check_name
+from common import sharedir,isself, logger, check_name, security_states
 
 
 
@@ -22,25 +22,51 @@ class gtkclient_node(gtkclient_template):
             return
         self.win = self.get_object("nodewin")
         self.win.connect('delete-event', self.close)
+        
+        self.init_connects()
         self.init_nodebook(page)
     
     def visible_func (self,_model,_iter,_data):
         _entry = self.get_object("servernodeentry")
+        _showbr = self.get_object("showbroken").get_active()
         _val = _entry.get_text()
         if _model[_iter] is None:
             return False
-        if _val in _model[_iter][1] or _val in _model[_iter][2]:
+        if _showbr == False and _model[_iter][1] != "valid":
+            return False
+        if _val in _model[_iter][2] or _val in _model[_iter][3]:
             return True
         else:
             return False
     
     def create_info_slate(self, _infoob=None):
+        
         #self.col.foreach(clearme)
         if _infoob is None:
             _infoob = self.do_requestdo("info", address=self.address)
         if _infoob[0] == False:
-            return
-            
+            return None
+        sombie = self.get_object("securitycombo")
+        secwhat = self.get_object("secwhat")
+        securtypes = security_states.copy()
+        if _infoob[2] is isself:
+            self.get_object("securityshow").set_label("self/destruct keys")
+            self.get_object("destroykeysb").show()
+            securtypes.remove("valid") #not valid
+            secwhat.set_text("Destroy broken/old key with reason:")
+        elif isinstance(_infoob[2], tuple):
+            self.get_object("securityshow").set_label(_infoob[2][1])
+            self.get_object("confirmsecb").show()
+            sombie.append_text(_infoob[2][1])
+            securtypes.remove(_infoob[2][1])
+            secwhat.set_text("Set key state:")
+        else:
+            self.get_object("securityshow").hide()
+        
+        for entry in securtypes:
+            sombie.append_text(entry)
+        sombie.set_active(0)
+        
         maininfo = self.get_object("infomaingrid")
         self.get_object("hashexpandl").set_text(_infoob[3])
         self.get_object("typeshowl").set_text(_infoob[1]["type"])
@@ -69,12 +95,12 @@ class gtkclient_node(gtkclient_template):
         
         for name, _hash, _security, _localname in _names[1]["items"]:
             if _localname is None:
-                namestore.append(("remote ({})".format(_security),name,_hash, name))
+                namestore.append(("remote", _security, name, _hash, name))
             elif _localname is isself:
                 self.isregistered = True
-                namestore.append(("This Client ({})".format(_security), name, _hash, name))
+                namestore.append(("This Client", _security, name, _hash, name))
             else:
-                namestore.append(("local","{} ({}) ({})".format(name, _localname, _security), _hash, name))
+                namestore.append(("local","{} ({})".format(name, _localname, ), _security, _hash, name))
         if self.isregistered == False:
             registerb.set_label("Register")
         else:
@@ -88,14 +114,17 @@ class gtkclient_node(gtkclient_template):
         self.sfilter.set_visible_func(self.visible_func)
         view = self.get_object("servernodeview")
         col0renderer = Gtk.CellRendererText()
-        col0 = Gtk.TreeViewColumn("State", col0renderer, text=0)
+        col0 = Gtk.TreeViewColumn("Type", col0renderer, text=0)
         view.append_column(col0)
         col1renderer=Gtk.CellRendererText()
-        col1 = Gtk.TreeViewColumn("Name", col1renderer, text=1)
+        col1 = Gtk.TreeViewColumn("State", col1renderer, text=1)
         view.append_column(col1)
         col2renderer=Gtk.CellRendererText()
-        col2 = Gtk.TreeViewColumn("Hash", col2renderer, text=2) #, wrap_mode=Pango.WrapMode.CHAR,max_width_chars=20)
+        col2 = Gtk.TreeViewColumn("Name", col2renderer, text=2)
         view.append_column(col2)
+        col3renderer=Gtk.CellRendererText()
+        col3 = Gtk.TreeViewColumn("Hash", col3renderer, text=3)
+        view.append_column(col3)
         self.update_server()
         return sgrid
     
@@ -142,8 +171,8 @@ class gtkclient_node(gtkclient_template):
             veristate.set_text("Unknown Node: {}".format(infoob[3][:20]+"..."))
             self.get_object("servicegetgrid").show()
         else:
-            self.win.set_title("Node: {}".format(name))
-            veristate.set_text("Node: {}".format(name))
+            self.win.set_title("Node: {}".format(name[0]))
+            veristate.set_text("Node: {} ({})".format(name[0], name[1]))
             self.get_object("servicegetgrid").show()
             
         _tmp = self.create_info_slate(infoob)
@@ -226,18 +255,19 @@ class gtkclient_node(gtkclient_template):
                         if "action" not in action or "text" not in action or "gtk" not in action.get("interfaces", []):
                             continue
                         item = Gtk.MenuItem()
-                        itemb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+                        itemb = Gtk.Grid(orientation=Gtk.Orientation.HORIZONTAL, column_spacing=3)
                         item.add(itemb)
                         
                         
-                        if "icon" in action:
-                            itemb.pack_end(Gtk.Image.new_from_file(action["icon"]), True, True, 0)
-                        
                         if action.get("state") is not None:
                             tb = Gtk.CheckButton(active=action.get("state"))
-                            itemb.pack_start(tb, True, True, 0)
+                            itemb.attach_next_to(tb, None, Gtk.PositionType.RIGHT, 1, 1)
+                            
+                        if "icon" in action:
+                            itemb.attach_next_to(Gtk.Image.new_from_file(action["icon"]), None, Gtk.PositionType.RIGHT, 1, 1)
+                        
 
-                        itemb.pack_end(Gtk.Label(action["text"]), True, True, 0)
+                        itemb.attach_next_to(Gtk.Label(action["text"]), None, Gtk.PositionType.RIGHT, 1, 1)
                         if "description" in action:
                             itemb.set_tooltip_text(action["description"])
                         itemb.show_all()
@@ -342,15 +372,22 @@ class gtkclient_node(gtkclient_template):
         _sel = view.get_selection().get_selected()
         if _sel[1] is None:
             return
-        #_entry.set_text(_sel[0][_sel[1]][3])
-        _hash, _name = _sel[0][_sel[1]][2:] #_entry.get_text().split("/",1)
+        
+        _name, _hash = _sel[0][_sel[1]][2:4] #_entry.get_text().split("/",1)
+        
+        _check = self.do_requestdo("check", server=self.address, name=_name, hash=_hash)
+        if _check[0] == False:
+            
+            return
+        
         _node = self.do_requestdo("get", server=self.address, name=_name, hash=_hash)
         if _node[0] == False:
             logger().error(_node[1])
             return
-        self.links["gtkclient"].set_curnode("{}:{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.address)
+        
+        self.links["gtkclient"].set_curnode("{}-{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.address)
         if justselect == False:
-            gtkclient_node(self.links, "{}:{}".format(_node[1]["address"],_node[1]["port"]), _name, **self.resdict)
+            gtkclient_node(self.links, "{}-{}".format(_node[1]["address"],_node[1]["port"]), _name, **self.resdict)
         self.close()
         
     def get_snode(self,*args):
@@ -388,9 +425,30 @@ class gtkclient_node(gtkclient_template):
                 logger().error(res[1])
                 return
             self.isregistered=True
-            namestore.prepend(("This Client", res_show[1]["name"], res_show[1]["hash"], res_show[1]["name"]))
+            namestore.prepend(("This Client", "valid", res_show[1]["name"], res_show[1]["hash"], res_show[1]["name"]))
             registerb.set_label("Update Address")
 
 
-
-
+# security
+    def open_security(self, *args):
+        self.get_object("setsecuritywin").show()
+        
+    def confirm_security(self, *args):
+        self.get_object("setsecuritywin").hide()
+        sectype = self.get_object("securityentry").get_text()
+        ret = self.do_requestdo("changesecurity", hash=self.resdict.get("forcehash"), security=sectype)
+        if ret[0] == True:
+            self.get_object("securityshow").set_label(sectype)
+        else:
+            self.get_object("securitycombo").set_active(0)
+    
+    def confirm_keydestruction(self, *args):
+        sectype = self.get_object("securityentry").get_text()
+        
+        ret = self.do_requestdo("invalidatecert", reason=sectype)
+        self.get_object("setsecuritywin").hide()
+        if ret[0] == True:
+            #self.get_object("securityshow").set_label(sectype)
+            self.resdict["forcehash"] = self.links["client"].cert_hash
+    def cancel_security(self, *args):
+        self.get_object("setsecuritywin").hide()

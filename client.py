@@ -29,6 +29,7 @@ import logging
 import ssl
 import signal,threading
 import json
+import time
 from os import path
 from urllib import parse
 
@@ -124,7 +125,8 @@ class client_client(client_admin, client_safe, client_config):
             if hashpcert == self.cert_hash:
                 validated_name = isself
             else:
-                validated_name = self.hashdb.certhash_as_name(hashpcert)
+                hashob = self.hashdb.get(hashpcert)
+                validated_name = (hashob[0],hashob[3])
                 if validated_name == isself:
                     raise(VALNameError)
             _certtupel = (validated_name, hashpcert)
@@ -501,6 +503,9 @@ class client_handler(BaseHTTPRequestHandler):
             return
         
         if is_admin_func(action):
+            #if self.client_cert is None:
+            #    self.send_error(403, "no permission (no certrewrap) - admin")
+            #    return
             if "admin" in self.links["auth"].realms:
                 realm = "admin"
             else:
@@ -785,6 +790,10 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
         self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
         self.socket = self.sslcont.wrap_socket(self.socket)
 
+    #def get_request(self):
+    #    if self.socket is None:
+    #        return None, None
+    #    socketserver.TCPServer.get_request(self)
 
 class client_init(object):
     config_root = None
@@ -893,7 +902,7 @@ class client_init(object):
         
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
-
+        
     def serve_forever_nonblock(self):
         sthread = threading.Thread(target=self.serve_forever_block, daemon=True)
         sthread.start()
@@ -907,6 +916,7 @@ def paramhelp():
     for _key, elem in sorted(client_args.items(), key=lambda x: x[0]):
         t += _key+":"+elem[0]+":"+elem[2]+"\n"
     return t
+    
 def signal_handler(_signal, frame):
   sys.exit(0)
 

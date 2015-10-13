@@ -57,6 +57,7 @@ import json
 import base64
 import time
 from urllib import parse
+from http.client import HTTPSConnection 
 
 ## sizes ##
 salt_size = 10
@@ -101,14 +102,16 @@ default_timeout = 60
 
 
 ###### signaling ######
-
+security_states = ["compromised", "old", "valid", "insecure"]
 
 class AddressFail(Exception):
     msg = '"<address>[:<port>]": '
 class EnforcedPortFail(AddressFail):
-    msg = 'address is lacking ":<port>"'
+    msg = 'address is lacking "-<port>"'
 class AddressEmptyFail(AddressFail):
     msg = '{} address is empty'.format(AddressFail.msg)
+class AddressInvalidFail(AddressFail):
+    msg = '{} address is invalid'.format(AddressFail.msg)
 
 class InvalidLoadError(Exception):
     pass
@@ -247,15 +250,14 @@ def init_logger(_logger = scn_logger()):
 
 
 def inp_passw_cmd(msg):
-    def func(*args):
-        return getpass(msg+"\n")
-    return func
+    return getpass(msg+"\n")
 pwcallmethodinst=inp_passw_cmd
 
 # returns func which asks the user for the password with message
 def pwcallmethod(msg):
-    return pwcallmethodinst(msg)
-
+    def func(*args):
+        return pwcallmethodinst(msg)
+    return func
 
 def notify_cmd(msg):
     inp = input(msg)
@@ -278,11 +280,15 @@ def notify(msg):
 
 def generate_certs(_path):
     _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key:")()
-    if _passphrase != "":
+    if isinstance(_passphrase, (str, None)) == False:
+        logger().error("passphrase not str, None")
+        return False
+    if _passphrase not in ["", None]:
         _passphrase2 = pwcallmethod("Retype:\n")()
         if _passphrase != _passphrase2:
             return False
-    
+    else:
+        _passphrase = None
     _key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=key_size,
@@ -310,7 +316,7 @@ def generate_certs(_path):
     # builder = builder.add_extension(extendedext, critical=True) # = extensions
     
     cert = builder.sign(_key, cert_sign_hash, default_backend())
-    if _passphrase == "":
+    if _passphrase is None:
         encryption_algorithm = serialization.NoEncryption()
     else:
         encryption_algorithm = serialization.BestAvailableEncryption(_passphrase)
@@ -387,7 +393,9 @@ def gen_sslcont(path):
 
 
 
-re_parse_url = re.compile("\\[?(.*)\\]?:([0-9]+)")
+re_parse_url_old = re.compile("\\[?(.*)\\]?:([0-9]+)")
+re_parse_url = re.compile("(.*)-([0-9]+)$")
+#re_parse_url_no_port = re.compile("([0-9:.]+[0-9]+)")
 def scnparse_url(url, force_port = False):
     if isinstance(url, str) ==False:
         raise(AddressFail)
@@ -396,7 +404,10 @@ def scnparse_url(url, force_port = False):
     _urlre = re.match(re_parse_url, url)
     if _urlre is not None:
         return _urlre.groups()
-    elif force_port == False:
+    #_urlre = re.match(re_parse_url_no_port, url)
+    #if _urlre is None:
+    #    raise(AddressInvalidFail)
+    if force_port == False:
         return (url, server_port)
     raise(EnforcedPortFail)
 
@@ -892,6 +903,32 @@ class scnauth_client(object):
             return authreq_ob.get("realm"), None
         return self.auth(self.save_auth[saveid][authreq_ob["realm"]], authreq_ob, pubcert_hash)
 
+cert_update_header = \
+{
+"User-Agent": "simplescn/0.5 (update-cert)",
+"Authorization": 'scn {}', 
+"Connection": 'keep-alive'
+}
+
+def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=None):
+    update_list = []
+    if None in [_address, _port]:
+        logger().info("address or port empty")
+        return None
+    cont = default_sslcont()
+    con = HTTPSConnection(_address, _port, timeout=timeout, context=cont)
+    con.connect()
+    if newhash and newhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))):
+        return None
+    #con.putheader("")
+    for _hash, _security in certhashlist:
+        con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
+        if dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))) == _hash:
+            update_list.append((_hash, _security))
+        
+    con.close()
+    return update_list
+
 
 class commonscn(object):
     capabilities = []
@@ -1086,7 +1123,7 @@ def check_reference_type(_reference_type):
     return True
 
 def check_security(_security):
-    if _security in ["compromised", "old", "valid"]:
+    if _security in security_states:
         return True
     return False
 
@@ -1272,18 +1309,23 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def addhash(self, dbcon, _name, _certhash, nodetype="unknown", priority=20, _security="valid"):
+    def addhash(self, dbcon, _name, _certhash, nodetype="unknown", priority=20, security="valid"):
         if _name is None:
             logger().error("name None")
         if nodetype is None:
             logger().error("nodetype None")
+        
+        if check_hash(_certhash) == False:
+            logger().error("hash contains invalid characters: {}".format(_certhash))
+            return False
+        
+        if check_security(security) == False:
+            logger().error("security is invalid type: {}".format(security))
+            return False
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
             logger().info("name does not exist: {}".format(_name))
-            return False
-        if check_hash(_certhash) == False:
-            logger().error("hash contains invalid characters: {}".format(_certhash))
             return False
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (_certhash,))
         _oldname=cur.fetchone()
@@ -1296,7 +1338,7 @@ class certhash_db(object):
         count = cur.fetchone()[0]
         cur.execute('''UPDATE certrefcount SET certreferenceid=?''', (count+1,))
         #hack end
-        cur.execute('''INSERT INTO certs(name,certhash,type,priority,security,certreferenceid) values(?,?,?,?,?,?);''', (_name, _certhash, nodetype, priority, _security, count))
+        cur.execute('''INSERT INTO certs(name,certhash,type,priority,security,certreferenceid) values(?,?,?,?,?,?);''', (_name, _certhash, nodetype, priority, security, count))
 
         dbcon.commit()
         return True
@@ -1332,7 +1374,7 @@ class certhash_db(object):
         if cur.fetchone() is None:
             logger().info("hash does not exist: {}".format(_certhash))
             return False
-        cur.execute('''UPDATE certs SET type=? WHERE certhash=? values(?,?,?);''', (_type, _certhash))
+        cur.execute('''UPDATE certs SET type=? WHERE certhash=?;''', (_type, _certhash))
 
         dbcon.commit()
         return True
@@ -1364,7 +1406,7 @@ class certhash_db(object):
             logger().info("hash does not exist: {}".format(_certhash))
             return False
 
-        cur.execute('''UPDATE certs SET priority=? WHERE certhash=? values(?,?,?);''', (_priority, _certhash))
+        cur.execute('''UPDATE certs SET priority=? WHERE certhash=?;''', (_priority, _certhash))
 
         dbcon.commit()
         return True
@@ -1374,8 +1416,8 @@ class certhash_db(object):
         if check_hash(_certhash) == False:
             logger().info("hash contains invalid characters: {}".format(_certhash))
             return False
-        if check_security(_certhash) == False:
-            logger().info("hash contains invalid characters: {}".format(_certhash))
+        if check_security(_security) == False:
+            logger().error("security is invalid type: {}".format(security))
             return False
             
         cur = dbcon.cursor()
@@ -1385,7 +1427,7 @@ class certhash_db(object):
             logger().info("hash does not exist: {}".format(_certhash))
             return False
 
-        cur.execute('''UPDATE certs SET security=? WHERE certhash=?) values(?,?,?);''', (_security, _certhash))
+        cur.execute('''UPDATE certs SET security=? WHERE certhash=?;''', (_security, _certhash))
 
         dbcon.commit()
         return True
@@ -1568,7 +1610,27 @@ class certhash_db(object):
             return []
         else:
             return out
+    
+    
+    @connecttodb
+    def movereferences(self,dbcon,_oldrefid,_newrefid):
+        cur = dbcon.cursor()
+        
+        cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_oldrefid,))
+        if cur.fetchone() is None:
+            logger().info("src certrefid does not exist: {}".format(_oldrefid))
+            return False
+            
+        cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_newrefid,))
+        if cur.fetchone() is None:
+            logger().info("dest certrefid does not exist: {}".format(_newrefid))
+            return False
 
+        cur.execute('''UPDATE certreferences SET certreferenceid=? WHERE certreferenceid=?;''', (_newrefid, _oldrefid))
+
+        dbcon.commit()
+        return True
+        
     #@connecttodb
     #def listreferences(self, dbcon, _reftype = None):
     #    cur = dbcon.cursor()

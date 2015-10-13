@@ -20,7 +20,8 @@ from guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
 from guigtk.clientmain_managehash import hashmanagement
 
 import common
-from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify
+from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
+from guigtk.guicommon import set_parent_template
 
 from common import check_certs,default_sslcont, sharedir, init_config_folder, generate_certs, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
 
@@ -35,7 +36,7 @@ run=True
 implementedrefs=["surl", "url", "name"]
 #,"sname"
 
-class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement):
+class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement, set_parent_template):
     links = None
 
     curnode = None
@@ -43,7 +44,6 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     
     builder = None
     clip = None
-    win = None
     backlog = []
     statusbar = None
     
@@ -148,7 +148,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         self.enternodedia.connect('delete-event',self.close_enternodedia)
         self.renameentitydia.connect('delete-event',self.close_renameentitydia)
         self.win.connect('delete-event',self.close)
-        
+        self.init_connects()
         self.update_storage()
 
     def update_storage(self):
@@ -294,7 +294,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         elif _hash[1]["localname"] == isself:
             _veri.set_text("This client")
         else:
-            _veri.set_text("Verified as:\n{}".format(_hash[1]["localname"]))
+            _veri.set_text("Verified as:\n{}\n ({})".format(_hash[1]["localname"], _hash[1]["security"]))
         return _hash[1]
         
     def veristate_server(self,*args):
@@ -354,7 +354,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             name = "Own server"
         else:
             name = askinfo["localname"]
-        gtkclient_node(self.links, "{}:{}".format(*scnparse_url(serverurl)), forcehash=askinfo["hash"], page="server")
+        gtkclient_node(self.links, "{}-{}".format(*scnparse_url(serverurl)), forcehash=askinfo["hash"], page="server")
         
     
     #### node actions ####
@@ -470,7 +470,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     def opennode_self(self,*args):
         ret=self.do_requestdo("show")
         if ret[0] == True:
-            gtkclient_node(self.links, "localhost:{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], page="services")
+            gtkclient_node(self.links, "localhost-{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], page="services")
     
     
     def activate_recent(self,*args):
@@ -488,7 +488,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     
     def addserverhash(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
-        serverurl="{}:{}".format(*scnparse_url(serverurl))
+        serverurl="{}-{}".format(*scnparse_url(serverurl))
         localview=self.builder.get_object("localview")
         
         
@@ -574,7 +574,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     def checkserver(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
         try:
-            serverurl="{}:{}".format(*scnparse_url(serverurl))
+            serverurl="{}-{}".format(*scnparse_url(serverurl))
         except AddressEmptyFail:
             logger().debug("Address Empty")
             return
@@ -652,72 +652,10 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     
     def addrefentry_confirm(self,*args):
         updatereftb=self.builder.get_object("updatereftb")
-        
         if updatereftb.get_sensitive() == False:
             self.addreference_action()
-            return
-        
-        # path for updating
-        addrefentry=self.builder.get_object("addrefentry")
-        addrefb=self.builder.get_object("addrefb")
-        #reflist=self.builder.get_object("reflist")
-        refview=self.builder.get_object("refview")
-        hview = self.builder.get_object("hashview")
-        
-        _selr=refview.get_selection().get_selected()
-        if _selr[1] is None:
-            logger().debug("invalid reference selection")
-            updatereftb.set_active(True)
-            return
-        
-        _selh = hview.get_selection().get_selected()
-        if _selh[1] is None:
-            logger().debug("invalid hash selection")
-            updatereftb.set_active(True)
-            return
-        ref_hash = _selh[0][_selh[1]][0]
-        
-        
-        #if updatereftb.get_active() == False:
-        #    addrefentry.
-        #    addrefentry.set_text("{}:{}".format(_selr[0][_selr[1]][1],_selr[0][_selr[1]][0]))
-        #    updatereftb.set_active(True)
-        #    return
-        
-        _ref_entry=addrefentry.get_text().strip(" ").rstrip(" ")
-        if _ref_entry=="":
-            
-            updatereftb.set_active(False)
-            addrefb.show()
-            addrefentry.hide()
-            return
-        
-        if _ref_entry.find(":") == -1:
-            logger().debug("invalid input")
-            updatereftb.set_active(True)
-            return
-        _type, _ref=_ref_entry.split(":", 1)
-        
-        
-        if not _type in implementedrefs:
-            logger().debug("invalid type")
-            updatereftb.set_active(True)
-            return
-        
-            
-        res=self.do_requestdo("updatereference", hash=ref_hash, reference=_ref,newreference=_ref, newreftype=_type)
-        if res[0]==True:
-            if _type in ["url", "name"]:
-                self.update_storage()
-            addrefb.show()
-            addrefentry.hide()
-            _selr[0][_selr[1]][0]=_ref
-            _selr[0][_selr[1]][1]=_type
-            updatereftb.set_active(False)
-            
         else:
-            logger().error(res[1])
-            updatereftb.set_active(True)
+            self.updatereference_way(self)
         
     def addreference_action(self,*args):
         addrefentry=self.builder.get_object("addrefentry")
@@ -742,7 +680,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         if _ref.find(":")==-1:
             logger().debug("invalid input")
             return
-        _type,_ref=_ref.split(":",1)
+        _type, _ref=_ref.split(":",1)
         
         
         hview=self.builder.get_object("hashview")
@@ -763,12 +701,70 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             refview.get_selection().select_iter(it)
             if _type in ["url", "name"] and self.curlocal[0] == "server":
                 self.update_serverlist(self.curlocal[1])
+            
+            
             updatereftb.set_sensitive(True)
             updatereftb.show()
             updatereftb.set_active(False)
             
         else:
             logger().error(res[1])
+
+    def updatereference_way(self,*args):
+        updatereftb=self.builder.get_object("updatereftb")
+        # path for updating
+        addrefentry=self.builder.get_object("addrefentry")
+        addrefb=self.builder.get_object("addrefb")
+        #reflist=self.builder.get_object("reflist")
+        refview=self.builder.get_object("refview")
+        hview = self.builder.get_object("hashview")
+        
+        if self.__update_ref_run_stop:
+            return
+        
+        _selh = hview.get_selection().get_selected()
+        if _selh[1] is None:
+            logger().debug("invalid hash selection")
+            updatereftb.set_active(True)
+            return
+        ref_hash = _selh[0][_selh[1]][0]
+        
+        _ref_entry=addrefentry.get_text().strip(" ").rstrip(" ")
+        if _ref_entry=="":
+            
+            updatereftb.set_active(False)
+            addrefb.show()
+            addrefentry.hide()
+            return
+        
+        if _ref_entry.find(":") == -1:
+            logger().debug("invalid input")
+            updatereftb.set_active(True)
+            return
+        _type, _ref=_ref_entry.split(":", 1)
+        
+        
+        if not _type in implementedrefs:
+            logger().debug("invalid type")
+            updatereftb.set_active(True)
+            return
+        
+        res = self.do_requestdo("updatereference", hash=ref_hash, reference=self._cache_old_ref[0],newreference=_ref, newreftype=_type)
+        if res[0]==True:
+            self.__update_ref_run_stop = True
+            if _type in ["url", "name"]:
+                self.update_storage()
+            addrefb.show()
+            addrefentry.hide()
+            
+            self._cache_old_ref[1][0]=_ref
+            self._cache_old_ref[1][1]=_type
+            updatereftb.set_active(False)
+            
+        else:
+            logger().error(res[1])
+            updatereftb.set_active(True)
+
             
     def updatereference_action(self,*args):
         updatereftb=self.builder.get_object("updatereftb")
@@ -781,10 +777,13 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             _selr=refview.get_selection().get_selected()
             if _selr[1] is None:
                 return
-            addrefentry.show()
+            self.__update_ref_run_stop = False
+            self._cache_old_ref = (_selr[0][_selr[1]][0], _selr[0][_selr[1]])
             addrefentry.set_text("{}:{}".format(_selr[0][_selr[1]][1],_selr[0][_selr[1]][0]))
+            addrefentry.show()
+            addrefentry.grab_focus()
         else:
-            self.addrefentry_confirm()
+            self.updatereference_way()
 
     def delreference(self,*args):
         rview=self.builder.get_object("refview")
@@ -901,6 +900,7 @@ class gtkclient_init(client.client_init):
         logger().debug("start gtkclient")
         self.links["gtkclient"] = gtkclient_main(self.links)
         logger().replaceHandler(self.links["gtkclient"])
+        parentlist.insert(0, self.links["gtkclient"].win)
         common.pwcallmethodinst = gtkclient_pw
         common.notifyinst = gtkclient_notify
 

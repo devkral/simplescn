@@ -1653,6 +1653,8 @@ Entity</property>
             <child>
               <object class="GtkEntry" id="addrefentry">
                 <property name="can_focus">True</property>
+                <property name="can_default">True</property>
+                <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="placeholder_text" translatable="yes">e.g.: url:something.foo.com</property>
                 <signal name="activate" handler="addrefentry_confirm" swapped="no"/>
@@ -1668,7 +1670,7 @@ Entity</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <signal name="toggled" handler="updatereference_action" swapped="no"/>
+                <signal name="clicked" handler="updatereference_action" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">3</property>

@@ -1,6 +1,6 @@
 
 import ssl
-from common import isself, check_hash, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail
+from common import isself, check_hash, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail, check_updated_certs
 #logger
 from http import client
 
@@ -38,12 +38,12 @@ class client_safe(object):
     @check_argsdeco({"name": (str, ),"port": (int, )})
     def registerservice(self, obdict):
         """ register service (second way) """
-        return self.do_request("localhost:{}".format(self.links["hserver"].socket.getsockname()[1]), "/server/registerservice", obdict)
+        return self.do_request("localhost-{}".format(self.links["hserver"].socket.getsockname()[1]), "/server/registerservice", obdict)
     
     @check_argsdeco({"name": (str, )})
     def delservice(self, obdict):
         """ delete service (second way) """
-        return self.do_request("localhost:{}".format(self.links["hserver"].socket.getsockname()[1]), "/server/delservice", obdict)
+        return self.do_request("localhost-{}".format(self.links["hserver"].socket.getsockname()[1]), "/server/delservice", obdict)
     
     @check_argsdeco({"name": (str, "service name"), }, {"client":(str, )})
     def getservice(self, obdict):
@@ -52,7 +52,7 @@ class client_safe(object):
             client_addr = obdict["client"]
             del obdict["client"]
         else:
-            client_addr = "localhost:{}".format(self.links["server"].socket.getsockname()[1])
+            client_addr = "localhost-{}".format(self.links["server"].socket.getsockname()[1])
         return self.do_request(client_addr, "/server/getservice", obdict, headers=obdict.get("headers"))
     
     @check_argsdeco(optional={"client":(str, )})
@@ -62,7 +62,7 @@ class client_safe(object):
             client_addr = obdict["client"]
             del obdict["client"]
         else:
-            client_addr="localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
+            client_addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
         _tservices = self.do_request(client_addr, "/server/dumpservices", headers=obdict.get("headers"), forceport=True)
         if _tservices[0] == False:
             return _tservices
@@ -106,8 +106,8 @@ class client_safe(object):
             return _ha
         if _ha[1]["hash"] == self.cert_hash:
             return True, {"localname":isself, "hash":self.cert_hash, "cert":_ha[1]["cert"]}
-        temp = self.hashdb.certhash_as_name(_ha[1]["hash"])
-        return True, {"localname":temp, "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
+        temp = self.hashdb.get(_ha[1]["hash"])
+        return True, {"localname":temp[0],"security":temp[3], "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
 
     @check_argsdeco({"server": (str, ), })
     def listnames(self, obdict):
@@ -130,7 +130,7 @@ class client_safe(object):
             _addr=obdict["address"]
             del obdict["address"]
         else:
-            _addr="localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
+            _addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/info", headers=obdict.get("headers"), forceport=True)
 
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
@@ -140,7 +140,7 @@ class client_safe(object):
             _addr = obdict["address"]
             del obdict["address"]
         else:
-            _addr = "localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
+            _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/cap", headers=obdict.get("headers"), forceport=True)
     
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
@@ -150,7 +150,7 @@ class client_safe(object):
             _addr = obdict["address"]
             del obdict["address"]
         else:
-            _addr = "localhost:{}".format(self.links["hserver"].socket.getsockname()[1])
+            _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/prioty", headers=obdict.get("headers"), forceport=True)
 
     @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})
@@ -159,7 +159,7 @@ class client_safe(object):
         temp=self.get(obdict)
         if temp[0]==False:
             return temp
-        return self.prioty_direct("{address}:{port}".format(**temp[1]))
+        return self.prioty_direct("{address}-{port}".format(**temp[1]))
 
     #check if _addr is reachable and update priority
     @check_argsdeco({"address": (str, ), "hash": (str, )})
@@ -168,7 +168,16 @@ class client_safe(object):
         temp = self.prioty_direct(obdict)
         if temp[0] == False:
             return temp
-        if self.hashdb.get(obdict["hash"]) is not None:
+        hasho = self.hashdb.get(obdict["hash"])
+        if temp[3] != obdict["hash"]:
+            ret = check_updated_certs(temp[1].get("address"), temp[1].get("port"), [(obdict.get("hash"), "insecure"), ], newhash=temp[3])
+            if len(ret) == 0:
+                return False, "MITM attack?, Certmissmatch"
+            if hasho:
+                # TODO: validate that this is secure
+                self.hashdb.changesecurity(obdict["hash"], "insecure")
+                self.hashdb.addhash(hasho[0], temp[1].get("hash"), hasho[1], hasho[2], "unverified")
+        if hasho is not None:
             self.hashdb.changepriority(obdict["hash"])
             self.hashdb.changetype(obdict["hash"],temp[1]["type"])
         return temp
@@ -176,11 +185,23 @@ class client_safe(object):
     #check if node is reachable and update priority
     @check_argsdeco({"server":(str, ),"name":(str, ),"hash": (str, )})
     def check(self, obdict):
-        """ retrieve priority and type of a client on a server; update own priority/type information """
+        """ retrieve priority, type, certsecuritystate of a client on a server; update own priority/type/certsecuritystate information """
         temp = self.get(obdict)
         if temp[0] == False:
             return temp
-        obdict["address"] = temp[1]["address"]
+        if temp[1].get("security", "valid") != "valid":
+            ret = check_updated_certs(temp[1].get("address"), temp[1].get("port"), [(obdict.get("hash"), temp[1].get("security")), ])
+            if len(ret) == 0:
+                return False, "MITM attack?, Certmissmatch"
+            
+            hasho = self.hashdb.get(obdict["hash"])
+            if hasho:
+                self.hashdb.changesecurity(obdict["hash"], "insecure")
+                self.hashdb.addhash(hasho[0], temp[1].get("hash"), hasho[1], hasho[2], "unverified")
+            
+            #return False, "Certificate updated, verify"
+            obdict["hash"] = temp[3]
+        obdict["address"] = "{address}-{port}".format(**temp[1])
         return self.check_direct(obdict)
     
     ### local management ###
