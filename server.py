@@ -18,7 +18,7 @@ if sharedir not in sys.path:
 from http.client import HTTPSConnection 
 from http.server import BaseHTTPRequestHandler,HTTPServer
 import time
-import signal,threading
+import signal, threading
 import socketserver
 import logging
 import json
@@ -64,6 +64,7 @@ class server(commonscn):
     links = None
     cert_hash = None
     scn_type = "server"
+    traversal = None
     
     # explicitly allowed, note: server plugin can activate
     # this by their own version of this variable
@@ -73,13 +74,14 @@ class server(commonscn):
     expire_time = None
     sleep_time = None
 
-    validactions = {"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes"}
+    validactions = {"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes", "open_traversal"}
     
     def __init__(self,d):
         commonscn.__init__(self)
         self.nhipmap = {}
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()
+        self.notraversal = d.get("notraversal", False)
         if len(very_low_load) != 2 or len(low_load) != 3 or len(medium_load) != 3 or len(high_load) != 3:
             raise (InvalidLoadSizeError())
             
@@ -106,6 +108,9 @@ class server(commonscn):
         self.refreshthread = threading.Thread(target=self.refresh_nhipmap, daemon=True)
         self.refreshthread.start()
         
+        if self.notraversal == False:
+            pass
+            
 
     def __del__(self):
         commonscn.__del__(self)
@@ -184,7 +189,7 @@ class server(commonscn):
             #ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
             #if ret[0] == False:
             #    return False, "unreachable client"
-            #ret[1] = "registered_traversal"
+            ret[1] = "registered_traversal"
         elif ret[0] == False:
             return ret
         update_list = check_updated_certs(obdict["clientaddress"][0], obdict["port"], obdict.get("update", []), newhash=clientcerthash)
@@ -203,14 +208,27 @@ class server(commonscn):
             self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
             self.nhipmap[obdict["name"]][clientcerthash]["updatetime"] = update_time
             self.nhipmap[obdict["name"]][clientcerthash]["security"] = "valid"
-            self.nhipmap[obdict["name"]][clientcerthash]["stunsock"] = None
+            self.nhipmap[obdict["name"]][clientcerthash]["traverse"] = ret[1] == "registered_traversal"
         self.changeip_lock.release()
         # notify that change happened
         self.nhipmap_cond.set()
-        return True, {"mode": ret[1]}
+        return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
     
+    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name"), "traverseport":(int, "port for traversal")})
+    def open_traversal(self, obdict):
+        """ open traversal connection """
+        if self.notraversal == True:
+            return False, "no traversal allowed"
+        if obdict["name"] not in self.nhipmap:
+            return False, "name not exist"
+        if obdict["hash"] not in self.nhipmap[obdict["name"]]:
+            return False, "hash not exist"
+        if self.nhipmap[obdict["name"]][obdict["hash"]].get("traverse", False):
+            return True, "no_traversal_needed"
+        return False, "not implemented yet"
+        
     
-    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"stun":(bool, "shall open a stun connection when neccessary (default: False)")})
+    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"traverseport":(int, "port for traversal (when neccessary= (default: -1, disabled)")})
     def get(self, obdict):
         """ get address of a client with name, hash """
         if obdict["name"] not in self.nhipmap:
@@ -224,12 +242,14 @@ class server(commonscn):
             _obj = self.nhipmap[_obj["name"]][_obj["hash"]]
         else:
             _usecurity = None
-        if obdict.get("stun", True) and _obj["stunsock"]:
-            pass# TO implement
-        if _usecurity:
-            return True, {"address": _obj["address"], "port": _obj["port"], "security": _usecurity, "name": _uname, "hash": _uhash, "stun": _obj["stunsock"]!=None}
+        if self.notraversal == False and obdict.get("traverseport", -1) != -1:
+            _travopened = self.open_traversal(obdict)[0]
         else:
-            return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "stun": _obj["stunsock"]!=None}
+            _travopened = False
+        if _usecurity:
+            return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse": _obj["traverse"], "traverse_opened":_travopened}
+        else:
+            return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse": _obj["traverse"], "traverse_opened":_travopened}
     
     
     # limited by maxrequest size
@@ -551,7 +571,7 @@ class server_init(object):
         
         
         serverd={"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": kwargs["priority"], "message":_message}
+                "priority": kwargs["priority"], "message":_message, "notraversal": kwargs.get("notraversal")}
         
         server_handler.links = self.links
         
@@ -585,6 +605,7 @@ spwfile=<file>: file with password (cleartext)
 priority=<number>: set priority
 timeout: socket timeout
 webgui: enables webgui
+notraversal: disables traversal
 """)
 
 #### don't base on sqlite, configmanager as it increases complexity and needed libs
@@ -597,7 +618,8 @@ server_args={"config":default_configdir,
              "webgui": None,
              "useplugins": None,
              "priority": str(default_priority),
-             "timeout": str(default_timeout)}
+             "timeout": str(default_timeout),
+             "notraversal": False}
     
 if __name__ == "__main__":
     from common import scn_logger, init_logger

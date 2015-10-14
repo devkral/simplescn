@@ -1073,7 +1073,10 @@ if __name__ ==  "__main__":
                     print("Known, name: {} ({}):".format(ret[2][0],ret[2][1]))
                 if isinstance(ret[1], dict):
                     for elem in ret[1].items():
-                        print("{}:{}".format(elem[0], elem[1].replace("\\n", "\n")))
+                        if isinstance(elem[1], str):
+                            print("{}:{}".format(elem[0], elem[1].replace("\\n", "\n")))
+                        else:
+                            print("{}:{}".format(elem[0], elem[1]))
                 else:
                     print(ret[1])
     else:

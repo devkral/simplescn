@@ -905,6 +905,11 @@ class scnauth_client(object):
         return self.auth(self.save_auth[saveid][authreq_ob["realm"]], authreq_ob, pubcert_hash)
 
 
+scn_pingstruct = struct.pack(">c1023x", b"p")
+scn_yesstruct = struct.pack(">c1023x", b"y")
+scn_nostruct = struct.pack(">c1023x", b"y")
+
+
 #port size, address
 addrstrformat = ">HH1020s"
 def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
@@ -925,7 +930,9 @@ class traverser_dropper(object):
     _srcaddrtupel = None
     _sock = None
     active = True
+    _checker = None
     def __init__(self, _srcaddrtupel):
+        self._checker = threading.Condition()
         if ":" in _srcaddrtupel[0]:
             _socktype = socket.AF_INET6
         else:
@@ -937,7 +944,18 @@ class traverser_dropper(object):
         
     def _dropper(self):
         while self.active:
-            self._sock.recv(1024)
+            recv = self._sock.recv(1024)
+            if recv == scn_yesstruct:
+                self._checker.notify_all()
+
+    # unaccounted for case multiple clients, but fast
+    def check(self, timeout=20):
+        try:
+            self._checker.wait(timeout)
+            return True
+        except TimeoutError:
+            return False
+            
 
 class traverser_helper(object):
     active = True
@@ -970,7 +988,7 @@ class traverser_helper(object):
             t2 = threading.Thread(target=self._connecter, daemon=True)
             t2.start()
             while self.active:
-                self._sock.sendto(b"a", self._destaddrtupel)
+                self._sock.sendto(scn_pingstruct, self._destaddrtupel)
                 time.sleep(self.intervall)
             self._sock.close()
         except Exception as e:
@@ -981,7 +999,7 @@ class traverser_helper(object):
     def _connecter(self):
         try:
             while self.active:
-                recv = self._sock.recv(1024)
+                recv = self._sock.recvfrom(1024)
                 if len(recv)!=1024:
                     # drop invalid packages
                     continue
@@ -993,8 +1011,10 @@ class traverser_helper(object):
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 try:
                     sock.connect((addr, port))
+                    _sock.sendto(scn_yesstruct, self._destaddrtupel)
                 except Exception as e:
-                    pass
+                    _sock.sendto(scn_nostruct, self._destaddrtupel)
+                    logger().info(e)
                 
             
             #self._sock.close()
