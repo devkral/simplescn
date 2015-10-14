@@ -28,7 +28,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper
 #configmanager,, rw_socket
 
 server_broadcast_header = \
@@ -61,10 +61,9 @@ class server(commonscn):
     nhipmap = None
     nhipmap_cache = ""
     refreshthread = None
-    links = None
     cert_hash = None
     scn_type = "server"
-    traversal = None
+    traverse = None
     
     # explicitly allowed, note: server plugin can activate
     # this by their own version of this variable
@@ -81,7 +80,8 @@ class server(commonscn):
         self.nhipmap = {}
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()
-        self.notraversal = d.get("notraversal", False)
+        # now: always None, because set manually
+        #  traversesrcaddr = d.get("traversesrcaddr", None)
         if len(very_low_load) != 2 or len(low_load) != 3 or len(medium_load) != 3 or len(high_load) != 3:
             raise (InvalidLoadSizeError())
             
@@ -108,8 +108,9 @@ class server(commonscn):
         self.refreshthread = threading.Thread(target=self.refresh_nhipmap, daemon=True)
         self.refreshthread.start()
         
-        if self.notraversal == False:
-            pass
+        # now: traversesrcaddr always invalid, set manually by init
+        #  if traversesrcaddr:
+        #      self.traverse = traverser_dropper(traversesrcaddr)
             
 
     def __del__(self):
@@ -174,7 +175,21 @@ class server(commonscn):
             return False, "hash_mismatch"
         return True, "registered_ip"
     
-    @check_argsdeco({"name": (str, "client name"),"port": (str, "listen port of client")}, optional={"update": (list, "list of compromised hashes/security")})
+    def check_brokencerts(self, _address, _port, _name, certhashlist, newhash, timeout=None):
+        update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash)
+        if update_list in [None, []]:
+            return
+        
+        
+        self.changeip_lock.acquire(False)
+        update_time = int(time.time())
+        for _uhash, _usecurity in update_list:
+            self.nhipmap[_name][_uhash] = {"security": _usecurity, "hash": newhash, "name": _name,"updatetime": update_time}
+        self.changeip_lock.release()
+        # notify that change happened
+        self.nhipmap_cond.set()
+    
+    @check_argsdeco({"name": (str, "client name"),"port": (int, "listen port of client")}, optional={"update": (list, "list of compromised hashes/security")})
     def register(self, obdict):
         """ register client """
         if check_name(obdict["name"])==False:
@@ -184,25 +199,25 @@ class server(commonscn):
         
         clientcerthash = dhash(obdict["clientcert"])
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
-        if ret[0] == False and ret[1] == "use_traversal":
+        if ret[0] == False: # all symptoms could be missing traversal and ret[1] == "use_traversal"
             return ret # not implemented yet
-            #ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
-            #if ret[0] == False:
-            #    return False, "unreachable client"
+            ret = self.open_traversal({"clientaddress": obdict["clientaddress"], "port": obdict["port"]})
+            if ret[0] == False:
+                return ret
+            ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
+            if ret[0] == False:
+                return False, "unreachable client"
             ret[1] = "registered_traversal"
         elif ret[0] == False:
             return ret
-        update_list = check_updated_certs(obdict["clientaddress"][0], obdict["port"], obdict.get("update", []), newhash=clientcerthash)
-        if update_list is None:
-            return False, "wrong check_updated_certs parameters"
+        t = threading.Thread(target=self.check_brokencerts, args=(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True)
+        t.start()
         self.changeip_lock.acquire(False)
         update_time = int(time.time())
         if obdict["name"] not in self.nhipmap:
             self.nhipmap[obdict["name"]] = {}
         if clientcerthash not in self.nhipmap[obdict["name"]]:
             self.nhipmap[obdict["name"]][clientcerthash] = {"security": "valid"}
-        for _uhash, _usecurity in update_list:
-            self.nhipmap[obdict["name"]][_uhash] = {"security": _usecurity, "hash": clientcerthash, "name": obdict["name"],"updatetime": update_time}
         if self.nhipmap[obdict["name"]][clientcerthash].get("security", "valid") == "valid":
             self.nhipmap[obdict["name"]][clientcerthash]["address"] = obdict["clientaddress"][0]
             self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
@@ -214,21 +229,23 @@ class server(commonscn):
         self.nhipmap_cond.set()
         return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
     
-    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name"), "traverseport":(int, "port for traversal")})
+    @check_argsdeco({"port":(int, "port for traversal")})
     def open_traversal(self, obdict):
         """ open traversal connection """
-        if self.notraversal == True:
-            return False, "no traversal allowed"
-        if obdict["name"] not in self.nhipmap:
-            return False, "name not exist"
-        if obdict["hash"] not in self.nhipmap[obdict["name"]]:
-            return False, "hash not exist"
-        if self.nhipmap[obdict["name"]][obdict["hash"]].get("traverse", False):
-            return True, "no_traversal_needed"
-        return False, "not implemented yet"
+        if self.traverse is None:
+            return False, "no traversal possible"
+        travport = obdict.get("port", -1)
+        if travport <= 0:
+            return False, "port <1: {}".format(travport)
+        travaddr = (obdict["clientaddress"][0], travport)
+        ret = self.traverse.send(obdict["clientaddress"], travaddr, 20)
+        if ret:
+            return True, "traversed"
+        else:
+            return False, "traverse request failed"
         
     
-    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"traverseport":(int, "port for traversal (when neccessary= (default: -1, disabled)")})
+    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"traverseport":(int, "port for traversal (when neccessary, (default: -1, disabled)")})
     def get(self, obdict):
         """ get address of a client with name, hash """
         if obdict["name"] not in self.nhipmap:
@@ -242,7 +259,7 @@ class server(commonscn):
             _obj = self.nhipmap[_obj["name"]][_obj["hash"]]
         else:
             _usecurity = None
-        if self.notraversal == False and obdict.get("traverseport", -1) != -1:
+        if self.traverse and obdict.get("traverseport", -1) != -1:
             _travopened = self.open_traversal(obdict)[0]
         else:
             _travopened = False
@@ -345,11 +362,13 @@ class server_handler(BaseHTTPRequestHandler):
         _rewrapcert = self.headers.get("X-certrewrap")
         if _rewrapcert is not None:
             cont = self.connection.context
-            self.connection = self.connection.unwrap()
+            #self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=False)
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
             if _rewrapcert != dhash(self.client_cert):
                 return False
+            #self.rfile.close()
+            #self.wfile.close()
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
             
@@ -477,9 +496,12 @@ class server_handler(BaseHTTPRequestHandler):
                 
                 oldsslcont = self.connection.context
                 
-                self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=True)
                 #self.connection = self.connection.unwrap()
+                self.connection = cont.wrap_socket(self.connection, server_side=True)
+                
+                time.sleep(1)
+                #self.connection.getpeercert() # handshake
+                self.connection = self.connection.unwrap()
                 #self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
@@ -490,8 +512,10 @@ class server_handler(BaseHTTPRequestHandler):
                 
             else:
                 oldsslcont = self.connection.context
+                #self.connection = self.connection.unwrap()
+                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+                #time.sleep(1) self.connection.getpeercert() 
                 self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(sock, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
                 self.send_error(404, "broken cert not found")
@@ -569,10 +593,9 @@ class server_init(object):
         else:
             _port = server_port
         
-        
         serverd={"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": kwargs["priority"], "message":_message, "notraversal": kwargs.get("notraversal")}
-        
+                "priority": kwargs["priority"], "message":_message} #, "traversesrcaddr": kwargs.get("notraversal")
+        # use direct way instead of traversesrcaddr
         server_handler.links = self.links
         
         
@@ -581,6 +604,10 @@ class server_init(object):
         # use timeout argument of BaseServer
         http_server_server.timeout = int(kwargs["timeout"])
         self.links["hserver"] = http_server_server(("", _port), _spath+"_cert", socket.AF_INET6)
+        if kwargs.get("notraversal", False) == False:
+            srcaddr = self.links["hserver"].socket.getsockname()
+            self.links["server_server"].traverse = traverser_dropper(srcaddr)
+            
         
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()

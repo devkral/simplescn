@@ -161,7 +161,7 @@ class client_client(client_admin, client_safe, client_config):
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
         if sendclientcert:
-            con.sock = con.sock.unwrap()
+            #con.sock = con.sock.unwrap()
             con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
         con.send(ob)
         
@@ -229,12 +229,12 @@ class client_client(client_admin, client_safe, client_config):
         con.endheaders()
         sock = con.sock
         con.sock = None
-        cert = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True))
+        cert = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True)).strip().rstrip()
         _hash = dhash(cert)
         if _hash != forcehash:
             sock.close()
             return None, cert, _hash
-        sock = sock.unwrap()
+        #sock = sock.unwrap()
         sock = self.sslcont.wrap_socket(sock, server_side=True)
         return sock, cert, _hash
         
@@ -703,7 +703,7 @@ class client_handler(BaseHTTPRequestHandler):
         _origcert = self.headers.get("X-original_cert")
         if _rewrapcert is not None:
             cont = self.connection.context
-            self.connection = self.connection.unwrap()
+            #self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=False)
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
             if _rewrapcert != dhash(self.client_cert):
@@ -714,7 +714,8 @@ class client_handler(BaseHTTPRequestHandler):
                 else:
                     logger().debug("rewrapcert incorrect")
                     return False
-            
+            #self.rfile.close()
+            #self.wfile.close()
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
         else:
@@ -774,7 +775,7 @@ class client_handler(BaseHTTPRequestHandler):
                         logger().error(e)
                         self.send_error(500, "plugin error", str(e))
                         return
-        # for invalidating and updating
+        # for invalidating and updating, DON'T USE connection afterward
         elif resource == "usebroken":
             cont = default_sslcont()
             certfpath = os.path.join(self.links["config_root"], "broken", sub)
@@ -784,9 +785,11 @@ class client_handler(BaseHTTPRequestHandler):
                 
                 oldsslcont = self.connection.context
                 
-                self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=True)
                 #self.connection = self.connection.unwrap()
+                self.connection = cont.wrap_socket(self.connection, server_side=True)
+                #self.connection.getpeercert() # handshake
+                time.sleep(1) # better solution needed
+                self.connection = self.connection.unwrap()
                 #self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
@@ -797,8 +800,10 @@ class client_handler(BaseHTTPRequestHandler):
                 
             else:
                 oldsslcont = self.connection.context
+                #self.connection = self.connection.unwrap()
+                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+                #time.sleep(1) self.connection.getpeercert() # handshake
                 self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(sock, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
                 self.send_error(404, "broken cert not found")

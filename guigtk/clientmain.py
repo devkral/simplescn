@@ -289,12 +289,12 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             _veri.set_text("")
             return None
             
-        if _hash[1]["localname"] is None:
+        if _hash[1].get("localname") is None:
             _veri.set_text("Unknown server")
-        elif _hash[1]["localname"] == isself:
+        elif _hash[1].get("localname") == isself:
             _veri.set_text("This client")
         else:
-            _veri.set_text("Verified as:\n{}\n ({})".format(_hash[1]["localname"], _hash[1]["security"]))
+            _veri.set_text("Verified as:\n{}\n ({})".format(_hash[1].get("localname"), _hash[1].get("security")))
         return _hash[1]
         
     def veristate_server(self,*args):
@@ -322,13 +322,13 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             cnode.set_text("invalid")
             opennodeb.set_sensitive(False)
             self.curnode = None
-        elif _ask[1]["localname"] is None:
+        elif _ask[1].get("localname") is None:
             cnodeorigin.set_text("remote:")
             cnode.set_text(_name)
             opennodeb.show()
             opennodeb.set_sensitive(True)
             self.curnode=(None, _clientaddress, _name, _hash, _serveraddress)
-        elif _ask[1]["localname"] == isself:
+        elif _ask[1].get("localname") == isself:
             cnodeorigin.set_text("")
             cnode.set_text("This client")
             opennodeb.show()
@@ -337,10 +337,10 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             #self.curnode=(_name,_address,_name,_hash)
         else:
             cnodeorigin.set_text("verified:")
-            cnode.set_text(_ask[1]["localname"])
+            cnode.set_text(_ask[1].get("localname"))
             opennodeb.show()
             opennodeb.set_sensitive(True)
-            self.curnode=(_ask[1]["localname"],_clientaddress,_name,_hash,_serveraddress)
+            self.curnode=(_ask[1].get("localname"),_clientaddress,_name,_hash,_serveraddress)
 
     
     def open_server(self,*args):
@@ -348,13 +348,13 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         askinfo = self._verifyserver(serverurl)
         if askinfo is None:
             return
-        if askinfo["localname"] is None:
+        if askinfo.get("localname") is None:
             name = serverurl[:20]
-        elif askinfo["localname"] == isself:
+        elif askinfo.get("localname") == isself:
             name = "Own server"
         else:
-            name = askinfo["localname"]
-        gtkclient_node(self.links, "{}-{}".format(*scnparse_url(serverurl)), forcehash=askinfo["hash"], page="server")
+            name = askinfo.get("localname")
+        gtkclient_node(self.links, "{}-{}".format(*scnparse_url(serverurl)), forcehash=askinfo.get("hash"), page="server")
         
     
     #### node actions ####

@@ -912,6 +912,7 @@ scn_nostruct = struct.pack(">c1023x", b"y")
 
 #port size, address
 addrstrformat = ">HH1020s"
+# not needed as far but keep it for future
 def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
     if ":" in self._dstaddrtupel[0]:
         _socktype = socket.AF_INET6
@@ -921,7 +922,7 @@ def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
     _udpsock = socket.socket(_socktype, socket.SOCK_DGRAM)
     _udpsock.bind(_srcaddrtupel)
     
-    binaddr = bytes(_contupel[1], "utf-8")
+    binaddr = bytes(_contupel[0], "utf-8")
     construct = struct.pack(_contupel[1], len(binaddr),binaddr)
     for elem in range(0,3):
         _udpsock.sendto(construct, _dstaddrtupel)
@@ -947,7 +948,7 @@ class traverser_dropper(object):
             recv = self._sock.recv(1024)
             if recv == scn_yesstruct:
                 self._checker.notify_all()
-
+    
     # unaccounted for case multiple clients, but fast
     def check(self, timeout=20):
         try:
@@ -955,7 +956,18 @@ class traverser_dropper(object):
             return True
         except TimeoutError:
             return False
-            
+    
+    
+    def send(_dsttupel, _contupel, checkt=None):
+        binaddr = bytes(_contupel[0], "utf-8")
+        construct = struct.pack(_contupel[1], len(binaddr),binaddr)
+        for elem in range(0,3):
+            self._sock.sendto(construct, _dsttupel)
+        if checkt:
+            return self.check(checkt)
+        else:
+            return True
+
 
 class traverser_helper(object):
     active = True
@@ -1030,6 +1042,7 @@ cert_update_header = \
 "connection": 'keep-alive'
 }
 
+# 
 def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=None):
     update_list = []
     if None in [_address, _port]:
@@ -1043,11 +1056,11 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=Non
     for _hash, _security in certhashlist:
         con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
         
-        con.sock = con.sock.unwrap()
+        #con.sock = con.sock.unwrap()
         con.sock = cont.wrap_socket(con.sock, server_side=False)
         con.sock.do_handshake()
         brokensslcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
-        #con.sock = con.sock.unwrap()
+        con.sock = con.sock.unwrap()
         #con.sock = cont.wrap_socket(con.sock, server_side=False)
         #print(ret.closed)
         
@@ -1059,8 +1072,6 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=Non
         #print(con.sock)
         if dhash(brokensslcert) == _hash:
             update_list.append((_hash, _security))
-        else:
-            print(dhash(brokensslcert), dhash(brokensslcert.strip()), _hash)
         
     con.close()
     return update_list

@@ -1,6 +1,6 @@
 
 import ssl
-from common import isself, check_hash, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail, check_updated_certs
+from common import isself, check_hash, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail, check_updated_certs, traverser_helper
 #logger
 from http import client
 
@@ -26,23 +26,28 @@ class client_safe(object):
     @check_argsdeco({"server":(str, ),})
     def register(self, obdict):
         """ register client """
-        #self.nattraversals[obdict.get("server")] = None # implement
-        ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": self.show(obdict)[1]["port"], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True)
-        # 
-        if ret[0] == False or ret[1]["mode"] == "registered_ip":
-            #del(self.nattraversals[obdict.get("server")]
+        showres = self.show({})[1]
+        traverseaddr = (showres.get("address"), showres.get("port"))
+        _srvaddr = None
+        if None not in traverseaddr:
             pass
+            #_srvaddr = scnparse_url(obdict.get("server"))
+            #self.nattraversals[_srvaddr] = traverser_helper(traverseaddr, _srvaddr) # implement
+        ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": showres["port"], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True)
+        # 
+        if _srvaddr and (ret[0] != True or ret[1].get("traverse", False) == True):
+            del(self.nattraversals[_srvaddr])
         return ret
     
     @check_argsdeco()
     def show(self, obdict):
         """ show client stats """
         if "hserver" in self.links:
-            return True,{"name": self.name, "hash": self.cert_hash,
-                "port":str(self.links["hserver"].socket.getsockname()[1])}
+            addr = self.links["hserver"].socket.getsockname()
+            return True,{"name": self.name, "hash": self.cert_hash, "address": addr[0],
+                "port":addr[1]}
         else:
-            return True,{"name": self.name, "hash": self.cert_hash,
-                "port":str(None)}
+            return True, {"name": self.name, "hash": self.cert_hash}
     
     @check_argsdeco({"name": (str, ),"port": (int, )})
     def registerservice(self, obdict):
@@ -85,7 +90,7 @@ class client_safe(object):
         _getret = self.do_request(obdict["server"],"/server/get", obdict,headers=obdict.get("headers"))
         if _getret[0] == False or check_args(_getret[1], {"address": (str,), "port": (int,)}) == False:
             return _getret
-        if _getret[1].get("port", 0)<1:
+        if _getret[1].get("port", 0) < 1:
             return False,"port <1: {}".format(_getret[1]["port"])
         return _getret
     
@@ -115,8 +120,12 @@ class client_safe(object):
             return _ha
         if _ha[1]["hash"] == self.cert_hash:
             return True, {"localname":isself, "hash":self.cert_hash, "cert":_ha[1]["cert"]}
-        temp = self.hashdb.get(_ha[1]["hash"])
-        return True, {"localname":temp[0],"security":temp[3], "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
+        
+        hasho = self.hashdb.get(_ha[1]["hash"])
+        if hasho:
+            return True, {"localname":hasho[0],"security":hasho[3], "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
+        else:
+            return True, {"hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
 
     @check_argsdeco({"server": (str, ), })
     def listnames(self, obdict):
