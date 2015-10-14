@@ -33,7 +33,7 @@ import time
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash
 #VALMITMError
 
 from common import logger
@@ -48,7 +48,7 @@ reference_header = \
 {
 "User-Agent": "simplescn/0.5 (client)",
 "Authorization": 'scn {}', 
-"Connection": 'close' # keep-alive
+"Connection": 'keep-alive'
 }
 class client_client(client_admin, client_safe, client_config):
     name = None
@@ -58,6 +58,7 @@ class client_client(client_admin, client_safe, client_config):
     links = None
     redirect_addr = None
     redirect_hash = None
+    #brokencerts = []
     # client_lock = None
     validactions = {"cmd_plugin", "remember_auth" }
     
@@ -71,6 +72,17 @@ class client_client(client_admin, client_safe, client_config):
         self.cert_hash = _pub_cert_hash
         self.hashdb = certhash_db(_certdbpath)
         self.sslcont = self.links["hserver"].sslcont #default_sslcont()
+        
+        for elem in os.listdir(os.path.join(self.links["config_root"], "broken")):
+            _splitted = elem.rsplit(".", 1)
+            if _splitted[1] != "reason":
+                continue
+            _hash = _splitted[0]
+            with open(os.path.join(self.links["config_root"], "broken", elem), "r") as reado:
+                _reason = reado.read().strip().rstrip()
+            if check_hash(_hash) and (_hash, _reason) not in self.brokencerts:
+                self.brokencerts.append((_hash, _reason))
+                
         #self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
         # update self.validactions
         self.validactions.update(client_admin.validactions_admin)
@@ -87,7 +99,7 @@ class client_client(client_admin, client_safe, client_config):
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
 
-    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, sendclientcert=False, _reauthcount=0, _certtupel=None):
+    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, sendclientcert=False, _reauthcount=0, _certtupel=None, stunsock=None):
         if headers is None:
             headers = body.pop("headers", {})
         else:
@@ -95,7 +107,7 @@ class client_client(client_admin, client_safe, client_config):
         
         sendheaders = reference_header.copy()
         for key,value in headers.items():
-            if key in ["Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent", "X-certrewrap"]:
+            if key in ["Connection", "Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent", "X-certrewrap"]:
                 continue
             key, value = elem
             sendheaders[key] = value
@@ -107,17 +119,20 @@ class client_client(client_admin, client_safe, client_config):
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             _addr = scnparse_url(_addr_or_con,force_port=forceport)
             con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
-            con.connect()
+            if stunsock:
+                con.sock = stunsock
+            else:
+                con.connect()
         else:
             con = _addr_or_con
-            if headers.get("Connection", "") != "keep-alive":
-                con.connect()
+            #if headers.get("Connection", "") != "keep-alive":
+            #    con.connect()
         
         if _certtupel is None:
-            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
             hashpcert = dhash(pcert)
             if clientforcehash is not None:
-                if clientforcehash == hashpcert:
+                if clientforcehash != hashpcert:
                     raise(VALHashError)
             elif body.get("forcehash") is not None:
                 if body.get("forcehash") != hashpcert:
@@ -126,9 +141,12 @@ class client_client(client_admin, client_safe, client_config):
                 validated_name = isself
             else:
                 hashob = self.hashdb.get(hashpcert)
-                validated_name = (hashob[0],hashob[3])
-                if validated_name == isself:
-                    raise(VALNameError)
+                if hashob:
+                    validated_name = (hashob[0],hashob[3])
+                    if validated_name == isself:
+                        raise(VALNameError)
+                else:
+                    validated_name = None
             _certtupel = (validated_name, hashpcert)
             
         #start connection
@@ -139,8 +157,7 @@ class client_client(client_admin, client_safe, client_config):
         pwcallm = body.get("pwcall_method")
         if pwcallm:
             del body["pwcall_method"]
-            
-        ob=bytes(json.dumps(body), "utf-8")
+        ob = bytes(json.dumps(body), "utf-8")
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
         if sendclientcert:
@@ -180,6 +197,8 @@ class client_client(client_admin, client_safe, client_config):
                 con.close()
                 return False, "No content length", _certtupel[0], _certtupel[1]
             readob = response.read(int(response.getheader("Content-Length")))
+            
+            # kill keep-alive connection when finished, or transport connnection
             if isinstance(_addr_or_con, client.HTTPSConnection) == False:
                 con.close()
             if response.status == 200:
@@ -686,7 +705,7 @@ class client_handler(BaseHTTPRequestHandler):
             cont = self.connection.context
             self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=False)
-            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True))
+            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
             if _rewrapcert != dhash(self.client_cert):
                 return False
             if _origcert:
@@ -761,9 +780,28 @@ class client_handler(BaseHTTPRequestHandler):
             certfpath = os.path.join(self.links["config_root"], "broken", sub)
             if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
                 cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+                #self.end_headers()
+                
+                oldsslcont = self.connection.context
+                
                 self.connection = self.connection.unwrap()
                 self.connection = cont.wrap_socket(self.connection, server_side=True)
-            self.connection.read(1)
+                #self.connection = self.connection.unwrap()
+                #self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+                self.rfile = self.connection.makefile(mode='rb')
+                self.wfile = self.connection.makefile(mode='wb')
+                
+                #self.wfile.write(b"test")
+                self.send_response(200, "broken cert test")
+                self.end_headers()
+                
+            else:
+                oldsslcont = self.connection.context
+                self.connection = self.connection.unwrap()
+                self.connection = oldsslcont.wrap_socket(sock, server_side=True)
+                self.rfile = self.connection.makefile(mode='rb')
+                self.wfile = self.connection.makefile(mode='wb')
+                self.send_error(404, "broken cert not found")
         elif resource == "server":
             self.handle_server(sub)
         elif resource == "client":
@@ -780,6 +818,7 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
         self.address_family = address_family
         HTTPServer.__init__(self, _client_address, client_handler, False)
         self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             self.server_bind()
             self.server_activate()
@@ -814,7 +853,7 @@ class client_init(object):
             generate_certs(_cpath+"_cert")
             logger().info("Certificate generation complete")
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
-            pub_cert = readinpubkey.read()
+            pub_cert = readinpubkey.read().strip().rstrip() #why fail
         
         self.links["auth"] = scnauth_server(dhash(pub_cert))
         
@@ -1031,8 +1070,12 @@ if __name__ ==  "__main__":
                 elif ret[2] == None:
                     print("Unknown partner, hash: {}:".format(ret[3]))
                 else:
-                    print("Known, name: {}:".format(ret[2]))
-                print(ret[1])
+                    print("Known, name: {} ({}):".format(ret[2][0],ret[2][1]))
+                if isinstance(ret[1], dict):
+                    for elem in ret[1].items():
+                        print("{}:{}".format(elem[0], elem[1].replace("\\n", "\n")))
+                else:
+                    print(ret[1])
     else:
         cm.serve_forever_block()
 

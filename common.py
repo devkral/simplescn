@@ -48,6 +48,8 @@ import datetime
 
 import ssl
 import socket
+import time
+import struct
 import traceback
 
 import hashlib
@@ -55,7 +57,6 @@ import re
 import threading
 import json
 import base64
-import time
 from urllib import parse
 from http.client import HTTPSConnection 
 
@@ -425,9 +426,9 @@ class configmanager(object):
         self.lock = threading.Lock()
         self.reload()
 
-    def __del__(self):
-        if self.dbcon is not None:
-            self.dbcon.close()
+    #def __del__(self):
+        #if self.dbcon is not None:
+        #    self.dbcon.close()
         
     def __getitem__(self, _name):
         self.get(_name)
@@ -903,11 +904,110 @@ class scnauth_client(object):
             return authreq_ob.get("realm"), None
         return self.auth(self.save_auth[saveid][authreq_ob["realm"]], authreq_ob, pubcert_hash)
 
+
+#port size, address
+addrstrformat = ">HH1020s"
+def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
+    if ":" in self._dstaddrtupel[0]:
+        _socktype = socket.AF_INET6
+    else:
+        _socktype = socket.AF_INET
+    
+    _udpsock = socket.socket(_socktype, socket.SOCK_DGRAM)
+    _udpsock.bind(_srcaddrtupel)
+    
+    binaddr = bytes(_contupel[1], "utf-8")
+    construct = struct.pack(_contupel[1], len(binaddr),binaddr)
+    for elem in range(0,3):
+        _udpsock.sendto(construct, _dstaddrtupel)
+
+class traverser_dropper(object):
+    _srcaddrtupel = None
+    _sock = None
+    active = True
+    def __init__(self, _srcaddrtupel):
+        if ":" in _srcaddrtupel[0]:
+            _socktype = socket.AF_INET6
+        else:
+            _socktype = socket.AF_INET
+        self._sock = socket.socket(_socktype, socket.SOCK_DGRAM)
+        self._sock.bind(_srcaddrtupel)
+        t = threading.Thread(target=self._dropper, daemon=True)
+        t.start()
+        
+    def _dropper(self):
+        while self.active:
+            self._sock.recv(1024)
+
+class traverser_helper(object):
+    active = True
+    _srcaddrtupel = None
+    _destaddrtupel = None
+    #_connectsock = None
+    _socktype = None
+    intervall = None
+    _sock = None
+    
+    def __init__(self, _srcaddrtupel, _destaddrtupel, intervall=10): #, _connectsock
+        self._srcaddrtupel = _srcaddrtupel
+        self._destaddrtupel = _destaddrtupel
+        #self._connectsock = _connectsock
+        self.intervall = intervall
+        if ":" in self._srcaddrtupel[0]:
+            self._socktype = socket.AF_INET6
+        else:
+            self._socktype = socket.AF_INET
+        
+        self._sock = socket.socket(self._socktype, socket.SOCK_DGRAM)
+        self._sock.bind(self._srcaddrtupel)
+        t = threading.Thread(target=self._pinger, daemon=True)
+        t.start()
+        
+    
+    # makes client reachable by server by (just by udp?)
+    def _pinger(self):
+        try:
+            t2 = threading.Thread(target=self._connecter, daemon=True)
+            t2.start()
+            while self.active:
+                self._sock.sendto(b"a", self._destaddrtupel)
+                time.sleep(self.intervall)
+            self._sock.close()
+        except Exception as e:
+            logger().info(e)
+        self.active = False
+    
+    # sub _pinger process
+    def _connecter(self):
+        try:
+            while self.active:
+                recv = self._sock.recv(1024)
+                if len(recv)!=1024:
+                    # drop invalid packages
+                    continue
+                unpstru = struct.unpack(addrstrformat, recv)
+                port = unpstru[0]
+                addr = unpstru[2][:unpstru[1]]
+                sock = socket.socket(self._socktype, socket.SOCK_STREAM)
+                sock.bind(self._srcaddrtupel) #reuse address necessary
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    sock.connect((addr, port))
+                except Exception as e:
+                    pass
+                
+            
+            #self._sock.close()
+        except Exception as e:
+            logger().info(e)
+        self.active = False
+
 cert_update_header = \
 {
 "User-Agent": "simplescn/0.5 (update-cert)",
 "Authorization": 'scn {}', 
-"Connection": 'keep-alive'
+"Connection": 'keep-alive', 
+"connection": 'keep-alive'
 }
 
 def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=None):
@@ -918,13 +1018,29 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=Non
     cont = default_sslcont()
     con = HTTPSConnection(_address, _port, timeout=timeout, context=cont)
     con.connect()
-    if newhash and newhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))):
+    if newhash and newhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
         return None
-    #con.putheader("")
     for _hash, _security in certhashlist:
         con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
-        if dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))) == _hash:
+        
+        con.sock = con.sock.unwrap()
+        con.sock = cont.wrap_socket(con.sock, server_side=False)
+        con.sock.do_handshake()
+        brokensslcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
+        #con.sock = con.sock.unwrap()
+        #con.sock = cont.wrap_socket(con.sock, server_side=False)
+        #print(ret.closed)
+        
+        ret = con.getresponse()
+        if ret.status != 200:
+            logger().info(ret.status, ret.closed)
+            continue
+        #TODO: keep-alive is ignored
+        #print(con.sock)
+        if dhash(brokensslcert) == _hash:
             update_list.append((_hash, _security))
+        else:
+            print(dhash(brokensslcert), dhash(brokensslcert.strip()), _hash)
         
     con.close()
     return update_list

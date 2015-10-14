@@ -4,7 +4,6 @@ import os, sys
 import threading
 #logger, isself
 import socket
-import client
 from client_config import client_config
 
 
@@ -172,9 +171,6 @@ class client_admin(object):
         self.links["client_server"].cert_hash = dhash(pub_cert)
         self.links["hserver"].shutdown()
         self.links["hserver"].socket.close()
-        #self.links["hserver"].socket = None
-        #self.links["hserver"] = client.http_client_server(("", port), _cpath, socket.AF_INET6)
-        #self.sslcont = self.links["hserver"].sslcont
         print("Keydestruction Success - Please restart process")
         sys.exit(0)
         #return True

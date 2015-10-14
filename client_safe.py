@@ -15,6 +15,9 @@ class client_safe(object):
     validactions = None
     name = None
     sslcont = None
+    brokencerts = []
+    nattraversals = {}
+    
     @check_argsdeco()
     def help(self, obdict):
         """ return help """
@@ -23,7 +26,13 @@ class client_safe(object):
     @check_argsdeco({"server":(str, ),})
     def register(self, obdict):
         """ register client """
-        return self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": self.show(obdict)[1]["port"], "pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), sendclientcert=True)
+        #self.nattraversals[obdict.get("server")] = None # implement
+        ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": self.show(obdict)[1]["port"], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True)
+        # 
+        if ret[0] == False or ret[1]["mode"] == "registered_ip":
+            #del(self.nattraversals[obdict.get("server")]
+            pass
+        return ret
     
     @check_argsdeco()
     def show(self, obdict):
@@ -87,7 +96,7 @@ class client_safe(object):
             return False, "address is empty"
         try:
             _addr = scnparse_url(obdict["address"],force_port=False)
-            pcert = ssl.get_server_certificate(_addr, ssl_version=ssl.PROTOCOL_TLSv1_2)
+            pcert = ssl.get_server_certificate(_addr, ssl_version=ssl.PROTOCOL_TLSv1_2).strip().rstrip()
             return True, {"hash":dhash(pcert), "cert":pcert}
         except ssl.SSLError:
             return False, "server speaks no tls 1.2"

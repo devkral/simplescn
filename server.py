@@ -158,18 +158,18 @@ class server(commonscn):
     # private, do not include in validactions
     def check_register(self, addresst, _hash):
         try:
-            _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2)
+            _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2).strip().rstrip()
         except ConnectionRefusedError:
-            return False, "use_stun"
+            return False, "use_traversal"
         except ssl.SSLError:
-            return False, "use_stun"
+            return False, "use_traversal"
         if _cert is None:
             return False, "no_cert"
         if dhash(_cert) != _hash:
             return False, "hash_mismatch"
         return True, "registered_ip"
     
-    @check_argsdeco({"name": (str, "client name"),"port": (str, "listen port of client")}, optional={"update": (list, "list of compromised name/hashes")})
+    @check_argsdeco({"name": (str, "client name"),"port": (str, "listen port of client")}, optional={"update": (list, "list of compromised hashes/security")})
     def register(self, obdict):
         """ register client """
         if check_name(obdict["name"])==False:
@@ -179,9 +179,17 @@ class server(commonscn):
         
         clientcerthash = dhash(obdict["clientcert"])
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
-        if ret[0] == False:
+        if ret[0] == False and ret[1] == "use_traversal":
+            return ret # not implemented yet
+            #ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
+            #if ret[0] == False:
+            #    return False, "unreachable client"
+            #ret[1] = "registered_traversal"
+        elif ret[0] == False:
             return ret
         update_list = check_updated_certs(obdict["clientaddress"][0], obdict["port"], obdict.get("update", []), newhash=clientcerthash)
+        if update_list is None:
+            return False, "wrong check_updated_certs parameters"
         self.changeip_lock.acquire(False)
         update_time = int(time.time())
         if obdict["name"] not in self.nhipmap:
@@ -199,7 +207,7 @@ class server(commonscn):
         self.changeip_lock.release()
         # notify that change happened
         self.nhipmap_cond.set()
-        return ret
+        return True, {"mode": ret[1]}
     
     
     @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"stun":(bool, "shall open a stun connection when neccessary (default: False)")})
@@ -319,7 +327,7 @@ class server_handler(BaseHTTPRequestHandler):
             cont = self.connection.context
             self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=False)
-            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True))
+            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
             if _rewrapcert != dhash(self.client_cert):
                 return False
             self.rfile = self.connection.makefile(mode='rb')
@@ -441,6 +449,32 @@ class server_handler(BaseHTTPRequestHandler):
                 logger().error(e)
                 self.send_error(500, "plugin error", str(e))
                 return
+        elif resource == "usebroken":
+            cont = default_sslcont()
+            if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
+                cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+                #self.end_headers()
+                
+                oldsslcont = self.connection.context
+                
+                self.connection = self.connection.unwrap()
+                self.connection = cont.wrap_socket(self.connection, server_side=True)
+                #self.connection = self.connection.unwrap()
+                #self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+                self.rfile = self.connection.makefile(mode='rb')
+                self.wfile = self.connection.makefile(mode='wb')
+                
+                #self.wfile.write(b"test")
+                self.send_response(200, "broken cert test")
+                self.end_headers()
+                
+            else:
+                oldsslcont = self.connection.context
+                self.connection = self.connection.unwrap()
+                self.connection = oldsslcont.wrap_socket(sock, server_side=True)
+                self.rfile = self.connection.makefile(mode='rb')
+                self.wfile = self.connection.makefile(mode='wb')
+                self.send_error(404, "broken cert not found")
         elif resource == "server":
             self.handle_server(sub)
         else:
@@ -481,7 +515,7 @@ class server_init(object):
             logger().debug("Certificate generation complete")
         
         with open(_spath+"_cert.pub", 'rb') as readinpubkey:
-            pub_cert=readinpubkey.read()
+            pub_cert=readinpubkey.read().strip().rstrip()
         
         self.links["auth"] = scnauth_server(dhash(pub_cert))
         
