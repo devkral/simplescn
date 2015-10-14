@@ -73,6 +73,11 @@ class client_client(client_admin, client_safe, client_config):
         self.hashdb = certhash_db(_certdbpath)
         self.sslcont = self.links["hserver"].sslcont #default_sslcont()
         
+        if "hserver" in self.links:
+            
+            self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
+        
         for elem in os.listdir(os.path.join(self.links["config_root"], "broken")):
             _splitted = elem.rsplit(".", 1)
             if _splitted[1] != "reason":
@@ -818,6 +823,7 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
     """server part of client; inheritates client_server to provide
         client information"""
     sslcont = None
+    rawsock = None
     
     def __init__(self, _client_address, certfpath, address_family):
         self.address_family = address_family
@@ -832,6 +838,7 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
             raise
         self.sslcont = default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+        self.rawsock = self.socket
         self.socket = self.sslcont.wrap_socket(self.socket)
 
     #def get_request(self):
@@ -935,7 +942,7 @@ class client_init(object):
         self.links["configmanager"] = confm
         
 
-        client_handler.links=self.links
+        client_handler.links = self.links
         
         # use timeout argument of BaseServer
         http_client_server.timeout = confm.get("timeout")

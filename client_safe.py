@@ -17,6 +17,8 @@ class client_safe(object):
     sslcont = None
     brokencerts = []
     nattraversals = {}
+    udpsrcsock = None
+    
     
     @check_argsdeco()
     def help(self, obdict):
@@ -26,14 +28,15 @@ class client_safe(object):
     @check_argsdeco({"server":(str, ),})
     def register(self, obdict):
         """ register client """
-        showres = self.show({})[1]
-        traverseaddr = (showres.get("address"), showres.get("port"))
         _srvaddr = None
-        if None not in traverseaddr:
-            pass
-            #_srvaddr = scnparse_url(obdict.get("server"))
-            #self.nattraversals[_srvaddr] = traverser_helper(traverseaddr, _srvaddr) # implement
-        ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": showres["port"], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True)
+        if "hserver" in self.links:
+            serversock = self.links["hserver"].socket
+        else:
+            return False, "cannot register without servercomponent"
+        _srvaddr = scnparse_url(obdict.get("server"))
+        if _srvaddr:
+            self.nattraversals[_srvaddr] = traverser_helper(serversock.getsockname(), _srvaddr, connectsock=serversock, srcsock=self.udpsrcsock) # implement
+        ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": serversock.getsockname()[1], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True)
         # 
         if _srvaddr and (ret[0] != True or ret[1].get("traverse", False) == True):
             del(self.nattraversals[_srvaddr])

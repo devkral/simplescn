@@ -973,23 +973,26 @@ class traverser_helper(object):
     active = True
     _srcaddrtupel = None
     _destaddrtupel = None
-    #_connectsock = None
+    connectsock = None
     _socktype = None
     intervall = None
     _sock = None
     
-    def __init__(self, _srcaddrtupel, _destaddrtupel, intervall=10): #, _connectsock
+    def __init__(self, _srcaddrtupel, _destaddrtupel, connectsock=None, srcsock=None, intervall=10):
         self._srcaddrtupel = _srcaddrtupel
         self._destaddrtupel = _destaddrtupel
-        #self._connectsock = _connectsock
+        self.connectsock = connectsock
         self.intervall = intervall
         if ":" in self._srcaddrtupel[0]:
             self._socktype = socket.AF_INET6
         else:
             self._socktype = socket.AF_INET
-        
-        self._sock = socket.socket(self._socktype, socket.SOCK_DGRAM)
-        self._sock.bind(self._srcaddrtupel)
+        if srcsock:
+            self._sock = srcsock
+        else:
+            self._sock = socket.socket(self._socktype, socket.SOCK_DGRAM)
+            self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self._sock.bind(self._srcaddrtupel)
         t = threading.Thread(target=self._pinger, daemon=True)
         t.start()
         
@@ -1018,9 +1021,12 @@ class traverser_helper(object):
                 unpstru = struct.unpack(addrstrformat, recv)
                 port = unpstru[0]
                 addr = unpstru[2][:unpstru[1]]
-                sock = socket.socket(self._socktype, socket.SOCK_STREAM)
-                sock.bind(self._srcaddrtupel) #reuse address necessary
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                if self.connectsock:
+                    sock = self.connectsock
+                else:
+                    sock = socket.socket(self._socktype, socket.SOCK_STREAM)
+                    sock.bind(self._srcaddrtupel) #reuse address necessary
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 try:
                     sock.connect((addr, port))
                     _sock.sendto(scn_yesstruct, self._destaddrtupel)
@@ -1038,8 +1044,7 @@ cert_update_header = \
 {
 "User-Agent": "simplescn/0.5 (update-cert)",
 "Authorization": 'scn {}', 
-"Connection": 'keep-alive', 
-"connection": 'keep-alive'
+"Connection": 'keep-alive'
 }
 
 # 
