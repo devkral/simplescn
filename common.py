@@ -416,7 +416,6 @@ def scnparse_url(url, force_port = False):
 
 class configmanager(object):
     db_path = None
-    dbcon = None
     lock = None
     imported = False
     overlays = {}
@@ -424,11 +423,14 @@ class configmanager(object):
     def __init__(self, _dbpath):
         self.db_path = _dbpath
         self.lock = threading.Lock()
+        if self.db_path is not None:
+            try:
+                import sqlite3
+            except ImportError as e:
+                logger().error("import sqlite for user settings failed, reason:{}".format(e))
+                self.db_path=None
         self.reload()
 
-    #def __del__(self):
-        #if self.dbcon is not None:
-        #    self.dbcon.close()
         
     def __getitem__(self, _name):
         self.get(_name)
@@ -436,39 +438,34 @@ class configmanager(object):
     def dbaccess(func):
         def funcwrap(self, *args, **kwargs):
             self.lock.acquire()
+            if self.db_path is not None:
+                import sqlite3
+                dbcon = sqlite3.connect(self.db_path)
+            else:
+                dbcon = None
             temp = None
             try:
-                temp = func(self, self.dbcon, *args, **kwargs)
+                temp = func(self, dbcon, *args, **kwargs)
             except Exception as e:
                 if hasattr(e, "__traceback__"):
                     st = "{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
                 else:
                     st = "{}".format(e)
                 logger().error(st)
+            dbcon.close()
             self.lock.release()
             return temp
         return funcwrap
 
-    def reload(self):
+    @dbaccess
+    def reload(self, dbcon):
         if self.db_path is None:
             return
-        if self.db_path is not None and self.imported == False:
-            try:
-                import sqlite3
-                self.imported = True
-            except ImportError as e:
-                logger().error("import sqlite for user settings failed, reason:{}".format(e))
-                self.db_path=None
-        self.lock.acquire()
-        if self.dbcon is not None:
-            self.dbcon.close()
-        self.dbcon = sqlite3.connect(self.db_path)
-        cur = self.dbcon.cursor()
+        cur = dbcon.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS main(name TEXT, val TEXT,PRIMARY KEY(name));''')
         # initialise with "False"
         cur.execute('''INSERT OR IGNORE INTO main(name,val) values ("state","False");''')
-        self.dbcon.commit()
-        self.lock.release()
+        dbcon.commit()
 
     @dbaccess
     def update(self, dbcon, _defaults, _overlays = {}):
