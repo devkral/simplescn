@@ -26,7 +26,7 @@ lname = {"*": "Chat"}
 
 
 # defaults for config (needed)
-defaults = {"chatdir": ["logs", str, "directory for chatlogs"]}
+defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"]}
 
 chatbuf = {}
 chatlock = {}
@@ -44,8 +44,8 @@ def init():
     import gi
     gi.require_version('Gtk', '3.0')
     from gi.repository import Gtk, Gdk
-
     port_to_answer = resources("access")("show")[1]["port"]
+    os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir"))), 770)
     return True
 
 
@@ -85,9 +85,12 @@ def send_text(_address, certhash, _text):
     _text = bytes(_text, "utf-8")
     if len(_text) == 0:
         return True
-    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format(private_state.get(certhash, "normal"), len(_text), port_to_answer), forcehash=certhash)
+    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/0/{}".format(private_state.get(certhash, "normal"), len(_text), port_to_answer), forcehash=certhash)
     if sock is None:
         return False
+    if private_state[certhash] != "private":
+        with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a") as wrio:
+            wrio.write("o:"+_text+"\n");
     sock.send(_text)
     sock.close()
     return True
@@ -110,7 +113,15 @@ def gui_node_iface(gui, _name, _hash, _address):
     
     if _hash not in chatbuf:
         chatbuf[_hash] = Gtk.TextBuffer()
-        chatbuf[_hash].create_tag("ownposts", justification=Gtk.Justification.RIGHT, justification_set=True, foreground_rgba=Gdk.RGBA(red=0.0, green=1.0, blue=0.9, alpha=1.0), foreground_set=True)
+        chatbuf[_hash].create_tag("ownposts", justification=Gtk.Justification.RIGHT, justification_set=True,
+                        foreground_rgba=Gdk.RGBA(red=0.0, green=1.0, blue=0.9, alpha=1.0), foreground_set=True)
+        with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "r") as reio:
+            for line in reio.readlines():
+                _oldlineno = chatbuf[_hash].get_line_count()
+                chatbuf[_hash].insert(chatbuf[_hash].get_end_iter(), line[2:])
+                _newiter = chatbuf[_hash].get_end_iter()
+                if line[:2]:
+                    chatbuf[_hash].apply_tag_by_name("ownposts", chatbuf[_hash].get_iter_at_line(_oldlineno-1), _newiter)
     builder = Gtk.Builder()
     builder.add_from_file(os.path.join(proot, "chat.ui"))
     builder.connect_signals(module)
@@ -126,29 +137,29 @@ def gui_node_iface(gui, _name, _hash, _address):
 ### uncomment for being accessable by internet
 ### client:
 def receive(action, _socket, _cert, certhash):
-    splitted = action.split("/",3)
-    if len(splitted) != 4:
+    splitted = action.split("/",4)
+    if len(splitted) != 5:
         return
-    private, action, answerport, _size = splitted
+    private, action, answerport, startpos, _size = splitted
     if certhash not in chatlock:
         if resources("access")("getlocal", hash=certhash)[0] == False:
             return
         resources("open_node")("{}:{}".format(_socket.getaddrinfo()[0], answerport), page="chat")
         
     if certhash not in chatlock:
+        #todo open dialog
         return
     
     with chatlock[certhash]:
         if action == "send_text":
             if private != "private":
-                #logob = open (os.path.join(config.get("logdir"), certhash), "a")
-                logob = None
+                logob = open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a")
             else:
                 logob = None
             _text = str(_socket.read(int(_size)), "utf-8")+"\n"
             chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text)
             if logob is not None:
-                logob.write(_text)
+                logob.write("r:"+_text+"\n")
                 logob.close()
     
         
