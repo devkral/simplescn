@@ -84,13 +84,13 @@ class client_config(object):
     @check_argsdeco({"plugin":(str,)}, optional={"onlypermanent":(bool, "shall only permanent settings be included (default: False)")})
     def list_pluginconfig(self, obdict):
         """ list plugin configuration """
-        pluginm=self.links["client_server"].pluginmanager
+        pluginm = self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
             return False, "plugin does not exist"
         # last case shouldn't exist but be sure
-        if obdict["plugin"] not in pluginm.plugins or hasattr(pluginm.plugins[obdict["plugin"]], "config"):
-            config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
+        if obdict["plugin"] not in pluginm.plugins or hasattr(pluginm.plugins[obdict["plugin"]], "config") == False:
+            _config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
         else:
-            config = pluginm.plugins[obdict["plugin"]].config
-        return True, {"items": config.list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
+            _config = pluginm.plugins[obdict["plugin"]].config
+        return True, {"items": _config.list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}

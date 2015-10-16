@@ -45,7 +45,8 @@ def init():
     gi.require_version('Gtk', '3.0')
     from gi.repository import Gtk, Gdk
     port_to_answer = resources("access")("show")[1]["port"]
-    os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir"))), 770)
+    #print(config.list())
+    #os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir"))), 770)
     return True
 
 
@@ -115,7 +116,7 @@ def gui_node_iface(gui, _name, _hash, _address):
         chatbuf[_hash] = Gtk.TextBuffer()
         chatbuf[_hash].create_tag("ownposts", justification=Gtk.Justification.RIGHT, justification_set=True,
                         foreground_rgba=Gdk.RGBA(red=0.0, green=1.0, blue=0.9, alpha=1.0), foreground_set=True)
-        with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "r") as reio:
+        with open(os.path.join(os.path.expanduser(config.get("chatdir")), _hash+".log"), "r") as reio:
             for line in reio.readlines():
                 _oldlineno = chatbuf[_hash].get_line_count()
                 chatbuf[_hash].insert(chatbuf[_hash].get_end_iter(), line[2:])
