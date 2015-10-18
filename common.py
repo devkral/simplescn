@@ -1026,7 +1026,9 @@ class traverser_helper(object):
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 try:
                     sock.connect((addr, port))
-                    _sock.sendto(scn_yesstruct, self._destaddrtupel)
+                    sock.sendto(scn_yesstruct, self._destaddrtupel)
+                    if self.connectsock is None:
+                        sock.close()
                 except Exception as e:
                     _sock.sendto(scn_nostruct, self._destaddrtupel)
                     logger().info(e)
