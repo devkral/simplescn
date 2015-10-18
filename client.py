@@ -128,7 +128,8 @@ class client_client(client_admin, client_safe, client_config):
                 con.connect()
             except ConnectionRefusedError:
                 forcetraverse = True
-            if body.get("traverseserveraddr"):
+            
+            if forcetraverse:
                 _tsaddr = scnparse_url(body.get("traverseserveraddr"))
                 contrav = client.HTTPSConnection(_tsaddr[0], _tsaddr[1], context=self.sslcont)
                 contrav.connect()
