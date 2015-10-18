@@ -153,6 +153,8 @@ class gtkclient_node(gtkclient_template):
         self.update_services()
         return sgrid
         
+    #def init_traverse(self):
+    #    
     
     def init_nodebook(self, page):
         counter = 0
@@ -161,6 +163,19 @@ class gtkclient_node(gtkclient_template):
         if infoob[0] == False:
             return
         name = infoob[2]
+        if infoob[1].get(infoob[1]["type"], "") != "server":
+            self.resdict["traverseserveraddr"] = self.links["gtkclient"].builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
+            travret = self.do_requestdo("getreferences", hash=infoob[3], filter="travserver")
+            if travret[0] and self.resdict["traverseserveraddr"] not in travret[1]["items"]:
+                for _tsaddr, _type in travret[1]["items"]:
+                    try:
+                        soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        soc.connect(scn_parseurl(_tsaddr))
+                        soc.close()
+                        break
+                    except Exception:
+                        pass
+        
         veristate = self.get_object("veristate")
         if name == isself:
             self.win.set_title("This client")

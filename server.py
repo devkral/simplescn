@@ -73,7 +73,7 @@ class server(commonscn):
     expire_time = None
     sleep_time = None
 
-    validactions = {"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes", "open_traversal"}
+    validactions = {"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes", "open_traversal", "get_ownaddr"}
     
     def __init__(self,d):
         commonscn.__init__(self)
@@ -229,23 +229,30 @@ class server(commonscn):
         self.nhipmap_cond.set()
         return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
     
-    @check_argsdeco({"port":(int, "port for traversal")})
+    @check_argsdeco({"destaddr":(str, "destination address")}) #"traverseport":(int, "port for traversal"), 
     def open_traversal(self, obdict):
         """ open traversal connection """
         if self.traverse is None:
             return False, "no traversal possible"
-        travport = obdict.get("port", -1)
-        if travport <= 0:
-            return False, "port <1: {}".format(travport)
-        travaddr = (obdict["clientaddress"][0], travport)
-        ret = self.traverse.send(obdict["clientaddress"], travaddr, 20)
+        travport = obdict["clientaddress"][1]
+        #if travport <= 0:
+        #    return False, "port <1: {}".format(travport)
+        try:
+            destaddr = scnparse_url(obdict.get("destaddr", True))
+        except Exception: # as e:
+            return False, "destaddr invalid"
+        travaddr = obdict["clientaddress"] #(obdict["clientaddress"][0], travport)
+        ret = self.traverse.send(travaddr, destaddr, 20)
         if ret:
-            return True, "traversed"
+            return True, {"traverse_address": travaddr}
         else:
             return False, "traverse request failed"
-        
     
-    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"traverseport":(int, "port for traversal (when neccessary, (default: -1, disabled)")})
+    @check_argsdeco()
+    def get_ownaddr(self, obdict):
+        return True, {"address": obdict["clientaddress"]}
+    
+    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"autotraverse":(bool, "open traversal when necessary (default: False)")})
     def get(self, obdict):
         """ get address of a client with name, hash """
         if obdict["name"] not in self.nhipmap:
@@ -259,14 +266,15 @@ class server(commonscn):
             _obj = self.nhipmap[_obj["name"]][_obj["hash"]]
         else:
             _usecurity = None
-        if self.traverse and obdict.get("traverseport", -1) != -1:
-            _travopened = self.open_traversal(obdict)[0]
-        else:
-            _travopened = False
+        _travaddr = None
+        if self.traverse and _obj.get("autotraverse", False) == True:
+            _travobj1 = self.open_traversal(obdict)
+            if _travobj1[0]:
+                _travaddr = _travobj1.get("traverse_address")
         if _usecurity:
-            return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse": _obj["traverse"], "traverse_opened":_travopened}
+            return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
         else:
-            return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse": _obj["traverse"], "traverse_opened":_travopened}
+            return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
     
     
     # limited by maxrequest size

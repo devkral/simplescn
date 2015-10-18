@@ -104,7 +104,7 @@ class client_client(client_admin, client_safe, client_config):
             authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
         return authob
 
-    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, sendclientcert=False, _reauthcount=0, _certtupel=None, stunsock=None):
+    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
         if headers is None:
             headers = body.pop("headers", {})
         else:
@@ -124,10 +124,26 @@ class client_client(client_admin, client_safe, client_config):
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             _addr = scnparse_url(_addr_or_con,force_port=forceport)
             con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
-            if stunsock:
-                con.sock = stunsock
-            else:
+            try:
                 con.connect()
+            except ConnectionRefusedError:
+                forcetraverse = True
+            if body.get("traverseserveraddr"):
+                _tsaddr = scnparse_url(body.get("traverseserveraddr"))
+                contrav = client.HTTPSConnection(_tsaddr[0], _tsaddr[1], context=self.sslcont)
+                contrav.connect()
+                _sport = contrav.sock.getsockname()[1]
+                retserv = self.do_request(contrav, "/server/open_traversal")
+                if retserv[0]:
+                    con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                    con.sock.bind(retserv.get("traverse_address"))
+                    for count in range(0,3):
+                        try:
+                            con.sock.connect((_addr[0], _addr[1]))
+                            break
+                        except Exception:
+                            pass
+                    con.sock = self.sslcont.wrap_socket(con.sock)
         else:
             con = _addr_or_con
             #if headers.get("Connection", "") != "keep-alive":
@@ -196,7 +212,7 @@ class client_client(client_admin, client_safe, client_config):
             _reauthcount += 1
             auth_parsed[realm] = authob
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
-            return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, _reauthcount=_reauthcount)
+            return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, traverseserveraddr=traverseserveraddr, _reauthcount=_reauthcount)
         else:
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
@@ -204,8 +220,8 @@ class client_client(client_admin, client_safe, client_config):
             readob = response.read(int(response.getheader("Content-Length")))
             
             # kill keep-alive connection when finished, or transport connnection
-            if isinstance(_addr_or_con, client.HTTPSConnection) == False:
-                con.close()
+            #if isinstance(_addr_or_con, client.HTTPSConnection) == False:
+            con.close()
             if response.status == 200:
                 status = True
             else:

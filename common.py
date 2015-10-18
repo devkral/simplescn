@@ -955,13 +955,13 @@ class traverser_dropper(object):
             return False
     
     
-    def send(_dsttupel, _contupel, checkt=None):
+    def send(_dsttupel, _contupel, timeout=20):
         binaddr = bytes(_contupel[0], "utf-8")
-        construct = struct.pack(_contupel[1], len(binaddr),binaddr)
+        construct = struct.pack(_contupel[1], len(binaddr), binaddr)
         for elem in range(0,3):
             self._sock.sendto(construct, _dsttupel)
         if checkt:
-            return self.check(checkt)
+            return self.check(timeout)
         else:
             return True
 

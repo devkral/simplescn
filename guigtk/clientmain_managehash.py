@@ -8,6 +8,7 @@ from gi.repository import Gtk
 
 
 from guigtk.clientnode import gtkclient_node
+from guigtk import clientmain
 
 
 class hashmanagement(object):
@@ -192,6 +193,8 @@ class hashmanagement(object):
             _url="{address}-{port}".format(**tempret[1])
         elif _type == "url":
             _url=_ref
+        elif _type in clientmain.implementedrefs:
+            return
         else:
             logger().info("invalid type")
             return

@@ -33,7 +33,7 @@ client.client_handler.webgui=False
 messageid=0
 run=True
 
-implementedrefs=["surl", "url", "name"]
+implementedrefs=["surl", "url", "name", "travserver"]
 #,"sname"
 
 class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement, set_parent_template):
@@ -228,7 +228,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
                     self.update_serverlist_refid(_hash[4])
 
     def do_requestdo(self, action, **obdict):
-        uselocal=self.builder.get_object("uselocal")
+        uselocal = self.builder.get_object("uselocal")
         if uselocal.get_active() == True:
             resp = self.links["client"].access_main(action, **obdict)
         else:
@@ -243,7 +243,8 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
                 return False, generate_error(e), isself, self.links["client"].cert_hash
         
         if resp[0] == False:
-            logger().error("{}: {}".format(action, resp))
+            pass
+            #logger().error("{}: {}".format(action, resp))
         return resp
 
     def pushint(self):
@@ -465,7 +466,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     
     def opennode(self,*args):
         if self.curnode is not None:
-            gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], page="services")
+            gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], page="services", traverseserveraddr=serveaddr)
     
     def opennode_self(self,*args):
         ret=self.do_requestdo("show")
@@ -487,9 +488,9 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     #### server actions ####
     
     def addserverhash(self,*args):
-        serverurl=self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
-        serverurl="{}-{}".format(*scnparse_url(serverurl))
-        localview=self.builder.get_object("localview")
+        serverurl = self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
+        serverurl = "{}-{}".format(*scnparse_url(serverurl))
+        localview = self.builder.get_object("localview")
         
         
         temp=self._verifyserver(serverurl)
