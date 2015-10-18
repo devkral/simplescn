@@ -70,6 +70,7 @@ max_serverrequest_size = 4000
 ## timeouts ##
 # time out for auth requests
 auth_request_expire_time = 60*3
+ping_intervall = 50
 
 ## file positions ##
 confdb_ending = ".confdb"
@@ -975,7 +976,7 @@ class traverser_helper(object):
     intervall = None
     _sock = None
     
-    def __init__(self, _srcaddrtupel, _destaddrtupel, connectsock=None, srcsock=None, intervall=10):
+    def __init__(self, _srcaddrtupel, _destaddrtupel, connectsock=None, srcsock=None, intervall=ping_intervall):
         self._srcaddrtupel = _srcaddrtupel
         self._destaddrtupel = _destaddrtupel
         self.connectsock = connectsock

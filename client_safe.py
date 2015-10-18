@@ -35,7 +35,7 @@ class client_safe(object):
             return False, "cannot register without servercomponent"
         _srvaddr = scnparse_url(obdict.get("server"))
         if _srvaddr:
-            self.nattraversals[_srvaddr] = traverser_helper(serversock.getsockname(), _srvaddr, connectsock=serversock, srcsock=self.udpsrcsock) # implement
+            self.nattraversals[_srvaddr] = traverser_helper(serversock.getsockname(), _srvaddr, connectsock=serversock, srcsock=self.udpsrcsock)
         ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": serversock.getsockname()[1], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True)
         # 
         if _srvaddr and (ret[0] != True or ret[1].get("traverse", False) == True):

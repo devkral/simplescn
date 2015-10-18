@@ -165,7 +165,7 @@ class gtkclient_node(gtkclient_template):
         name = infoob[2]
         if infoob[1].get(infoob[1]["type"], "") != "server":
             self.resdict["traverseserveraddr"] = self.links["gtkclient"].builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
-            travret = self.do_requestdo("getreferences", hash=infoob[3], filter="travserver")
+            travret = self.do_requestdo("getreferences", hash=infoob[3], filter="surl")
             if travret[0] and self.resdict["traverseserveraddr"] not in travret[1]["items"]:
                 for _tsaddr, _type in travret[1]["items"]:
                     try:

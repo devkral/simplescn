@@ -33,7 +33,7 @@ client.client_handler.webgui=False
 messageid=0
 run=True
 
-implementedrefs=["surl", "url", "name", "travserver"]
+implementedrefs=["surl", "url", "name"]
 #,"sname"
 
 class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement, set_parent_template):
