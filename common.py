@@ -1027,8 +1027,8 @@ class traverser_helper(object):
                 try:
                     sock.connect((addr, port))
                     sock.sendto(scn_yesstruct, self._destaddrtupel)
-                    if self.connectsock is None:
-                        sock.close()
+                    #if self.connectsock is None:
+                    #    sock.close()
                 except Exception as e:
                     _sock.sendto(scn_nostruct, self._destaddrtupel)
                     logger().info(e)
