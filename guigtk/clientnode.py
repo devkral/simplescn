@@ -163,6 +163,7 @@ class gtkclient_node(gtkclient_template):
         if infoob[0] == False:
             return
         name = infoob[2]
+        self.resdict["forecehash"] = infoob[3]
         if infoob[1].get(infoob[1]["type"], "") != "server":
             self.resdict["traverseserveraddr"] = self.links["gtkclient"].builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
             travret = self.do_requestdo("getreferences", hash=infoob[3], filter="surl")
