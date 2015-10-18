@@ -195,13 +195,11 @@ def receive(action, _socket, _cert, certhash):
     with chatlock[certhash]:
         if action == "send_text":
             _size = _rest
+            _text = str(_socket.read(int(_size)), "utf-8")+"\n"
             if private != "private":
                 logob = open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a")
-            else:
-                logob = None
-            _text = str(_socket.read(int(_size)), "utf-8")+"\n"
-            logob.write("r:"+_text)
-            logob.close()
+                logob.write("r:"+_text)
+                logob.close()
             _oldlineno = chatbuf[certhash].get_line_count()
             chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text)
             _newiter = chatbuf[certhash].get_end_iter()

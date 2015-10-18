@@ -402,7 +402,9 @@ class gtkclient_node(gtkclient_template):
         
         self.links["gtkclient"].set_curnode("{}-{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.address)
         if justselect == False:
-            gtkclient_node(self.links, "{}-{}".format(_node[1]["address"],_node[1]["port"]), _name, **self.resdict)
+            _res = self.resdict.copy()
+            _res["forcehash"] = _hash
+            gtkclient_node(self.links, "{}-{}".format(_node[1]["address"],_node[1]["port"]), _name, **_res)
         self.close()
         
     def get_snode(self,*args):
