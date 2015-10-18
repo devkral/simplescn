@@ -903,13 +903,13 @@ class scnauth_client(object):
         return self.auth(self.save_auth[saveid][authreq_ob["realm"]], authreq_ob, pubcert_hash)
 
 
-scn_pingstruct = struct.pack(">c1023x", b"p")
-scn_yesstruct = struct.pack(">c1023x", b"y")
-scn_nostruct = struct.pack(">c1023x", b"y")
+scn_pingstruct = struct.pack(">c511x", b"p")
+scn_yesstruct = struct.pack(">c511x", b"y")
+scn_nostruct = struct.pack(">c511x", b"y")
 
 
 #port size, address
-addrstrformat = ">HH1020s"
+addrstrformat = ">HH508s"
 # not needed as far but keep it for future
 def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
     if ":" in self._dstaddrtupel[0]:
@@ -927,11 +927,13 @@ def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
 
 class traverser_dropper(object):
     _srcaddrtupel = None
+    #autoblacklist = None
     _sock = None
     active = True
     _checker = None
     def __init__(self, _srcaddrtupel):
         self._checker = threading.Condition()
+        #self.autoblacklist = {}
         if ":" in _srcaddrtupel[0]:
             _socktype = socket.AF_INET6
         else:
@@ -943,7 +945,7 @@ class traverser_dropper(object):
         
     def _dropper(self):
         while self.active:
-            recv = self._sock.recv(1024)
+            recv = self._sock.recv(512)
             if recv == scn_yesstruct:
                 self._checker.notify_all()
     
