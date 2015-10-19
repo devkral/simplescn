@@ -405,7 +405,7 @@ def scnparse_url(url, force_port = False):
         raise(AddressEmptyFail)
     _urlre = re.match(re_parse_url, url)
     if _urlre is not None:
-        return _urlre.groups()
+        return _urlre.groups()[0], int(_urlre.groups()[1])
     #_urlre = re.match(re_parse_url_no_port, url)
     #if _urlre is None:
     #    raise(AddressInvalidFail)
@@ -921,7 +921,7 @@ def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
     _udpsock.bind(_srcaddrtupel)
     
     binaddr = bytes(_contupel[0], "utf-8")
-    construct = struct.pack(_contupel[1], len(binaddr),binaddr)
+    construct = struct.pack(addrstrformat, _contupel[1], len(binaddr),binaddr)
     for elem in range(0,3):
         _udpsock.sendto(construct, _dstaddrtupel)
 
@@ -958,15 +958,18 @@ class traverser_dropper(object):
             return False
     
     
-    def send(_dsttupel, _contupel, timeout=20):
+    def send(self, _dsttupel, _contupel, timeout=None):
         binaddr = bytes(_contupel[0], "utf-8")
-        construct = struct.pack(_contupel[1], len(binaddr), binaddr)
+        construct = struct.pack(addrstrformat, _contupel[1], len(binaddr), binaddr)
         for elem in range(0,3):
             self._sock.sendto(construct, _dsttupel)
-        if checkt:
+        if timeout:
             return self.check(timeout)
         else:
             return True
+    
+    def send_thread(self, _dsttupel, _contupel):
+        self.send(_dsttupel, _contupel, None)
 
 
 class traverser_helper(object):
@@ -1014,8 +1017,8 @@ class traverser_helper(object):
     def _connecter(self):
         try:
             while self.active:
-                recv = self._sock.recvfrom(1024)
-                if len(recv)!=1024:
+                recv = self._sock.recv(512)
+                if len(recv)!=512:
                     # drop invalid packages
                     continue
                 unpstru = struct.unpack(addrstrformat, recv)
@@ -1029,7 +1032,7 @@ class traverser_helper(object):
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 try:
                     sock.connect((addr, port))
-                    sock.sendto(scn_yesstruct, self._destaddrtupel)
+                    self._sock.sendto(scn_yesstruct, self._destaddrtupel)
                     #if self.connectsock is None:
                     #    sock.close()
                 except Exception as e:

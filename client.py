@@ -135,9 +135,10 @@ class client_client(client_admin, client_safe, client_config):
                 contrav.connect()
                 _sport = contrav.sock.getsockname()[1]
                 retserv = self.do_request(contrav, "/server/open_traversal")
+                contrav.close()
                 if retserv[0]:
                     con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-                    con.sock.bind(retserv.get("traverse_address"))
+                    con.sock.bind(('', _sport))#retserv.get("traverse_address"))
                     for count in range(0,3):
                         try:
                             con.sock.connect((_addr[0], _addr[1]))

@@ -28,7 +28,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url
 #configmanager,, rw_socket
 
 server_broadcast_header = \
@@ -166,14 +166,14 @@ class server(commonscn):
         try:
             _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2).strip().rstrip()
         except ConnectionRefusedError:
-            return False, "use_traversal"
+            return [False, "use_traversal"]
         except ssl.SSLError:
-            return False, "use_traversal"
+            return [False, "use_traversal"]
         if _cert is None:
-            return False, "no_cert"
+            return [False, "no_cert"]
         if dhash(_cert) != _hash:
-            return False, "hash_mismatch"
-        return True, "registered_ip"
+            return [False, "hash_mismatch"]
+        return [True, "registered_ip"]
     
     def check_brokencerts(self, _address, _port, _name, certhashlist, newhash, timeout=None):
         update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash)
@@ -181,7 +181,7 @@ class server(commonscn):
             return
         
         
-        self.changeip_lock.acquire(False)
+        self.changeip_lock.acquire(True)
         update_time = int(time.time())
         for _uhash, _usecurity in update_list:
             self.nhipmap[_name][_uhash] = {"security": _usecurity, "hash": newhash, "name": _name,"updatetime": update_time}
@@ -199,9 +199,8 @@ class server(commonscn):
         
         clientcerthash = dhash(obdict["clientcert"])
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
-        if ret[0] == False: # all symptoms could be missing traversal and ret[1] == "use_traversal"
-            return ret # not implemented yet
-            ret = self.open_traversal({"clientaddress": obdict["clientaddress"], "port": obdict["port"]})
+        if True or ret[0] == False:
+            ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1] ), "destaddr": "{}-{}".format(obdict["clientaddress"][0], obdict["port"])})
             if ret[0] == False:
                 return ret
             ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
@@ -237,16 +236,18 @@ class server(commonscn):
         travport = obdict["clientaddress"][1]
         #if travport <= 0:
         #    return False, "port <1: {}".format(travport)
+        
         try:
-            destaddr = scnparse_url(obdict.get("destaddr", True))
+            destaddr = scnparse_url(obdict.get("destaddr"), True)
         except Exception: # as e:
             return False, "destaddr invalid"
         travaddr = obdict["clientaddress"] #(obdict["clientaddress"][0], travport)
-        ret = self.traverse.send(travaddr, destaddr, 20)
-        if ret:
-            return True, {"traverse_address": travaddr}
-        else:
-            return False, "traverse request failed"
+        ret = threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr),daemon=True)
+        ret.start()
+        #if ret:
+        return True, {"traverse_address": travaddr}
+        #else:
+        #    return False, "traverse request failed"
     
     @check_argsdeco()
     def get_ownaddr(self, obdict):
@@ -418,6 +419,7 @@ class server_handler(BaseHTTPRequestHandler):
         obdict["clientaddress"] = self.client_address2
         obdict["clientcert"] = self.client_cert
         obdict["headers"] = self.headers
+        obdict["socket"] = self.connection
         try:
             func = getattr(self.links["server_server"], action)
             success, result = func(obdict)[:2]
