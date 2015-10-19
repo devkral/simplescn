@@ -199,7 +199,7 @@ class server(commonscn):
         
         clientcerthash = dhash(obdict["clientcert"])
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
-        if True or ret[0] == False:
+        if ret[0] == False:
             ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1] ), "destaddr": "{}-{}".format(obdict["clientaddress"][0], obdict["port"])})
             if ret[0] == False:
                 return ret
