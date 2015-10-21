@@ -47,8 +47,7 @@ class client_safe(object):
         """ show client stats """
         if "hserver" in self.links:
             addr = self.links["hserver"].socket.getsockname()
-            return True,{"name": self.name, "hash": self.cert_hash, "address": addr[0],
-                "port":addr[1]}
+            return True,{"name": self.name, "hash": self.cert_hash, "address": addr[0], "port":addr[1]}
         else:
             return True, {"name": self.name, "hash": self.cert_hash}
     

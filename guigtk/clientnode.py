@@ -6,7 +6,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
 
 from guigtk.guicommon import gtkclient_template, activate_shielded, toggle_shielded
-from common import sharedir,isself, logger, check_name, security_states
+from common import sharedir,isself, logger, check_name, security_states, scnparse_url
 
 
 
@@ -72,6 +72,9 @@ class gtkclient_node(gtkclient_template):
         self.get_object("typeshowl").set_text(_infoob[1]["type"])
         self.get_object("messagebuffer").set_text(_infoob[1]["message"])
         self.get_object("rnamee").set_text(_infoob[1]["name"])
+        address = scnparse_url(self.address)
+        
+        self.get_object("portshowl").set_text(str(address[1]))
         if _infoob[2] is isself:
             self.get_object("messageview").set_editable(True)
             self.get_object("updatemessageb").show()
