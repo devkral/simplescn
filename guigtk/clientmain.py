@@ -11,7 +11,7 @@ import time, threading
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk,Gdk #,Pango
+from gi.repository import Gtk,Gdk, GLib #,Pango
 #from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node
 #from guigtk.clientserver import gtkclient_server
@@ -908,5 +908,6 @@ class gtkclient_init(client.client_init):
 def do_gtkiteration():
     
     logger().debug("enter mainloop")
+    GLib.threads_init()
     while run==True:
         Gtk.main_iteration_do(True)

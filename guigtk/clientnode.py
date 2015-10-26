@@ -249,7 +249,8 @@ class gtkclient_node(gtkclient_template):
                     logger().error(e)
         
         noteb.show_all()
-        self.connect_signals(self)
+        # don't connect signals, should be done by plugins itself
+        #self.connect_signals(self)
         if isinstance(page, int):
             noteb.set_current_page(page)
         else:

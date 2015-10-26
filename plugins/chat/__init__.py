@@ -3,6 +3,8 @@ from threading import Lock
 #import os
 import sys
 import os.path
+import hashlib
+import shutil
 
 ###### created by pluginmanager ######
 # specifies the interfaces
@@ -26,7 +28,7 @@ lname = {"*": "Chat"}
 
 
 # defaults for config (needed)
-defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"]}
+defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": [4, int, "max image (and text) size in KB"]}
 
 chatbuf = {}
 chatlock = {}
@@ -34,25 +36,46 @@ private_state = {}
 openforeign = 0
 port_to_answer = None
 
-
 # initialises plugin. Returns False or Exception for not loading  (needed)
 def init():
     global port_to_answer
     if "gtk" not in interfaces:
         return False
-    global Gtk, Gdk
+    global Gtk, Gdk, GLib
     import gi
     gi.require_version('Gtk', '3.0')
-    from gi.repository import Gtk, Gdk
+    from gi.repository import Gtk, Gdk, GLib
     port_to_answer = resources("access")("show")[1]["port"]
     #print(config.list())
     os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir"))), 0o770, exist_ok=True)
     return True
 
 
+def init_pathes(_hash):
+    os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir")), _hash), 0o770, exist_ok=True)
+    os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir")), _hash, "images"), 0o770, exist_ok=True)
+    os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir")), _hash, "tosend"), 0o770, exist_ok=True)
+
+
+
+def gtk_create_textob(_text, isowner):
+    pass
+
+
+def gtk_create_imageob(_img, isowner):
+    pass
+
+
+def gtk_create_fileob(_filename, _size, isowner):
+    pass
+
 def send_file_gui(gui, url, dheader):
     return
-    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_file/{}/{}".format(private_state.get(certhash, "normal"), len(_textb), port_to_answer), forcehash=certhash)
+    init_pathes(dheader.get("forcehash"))
+    
+    
+    
+    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_file/{}/{}".format(private_state.get(dheader.get("forcehash"), "normal"), len(_textb), port_to_answer), forcehash=dheader.get("forcehash"))
     if sock is None:
         return False
     #if private_state[certhash] != "private":
@@ -67,10 +90,12 @@ def delete_log(gui, url, dheader):
         return
     with chatlock[dheader.get("forcehash")]:
         try:
-            os.remove(os.path.join(os.path.expanduser(config.get("chatdir")), dheader.get("forcehash")+".log"))
+            shutil.rmtree(os.path.join(os.path.expanduser(config.get("chatdir")), dheader.get("forcehash")))
+            #os.remove(os.path.join(os.path.expanduser(config.get("chatdir")), dheader.get("forcehash")+".log"))
         except FileNotFoundError:
             pass
         chatbuf[dheader.get("forcehash")].delete(chatbuf[dheader.get("forcehash")].get_start_iter(), chatbuf[dheader.get("forcehash")].get_end_iter())
+    init_pathes(dheader.get("forcehash"))
         
     #return "Hello actions, return: "+url
 
@@ -107,6 +132,7 @@ gui_node_actions=[{"text": "Send file", "action": send_file_gui, \
 #    return widget
 
 def send_text(_address, certhash, _text):
+    init_pathes(certhash)
     _textb = bytes(_text, "utf-8")
     if len(_textb) == 0:
         return True
@@ -114,8 +140,8 @@ def send_text(_address, certhash, _text):
     if sock is None:
         return False
     if private_state[certhash] != "private":
-        with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a") as wrio:
-            wrio.write("o:"+_text+"\n");
+        with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
+            wrio.write("ot:"+_text+"\n");
     sock.send(_textb)
     sock.close()
     return True
@@ -155,7 +181,7 @@ def gui_node_iface(gui, _name, _hash, _address):
                     _oldlineno = chatbuf[_hash].get_line_count()
                     chatbuf[_hash].insert(chatbuf[_hash].get_end_iter(), line[2:])
                     _newiter = chatbuf[_hash].get_end_iter()
-                    if line[:2] == "o:":
+                    if line[:3] == "ot:":
                         chatbuf[_hash].apply_tag_by_name("ownposts", chatbuf[_hash].get_iter_at_line(_oldlineno-1), _newiter)
         except FileNotFoundError:
             pass
@@ -173,6 +199,24 @@ def gui_node_iface(gui, _name, _hash, _address):
     return builder.get_object("chatin")
 
 
+
+def gtk_receive_text(certhash, _text, _private):
+    
+    _oldlineno = chatbuf[certhash].get_line_count()
+    chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text)
+    _newiter = chatbuf[certhash].get_end_iter()
+        
+    if _private == "private":
+        chatbuf[certhash].apply_tag_by_name("remposts_private", chatbuf[certhash].get_iter_at_line(_oldlineno-1), _newiter)
+    return False # for not beeing readded (threads_add_idle)
+
+
+def gtk_receive_img(certhash, _img):
+    return False # for not beeing readded (threads_add_idle)
+
+def gtk_receive_file(certhash, _filename, _size):
+    return False # for not beeing readded (threads_add_idle)
+
 ### uncomment for being accessable by internet
 ### client:
 def receive(action, _socket, _cert, certhash):
@@ -185,32 +229,54 @@ def receive(action, _socket, _cert, certhash):
             return
         resources("open_node")("{}:{}".format(_socket.getaddrinfo()[0], answerport), page="chat")
     
-    #if action == "fetch_file":
-    #    pass #not implemented and dangerous
-    
+    if action == "fetch_file":
+        name, pos = _rest
+        if "/" in name or "\\" in name:
+            return
+        _path = os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "tosend", name)
+        if os.path.isfile(_path):
+            _socket.sendfile(_path, pos)
+        return
     if certhash not in chatlock:
         #todo open dialog
         return
+    init_pathes(certhash)
     
     with chatlock[certhash]:
         if action == "send_text":
-            _size = _rest
-            _text = str(_socket.read(int(_size)), "utf-8")+"\n"
+            _size = int(_rest)
+            if _size > config.get("maxsizeimg")*1024:
+                return
+            _text = str(_socket.read(_size), "utf-8")+"\n"
             if private != "private":
-                logob = open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a")
-                logob.write("r:"+_text)
-                logob.close()
-            _oldlineno = chatbuf[certhash].get_line_count()
-            chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text)
-            _newiter = chatbuf[certhash].get_end_iter()
+                with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as logob:
+                    logob.write("rt:"+_text)
+                
+            if "gtk" in interfaces:
+                Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, gtk_receive_text, certhash, _text, private)
+        elif action == "send_img":
+            _size = int(_rest)
+            if _size > config.get("maxsizeimg")*1024:
+                return
+            _img = _socket.read(_size)
             
-            if private_state[certhash] == "private":
-                chatbuf[certhash].apply_tag_by_name("remposts_private", chatbuf[certhash].get_iter_at_line(_oldlineno-1), _newiter)
+            if private != "private":
+                _imgname = hashlib.sha256(_img).hexdigest()
+                with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "images", _imgname), "wb") as imgob:
+                    imgob.write(_img)
+                with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as logob:
+                    logob.write("ri:"+_imgname+"\n")
+            
+            if "gtk" in interfaces:
+                Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, gtk_receive_img, certhash, _img)
         elif action == "send_file":
-            _size, _name = _rest.split("/", 1)
-            pass
-    
-        
+            _name, _size = _rest.split("/", 1)
+            if private != "private":
+                with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as logob:
+                    logob.write("rf:{},{}\n".format(_name, _size))
+            if "gtk" in interfaces:
+                Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, gtk_receive_file, certhash, _name, _size)
+            
 ## executed when redirected, return False, when redirect should not be executed
 # def rreceive(action, _socket, _cert, certhash):
 #     pass
