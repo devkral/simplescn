@@ -229,7 +229,7 @@ class gtkclient_node(gtkclient_template):
         self.connect_signals(self)
         for pname, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
             if hasattr(plugin, cat) == True:
-                #try:
+                try:
                     _tmp = getattr(plugin, cat)("gtk", infoob[2], infoob[3], self.address)
                     if _tmp is not None:
                         if getattr(plugin, "lname"): #  and getattr(plugin, "lname") is dict:
@@ -245,8 +245,8 @@ class gtkclient_node(gtkclient_template):
                         noteb.set_tab_detachable(_tmp, False)
                         self.page_names[pname] = counter
                         counter += 1
-                #except Exception as e:
-                #    logger().error(e)
+                except Exception as e:
+                    logger().error(e)
         
         noteb.show_all()
         # don't connect signals, should be done by plugins itself

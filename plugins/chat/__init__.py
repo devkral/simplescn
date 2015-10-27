@@ -59,9 +59,23 @@ def init_pathes(_hash):
 
 
 def gtk_create_textob(_text, isowner, isprivate):
-    ret = Gtk.Label(_text, wrap=True, wrap_mode=Pango.WrapMode.WORD)
+    ret = Gtk.Label(_text, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, selectable=True)
     
-    #if isowner:
+    if isowner:
+        ret.set_halign(Gtk.Align.END)
+        ret.set_justify(Gtk.Justification.RIGHT)
+        if isprivate:
+            ret.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.3, blue=0.0, alpha=0.9))
+        else:
+            ret.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.3, green=1.0, blue=0.3, alpha=0.7))
+            
+    else:
+        ret.set_halign(Gtk.Align.START)
+        ret.set_justify(Gtk.Justification.LEFT)
+        if isprivate:
+            ret.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=0.9))
+        else:
+            ret.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=1.0, blue=1.0, alpha=0.7))
     
     return ret
 
@@ -81,7 +95,11 @@ def send_file_gui(gui, url, window, certhash, dheader):
     _filename = _filech.get_filename()
     _basename = os.path.basename(_filename)
     shutil.copyfile(_filename, os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "tosend", _basename))
-    sock, _cert, _hash = resources("plugin")(self.address, "chat", "{}/send_file/{}/{}".format(private_state.get(certhash, "normal"), len(_textb), port_to_answer), **dheader)
+    if private_state.get(certhash, False):
+        privstate = "private"
+    else:
+        privstate = "normal"
+    sock, _cert, _hash = resources("plugin")(self.address, "chat", "{}/send_file/{}/{}".format(privstate, len(_textb), port_to_answer), **dheader)
     sock.close()
     #if private_state[certhash] != "private":
     #    with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a") as wrio:
@@ -99,16 +117,15 @@ def delete_log(gui, url, window, certhash, dheader):
             #os.remove(os.path.join(os.path.expanduser(config.get("chatdir")), dheader.get("forcehash")+".log"))
         except FileNotFoundError:
             pass
-        chatbuf[certhash].delete(chatbuf[certhash].get_start_iter(), chatbuf[certhash].get_end_iter())
-    init_pathes(certhash)
+        chatbuf[certhash].remove_all()
         
     #return "Hello actions, return: "+url
 
 def toggle_private(gui, url, window, certhash, state, dheader):
     if state:
-        private_state[certhash] = "private"
+        private_state[certhash] = True
     else:
-        private_state[certhash] = "normal"
+        private_state[certhash] = False
 
     
 # dict, just shows up in cmd, do localisation in plugin 
@@ -141,10 +158,13 @@ def send_text(_address, certhash, _text):
     _textb = bytes(_text, "utf-8")
     if len(_textb) == 0:
         return True
-    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format(private_state.get(certhash, "normal"), port_to_answer, len(_textb)), forcehash=certhash)
+    if private_state.get(certhash, False):
+        sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format("private", port_to_answer, len(_textb)), forcehash=certhash)
+    else:
+        sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format("normal", port_to_answer, len(_textb)), forcehash=certhash)
     if sock is None:
         return False
-    if private_state[certhash] != "private":
+    if private_state[certhash] == False:
         with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
             wrio.write("ot:"+_text+"\n");
     sock.send(_textb)
@@ -161,6 +181,12 @@ def gtk_send_text(widget, _textwidget, _address, certhash):
         #_newiter = chatbuf[certhash].get_end_iter()
         chatbuf[certhash].append(gtk_create_textob(_text, True, private_state.get(certhash, False)))
 
+def myListBoxCreateWidgetFunc(item, **userdata):
+    return item
+    
+def gtk_scroll_down(widget, child_prop, scroller):
+    if isinstance(widget, Gtk.ListBox): # and scroller.get_value()<10:
+        scroller.set_value(0)
 
 def gui_node_iface(gui, _name, _hash, _address):
     if _hash not in chatlock:
@@ -170,23 +196,21 @@ def gui_node_iface(gui, _name, _hash, _address):
     
     if _hash not in chatbuf:
         chatbuf[_hash] = Gio.ListStore()
-        #chatbuf[_hash].create_tag("ownposts", justification=Gtk.Justification.RIGHT, justification_set=True,
-        #                foreground_rgba=Gdk.RGBA(red=0.0, green=1.0, blue=0.9, alpha=1.0), foreground_set=True)
-        #chatbuf[_hash].create_tag("ownposts_private", justification=Gtk.Justification.RIGHT, justification_set=True,
-        #                foreground_rgba=Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=1.0), foreground_set=True)
-        #chatbuf[_hash].create_tag("remposts_private", justification=Gtk.Justification.LEFT, justification_set=True,
-        #                foreground_rgba=Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=1.0), foreground_set=True)
         try:
             with open(os.path.join(os.path.expanduser(config.get("chatdir")), _hash,"log.txt"), "r") as reio:
                 for line in reio.readlines():
+                    if line[-1] == "\n":
+                        line = line[:-1]
+                    if line[-1] == "\r":
+                        line = line[:-1]
                     if line[:3] == "ot:":
-                        chatbuf[_hash].append(gtk_create_textob(line, True, False))
+                        chatbuf[_hash].append(gtk_create_textob(line[3:], True, False))
                     elif line[:3] == "rt:":
-                        chatbuf[_hash].append(gtk_create_textob(line, False, False))
+                        chatbuf[_hash].append(gtk_create_textob(line[3:], False, False))
         except FileNotFoundError:
             pass
     
-    private_state[_hash] = "normal"
+    private_state[_hash] = False
     builder = Gtk.Builder()
     builder.add_from_file(os.path.join(proot, "chat.ui"))
     builder.connect_signals(module)
@@ -194,9 +218,13 @@ def gui_node_iface(gui, _name, _hash, _address):
     textsende.connect("activate", gtk_send_text, textsende, _address, _hash)
     sendchatb = builder.get_object("sendchatb")
     sendchatb.connect("clicked", gtk_send_text, textsende, _address, _hash)
+    
+    #TODO: connect and autoscrolldown
+    #sendchatb.connect("child_notify", gtk_scroll_down, builder.get_object("chatscroll"))
     clist = builder.get_object("chatlist")
-    print(type(chatbuf[_hash]))
-    clist.bind_model(chatbuf[_hash], Gtk.ListBoxCreateWidgetFunc)
+    clist.bind_model(chatbuf[_hash], myListBoxCreateWidgetFunc)
+    #clist.bind_model(chatbuf[_hash], Gtk.ListBoxCreateWidgetFunc)
+    # broken so use own function to workaround
     return builder.get_object("chatin")
 
 
@@ -204,6 +232,7 @@ def gui_node_iface(gui, _name, _hash, _address):
 def gtk_receive_text(certhash, _text, _private):
     
     chatbuf[certhash].append(gtk_create_textob(_text, False, _private))
+    
     return False # for not beeing readded (threads_add_idle)
 
 
@@ -220,6 +249,10 @@ def receive(action, _socket, _cert, certhash):
     if len(splitted) != 4:
         return
     private, action, answerport, _rest = splitted
+    if private == "private":
+        private = True
+    else:
+        private = False
     if certhash not in chatlock:
         if resources("access")("getlocal", hash=certhash)[0] == False:
             return
@@ -243,10 +276,10 @@ def receive(action, _socket, _cert, certhash):
             _size = int(_rest)
             if _size > config.get("maxsizeimg")*1024:
                 return
-            _text = str(_socket.read(_size), "utf-8")+"\n"
-            if private != "private":
+            _text = str(_socket.read(_size), "utf-8")
+            if private == False:
                 with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as logob:
-                    logob.write("rt:"+_text)
+                    logob.write("rt:"+_text+"\n")
                 
             if "gtk" in interfaces:
                 Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, gtk_receive_text, certhash, _text, private)
@@ -256,7 +289,7 @@ def receive(action, _socket, _cert, certhash):
                 return
             _img = _socket.read(_size)
             
-            if private != "private":
+            if private == False:
                 _imgname = hashlib.sha256(_img).hexdigest()
                 with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "images", _imgname), "wb") as imgob:
                     imgob.write(_img)
@@ -267,7 +300,7 @@ def receive(action, _socket, _cert, certhash):
                 Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, gtk_receive_img, certhash, _img)
         elif action == "send_file":
             _name, _size = _rest.split("/", 1)
-            if private != "private":
+            if private == False:
                 with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as logob:
                     logob.write("rf:{},{}\n".format(_name, _size))
             if "gtk" in interfaces:
