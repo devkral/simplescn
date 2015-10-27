@@ -41,10 +41,10 @@ def init():
     global port_to_answer
     if "gtk" not in interfaces:
         return False
-    global Gtk, Gdk, GLib
+    global Gtk, Gdk, GLib, Gio, Pango, Gio
     import gi
     gi.require_version('Gtk', '3.0')
-    from gi.repository import Gtk, Gdk, GLib
+    from gi.repository import Gtk, Gdk, GLib, Pango, Gio
     port_to_answer = resources("access")("show")[1]["port"]
     #print(config.list())
     os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir"))), 0o770, exist_ok=True)
@@ -58,26 +58,31 @@ def init_pathes(_hash):
 
 
 
-def gtk_create_textob(_text, isowner):
-    pass
-
-
-def gtk_create_imageob(_img, isowner):
-    pass
-
-
-def gtk_create_fileob(_filename, _size, isowner):
-    pass
-
-def send_file_gui(gui, url, dheader):
-    return
-    init_pathes(dheader.get("forcehash"))
+def gtk_create_textob(_text, isowner, isprivate):
+    ret = Gtk.Label(_text, wrap=True, wrap_mode=Pango.WrapMode.WORD)
     
+    #if isowner:
     
+    return ret
+
+
+def gtk_create_imageob(_img, isowner, isprivate):
+    return Gtk.Label()
+
+
+def gtk_create_fileob(_filename, _size, isowner, isprivate):
+    return Gtk.Label()
     
-    sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_file/{}/{}".format(private_state.get(dheader.get("forcehash"), "normal"), len(_textb), port_to_answer), forcehash=dheader.get("forcehash"))
-    if sock is None:
-        return False
+def send_file_gui(gui, url, window, certhash, dheader):
+    init_pathes(certhash)
+    _filech = Gtk.FileChooserDialog(title="Select file", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("OPEN",10, "CANCEL",20))
+    if _filech.run()!=10:
+        return
+    _filename = _filech.get_filename()
+    _basename = os.path.basename(_filename)
+    shutil.copyfile(_filename, os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "tosend", _basename))
+    sock, _cert, _hash = resources("plugin")(self.address, "chat", "{}/send_file/{}/{}".format(private_state.get(certhash, "normal"), len(_textb), port_to_answer), **dheader)
+    sock.close()
     #if private_state[certhash] != "private":
     #    with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a") as wrio:
     #        wrio.write("o:"+_text+"\n");
@@ -85,25 +90,25 @@ def send_file_gui(gui, url, dheader):
     #sock.close()
     #return "Hello actions, return: "+url
 
-def delete_log(gui, url, dheader):
-    if dheader.get("forcehash") not in chatlock:
+def delete_log(gui, url, window, certhash, dheader):
+    if certhash not in chatlock:
         return
-    with chatlock[dheader.get("forcehash")]:
+    with chatlock[certhash]:
         try:
-            shutil.rmtree(os.path.join(os.path.expanduser(config.get("chatdir")), dheader.get("forcehash")))
+            shutil.rmtree(os.path.join(os.path.expanduser(config.get("chatdir")), certhash))
             #os.remove(os.path.join(os.path.expanduser(config.get("chatdir")), dheader.get("forcehash")+".log"))
         except FileNotFoundError:
             pass
-        chatbuf[dheader.get("forcehash")].delete(chatbuf[dheader.get("forcehash")].get_start_iter(), chatbuf[dheader.get("forcehash")].get_end_iter())
-    init_pathes(dheader.get("forcehash"))
+        chatbuf[certhash].delete(chatbuf[certhash].get_start_iter(), chatbuf[certhash].get_end_iter())
+    init_pathes(certhash)
         
     #return "Hello actions, return: "+url
 
-def toggle_private(gui, url, state, dheader):
+def toggle_private(gui, url, window, certhash, state, dheader):
     if state:
-        private_state[dheader.get("forcehash")] = "private"
+        private_state[certhash] = "private"
     else:
-        private_state[dheader.get("forcehash")] = "normal"
+        private_state[certhash] = "normal"
 
     
 # dict, just shows up in cmd, do localisation in plugin 
@@ -151,15 +156,11 @@ def gtk_send_text(widget, _textwidget, _address, certhash):
     with chatlock[certhash]:
         send_text(_address, certhash, _text)
         _textwidget.set_text("")
-        _oldlineno = chatbuf[certhash].get_line_count()
-        chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text+"\n")
-        _newiter = chatbuf[certhash].get_end_iter()
-        if private_state[certhash] == "private":
-            chatbuf[certhash].apply_tag_by_name("ownposts_private", chatbuf[certhash].get_iter_at_line(_oldlineno-1), _newiter)
-        else:
-            chatbuf[certhash].apply_tag_by_name("ownposts", chatbuf[certhash].get_iter_at_line(_oldlineno-1), _newiter)
+        #_oldlineno = chatbuf[certhash].get_line_count()
+        #chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text+"\n")
+        #_newiter = chatbuf[certhash].get_end_iter()
+        chatbuf[certhash].append(gtk_create_textob(_text, True, private_state.get(certhash, False)))
 
-            
 
 def gui_node_iface(gui, _name, _hash, _address):
     if _hash not in chatlock:
@@ -168,21 +169,20 @@ def gui_node_iface(gui, _name, _hash, _address):
         return None
     
     if _hash not in chatbuf:
-        chatbuf[_hash] = Gtk.TextBuffer()
-        chatbuf[_hash].create_tag("ownposts", justification=Gtk.Justification.RIGHT, justification_set=True,
-                        foreground_rgba=Gdk.RGBA(red=0.0, green=1.0, blue=0.9, alpha=1.0), foreground_set=True)
-        chatbuf[_hash].create_tag("ownposts_private", justification=Gtk.Justification.RIGHT, justification_set=True,
-                        foreground_rgba=Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=1.0), foreground_set=True)
-        chatbuf[_hash].create_tag("remposts_private", justification=Gtk.Justification.LEFT, justification_set=True,
-                        foreground_rgba=Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=1.0), foreground_set=True)
+        chatbuf[_hash] = Gio.ListStore()
+        #chatbuf[_hash].create_tag("ownposts", justification=Gtk.Justification.RIGHT, justification_set=True,
+        #                foreground_rgba=Gdk.RGBA(red=0.0, green=1.0, blue=0.9, alpha=1.0), foreground_set=True)
+        #chatbuf[_hash].create_tag("ownposts_private", justification=Gtk.Justification.RIGHT, justification_set=True,
+        #                foreground_rgba=Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=1.0), foreground_set=True)
+        #chatbuf[_hash].create_tag("remposts_private", justification=Gtk.Justification.LEFT, justification_set=True,
+        #                foreground_rgba=Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=1.0), foreground_set=True)
         try:
-            with open(os.path.join(os.path.expanduser(config.get("chatdir")), _hash+".log"), "r") as reio:
+            with open(os.path.join(os.path.expanduser(config.get("chatdir")), _hash,"log.txt"), "r") as reio:
                 for line in reio.readlines():
-                    _oldlineno = chatbuf[_hash].get_line_count()
-                    chatbuf[_hash].insert(chatbuf[_hash].get_end_iter(), line[2:])
-                    _newiter = chatbuf[_hash].get_end_iter()
                     if line[:3] == "ot:":
-                        chatbuf[_hash].apply_tag_by_name("ownposts", chatbuf[_hash].get_iter_at_line(_oldlineno-1), _newiter)
+                        chatbuf[_hash].append(gtk_create_textob(line, True, False))
+                    elif line[:3] == "rt:":
+                        chatbuf[_hash].append(gtk_create_textob(line, False, False))
         except FileNotFoundError:
             pass
     
@@ -194,20 +194,16 @@ def gui_node_iface(gui, _name, _hash, _address):
     textsende.connect("activate", gtk_send_text, textsende, _address, _hash)
     sendchatb = builder.get_object("sendchatb")
     sendchatb.connect("clicked", gtk_send_text, textsende, _address, _hash)
-    cview = builder.get_object("chatview")
-    cview.set_buffer(chatbuf[_hash])
+    clist = builder.get_object("chatlist")
+    print(type(chatbuf[_hash]))
+    clist.bind_model(chatbuf[_hash], Gtk.ListBoxCreateWidgetFunc)
     return builder.get_object("chatin")
 
 
 
 def gtk_receive_text(certhash, _text, _private):
     
-    _oldlineno = chatbuf[certhash].get_line_count()
-    chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text)
-    _newiter = chatbuf[certhash].get_end_iter()
-        
-    if _private == "private":
-        chatbuf[certhash].apply_tag_by_name("remposts_private", chatbuf[certhash].get_iter_at_line(_oldlineno-1), _newiter)
+    chatbuf[certhash].append(gtk_create_textob(_text, False, _private))
     return False # for not beeing readded (threads_add_idle)
 
 
