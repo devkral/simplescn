@@ -32,7 +32,7 @@ def init():
     return True
 
 
-def sampleaction(gui, url, dheader):
+def sampleaction(gui, url, window, certhash, dheader):
     print("Hello actions: ", url, gui)
 
 

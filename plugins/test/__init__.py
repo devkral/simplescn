@@ -30,12 +30,12 @@ def init():
     return True
 
 
-def sampleaction(gui, url, dheader):
+def sampleaction(gui, url, window, certhash, dheader):
     print("Hello actions: ", url, gui)
     resources("open_notify")("Hello actions: {}, {}".format(url, gui))
 
 
-def sampleactionpw(gui, url, dheader):
+def sampleactionpw(gui, url, window, certhash, dheader):
     resources("open_pwrequest")("Enter password for fun")
 
 def sampleaction_cmd():
