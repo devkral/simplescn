@@ -23,7 +23,7 @@ import common
 from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
 from guigtk.guicommon import set_parent_template
 
-from common import check_certs,default_sslcont, sharedir, init_config_folder, generate_certs, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
+from common import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
 
 from common import logger
 import client
@@ -222,7 +222,6 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     def update_serverlist(self, _localname):
         _serverhashes=self.do_requestdo("listhashes",name=_localname)
         if logger().check(_serverhashes)==True:
-            _map = _serverhashes[1]["map"]
             for _hash in _serverhashes[1]["items"]:
                 if _hash[0]!="default":
                     self.update_serverlist_refid(_hash[4])
@@ -349,12 +348,12 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         askinfo = self._verifyserver(serverurl)
         if askinfo is None:
             return
-        if askinfo.get("localname") is None:
-            name = serverurl[:20]
-        elif askinfo.get("localname") == isself:
-            name = "Own server"
-        else:
-            name = askinfo.get("localname")
+        #if askinfo.get("localname") is None:
+        #    name = serverurl[:20]
+        #elif askinfo.get("localname") == isself:
+        #    name = "Own server"
+        #else:
+        #    #name = askinfo.get("localname")
         gtkclient_node(self.links, "{}-{}".format(*scnparse_url(serverurl)), forcehash=askinfo.get("hash"), page="server")
         
     
@@ -466,7 +465,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     
     def opennode(self,*args):
         if self.curnode is not None:
-            gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], page="services", traverseserveraddr=serveaddr)
+            gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], page="services", traverseserveraddr=self.curnode[4])
     
     def opennode_self(self,*args):
         ret=self.do_requestdo("show")
@@ -712,12 +711,12 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             logger().error(res[1])
 
     def updatereference_way(self,*args):
-        updatereftb=self.builder.get_object("updatereftb")
+        updatereftb = self.builder.get_object("updatereftb")
         # path for updating
-        addrefentry=self.builder.get_object("addrefentry")
-        addrefb=self.builder.get_object("addrefb")
+        addrefentry = self.builder.get_object("addrefentry")
+        addrefb = self.builder.get_object("addrefb")
         #reflist=self.builder.get_object("reflist")
-        refview=self.builder.get_object("refview")
+        #refview=self.builder.get_object("refview")
         hview = self.builder.get_object("hashview")
         
         if self.__update_ref_run_stop:

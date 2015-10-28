@@ -214,7 +214,7 @@ class client_client(client_admin, client_safe, client_config):
             _reauthcount += 1
             auth_parsed[realm] = authob
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
-            return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, traverseserveraddr=traverseserveraddr, _reauthcount=_reauthcount)
+            return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, _reauthcount=_reauthcount)
         else:
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()

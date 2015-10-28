@@ -233,7 +233,7 @@ class server(commonscn):
         """ open traversal connection """
         if self.traverse is None:
             return False, "no traversal possible"
-        travport = obdict["clientaddress"][1]
+        #travport = obdict["clientaddress"][1]
         #if travport <= 0:
         #    return False, "port <1: {}".format(travport)
         
@@ -500,6 +500,7 @@ class server_handler(BaseHTTPRequestHandler):
                 return
         elif resource == "usebroken":
             cont = default_sslcont()
+            certfpath = os.path.join(self.links["config_root"], "broken", sub)
             if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
                 cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
                 #self.end_headers()
@@ -558,10 +559,10 @@ class server_init(object):
     
     def __init__(self,_configpath, **kwargs):
         self.links = {}
-        self.config_path=_configpath
-        _spath=os.path.join(self.config_path,"server")
+        self.links["config_root"]=_configpath
+        _spath=os.path.join(self.links["config_root"],"server")
         port = kwargs["port"]
-        init_config_folder(self.config_path,"server")
+        init_config_folder(self.links["config_root"],"server")
         
         if check_certs(_spath+"_cert")==False:
             logger().debug("Certificate(s) not found. Generate new...")
