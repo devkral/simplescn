@@ -138,7 +138,8 @@ class configuration_stuff(object):
         if _preflist[0] == False:
             return
         for _key, _val, _converter, _default, _doc, ispermanent in _preflist[1]["items"]:
-            self.preflist.append((_key, _val, ispermanent, _default))
+            if _key != "state":
+                self.preflist.append((_key, _val, ispermanent, _default))
         
     def load_pluginconfig(self, *args):
         self.preflist.clear()
@@ -158,8 +159,12 @@ class configuration_stuff(object):
         _preflist = self.do_requestdo("list_pluginconfig", plugin=_plugin)
         if _preflist[0] == False:
             return
+        
         for _key, _val, _converter, _default, _doc, ispermanent in _preflist[1]["items"]:
-            self.preflist.append((_key, _val, ispermanent, _default))
+            if _key == "state":
+                self.preflist.prepend((_key, _val, ispermanent, _default))
+            else:
+                self.preflist.append((_key, _val, ispermanent, _default))
         
     def use_default_config_key(self, *args):
         _sel=self.prefview.get_selection().get_selected()

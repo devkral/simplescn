@@ -34,7 +34,7 @@ lname = {"*": "Chat"}
 
 
 # defaults for config (needed)
-defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": [2048, int, "max image (and text) size in KB"]}
+defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": ["2048", int, "max image size in KB"],"maxsizetext": ["4000", int, "max size text"]}
 
 chatbuf = {}
 chatlock = {}
@@ -83,31 +83,44 @@ def gtk_create_textob(_text, isowner, isprivate):
 
 
 def gtk_create_imageob(_img, isowner, isprivate):
-    newimg = GdkPixbuf.new_from_inline(_img)
-    newimg = Gtk.Image.new_from_pixbuf(newimg)
+    newimg = GdkPixbuf.PixbufLoader()
+    newimg.set_size(100, 100)
+    newimg.write(_img)
+    newimg.close()
+    newimg = Gtk.Image.new_from_pixbuf(newimg.get_pixbuf())
+    newimg.set_can_focus(False)
     if isowner:
         newimg.set_halign(Gtk.Align.END)
-        #if isprivate:
-        #    newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.3, blue=0.0, alpha=0.9))
-        #else:
-        #    newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.3, green=1.0, blue=0.3, alpha=0.7))
+        if isprivate:
+            newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.3, blue=0.0, alpha=0.9))
+        else:
+            newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.3, green=1.0, blue=0.3, alpha=0.7))
     else:
         newimg.set_halign(Gtk.Align.START)
-        #if isprivate:
-        #    newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=0.9))
-        #else:
-        #    newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=1.0, blue=1.0, alpha=0.7))
+        if isprivate:
+            newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=0.9))
+        else:
+            newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=1.0, blue=1.0, alpha=0.7))
     
     return newimg
 
-def gtk_download(widget, filename, size):
-    _filech = Gtk.FileChooserDialog(title="Save to file", parent=widget.get_parent_window(), select_multiple=False, action=Gtk.FileChooserAction.SAVE, buttons=("SAVE",10, "CANCEL",20))
+def gtk_download(widget, filename, size, pos=0):
+    _filech = Gtk.FileChooserDialog(title="Save to file", parent=widget.get_parent_window(), select_multiple=False, action=Gtk.FileChooserAction.SAVE, buttons=("Save",10, "Cancel",20))
     #filech.set_filename(os.path.join filename)
-    if _filech.run()!=10:
+    retrun = _filech.run()
+    if retrun != 10:
         return
     _file2 = _filech.get_filename()
-    #TODO: finish retrieving files
+    privstate = "public"
+    sock, _cert, _hash = resources("plugin")(url, "chat", "{}/fetch_file/{}/{}/{}".format(privstate, port_to_answer, filename, pos), forcehash=certhash)
     
+    with open(_file2, "ab") as wrio:
+        wrio.seek(pos)
+        while pos<_size-1024:
+            wrio.write(_socket.recv(1024))
+            pos += 1024
+        wrio.write(_socket.recv(_size-pos))
+
 
 def gtk_create_fileob(_filename, _size, isowner):
     ret = Gtk.Grid()
@@ -132,22 +145,34 @@ def gtk_send_text(widget, _textwidget, _address, certhash):
         #_oldlineno = chatbuf[certhash].get_line_count()
         #chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text+"\n")
         #_newiter = chatbuf[certhash].get_end_iter()
-        chatbuf[certhash].append(gtk_chat.gtk_create_textob(_text, True, private_state.get(certhash, False)))
+        chatbuf[certhash].append(gtk_create_textob(_text, True, private_state.get(certhash, False)))
 
 def gtk_send_file(widget, url, window, certhash):
     init_pathes(certhash)
-    _filech = Gtk.FileChooserDialog(title="Select file", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("OPEN",10, "CANCEL",20))
+    _filech = Gtk.FileChooserDialog(title="Select file", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("Open",10, "Cancel",20))
     if _filech.run()!=10:
+        _filech.destroy()
         return
     _filename = _filech.get_filename()
+    _filech.destroy()
     _basename = os.path.basename(_filename)
+    _size = os.stat(_filename).st_size
     shutil.copyfile(_filename, os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "tosend", _basename))
     if private_state.get(certhash, False):
         privstate = "private"
     else:
-        privstate = "normal"
-    sock, _cert, _hash = resources("plugin")(url, "chat", "{}/send_file/{}/{}".format(privstate, os.stat(_filename).st_size, port_to_answer), forcehash=certhash)
-    sock.close()
+        privstate = "public"
+    
+    with chatlock[certhash]:
+        if private_state.get(certhash, False):
+            with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
+                wrio.write("of:{},{}\n".format(_basename, _size));
+        chatbuf[certhash].append(gtk_create_fileob(_basename, _size, True, private_state.get(certhash, False)))
+    
+    chatbuf[certhash].append(gtk_create_textob(_text, True, privstate))
+    sock, _cert, _hash = resources("plugin")(url, "chat", "{}/send_file/{}/{}".format(privstate, port_to_answer, _size, forcehash=certhash))
+    #sock.close()
+    
     #if private_state[certhash] != "private":
     #    with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a") as wrio:
     #        wrio.write("o:"+_text+"\n");
@@ -157,18 +182,36 @@ def gtk_send_file(widget, url, window, certhash):
 
 def gtk_send_img(widget, url, window, certhash):
     init_pathes(certhash)
-    _filech = Gtk.FileChooserDialog(title="Select image", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("OPEN",10, "CANCEL",20))
-    if _filech.run()!=10:
+    _filech = Gtk.FileChooserDialog(title="Select image", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("Open",10, "Cancel",20))
+    runst = _filech.run()
+    _filech.hide()
+    if runst != 10:
+        _filech.destroy()
         return
     _filename = _filech.get_filename()
+    _filech.destroy()
+    with open(_filename, "rb") as imgo:
+        _img = imgo.read()
     if private_state.get(certhash, False):
         privstate = "private"
     else:
-        privstate = "normal"
-    sock, _cert, _hash = resources("plugin")(url, "chat", "{}/send_img/{}/{}".format(privstate, os.stat(_filename).st_size, port_to_answer), forcehash=certhash)
-    sock.sendfile(_filename)
-    sock.close()
-
+        privstate = "public"
+    if len(_img) > config.get("maxsizeimg")*1024:
+        logger().info("Image too big")
+        return
+    sock, _cert, _hash = resources("plugin")(url, "chat", "{}/send_img/{}/{}".format(privstate, port_to_answer, len(_img)), forcehash=certhash)
+    sock.sendall(_img)
+    
+    #sock.close()
+    with chatlock[certhash]:
+        if privstate == "public":
+            _imgname = hashlib.sha256(_img).hexdigest()
+            with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "images", _imgname), "wb") as imgo:
+                imgo.write(_img)
+            with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
+                wrio.write("oi:"+_imgname+"\n");
+        chatbuf[certhash].append(gtk_create_imageob(_img, True, private_state.get(certhash, False)))
+     
 def delete_log(gui, url, window, certhash, dheader):
     if certhash not in chatlock:
         return
@@ -223,10 +266,10 @@ def send_text(_address, certhash, _text):
     if private_state.get(certhash, False):
         sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format("private", port_to_answer, len(_textb)), forcehash=certhash)
     else:
-        sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format("normal", port_to_answer, len(_textb)), forcehash=certhash)
+        sock, _cert, _hash = resources("plugin")(_address, "chat", "{}/send_text/{}/{}".format("public", port_to_answer, len(_textb)), forcehash=certhash)
     if sock is None:
         return False
-    if private_state[certhash] == False:
+    if private_state.get(certhash, False) == False:
         with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
             wrio.write("ot:"+_text+"\n");
     sock.send(_textb)
@@ -257,14 +300,20 @@ def gui_node_iface(gui, _name, _hash, _address, window):
                         chatbuf[_hash].append(gtk_create_textob(line[3:], False, False))
                     elif line[:3] == "oi:":
                         _imgpath = os.path.join(os.path.expanduser(config.get("chatdir")), _hash, "images", line[3:])
-                        if os.path.isfile(_imgpath):
-                            with open(_imgpath, "rb") as rob:
-                                chatbuf[_hash].append(gtk_create_imageob(rob.read(), True, False))
+                        try:
+                            if os.path.isfile(_imgpath):
+                                with open(_imgpath, "rb") as rob:
+                                    chatbuf[_hash].append(gtk_create_imageob(rob.read(), True, False))
+                        except Exception as e:
+                            logger().error(e)
                     elif line[:3] == "ri:":
                         _imgpath = os.path.join(os.path.expanduser(config.get("chatdir")), _hash, "images", line[3:])
-                        if os.path.isfile(_imgpath):
-                            with open(_imgpath, "rb") as rob:
-                                chatbuf[_hash].append(gtk_create_imageob(rob.read(), False, False))
+                        try:
+                            if os.path.isfile(_imgpath):
+                                with open(_imgpath, "rb") as rob:
+                                    chatbuf[_hash].append(gtk_create_imageob(rob.read(), False, False))
+                        except Exception as e:
+                            logger().error(e)
                     elif line[:3] == "of:":
                         _name, _size = line[3:].rsplit(",", 1)
                         chatbuf[_hash].append(gtk_create_fileob(_name, _size, True))
@@ -322,10 +371,6 @@ def receive(action, _socket, _cert, certhash):
         private = True
     else:
         private = False
-    if certhash not in chatlock:
-        if resources("access")("getlocal", hash=certhash)[0] == False:
-            return
-        resources("open_node")("{}:{}".format(_socket.getaddrinfo()[0], answerport), page="chat")
     
     if action == "fetch_file":
         name, pos = _rest
@@ -333,17 +378,24 @@ def receive(action, _socket, _cert, certhash):
             return
         _path = os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "tosend", name)
         if os.path.isfile(_path):
-            _socket.sendfile(_path, pos)
+            with open(_path, "rb") as rbfile: 
+                _socket.sendfile(rbfile, pos)
         return
+        
     if certhash not in chatlock:
-        #todo open dialog
-        return
+        if resources("access")("getlocal", hash=certhash)[0] == False:
+            return
+        resources("open_node")("{}:{}".format(_socket.getaddrinfo()[0], answerport), page="chat")
+    
+        if certhash not in chatlock:
+            # if still not existent
+            return
     init_pathes(certhash)
     
     with chatlock[certhash]:
         if action == "send_text":
             _size = int(_rest)
-            if _size > config.get("maxsizeimg")*1024:
+            if _size > config.get("maxsizetext"):
                 return
             _text = str(_socket.read(_size), "utf-8")
             if private == False:
@@ -355,8 +407,15 @@ def receive(action, _socket, _cert, certhash):
         elif action == "send_img":
             _size = int(_rest)
             if _size > config.get("maxsizeimg")*1024:
+                sock.close()
                 return
-            _img = _socket.read(_size)
+            countread = 0
+            _img = b""
+            while countread<=_size-1024:
+                _img += _socket.recv(1024)
+                countread += 1024
+            _img += _socket.recv(_size-countread)
+            
             
             if private == False:
                 _imgname = hashlib.sha256(_img).hexdigest()

@@ -57,7 +57,7 @@ class client_config(object):
             config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
         else:
             config = pluginm.plugins[obdict["plugin"]].config
-        return config.set_default(obdict["key"])
+        return config.set_default(str(obdict["key"]))
         
     @check_argsdeco({"key": (str, "config key"), "plugin": (str, "plugin name")})
     def get_pluginconfig(self, obdict):

@@ -94,6 +94,10 @@ class client_safe(object):
             return _getret
         if _getret[1].get("port", 0) < 1:
             return False,"port <1: {}".format(_getret[1]["port"])
+        # case client runs on server
+        if _getret[1]["address"] in ["::1", "127.0.0.1"]: # use serveraddress instead
+            addr, port = scnparse_url(obdict["server"])
+            _getret[1]["address"] = addr
         return _getret
     
     @check_argsdeco({"address": (str, ), })

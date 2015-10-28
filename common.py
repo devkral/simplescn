@@ -483,12 +483,15 @@ class configmanager(object):
             if tmp is None:
                 logger().error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
                 return False
-            if check_conftype(tmp[0], tmp[1]) == False:
+            if check_conftype(tmp[0], tmp[1]) == False or isinstance(tmp[0], str) == False: # must be string
                 return False
             self.defaults[_key] = tmp
         
         for _key, elem  in _overlays.items():
             tmp = None
+            if isinstance(elem[0], (str, None)) == False: # must be string
+                logger().error("invalid config object {}".format(elem))
+                continue
             if len(elem) == 1 or (len(elem) == 2 and elem[1] is None):
                 if _key in self.defaults:
                     tmp = self.defaults[_key].copy()
@@ -664,6 +667,9 @@ class configmanager(object):
                 _val2 = str(_val2)
             if _key in ["state",] and _val2 in [None, "", "False"]:
                 _val2 = "False"
+            if isinstance(_val2, str) == False:
+                logger().info("value should be str")
+                
             if onlypermanent == True and ispermanent == True:
                 ret.append((_key, _val2, str(_converter), _defaultval, _doc, ispermanent))
             elif onlypermanent == False:
@@ -774,6 +780,7 @@ class pluginmanager(object):
             pload.interfaces = self.interfaces.copy() # copy because of isolation
             pload.proot = pluginpath # no copy because it is the only user
             pload.module = pload
+            pload.logger = logger
             ret = False
             # load plugin init method
             try:

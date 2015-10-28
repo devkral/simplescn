@@ -207,8 +207,8 @@ class server(commonscn):
             if ret[0] == False:
                 return False, "unreachable client"
             ret[1] = "registered_traversal"
-        elif ret[0] == False:
-            return ret
+        elif obdict["clientaddress"][0] in ["127.0.0.1", "::1"]:
+            ret[1] = "registered_traversal"
         t = threading.Thread(target=self.check_brokencerts, args=(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True)
         t.start()
         self.changeip_lock.acquire(False)
