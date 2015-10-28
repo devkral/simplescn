@@ -34,7 +34,7 @@ lname = {"*": "Chat"}
 
 
 # defaults for config (needed)
-defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": [4, int, "max image (and text) size in KB"]}
+defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": [2048, int, "max image (and text) size in KB"]}
 
 chatbuf = {}
 chatlock = {}
@@ -100,14 +100,23 @@ def gtk_create_imageob(_img, isowner, isprivate):
     
     return newimg
 
-def gtk_download():
-    pass
+def gtk_download(widget, filename, size):
+    _filech = Gtk.FileChooserDialog(title="Save to file", parent=widget.get_parent_window(), select_multiple=False, action=Gtk.FileChooserAction.SAVE, buttons=("SAVE",10, "CANCEL",20))
+    #filech.set_filename(os.path.join filename)
+    if _filech.run()!=10:
+        return
+    _file2 = _filech.get_filename()
+    #TODO: finish retrieving files
+    
 
-def gtk_create_fileob(_filename, _size):
+def gtk_create_fileob(_filename, _size, isowner):
     ret = Gtk.Grid()
-    ret.attach_next_to(Gtk.Label("File: {}".format(_filename)), None, Gtk.PositionType.RIGHT, 1, 1)
-    downbut = Gtk.Button("Download {}".format(_size))
-    ret.attach_next_to(downbut, None, Gtk.PositionType.RIGHT, 1, 1)
+    if isowner:
+        pass # delete dialog
+    else:
+        ret.attach_next_to(Gtk.Label("File: {}".format(_filename)), None, Gtk.PositionType.RIGHT, 1, 1)
+        downbut = Gtk.Button("Download ({})".format(_size))
+        ret.attach_next_to(downbut, None, Gtk.PositionType.RIGHT, 1, 1)
     return ret
     
 def gtk_scroll_down(widget, child_prop, scroller):
@@ -125,8 +134,7 @@ def gtk_send_text(widget, _textwidget, _address, certhash):
         #_newiter = chatbuf[certhash].get_end_iter()
         chatbuf[certhash].append(gtk_chat.gtk_create_textob(_text, True, private_state.get(certhash, False)))
 
-    
-def send_file_gui(gui, url, window, certhash, dheader):
+def gtk_send_file(widget, url, window, certhash):
     init_pathes(certhash)
     _filech = Gtk.FileChooserDialog(title="Select file", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("OPEN",10, "CANCEL",20))
     if _filech.run()!=10:
@@ -138,7 +146,7 @@ def send_file_gui(gui, url, window, certhash, dheader):
         privstate = "private"
     else:
         privstate = "normal"
-    sock, _cert, _hash = resources("plugin")(url, "chat", "{}/send_file/{}/{}".format(privstate, os.stat(_filename).st_size, port_to_answer), **dheader)
+    sock, _cert, _hash = resources("plugin")(url, "chat", "{}/send_file/{}/{}".format(privstate, os.stat(_filename).st_size, port_to_answer), forcehash=certhash)
     sock.close()
     #if private_state[certhash] != "private":
     #    with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash+".log"), "a") as wrio:
@@ -146,6 +154,20 @@ def send_file_gui(gui, url, window, certhash, dheader):
     #sock.sendfile(_textb)
     #sock.close()
     #return "Hello actions, return: "+url
+
+def gtk_send_img(widget, url, window, certhash):
+    init_pathes(certhash)
+    _filech = Gtk.FileChooserDialog(title="Select image", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("OPEN",10, "CANCEL",20))
+    if _filech.run()!=10:
+        return
+    _filename = _filech.get_filename()
+    if private_state.get(certhash, False):
+        privstate = "private"
+    else:
+        privstate = "normal"
+    sock, _cert, _hash = resources("plugin")(url, "chat", "{}/send_img/{}/{}".format(privstate, os.stat(_filename).st_size, port_to_answer), forcehash=certhash)
+    sock.sendfile(_filename)
+    sock.close()
 
 def delete_log(gui, url, window, certhash, dheader):
     if certhash not in chatlock:
@@ -174,9 +196,10 @@ def toggle_private(gui, url, window, certhash, state, dheader):
 # do it this way
 #cmd_node_alias_actions={"Aktion": "foo-action"}
 
+#{"text": "Send file", "action": send_file_gui, \
+#"interfaces": ["gtk",], "description": "Send a file"},
 # iterable, for node actions, just shows up in gui, do localization in plugin
-gui_node_actions=[{"text": "Send file", "action": send_file_gui, \
-"interfaces": ["gtk",], "description": "Send a file"},
+gui_node_actions=[
 {"text":"private", "action": toggle_private, \
 "interfaces": ["gtk",], "description": "Toggle private chat", "state": False},
 {"text":"Delete log", "action": delete_log, \
@@ -213,7 +236,7 @@ def send_text(_address, certhash, _text):
 def myListBoxCreateWidgetFunc(item, **userdata):
     return item
     
-def gui_node_iface(gui, _name, _hash, _address):
+def gui_node_iface(gui, _name, _hash, _address, window):
     if _hash not in chatlock:
         chatlock[_hash] = Lock()
     if gui != "gtk":
@@ -232,6 +255,23 @@ def gui_node_iface(gui, _name, _hash, _address):
                         chatbuf[_hash].append(gtk_create_textob(line[3:], True, False))
                     elif line[:3] == "rt:":
                         chatbuf[_hash].append(gtk_create_textob(line[3:], False, False))
+                    elif line[:3] == "oi:":
+                        _imgpath = os.path.join(os.path.expanduser(config.get("chatdir")), _hash, "images", line[3:])
+                        if os.path.isfile(_imgpath):
+                            with open(_imgpath, "rb") as rob:
+                                chatbuf[_hash].append(gtk_create_imageob(rob.read(), True, False))
+                    elif line[:3] == "ri:":
+                        _imgpath = os.path.join(os.path.expanduser(config.get("chatdir")), _hash, "images", line[3:])
+                        if os.path.isfile(_imgpath):
+                            with open(_imgpath, "rb") as rob:
+                                chatbuf[_hash].append(gtk_create_imageob(rob.read(), False, False))
+                    elif line[:3] == "of:":
+                        _name, _size = line[3:].rsplit(",", 1)
+                        chatbuf[_hash].append(gtk_create_fileob(_name, _size, True))
+                    elif line[:3] == "rf:":
+                        _name, _size = line[3:].rsplit(",", 1)
+                        chatbuf[_hash].append(gtk_create_fileob(_name, _size, False))
+                    
         except FileNotFoundError:
             pass
     
@@ -243,6 +283,10 @@ def gui_node_iface(gui, _name, _hash, _address):
     textsende.connect("activate", gtk_send_text, textsende, _address, _hash)
     sendchatb = builder.get_object("sendchatb")
     sendchatb.connect("clicked", gtk_send_text, textsende, _address, _hash)
+    sendfileb = builder.get_object("sendfileb")
+    sendfileb.connect("clicked", gtk_send_file, _address, window, _hash)
+    sendimgb = builder.get_object("sendimgb")
+    sendimgb.connect("clicked", gtk_send_img, _address, window, _hash)
     
     #TODO: connect and autoscrolldown
     #sendchatb.connect("child_notify", gtk_scroll_down, builder.get_object("chatscroll"))
@@ -264,6 +308,7 @@ def gtk_receive_img(certhash, _img, _private):
     return False # for not beeing readded (threads_add_idle)
 
 def gtk_receive_file(certhash, _filename, _size):
+    chatbuf[certhash].append(gtk_create_fileob(_filename, _size, False))
     return False # for not beeing readded (threads_add_idle)
 
 ### uncomment for being accessable by internet

@@ -59,11 +59,11 @@ gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"opti
 "interfaces": ["gtk",], "description": "foo"}, ]
 
 
-#def gui_server_iface(gui, _name, _hash, _address):
+#def gui_server_iface(gui, _name, _hash, _address, window):
 #    pass
 #    return widget
 
-#def gui_node_iface(gui, _name, _hash, _address):
+#def gui_node_iface(gui, _name, _hash, _address, window)::
 #    pass
 #    return widget
 

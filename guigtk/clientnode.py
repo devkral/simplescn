@@ -3,7 +3,8 @@
 import os, locale
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, Pango
+from gi.repository import Gtk, Gdk #, Pango
+import socket
 
 from guigtk.guicommon import gtkclient_template, activate_shielded, toggle_shielded
 from common import sharedir,isself, logger, check_name, security_states, scnparse_url
@@ -137,7 +138,7 @@ class gtkclient_node(gtkclient_template):
         ret = self.do_requestdo("listservices", address=self.address)
         servicel.clear()
         if ret[0] == False:
-            logging.info(ret[1])
+            logger().info(ret[1])
             return
         for elem in ret[1]["items"]:
             servicel.append((elem[0],elem[1]))
@@ -174,7 +175,7 @@ class gtkclient_node(gtkclient_template):
                 for _tsaddr, _type in travret[1]["items"]:
                     try:
                         soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        soc.connect(scn_parseurl(_tsaddr))
+                        soc.connect(scnparse_url(_tsaddr))
                         soc.close()
                         break
                     except Exception:
@@ -230,7 +231,7 @@ class gtkclient_node(gtkclient_template):
         for pname, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
             if hasattr(plugin, cat) == True:
                 try:
-                    _tmp = getattr(plugin, cat)("gtk", infoob[2], infoob[3], self.address)
+                    _tmp = getattr(plugin, cat)("gtk", infoob[2], infoob[3], self.address, self.win)
                     if _tmp is not None:
                         if getattr(plugin, "lname"): #  and getattr(plugin, "lname") is dict:
                             llocale = locale.getlocale()[0]
@@ -313,7 +314,8 @@ class gtkclient_node(gtkclient_template):
         start, end = messagebuf.get_bounds()
         _text = messagebuf.get_text(start, end, True)
         
-        ret = self.do_requestdo("changemsg", message=_text, permanent=self.get_object("changemsgpermanent").get_active())
+        #ret = 
+        self.do_requestdo("changemsg", message=_text, permanent=self.get_object("changemsgpermanent").get_active())
         #if ret[0] == False:
         #    
     
@@ -322,7 +324,8 @@ class gtkclient_node(gtkclient_template):
         if check_name(_name) == False:
             logger().info("Invalid name: {}".format(_name))
             return
-        ret = self.do_requestdo("changename", name=_name, permanent=self.get_object("changenamepermanent").get_active())
+        #ret = 
+        self.do_requestdo("changename", name=_name, permanent=self.get_object("changenamepermanent").get_active())
         #if ret[0] == False:
         #    
         
