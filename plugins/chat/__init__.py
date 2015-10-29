@@ -166,8 +166,6 @@ def gtk_send_file(widget, url, window, certhash):
             with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
                 wrio.write("of:{},{}\n".format(_basename, _size));
         chatbuf[certhash].append(gtk_create_fileob(_basename, _size, True, private_state.get(certhash, False)))
-    
-        chatbuf[certhash].append(gtk_create_fileob(_basename, _size, True, privstate))
         sock, _cert, _hash = resources("plugin")(url, "chat", "{}/send_file/{}/{}/{}".format(privstate, port_to_answer, _basename, _size, forcehash=certhash))
         if sock is None:
             return
