@@ -166,8 +166,7 @@ def gtk_send_file(widget, url, window, certhash):
         privstate = "public"
     
     with chatlock[certhash]:
-        if private_state.get(certhash, False):
-            print("ksl")
+        if private_state.get(certhash, False) == False:
             with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
                 wrio.write("of:{},{},{}\n".format(_basename, _size, "2015.11.1"));
         chatbuf[certhash].append(gtk_create_fileob(url, certhash, _basename, _size, True, private_state.get(certhash, False)))
