@@ -155,9 +155,9 @@ def generate_error(err):
     else:
         error["type"] = type(err).__name__
         if hasattr(err,"__traceback__"):
-            error["stacktrace"] = str(traceback.format_tb(err.__traceback__)) 
-        elif hasattr(sys,"last_traceback"):
-            error["stacktrace"] = str(traceback.format_tb(sys.last_traceback)) 
+            error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__[3])).replace("\\n", "")
+        elif sys.exc_info()[2] is not None:
+            error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
     return error # json.dumps(error)
 
 def generate_error_deco(func):
@@ -211,8 +211,7 @@ class scn_logger(logging.Logger):
 
     def __init__(self, _handler = logging.StreamHandler()):
         logging.Logger.__init__(self, "scn_logger")
-        self.lformat = logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s')
-        _handler.setFormatter(self.lformat)
+        _handler.setFormatter(logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'))
         self.replaceHandler(_handler)
         
     def replaceHandler(self, newhandler):

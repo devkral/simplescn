@@ -243,7 +243,7 @@ class client_client(client_admin, client_safe, client_config):
     
     def use_plugin(self, address, plugin, paction, forcehash=None,originalcert=None,  forceport=False, requester=None):
         _addr = scnparse_url(address, force_port=forceport)
-        con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
+        con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("timeout"))
         con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
         con.putheader("X-certrewrap", self.cert_hash)
         con.putheader("User-Agent", "simplescn/0.5 (client-plugin)")
@@ -257,6 +257,7 @@ class client_client(client_admin, client_safe, client_config):
         if _hash != forcehash:
             sock.close()
             return None, cert, _hash
+    
         #sock = sock.unwrap()
         sock = self.sslcont.wrap_socket(sock, server_side=True)
         return sock, cert, _hash
@@ -869,7 +870,7 @@ class client_init(object):
     plugins_config = None
     links = None
     
-    def __init__(self,confm,pluginm):
+    def __init__(self, confm, pluginm):
         self.links = {}
         self.links["config"] = confm
         self.links["config_root"] = confm.get("config")

@@ -6,35 +6,30 @@ import os
 
 
 import logging
-
 import time, threading
+
+import traceback, sys
 
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk,Gdk, GLib #,Pango
-#from guigtk.clientinfo import gtkclient_info
 from guigtk.clientnode import gtkclient_node
-#from guigtk.clientserver import gtkclient_server
-#from guigtk.clientservice import gtkclient_remoteservice
 from guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
 from guigtk.clientmain_managehash import hashmanagement
 
-import common
 from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
 from guigtk.guicommon import set_parent_template
 
-from common import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
-
-from common import logger
+import common
+from common import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error, logger
 import client
 
-client.client_handler.webgui=False
+client.client_handler.webgui = False
 
-messageid=0
-run=True
+messageid = 0
+run = True
 
-implementedrefs=["surl", "url", "name"]
-#,"sname"
+implementedrefs = ["surl", "url", "name"]
 
 class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement, set_parent_template):
     links = None
@@ -71,8 +66,9 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     
     
     def __init__(self,_links):
-        self.links=_links
+        self.links = _links
         logging.Handler.__init__(self)
+        self.setFormatter(logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'))
         Gtk.Application.__init__(self)
         self.sslcont=default_sslcont()
         self.builder=Gtk.Builder()
@@ -267,13 +263,12 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         self.statusbar.push(messageid, str(record.msg))
         self.hashstatusbar.push(messageid, str(record.msg))
         
-        
-        st="{}\n".format(record.msg)
-        if record.stack_info is not None:
-            st="{}\n{}\n".format(st,record.stack_info)
         if self.debugbuffer.get_end_iter().is_start()==False:
             self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"-----------------------\n")
-        self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n".format(st))
+        if record.levelno <= logging.INFO or sys.exc_info()[2] is None:
+            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n".format(self.format(record)))
+        else:
+            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n--- stacktrace:\n{}".format(self.format(record), "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", ""))) #[3])
         self.debugbuffer.move_mark_by_name("scroll", self.debugbuffer.get_end_iter())
         scrollmark = self.debugbuffer.get_mark("scroll")
         self.debugview.scroll_to_mark(scrollmark,0.4,True,0,1)
