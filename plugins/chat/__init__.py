@@ -35,7 +35,7 @@ lname = {"*": "Chat"}
 
 
 # defaults for config (needed)
-defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": ["400", int, "max image size in KB"],"maxsizetext": ["4000", int, "max size text"]}
+defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": ["400", int, "max image size in KB"], "maxsizetext": ["4000", int, "max size text"]}
 
 chatbuf = {}
 chatlock = {}
@@ -128,7 +128,7 @@ def gtk_create_imageob(_img, isowner, isprivate, timestamp):
     return newimg
 
 def gtk_download(widget, url, certhash, filename, size, pos=0):
-    _filech = Gtk.FileChooserDialog(title="Save to file", parent=widget.get_toplevel(), select_multiple=False, action=Gtk.FileChooserAction.SAVE, buttons=("Save",10, "Cancel",20))
+    _filech = Gtk.FileChooserDialog(title="Save to file", parent=widget.get_toplevel(), select_multiple=False, action=Gtk.FileChooserAction.SAVE, buttons=("Save", 10, "Cancel", 20))
     #filech.set_filename(os.path.join filename)
     retrun = _filech.run()
     if retrun != 10:
@@ -148,10 +148,11 @@ def gtk_download(widget, url, certhash, filename, size, pos=0):
     with open(_file2, _omode) as wrio:
         if _omode == "r+b":
             wrio.seek(pos)
-        while pos<size-1024:
-            wrio.write(_socket.recv(1024))
-            pos += 1024
-        wrio.write(_socket.recv(size-pos))
+        while pos < size - 1024:
+            _data = _socket.recv(1024)
+            wrio.write(_data)
+            pos += len(_data)
+        wrio.write(_socket.recv(size - pos))
 
 
 def gtk_create_fileob(url, certhash, filename, size, isowner, isprivate, timestamp):
@@ -162,7 +163,7 @@ def gtk_create_fileob(url, certhash, filename, size, isowner, isprivate, timesta
         ret.set_halign(Gtk.Align.END)
     else:
         ret.attach_next_to(Gtk.Label("File: {}".format(filename)), None, Gtk.PositionType.RIGHT, 1, 1)
-        downbut = Gtk.Button("Download ({} KB)".format(size//1024))
+        downbut = Gtk.Button("Download ({} KB)".format(size // 1024))
         downbut.connect("clicked", gtk_download, url, certhash, filename, size)
         ret.attach_next_to(downbut, None, Gtk.PositionType.RIGHT, 1, 1)
         ret.set_halign(Gtk.Align.START)
@@ -220,7 +221,7 @@ def gtk_send_file(widget, url, window, certhash):
 
 def gtk_send_img(widget, url, window, certhash):
     init_pathes(certhash)
-    _filech = Gtk.FileChooserDialog(title="Select image", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("Open",10, "Cancel",20))
+    _filech = Gtk.FileChooserDialog(title="Select image", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("Open", 10, "Cancel", 20))
     runst = _filech.run()
     _filech.hide()
     if runst != 10:
@@ -424,7 +425,7 @@ def gtk_receive_file(certhash, url, filename, size, private, timestamp):
 ### uncomment for being accessable by internet
 ### client:
 def receive(action, _socket, _cert, certhash):
-    splitted = action.split("/",3)
+    splitted = action.split("/", 3)
     if len(splitted) != 4:
         return
     action, private, answerport, _rest = splitted
@@ -460,7 +461,14 @@ def receive(action, _socket, _cert, certhash):
             _size = int(_rest)
             if _size > config.get("maxsizetext"):
                 return
-            _text = str(_socket.read(_size), "utf-8")
+            countread = 0
+            _textb = b""
+            while countread <= _size-1024:
+                _data = _socket.recv(1024)
+                _textb += _data
+                countread += len(_data)
+            _textb += _socket.recv(_size-countread)
+            _text = str(_textb, "utf-8")
             if private == False:
                 with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as logob:
                     logob.write("rt:{timestamp}:{text}\n".format(timestamp=timestamp, text=_text.replace("\n", "\\n").replace("\r", "\\r")))
@@ -476,8 +484,9 @@ def receive(action, _socket, _cert, certhash):
             countread = 0
             _img = b""
             while countread <= _size-1024:
-                _img += _socket.recv(1024)
-                countread += 1024
+                _data = _socket.recv(1024)
+                _img += _data
+                countread += len(_data)
             _img += _socket.recv(_size-countread)
             
             
