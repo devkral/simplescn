@@ -155,7 +155,7 @@ def generate_error(err):
     else:
         error["type"] = type(err).__name__
         if hasattr(err,"__traceback__"):
-            error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__[3])).replace("\\n", "")
+            error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)[3]).replace("\\n", "")
         elif sys.exc_info()[2] is not None:
             error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
     return error # json.dumps(error)

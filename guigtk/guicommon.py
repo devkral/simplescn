@@ -8,7 +8,6 @@ from guigtk import clientdialogs
 run = True
 open_addresses={}
 
-
 def activate_shielded(action, url, window, **obdict):
     def shielded(widget):
         action("gtk", url, window, obdict.get("forcehash"), {"forcehash": obdict.get("forcehash")})
@@ -68,7 +67,19 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
         
     def init2(self, _file):
         classname = type(self).__name__
-        if self.address not in open_addresses:
+        
+        if self.address is None:
+            if self.resdict.get("forcehash") not in open_addresses:
+                open_addresses[self.resdict.get("forcehash")] = [classname, self]
+            elif self.resdict.get("forcehash") in open_addresses and \
+                open_addresses[self.resdict.get("forcehash")][0] is classname:
+                open_addresses[self.resdict.get("forcehash")][1].win.present()
+                open_addresses[self.resdict.get("forcehash")][1].win.set_accept_focus(True)
+                return False
+            else:
+                open_addresses[self.resdict.get("forcehash")][1].close()
+                open_addresses[self.resdict.get("forcehash")]=[classname, self]
+        elif self.address not in open_addresses:
             open_addresses[self.address] = [classname, self]
         elif open_addresses[self.address][0] is classname:
             open_addresses[self.address][1].win.present()
@@ -91,7 +102,10 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
     def close(self,*args):
         self.win.hide()
         self.links["gtkclient"].remove_window(self.win)
-        del open_addresses[self.address]
+        if self.address is None:
+            del open_addresses[self.resdict.get("forcehash")]
+        else:
+            del open_addresses[self.address]
         self.win.destroy()
         del self
 

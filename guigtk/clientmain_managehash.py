@@ -144,6 +144,7 @@ class hashmanagement(object):
         if temp[0]==False:
             logger().debug("Exist?")
             return
+        reflist.append(("None","None")) #special for just open node
         for elem in temp[1]["items"]:
             reflist.append((elem[0],elem[1]))
     
@@ -193,25 +194,34 @@ class hashmanagement(object):
             _url="{address}-{port}".format(**tempret[1])
         elif _type == "url":
             _url=_ref
+        elif _type == "None":
+            _url = None
         elif _type in clientmain.implementedrefs:
             return
         else:
             logger().info("invalid type")
             return
-        if "-"  not in _url:
+        if _url is not None and "-"  not in _url:
             logger().info("invalid url: {}".format(_url))
             return
         
-        
-        ret=self.do_requestdo("check_direct", address=_url, name=self.curlocal[1], hash=_hash, forcehash=_hash)
+        if _url is None:
+            ret = [True]
+        else:
+            ret = self.do_requestdo("check_direct", address=_url, name=self.curlocal[1], hash=_hash, forcehash=_hash)
+            
         if ret[0]==True:
             self.managehashdia.hide()
-            if self.curlocal[0] == "server":
-                servercombo.set_text(_url)
-                self.veristate_server()
-            else:
-                self.set_curnode(_url, self.curlocal[1], _hash, serverurl)
-            if justselect == True:
+            if _url:
+                if self.curlocal[0] == "server":
+                    servercombo.set_text(_url)
+                    self.veristate_server()
+                else:
+                    self.set_curnode(_url, self.curlocal[1], _hash, serverurl)
+            
+            if _url is None:
+                gtkclient_node(self.links, None, forcehash=_hash, page=1)
+            elif justselect == True:
                 pass
             else:
                 gtkclient_node(self.links,"{}-{}".format(*scnparse_url(_url)), forcehash=_hash, page=1)
@@ -219,10 +229,10 @@ class hashmanagement(object):
             logger().error(ret[1])
     
     def select_node(self, action):
-        self.action__node(True)
+        self.action_node(True)
         
     def get_node(self, action):
-        self.action__node(False)
+        self.action_node(False)
     
     def close_managehashdia(self,*args):
         self.managehashdia.hide()
