@@ -47,7 +47,14 @@ class gtkclient_node(gtkclient_template):
         sombie = self.get_object("securitycombo")
         secwhat = self.get_object("secwhat")
         securtypes = security_states.copy()
-        if _infoob[2] is isself:
+        if self.address is None:
+            self.get_object("securityshow").set_label(_infoob[1]["security"])
+            self.get_object("confirmsecb").show()
+            sombie.append_text(_infoob[1]["security"])
+            securtypes.remove(_infoob[1]["security"])
+            secwhat.set_text("Set key state:")
+            
+        elif _infoob[2] is isself:
             self.get_object("securityshow").set_label("self/destruct keys")
             self.get_object("destroykeysb").show()
             securtypes.remove("valid") #not valid
@@ -227,23 +234,25 @@ class gtkclient_node(gtkclient_template):
         
         if category == "server":
             cat = "gui_server_iface"
-            _tmp = self.create_server_slate()
-            self.page_names["server"] = counter
-            counter += 1
-            _tmplabel = Gtk.Label("Serverlist")
+            if self.address is not None:
+                _tmp = self.create_server_slate()
+                self.page_names["server"] = counter
+                counter += 1
+                _tmplabel = Gtk.Label("Serverlist")
         elif category == "client":
             cat = "gui_node_iface"
-            _tmp = self.create_service_slate()
-            self.page_names["services"] = counter
-            counter += 1
-            _tmplabel = Gtk.Label("Servicelist")
+            if self.address is not None:
+                _tmp = self.create_service_slate()
+                self.page_names["services"] = counter
+                counter += 1
+                _tmplabel = Gtk.Label("Servicelist")
         else:
             logger().warning("Category not exist")
             noteb.show_all()
             self.connect_signals(self)
             return
         
-        if category is not None:
+        if self.address is not None:
             noteb.append_page(_tmp, _tmplabel)
             noteb.set_tab_detachable(_tmp, False)
         self.connect_signals(self)

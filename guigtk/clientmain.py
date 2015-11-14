@@ -487,12 +487,12 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         localview = self.builder.get_object("localview")
         
         
-        temp=self._verifyserver(serverurl)
+        temp = self._verifyserver(serverurl)
         if temp is None:
             logger().debug("Something failed")
             return
             
-        _hash = temp["hash"]
+        _hash = temp.get("hash")
         
         
         _sel = localview.get_selection().get_selected()
@@ -503,7 +503,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         
         self.managehashdia.hide()
         #serverurl.find("")
-        if temp["localname"] is None:
+        if temp.get("localname") is None:
             self.addnodehash_intern(_name, _hash, "server",refstoadd=(("url",serverurl),))
         else:
             #temp = self.do_requestdo("findbyref",reference=serverurl)

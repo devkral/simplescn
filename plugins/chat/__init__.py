@@ -328,6 +328,8 @@ def gui_node_iface(gui, _name, certhash, _address, window):
         chatlock[certhash] = Lock()
     if gui != "gtk":
         return None
+    if _address is None:
+        return None
     
     if certhash not in chatbuf:
         chatbuf[certhash] = Gio.ListStore()
