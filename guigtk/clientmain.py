@@ -455,8 +455,9 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         ret=self.do_requestdo("info",hash=_hash)
         if logger().check(ret, logging.ERROR)==False:
             return
-        self.set_curnode(_address, ret[1]["hash"], _hash, None)
+        self.set_curnode(_address, ret[1]["name"], _hash, None)
         self.close_enternodedia()
+        self.opennode()
     
     def opennode(self,*args):
         if self.curnode is not None:

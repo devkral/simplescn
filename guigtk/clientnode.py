@@ -16,6 +16,7 @@ class gtkclient_node(gtkclient_template):
     sfilter = None
     page_names = None
     messagebuf = None
+    info_had_run = False
     def __init__(self, links, _address, page="info", **obdict):
         self.page_names = {}
         gtkclient_template.__init__(self, links, _address, **obdict)
@@ -39,45 +40,36 @@ class gtkclient_node(gtkclient_template):
             return True
         else:
             return False
-    
-    def create_info_slate(self, _infoob):
-        #self.col.foreach(clearme)
-        if _infoob[0] == False:
-            return None
-        sombie = self.get_object("securitycombo")
-        secwhat = self.get_object("secwhat")
-        securtypes = security_states.copy()
-        if self.address is None:
-            self.get_object("securityshow").set_label(_infoob[1]["security"])
-            self.get_object("confirmsecb").show()
-            sombie.append_text(_infoob[1]["security"])
-            securtypes.remove(_infoob[1]["security"])
-            secwhat.set_text("Set key state:")
-            
-        elif _infoob[2] is isself:
-            self.get_object("securityshow").set_label("self/destruct keys")
-            self.get_object("destroykeysb").show()
-            securtypes.remove("valid") #not valid
-            secwhat.set_text("Destroy broken/old key with reason:")
-        elif isinstance(_infoob[2], tuple):
-            self.get_object("securityshow").set_label(_infoob[2][1])
-            self.get_object("confirmsecb").show()
-            sombie.append_text(_infoob[2][1])
-            securtypes.remove(_infoob[2][1])
-            secwhat.set_text("Set key state:")
-        else:
-            self.get_object("securityshow").hide()
+
         
-        for entry in securtypes:
-            sombie.append_text(entry)
-        sombie.set_active(0)
+    def update_info_slate(self, *args):
+        if self.info_had_run == False:
+            sombie = self.get_object("securitycombo")
+            secwhat = self.get_object("secwhat")
+            securtypes = security_states.copy()
+            if self.info[2] is isself:
+                self.get_object("securityshow").set_label("self/destruct keys")
+                self.get_object("destroykeysb").show()
+                securtypes.remove("valid") #not valid
+                secwhat.set_text("Destroy broken/old key with reason:")
+            elif isinstance(self.info[2], tuple):
+                self.get_object("securityshow").set_label(self.info[2][1])
+                self.get_object("confirmsecb").show()
+                sombie.append_text(self.info[2][1])
+                securtypes.remove(self.info[2][1])
+                secwhat.set_text("Set key state:")
+            else:
+                self.get_object("securityshow").hide()
         
-        maininfo = self.get_object("infomaingrid")
-        self.get_object("hashexpandl").set_text(_infoob[3])
-        self.get_object("typeshowl").set_text(_infoob[1]["type"])
+            for entry in securtypes:
+                sombie.append_text(entry)
+            sombie.set_active(0)
+        
+        self.get_object("hashexpandl").set_text(self.info[3])
+        self.get_object("typeshowl").set_text(self.info[1]["type"])
         if self.address is not None:
-            self.get_object("messagebuffer").set_text(_infoob[1]["message"])
-        self.get_object("rnamee").set_text(_infoob[1]["name"])
+            self.get_object("messagebuffer").set_text(self.info[1]["message"])
+        self.get_object("rnamee").set_text(self.info[1]["name"])
         if self.address is not None:
             address = scnparse_url(self.address)
             self.get_object("addressshowl").set_text(str(address[0]))
@@ -86,15 +78,14 @@ class gtkclient_node(gtkclient_template):
             self.get_object("addressshowl").set_text("None")
             self.get_object("portshowl").set_text(str("?"))
         
-        if _infoob[2] is isself and self.address is not None:
+        if self.info[2] is isself:
             self.get_object("messageview").set_editable(True)
             self.get_object("updatemessageb").show()
             self.get_object("changemsgpermanent").show()
             self.get_object("updatenameg").show()
             self.get_object("rnamee").set_editable(True)
             self.get_object("rnamee").set_has_frame(True)
-            
-        return maininfo
+        self.info_had_run = True
     
     def update_server(self,*args):
         namestore=self.get_object("servernodelist")
@@ -180,54 +171,54 @@ class gtkclient_node(gtkclient_template):
         noteb = self.get_object("nodebook")
         
         if self.address is not None:
-            infoob = self.do_requestdo("info", address=self.address)
-            if infoob[0] == False:
+            if self.info is None:
+                self.info = self.do_requestdo("info", address=self.address)
+            if self.info[0] == False:
                 return
-            name = infoob[2]
+            name = self.info[2]
             if "forcehash" not in self.resdict:
-                self.resdict["forcehash"] = infoob[3]
-            if infoob[1].get(infoob[1]["type"], "") != "server":
+                self.resdict["forcehash"] = self.info[3]
+            if self.info[1].get(self.info[1]["type"], "") != "server":
                 self.resdict["traverseserveraddr"] = self.links["gtkclient"].builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
-                travret = self.do_requestdo("getreferences", hash=infoob[3], filter="surl")
+                travret = self.do_requestdo("getreferences", hash=self.info[3], filter="surl")
                 if travret[0] and self.resdict["traverseserveraddr"] not in travret[1]["items"]:
+                
                     for _tsaddr, _type in travret[1]["items"]:
                         try:
                             soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                             soc.connect(scnparse_url(_tsaddr))
                             soc.close()
+                            self.resdict["traverseserveraddr"] = _tsaddr
                             break
                         except Exception:
                             pass
         else:
             infoob = self.do_requestdo("getlocal", hash=self.resdict.get("forcehash"))
-            if infoob[0] == False:
+            if infoob == False:
                 return
-            name = (infoob[1]["name"], self.resdict.get("forcehash"))
+            name = (self.info[1]["name"], self.info[1]["security"])
+            self.info = (True, {"type": self.info[1]["type"], "message": "", "name": name[0]}, name, self.resdict.get("forcehash"))
         veristate = self.get_object("veristate")
         if name == isself:
             self.win.set_title("This client")
             veristate.set_text("This client")
-            if self.address is not None:
-                self.get_object("servicecreategrid").show()
+            self.get_object("servicecreategrid").show()
         elif name is None:
-            self.win.set_title("Unknown Node: {}".format(infoob[3][:20]+"..."))
-            veristate.set_text("Unknown Node: {}".format(infoob[3][:20]+"..."))
-            if self.address is not None:
-                self.get_object("servicegetgrid").show()
+            self.win.set_title("Unknown Node: {}".format(self.info[3][:20]+"..."))
+            veristate.set_text("Unknown Node: {}".format(self.info[3][:20]+"..."))
+            self.get_object("servicegetgrid").show()
         else:
             self.win.set_title("Node: {}".format(name[0]))
             veristate.set_text("Node: {} ({})".format(name[0], name[1]))
-            if self.address is not None:
-                self.get_object("servicegetgrid").show()
-            
-        _tmp = self.create_info_slate(infoob)
-        noteb.append_page(_tmp, Gtk.Label("Info"))
-        noteb.set_tab_detachable(_tmp, False)
+            self.get_object("servicegetgrid").show()
+        
+        self.update_info_slate()
+        #noteb.set_tab_detachable(_tmp, False) #info
         self.page_names["info"] = counter
         counter += 1
         
         
-        category = infoob[1]["type"]
+        category = self.info[1]["type"]
         self.init_actions(category)
         
         
@@ -259,7 +250,7 @@ class gtkclient_node(gtkclient_template):
         for pname, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
             if hasattr(plugin, cat) == True:
                 try:
-                    _tmp = getattr(plugin, cat)("gtk", infoob[2], infoob[3], self.address, self.win)
+                    _tmp = getattr(plugin, cat)("gtk", self.info[2], self.info[3], self.address, self.win)
                     if _tmp is not None:
                         if getattr(plugin, "lname"): #  and getattr(plugin, "lname") is dict:
                             llocale = locale.getlocale()[0]
@@ -322,9 +313,9 @@ class gtkclient_node(gtkclient_template):
                         itemb.show_all()
                         item.show()
                         if action.get("state") is not None:
-                            item.connect('activate', toggle_shielded(action["action"], tb, self.address, self.win, **self.resdict))
+                            item.connect('activate', toggle_shielded(action["action"], tb, self.get_address, self.win, **self.resdict))
                         else:
-                            item.connect('activate', activate_shielded(action["action"], self.address, self.win, **self.resdict))
+                            item.connect('activate', activate_shielded(action["action"], self.get_address, self.win, **self.resdict))
                         menu.append(item)
                         if issensitiveset == False:
                             actionmenub.set_sensitive(True)

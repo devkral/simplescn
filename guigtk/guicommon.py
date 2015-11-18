@@ -6,23 +6,23 @@ from gi.repository import Gtk, Gdk
 from guigtk import clientdialogs
 
 run = True
-open_addresses={}
+open_hashes={}
 
-def activate_shielded(action, url, window, **obdict):
+def activate_shielded(action, urlfunc, window, **obdict):
     def shielded(widget):
-        action("gtk", url, window, obdict.get("forcehash"), {"forcehash": obdict.get("forcehash")})
+        action("gtk", urlfunc(), window, obdict.get("forcehash"), self.resdict.copy())
     return shielded
 
 
-def toggle_shielded(action, togglewidget, url, window, **obdict):
+def toggle_shielded(action, togglewidget, urlfunc, window, **obdict):
     togglewidget._toggle_state_scn = togglewidget.get_active()
     def shielded(widget):
         if togglewidget._toggle_state_scn == True:
-            action("gtk", url, window, obdict.get("forcehash"), False, {"forcehash": obdict.get("forcehash")})
+            action("gtk", urlfunc(), window, obdict.get("forcehash"), False, self.resdict.copy())
             togglewidget.set_active(False)
             togglewidget._toggle_state_scn = False
         else:
-            action("gtk", url, window, obdict.get("forcehash"), True, {"forcehash": obdict.get("forcehash")})
+            action("gtk", urlfunc(), window, obdict.get("forcehash"), True, self.resdict.copy())
             togglewidget.set_active(True)
             togglewidget._toggle_state_scn = True
     return shielded
@@ -50,14 +50,14 @@ class set_parent_template(object):
         if self.added == True:
             clientdialogs.parentlist.remove(self.win)
             self.added = False
-        
-
 
 
 class gtkclient_template(Gtk.Builder, set_parent_template):
     links = None
     resdict = None
     address = None
+    certhash = None
+    info = None
     #autoclose=0 #closes window after a timeperiod
     
     def __init__(self,links,_address, **obdict):
@@ -68,26 +68,26 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
     def init2(self, _file):
         classname = type(self).__name__
         
-        if self.address is None:
-            if self.resdict.get("forcehash") not in open_addresses:
-                open_addresses[self.resdict.get("forcehash")] = [classname, self]
-            elif self.resdict.get("forcehash") in open_addresses and \
-                open_addresses[self.resdict.get("forcehash")][0] is classname:
-                open_addresses[self.resdict.get("forcehash")][1].win.present()
-                open_addresses[self.resdict.get("forcehash")][1].win.set_accept_focus(True)
+        if self.resdict.get("forcehash") is None and self.address is None:
+            return False
+        elif self.resdict.get("forcehash") is None:
+            ret = self.do_requestdo("info", address=self.address)
+            if ret[0] == False:
                 return False
-            else:
-                open_addresses[self.resdict.get("forcehash")][1].close()
-                open_addresses[self.resdict.get("forcehash")]=[classname, self]
-        elif self.address not in open_addresses:
-            open_addresses[self.address] = [classname, self]
-        elif open_addresses[self.address][0] is classname:
-            open_addresses[self.address][1].win.present()
-            open_addresses[self.address][1].win.set_accept_focus(True)
+            self.info=ret
+            self.resdict["forcehash"] = ret[3]
+        
+        if self.resdict.get("forcehash") not in open_hashes:
+            open_hashes[self.resdict.get("forcehash")] = [classname, self]
+        elif self.resdict.get("forcehash") in open_hashes and \
+            open_hashes[self.resdict.get("forcehash")][0] is classname:
+            open_hashes[self.resdict.get("forcehash")][1].win.present()
+            open_hashes[self.resdict.get("forcehash")][1].win.set_accept_focus(True)
             return False
         else:
-            open_addresses[self.address][1].close()
-            open_addresses[self.address]=[classname, self]
+            open_hashes[self.resdict.get("forcehash")][1].close()
+            open_hashes[self.resdict.get("forcehash")]=[classname, self]
+        
         Gtk.Builder.__init__(self)
         
         self.set_application(self.links["gtkclient"])
@@ -99,13 +99,13 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
         od.update(obdict)
         return self.links["gtkclient"].do_requestdo(action, **od)
     
+    def get_address(self):
+        return self.address
+    
     def close(self,*args):
         self.win.hide()
         self.links["gtkclient"].remove_window(self.win)
-        if self.address is None:
-            del open_addresses[self.resdict.get("forcehash")]
-        else:
-            del open_addresses[self.address]
+        del open_hashes[self.resdict.get("forcehash")]
         self.win.destroy()
         del self
 
