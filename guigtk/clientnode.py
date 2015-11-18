@@ -3,7 +3,7 @@
 import os, locale
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk #, Pango
+from gi.repository import Gtk, Gdk, GLib #, Pango
 import socket
 
 from guigtk.guicommon import gtkclient_template, activate_shielded, toggle_shielded
@@ -19,10 +19,13 @@ class gtkclient_node(gtkclient_template):
     info_had_run = False
     def __init__(self, links, _address, page="info", **obdict):
         self.page_names = {}
+        
         if self.init(os.path.join(sharedir, "guigtk", "clientnode.ui"), links, _address, obdict) == False:
             return
+        
         self.win = self.get_object("nodewin")
         self.win.connect('delete-event', self.close)
+        self.clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         
         self.init_connects()
         self.init_nodebook(page)
@@ -163,7 +166,7 @@ class gtkclient_node(gtkclient_template):
         col3renderer=Gtk.CellRendererText()
         col3 = Gtk.TreeViewColumn("Hash", col3renderer, text=3)
         view.append_column(col3)
-        self.update_server()
+        Gdk.threads_add_idle(GLib.PRIORITY_LOW, self.update_server)
         return sgrid
     
     
@@ -188,9 +191,7 @@ class gtkclient_node(gtkclient_template):
         serviceview.append_column(servicecol)
         servicecol2 = Gtk.TreeViewColumn("Port", Gtk.CellRendererText(), text=1)
         serviceview.append_column(servicecol2)
-        self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        self.win.connect('delete-event',self.close)
-        self.update_services()
+        Gdk.threads_add_idle(GLib.PRIORITY_LOW, self.update_services)
         return sgrid
         
     #def init_traverse(self):

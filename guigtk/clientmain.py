@@ -904,5 +904,6 @@ def do_gtkiteration():
     
     logger().debug("enter mainloop")
     GLib.threads_init()
+    #Gtk.main()
     while run==True:
         Gtk.main_iteration_do(True)

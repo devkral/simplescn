@@ -335,8 +335,37 @@ def gui_node_iface(gui, _name, certhash, _addressfunc, window):
     if gui != "gtk":
         return None
     
+    builder = Gtk.Builder()
+    private_state[certhash] = False
+    builder.add_from_file(os.path.join(proot, "chat.ui"))
+    builder.connect_signals(module)
+    
+
+    textsende = builder.get_object("textsende")
+    textsende.connect("activate", gtk_send_text, textsende, _addressfunc, certhash)
+    sendchatb = builder.get_object("sendchatb")
+    sendchatb.connect("clicked", gtk_send_text, textsende, _addressfunc, certhash)
+    sendfileb = builder.get_object("sendfileb")
+    sendfileb.connect("clicked", gtk_send_file, _addressfunc, window, certhash)
+    sendimgb = builder.get_object("sendimgb")
+    sendimgb.connect("clicked", gtk_send_img, _addressfunc, window, certhash)
+    
+    #TODO: connect and autoscrolldown
+    #sendchatb.connect("child_notify", gtk_scroll_down, builder.get_object("chatscroll"))
+    
+    clist = builder.get_object("chatlist")
     if certhash not in chatbuf:
         chatbuf[certhash] = Gio.ListStore()
+        #init_async( certhash, _addressfunc)
+        Gdk.threads_add_idle(GLib.PRIORITY_LOW, init_async, certhash, _addressfunc)
+    
+        # broken so use own function to workaround
+        #clist.bind_model(chatbuf[certhash], Gtk.ListBoxCreateWidgetFunc)
+    clist.bind_model(chatbuf[certhash], myListBoxCreateWidgetFunc)
+    return builder.get_object("chatin")
+
+def init_async(certhash, _addressfunc):
+    with chatlock[certhash]:
         try:
             with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash,"log.txt"), "r") as reio:
                 for line in reio.readlines():
@@ -388,28 +417,6 @@ def gui_node_iface(gui, _name, certhash, _addressfunc, window):
         except FileNotFoundError:
             pass
     
-    private_state[certhash] = False
-    builder = Gtk.Builder()
-    builder.add_from_file(os.path.join(proot, "chat.ui"))
-    builder.connect_signals(module)
-    textsende = builder.get_object("textsende")
-    textsende.connect("activate", gtk_send_text, textsende, _addressfunc, certhash)
-    sendchatb = builder.get_object("sendchatb")
-    sendchatb.connect("clicked", gtk_send_text, textsende, _addressfunc, certhash)
-    sendfileb = builder.get_object("sendfileb")
-    sendfileb.connect("clicked", gtk_send_file, _addressfunc, window, certhash)
-    sendimgb = builder.get_object("sendimgb")
-    sendimgb.connect("clicked", gtk_send_img, _addressfunc, window, certhash)
-    
-    #TODO: connect and autoscrolldown
-    #sendchatb.connect("child_notify", gtk_scroll_down, builder.get_object("chatscroll"))
-    clist = builder.get_object("chatlist")
-    clist.bind_model(chatbuf[certhash], myListBoxCreateWidgetFunc)
-    #clist.bind_model(chatbuf[certhash], Gtk.ListBoxCreateWidgetFunc)
-    # broken so use own function to workaround
-    return builder.get_object("chatin")
-
-
 
 def gtk_receive_text(certhash, _text, _private, timestamp):
     chatbuf[certhash].append(gtk_create_textob(_text, False, _private, parse_timestamp(timestamp)))
