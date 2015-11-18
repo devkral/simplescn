@@ -60,34 +60,27 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
     info = None
     #autoclose=0 #closes window after a timeperiod
     
-    def __init__(self,links,_address, **obdict):
+    #own init method
+    def init(self, _file, links, _address, obdict):
         self.links = links
         self.resdict = obdict
-        self.address = _address
         
-    def init2(self, _file):
-        classname = type(self).__name__
-        
-        if self.resdict.get("forcehash") is None and self.address is None:
+        if self.resdict.get("forcehash") is None and _address is None:
             return False
         elif self.resdict.get("forcehash") is None:
-            ret = self.do_requestdo("info", address=self.address)
+            ret = self.do_requestdo("info", address=_address)
             if ret[0] == False:
                 return False
             self.info=ret
             self.resdict["forcehash"] = ret[3]
         
         if self.resdict.get("forcehash") not in open_hashes:
-            open_hashes[self.resdict.get("forcehash")] = [classname, self]
-        elif self.resdict.get("forcehash") in open_hashes and \
-            open_hashes[self.resdict.get("forcehash")][0] is classname:
-            open_hashes[self.resdict.get("forcehash")][1].win.present()
-            open_hashes[self.resdict.get("forcehash")][1].win.set_accept_focus(True)
-            return False
+            open_hashes[self.resdict.get("forcehash")] = [self, set([_address])]
         else:
-            open_hashes[self.resdict.get("forcehash")][1].close()
-            open_hashes[self.resdict.get("forcehash")]=[classname, self]
-        
+            open_hashes[self.resdict.get("forcehash")][1].add(_address)
+            open_hashes[self.resdict.get("forcehash")][0].win.present()
+            open_hashes[self.resdict.get("forcehash")][0].win.set_accept_focus(True)
+            return False
         Gtk.Builder.__init__(self)
         
         self.set_application(self.links["gtkclient"])
@@ -100,7 +93,7 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
         return self.links["gtkclient"].do_requestdo(action, **od)
     
     def get_address(self):
-        return self.address
+        return open_hashes[self.resdict.get("forcehash")][1].__iter__().__next__()
     
     def close(self,*args):
         self.win.hide()

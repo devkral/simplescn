@@ -19,8 +19,7 @@ class gtkclient_node(gtkclient_template):
     info_had_run = False
     def __init__(self, links, _address, page="info", **obdict):
         self.page_names = {}
-        gtkclient_template.__init__(self, links, _address, **obdict)
-        if self.init2(os.path.join(sharedir, "guigtk", "clientnode.ui")) == False:
+        if self.init(os.path.join(sharedir, "guigtk", "clientnode.ui"), links, _address, obdict) == False:
             return
         self.win = self.get_object("nodewin")
         self.win.connect('delete-event', self.close)
@@ -41,7 +40,38 @@ class gtkclient_node(gtkclient_template):
         else:
             return False
 
-        
+    def update_info(self, *args):
+        if self.get_address() is not None:
+            infoob = self.do_requestdo("info", address=self.get_address())
+            if infoob[0] == False:
+                self.info = None
+                return
+            self.info = infoob
+            
+            if "forcehash" not in self.resdict:
+                self.resdict["forcehash"] = self.info[3]
+            if self.info[1].get(self.info[1]["type"], "") != "server":
+                self.resdict["traverseserveraddr"] = self.links["gtkclient"].builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
+                travret = self.do_requestdo("getreferences", hash=self.info[3], filter="surl")
+                if travret[0] and self.resdict["traverseserveraddr"] not in travret[1]["items"]:
+                    for _tsaddr, _type in travret[1]["items"]:
+                        try:
+                            soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            soc.connect(scnparse_url(_tsaddr))
+                            soc.close()
+                            self.resdict["traverseserveraddr"] = _tsaddr
+                            break
+                        except Exception:
+                            pass
+        else:
+            infoob = self.do_requestdo("getlocal", hash=self.resdict.get("forcehash"))
+            if infoob == False:
+                self.info = None
+                return
+            name = (self.info[1]["name"], self.info[1]["security"])
+            self.info = (True, {"type": self.info[1]["type"], "message": "", "name": name[0]}, name, self.resdict.get("forcehash"))
+        self.update_info_slate()
+    
     def update_info_slate(self, *args):
         if self.info_had_run == False:
             sombie = self.get_object("securitycombo")
@@ -67,11 +97,11 @@ class gtkclient_node(gtkclient_template):
         
         self.get_object("hashexpandl").set_text(self.info[3])
         self.get_object("typeshowl").set_text(self.info[1]["type"])
-        if self.address is not None:
+        if self.get_address() is not None:
             self.get_object("messagebuffer").set_text(self.info[1]["message"])
         self.get_object("rnamee").set_text(self.info[1]["name"])
-        if self.address is not None:
-            address = scnparse_url(self.address)
+        if self.get_address() is not None:
+            address = scnparse_url(self.get_address())
             self.get_object("addressshowl").set_text(str(address[0]))
             self.get_object("portshowl").set_text(str(address[1]))
         else:
@@ -93,9 +123,9 @@ class gtkclient_node(gtkclient_template):
         self.isregistered = False
         
         namestore.clear()
-        if self.address is None:
+        if self.get_address() is None:
             return
-        _names=self.do_requestdo("listnames",server=self.address)
+        _names=self.do_requestdo("listnames",server=self.get_address())
         if _names[0]==False:
             logger().error(_names[1])
             return
@@ -115,7 +145,7 @@ class gtkclient_node(gtkclient_template):
     
     def create_server_slate(self):
         #self.add_objects_from_file(_file, ["servermaingrid"])
-        if self.address is not None:
+        if self.get_address() is not None:
             self.get_object("registerbutton").show()
         sgrid = self.get_object("servermaingrid")
         self.sfilter = self.get_object("snodefilter")
@@ -139,9 +169,9 @@ class gtkclient_node(gtkclient_template):
     
     def update_services(self,*args):
         servicel = self.get_object("servicelist")
-        if self.address is None:
+        if self.get_address() is None:
             return
-        ret = self.do_requestdo("listservices", address=self.address)
+        ret = self.do_requestdo("listservices", address=self.get_address())
         servicel.clear()
         if ret[0] == False:
             logger().info(ret[1])
@@ -167,55 +197,31 @@ class gtkclient_node(gtkclient_template):
     #    
     
     def init_nodebook(self, page):
+        self.update_info()
+        if self.info is None:
+            return
         counter = 0
         noteb = self.get_object("nodebook")
+        self.page_names["info"] = counter
+        counter += 1
         
-        if self.address is not None:
-            if self.info is None:
-                self.info = self.do_requestdo("info", address=self.address)
-            if self.info[0] == False:
-                return
-            name = self.info[2]
-            if "forcehash" not in self.resdict:
-                self.resdict["forcehash"] = self.info[3]
-            if self.info[1].get(self.info[1]["type"], "") != "server":
-                self.resdict["traverseserveraddr"] = self.links["gtkclient"].builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
-                travret = self.do_requestdo("getreferences", hash=self.info[3], filter="surl")
-                if travret[0] and self.resdict["traverseserveraddr"] not in travret[1]["items"]:
-                
-                    for _tsaddr, _type in travret[1]["items"]:
-                        try:
-                            soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                            soc.connect(scnparse_url(_tsaddr))
-                            soc.close()
-                            self.resdict["traverseserveraddr"] = _tsaddr
-                            break
-                        except Exception:
-                            pass
-        else:
-            infoob = self.do_requestdo("getlocal", hash=self.resdict.get("forcehash"))
-            if infoob == False:
-                return
-            name = (self.info[1]["name"], self.info[1]["security"])
-            self.info = (True, {"type": self.info[1]["type"], "message": "", "name": name[0]}, name, self.resdict.get("forcehash"))
+        
         veristate = self.get_object("veristate")
-        if name == isself:
+        if self.info[2] == isself:
             self.win.set_title("This client")
             veristate.set_text("This client")
             self.get_object("servicecreategrid").show()
-        elif name is None:
+        elif self.info[2] is None:
             self.win.set_title("Unknown Node: {}".format(self.info[3][:20]+"..."))
             veristate.set_text("Unknown Node: {}".format(self.info[3][:20]+"..."))
             self.get_object("servicegetgrid").show()
         else:
-            self.win.set_title("Node: {}".format(name[0]))
-            veristate.set_text("Node: {} ({})".format(name[0], name[1]))
+            self.win.set_title("Node: {}".format(self.info[2][0]))
+            veristate.set_text("Node: {} ({})".format(self.info[2][0], self.info[2][1]))
             self.get_object("servicegetgrid").show()
         
-        self.update_info_slate()
+        #self.update_info_slate()
         #noteb.set_tab_detachable(_tmp, False) #info
-        self.page_names["info"] = counter
-        counter += 1
         
         
         category = self.info[1]["type"]
@@ -225,14 +231,14 @@ class gtkclient_node(gtkclient_template):
         
         if category == "server":
             cat = "gui_server_iface"
-            if self.address is not None:
+            if self.get_address() is not None:
                 _tmp = self.create_server_slate()
                 self.page_names["server"] = counter
                 counter += 1
                 _tmplabel = Gtk.Label("Serverlist")
         elif category == "client":
             cat = "gui_node_iface"
-            if self.address is not None:
+            if self.get_address() is not None:
                 _tmp = self.create_service_slate()
                 self.page_names["services"] = counter
                 counter += 1
@@ -243,14 +249,14 @@ class gtkclient_node(gtkclient_template):
             self.connect_signals(self)
             return
         
-        if self.address is not None:
+        if self.get_address() is not None:
             noteb.append_page(_tmp, _tmplabel)
             noteb.set_tab_detachable(_tmp, False)
         self.connect_signals(self)
         for pname, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
             if hasattr(plugin, cat) == True:
                 try:
-                    _tmp = getattr(plugin, cat)("gtk", self.info[2], self.info[3], self.address, self.win)
+                    _tmp = getattr(plugin, cat)("gtk", self.info[2], self.info[3], self.get_address, self.win)
                     if _tmp is not None:
                         if getattr(plugin, "lname"): #  and getattr(plugin, "lname") is dict:
                             llocale = locale.getlocale()[0]
@@ -354,7 +360,7 @@ class gtkclient_node(gtkclient_template):
         _sel = view.get_selection().get_selected()
         if _sel[1] is None:
             return
-        service="{address}:{port}".format(address=self.address.rsplit(":",1)[0],port=_sel[0][_sel[1]][1])
+        service="{address}:{port}".format(address=self.get_address().rsplit(":",1)[0],port=_sel[0][_sel[1]][1])
         self.clip.set_text(service,-1)
         self.close()
 # own services extras
@@ -417,17 +423,17 @@ class gtkclient_node(gtkclient_template):
         
         _name, _hash = _sel[0][_sel[1]][2:4] #_entry.get_text().split("/",1)
         
-        _check = self.do_requestdo("check", server=self.address, name=_name, hash=_hash)
+        _check = self.do_requestdo("check", server=self.get_address(), name=_name, hash=_hash)
         if _check[0] == False:
             
             return
         
-        _node = self.do_requestdo("get", server=self.address, name=_name, hash=_hash)
+        _node = self.do_requestdo("get", server=self.get_address(), name=_name, hash=_hash)
         if _node[0] == False:
             logger().error(_node[1])
             return
         
-        self.links["gtkclient"].set_curnode("{}-{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.address)
+        self.links["gtkclient"].set_curnode("{}-{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.get_address())
         if justselect == False:
             _res = self.resdict.copy()
             _res["forcehash"] = _hash
@@ -459,7 +465,7 @@ class gtkclient_node(gtkclient_template):
     def register_ownnode(self,*args):
         registerb = self.get_object("registerbutton")
         namestore = self.get_object("servernodelist")
-        res = self.do_requestdo("register", server=self.address)
+        res = self.do_requestdo("register", server=self.get_address())
         if res[0] == False:
             logger().error(res[1])
             return
