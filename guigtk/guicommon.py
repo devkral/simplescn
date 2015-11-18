@@ -10,7 +10,7 @@ open_hashes={}
 
 def activate_shielded(action, urlfunc, window, **obdict):
     def shielded(widget):
-        action("gtk", urlfunc(), window, obdict.get("forcehash"), self.resdict.copy())
+        action("gtk", urlfunc(), window, obdict.get("forcehash"), obdict.copy())
     return shielded
 
 
@@ -18,11 +18,11 @@ def toggle_shielded(action, togglewidget, urlfunc, window, **obdict):
     togglewidget._toggle_state_scn = togglewidget.get_active()
     def shielded(widget):
         if togglewidget._toggle_state_scn == True:
-            action("gtk", urlfunc(), window, obdict.get("forcehash"), False, self.resdict.copy())
+            action("gtk", urlfunc(), window, obdict.get("forcehash"), False, obdict.copy())
             togglewidget.set_active(False)
             togglewidget._toggle_state_scn = False
         else:
-            action("gtk", urlfunc(), window, obdict.get("forcehash"), True, self.resdict.copy())
+            action("gtk", urlfunc(), window, obdict.get("forcehash"), True, obdict.copy())
             togglewidget.set_active(True)
             togglewidget._toggle_state_scn = True
     return shielded
@@ -93,6 +93,8 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
         return self.links["gtkclient"].do_requestdo(action, **od)
     
     def get_address(self):
+        if len(open_hashes[self.resdict.get("forcehash")][1])==0:
+            return None
         return open_hashes[self.resdict.get("forcehash")][1].__iter__().__next__()
     
     def close(self,*args):

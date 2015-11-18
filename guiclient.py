@@ -40,7 +40,7 @@ from common import logger
 
 cm = None
 
-def open_gtk_node(_address, forcehash=None, page=0):
+def open_gtk_node(_address, forcehash=None, page=0, requester=None):
     gtkclient_node(cm.links, _address, forcehash=forcehash, page=page)
     
 def open_gtk_pwcall_plugin(msg, requester=None):

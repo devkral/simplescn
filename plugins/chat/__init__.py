@@ -39,6 +39,7 @@ defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"],
 
 chatbuf = {}
 chatlock = {}
+chaturl = {}
 private_state = {}
 openforeign = 0
 #port_to_answer = None
@@ -65,6 +66,9 @@ def init_pathes(_hash):
 
 
 def request(url, certhash, action, arguments): #, timestamp=create_timestamp()):
+    if url is None:
+        logger().error("No address")
+        return None
     if private_state.get(certhash, False):
         privstate = "private"
     else:
@@ -127,7 +131,7 @@ def gtk_create_imageob(_img, isowner, isprivate, timestamp):
     
     return newimg
 
-def gtk_download(widget, url, certhash, filename, size, pos=0):
+def gtk_download(widget, _addressfunc, certhash, filename, size, pos=0):
     _filech = Gtk.FileChooserDialog(title="Save to file", parent=widget.get_toplevel(), select_multiple=False, action=Gtk.FileChooserAction.SAVE, buttons=("Save", 10, "Cancel", 20))
     #filech.set_filename(os.path.join filename)
     retrun = _filech.run()
@@ -136,7 +140,7 @@ def gtk_download(widget, url, certhash, filename, size, pos=0):
         return
     _file2 = _filech.get_filename()
     _filech.destroy()
-    _socket, _cert, _hash = request(url, certhash, "fetch_file", "/{filename}/{pos}".format(filename=filename, pos=pos))
+    _socket, _cert, _hash = request(_addressfunc(), certhash, "fetch_file", "/{filename}/{pos}".format(filename=filename, pos=pos))
     if _socket is None:
         logger().error("fetching file failed")
         return
@@ -155,7 +159,7 @@ def gtk_download(widget, url, certhash, filename, size, pos=0):
         wrio.write(_socket.recv(size - pos))
 
 
-def gtk_create_fileob(url, certhash, filename, size, isowner, isprivate, timestamp):
+def gtk_create_fileob(_addressfunc, certhash, filename, size, isowner, isprivate, timestamp):
     timest = timestamp.strftime("%Y.%m.%d %H:%M%S")
     ret = Gtk.Grid()
     if isowner:
@@ -164,7 +168,7 @@ def gtk_create_fileob(url, certhash, filename, size, isowner, isprivate, timesta
     else:
         ret.attach_next_to(Gtk.Label("File: {}".format(filename)), None, Gtk.PositionType.RIGHT, 1, 1)
         downbut = Gtk.Button("Download ({} KB)".format(size // 1024))
-        downbut.connect("clicked", gtk_download, url, certhash, filename, size)
+        downbut.connect("clicked", gtk_download, _addressfunc, certhash, filename, size)
         ret.attach_next_to(downbut, None, Gtk.PositionType.RIGHT, 1, 1)
         ret.set_halign(Gtk.Align.START)
     ret.show_all()
@@ -175,18 +179,18 @@ def gtk_scroll_down(widget, child_prop, scroller):
         scroller.set_value(100)
 
 
-def gtk_send_text(widget, _textwidget, _address, certhash):
+def gtk_send_text(widget, _textwidget, _addressfunc, certhash):
     _text = _textwidget.get_text()
     _timestamp = create_timestamp()
     with chatlock[certhash]:
-        send_text(_address, certhash, _text, _timestamp)
+        send_text(_addressfunc(), certhash, _text, _timestamp)
         _textwidget.set_text("")
         #_oldlineno = chatbuf[certhash].get_line_count()
         #chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text+"\n")
         #_newiter = chatbuf[certhash].get_end_iter()
         chatbuf[certhash].append(gtk_create_textob(_text, True, private_state.get(certhash, False), parse_timestamp(_timestamp)))
 
-def gtk_send_file(widget, url, window, certhash):
+def gtk_send_file(widget, _addressfunc, window, certhash):
     init_pathes(certhash)
     _filech = Gtk.FileChooserDialog(title="Select file", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("Open",10, "Cancel",20))
     if _filech.run()!=10:
@@ -205,8 +209,8 @@ def gtk_send_file(widget, url, window, certhash):
             timestamp = create_timestamp()
             with open(os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
                 wrio.write("of:{timestamp}:{},{}\n".format(_newname, _size, timestamp=timestamp))
-        chatbuf[certhash].append(gtk_create_fileob(url, certhash, _newname, _size, True, private_state.get(certhash, False), parse_timestamp(timestamp)))
-        sock, _cert, _hash = request(url, certhash, "send_file","/{name}/{size}".format(name=_newname, size=_size))
+        chatbuf[certhash].append(gtk_create_fileob(_addressfunc, certhash, _newname, _size, True, private_state.get(certhash, False), parse_timestamp(timestamp)))
+        sock, _cert, _hash = request(_addressfunc(), certhash, "send_file","/{name}/{size}".format(name=_newname, size=_size))
         if sock is None:
             logger().error("Cannot connect/other error")
             return
@@ -219,7 +223,7 @@ def gtk_send_file(widget, url, window, certhash):
     #sock.close()
     #return "Hello actions, return: "+url
 
-def gtk_send_img(widget, url, window, certhash):
+def gtk_send_img(widget, _addressfunc, window, certhash):
     init_pathes(certhash)
     _filech = Gtk.FileChooserDialog(title="Select image", parent=window, select_multiple=False, action=Gtk.FileChooserAction.OPEN, buttons=("Open", 10, "Cancel", 20))
     runst = _filech.run()
@@ -245,7 +249,7 @@ def gtk_send_img(widget, url, window, certhash):
     if len(_img2) > config.get("maxsizeimg")*1024:
         logger().info("Image too big")
         return
-    sock, _cert, _hash = request(url, certhash, "send_img", "/{size}".format(size=len(_img2)))
+    sock, _cert, _hash = request(_addressfunc(), certhash, "send_img", "/{size}".format(size=len(_img2)))
     sock.sendall(_img2)
     
     #sock.close()
@@ -258,7 +262,7 @@ def gtk_send_img(widget, url, window, certhash):
                 wrio.write("oi:{timestamp}:{}\n".format(_imgname,timestamp=create_timestamp()))
         chatbuf[certhash].append(gtk_create_imageob(newimg, True, private_state.get(certhash, False), parse_timestamp(create_timestamp())))
      
-def delete_log(gui, url, window, certhash, dheader):
+def delete_log(gui, _addressfunc, window, certhash, dheader):
     if certhash not in chatlock:
         return
     with chatlock[certhash]:
@@ -271,7 +275,7 @@ def delete_log(gui, url, window, certhash, dheader):
         
     #return "Hello actions, return: "+url
 
-def toggle_private(gui, url, window, certhash, state, dheader):
+def toggle_private(gui, _addressfunc, window, certhash, state, dheader):
     if state:
         private_state[certhash] = True
     else:
@@ -323,12 +327,12 @@ def send_text(url, certhash, _text, _timestamp):
 def myListBoxCreateWidgetFunc(item, **userdata):
     return item
     
-def gui_node_iface(gui, _name, certhash, _address, window):
+def gui_node_iface(gui, _name, certhash, _addressfunc, window):
     if certhash not in chatlock:
         chatlock[certhash] = Lock()
+    if certhash not in chaturl:
+        chaturl[certhash] = _addressfunc
     if gui != "gtk":
-        return None
-    if _address is None:
         return None
     
     if certhash not in chatbuf:
@@ -376,10 +380,10 @@ def gui_node_iface(gui, _name, certhash, _address, window):
                     elif _type == "of":
                         _name, _size = _rest.rsplit(",", 1)
                         # autoclean
-                        chatbuf[certhash].append(gtk_create_fileob(_address, certhash, _name, int(_size), True, False, parse_timestamp(timestamp)))
+                        chatbuf[certhash].append(gtk_create_fileob(_addressfunc, certhash, _name, int(_size), True, False, parse_timestamp(timestamp)))
                     elif _type == "rf":
                         _name, _size = _rest.rsplit(",", 1)
-                        chatbuf[certhash].append(gtk_create_fileob(_address, certhash, _name, int(_size), False, False, parse_timestamp(timestamp)))
+                        chatbuf[certhash].append(gtk_create_fileob(_addressfunc, certhash, _name, int(_size), False, False, parse_timestamp(timestamp)))
                     
         except FileNotFoundError:
             pass
@@ -389,13 +393,13 @@ def gui_node_iface(gui, _name, certhash, _address, window):
     builder.add_from_file(os.path.join(proot, "chat.ui"))
     builder.connect_signals(module)
     textsende = builder.get_object("textsende")
-    textsende.connect("activate", gtk_send_text, textsende, _address, certhash)
+    textsende.connect("activate", gtk_send_text, textsende, _addressfunc, certhash)
     sendchatb = builder.get_object("sendchatb")
-    sendchatb.connect("clicked", gtk_send_text, textsende, _address, certhash)
+    sendchatb.connect("clicked", gtk_send_text, textsende, _addressfunc, certhash)
     sendfileb = builder.get_object("sendfileb")
-    sendfileb.connect("clicked", gtk_send_file, _address, window, certhash)
+    sendfileb.connect("clicked", gtk_send_file, _addressfunc, window, certhash)
     sendimgb = builder.get_object("sendimgb")
-    sendimgb.connect("clicked", gtk_send_img, _address, window, certhash)
+    sendimgb.connect("clicked", gtk_send_img, _addressfunc, window, certhash)
     
     #TODO: connect and autoscrolldown
     #sendchatb.connect("child_notify", gtk_scroll_down, builder.get_object("chatscroll"))
@@ -420,8 +424,8 @@ def gtk_receive_img(certhash, img, private, timestamp):
     chatbuf[certhash].append(gtk_create_imageob(newimg, False, private, parse_timestamp(timestamp)))
     return False # for not beeing readded (threads_add_idle)
 
-def gtk_receive_file(certhash, url, filename, size, private, timestamp):
-    chatbuf[certhash].append(gtk_create_fileob(url, certhash, filename, size, False, private, parse_timestamp(timestamp)))
+def gtk_receive_file(certhash, _addressfunc, filename, size, private, timestamp):
+    chatbuf[certhash].append(gtk_create_fileob(_addressfunc, certhash, filename, size, False, private, parse_timestamp(timestamp)))
     return False # for not beeing readded (threads_add_idle)
 
 ### uncomment for being accessable by internet
@@ -448,14 +452,14 @@ def receive(action, _socket, _cert, certhash):
                 _socket.sendfile(rbfile, int(pos))
         return
         
-    if certhash not in chatlock:
-        if resources("access")("getlocal", hash=certhash)[0] == False:
-            return
-        resources("open_node")("{}-{}".format(_socket.getsockname()[0], answerport), page="chat")
+    #if certhash not in chatlock:
+    #    if resources("access")("getlocal", hash=certhash)[0] == False:
+    #        return
+    resources("open_node")("{}-{}".format(_socket.getsockname()[0], answerport), page="chat", forcehash=certhash)
     
-        if certhash not in chatlock:
-            # if still not existent
-            return
+    if certhash not in chatlock:
+        # if still not existent
+        return
     init_pathes(certhash)
     
     with chatlock[certhash]:
@@ -507,7 +511,7 @@ def receive(action, _socket, _cert, certhash):
                 with open (os.path.join(os.path.expanduser(config.get("chatdir")), certhash, "log.txt"), "a") as logob:
                     logob.write("rf:{timestamp}:{name},{size}\n".format(name=_name, size=_size, timestamp=timestamp))
             if "gtk" in interfaces:
-                Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, gtk_receive_file, certhash, "{}-{}".format(_socket.getsockname()[0], answerport), _name, int(_size), private, timestamp)
+                Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, gtk_receive_file, certhash, chaturl[certhash], _name, int(_size), private, timestamp)
             
 ## executed when redirected, return False, when redirect should not be executed
 # def rreceive(action, _socket, _cert, certhash):
