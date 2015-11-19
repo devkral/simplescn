@@ -1,16 +1,14 @@
 
 
-
+## incomplete features (urgent)
+* password handling (client side)
+* nat traversal
 
 ## Alpha
 * tests, documentation
 * windows compatibility
-* usability
-*
-
 
 ## Future
-* plugin sandboxing
 * announce client/server
 * filesockets
-* 
+

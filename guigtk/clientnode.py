@@ -48,7 +48,6 @@ class gtkclient_node(gtkclient_template):
         if _address is not None:
             infoob = self.do_requestdo("info", address=_address)
             if infoob[0] == False:
-                print(infoob[1])
                 if self.resdict.get("forcehash") is None:
                     logger().error("no hash found")
                     return

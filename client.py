@@ -204,15 +204,17 @@ class client_client(client_admin, client_safe, client_config):
             if reqob is None:
                 con.close()
                 return False, "Invalid Authorization request object", _certtupel[0], _certtupel[1]
+            
             realm = reqob.get("realm")
             if callable(pwcallm) == True:
                 authob = pwcallm(hashpcert, reqob, _reauthcount)
             else:
                 authob = None
+            
 
             if authob is None:
                 con.close()
-                return False, "Authorization object invalid", _certtupel[0], _certtupel[1]
+                return False, "Authorization handler object invalid", _certtupel[0], _certtupel[1]
             _reauthcount += 1
             auth_parsed[realm] = authob
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
@@ -348,7 +350,7 @@ class client_client(client_admin, client_safe, client_config):
     access_methods = ["access_main", "access_safe", "access_core"]
     # command wrapper for cmd interfaces
     @generate_error_deco
-    def command(self, inp):
+    def command(self, inp, authcaller=None):
         obdict = parse.parse_qs(inp)
         error=[]
         if check_args(obdict, {"action": (str, "main action"),},error=error) == False:
@@ -358,8 +360,12 @@ class client_client(client_admin, client_safe, client_config):
             return False, "actions: 'access_methods, command' not allowed in command"
         action = obdict["action"]
         del obdict["action"]
+        
         def pw_auth_command(pwcerthash, authreqob, reauthcount):
-            authob = self.links["auth"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
+            if authcaller is None:
+                authob = self.links["auth"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
+            else:
+                authob = self.links["auth"].auth(authcaller("Enter pw for : %s" % authreqob.get("realm"))(),obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
             return authob
         obdict["pwcall_method"] = pw_auth_command
         try:
@@ -1116,7 +1122,7 @@ if __name__ ==  "__main__":
             # help
             if inp == "help":
                 inp = "action=help"
-            ret=cm.links["client"].command(inp)
+            ret=cm.links["client"].command(inp, pwcallmethod)
             if ret[1] is not None:
                 if ret[0] == True:
                     print("Success: ", end="")

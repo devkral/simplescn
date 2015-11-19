@@ -940,11 +940,11 @@ class traverser_dropper(object):
     def __init__(self, _srcaddrtupel):
         self._checker = threading.Condition()
         #self.autoblacklist = {}
-        if ":" in _srcaddrtupel[0]:
-            _socktype = socket.AF_INET6
-        else:
-            _socktype = socket.AF_INET
-        self._sock = socket.socket(_socktype, socket.SOCK_DGRAM)
+        #if ":" in _srcaddrtupel[0]:
+        #_socktype = socket.AF_INET6
+        #else:
+        #    _socktype = socket.AF_INET
+        self._sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self._sock.bind(_srcaddrtupel)
         t = threading.Thread(target=self._dropper, daemon=True)
         t.start()
@@ -992,7 +992,7 @@ class traverser_helper(object):
         self._destaddrtupel = _destaddrtupel
         self.connectsock = connectsock
         self.intervall = intervall
-        if ":" in self._srcaddrtupel[0]:
+        if ":" in self._destaddrtupel[0]:
             self._socktype = socket.AF_INET6
         else:
             self._socktype = socket.AF_INET
