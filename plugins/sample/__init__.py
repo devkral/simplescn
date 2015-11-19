@@ -58,11 +58,11 @@ gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"opti
 
 
 
-#def gui_server_iface(gui, _name, _hash, _address):
+#def gui_server_iface(gui, _name, _hash, _addressfunc):
 #    pass
 #    return widget
 
-#def gui_node_iface(gui, _name, _hash, _address):
+#def gui_node_iface(gui, _name, _hash, _addressfunc, _traversefunc):
 #    pass
 #    return widget
 

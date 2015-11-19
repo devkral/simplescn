@@ -275,7 +275,10 @@ class gtkclient_node(gtkclient_template):
         for pname, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
             if hasattr(plugin, cat) == True:
                 try:
-                    _tmp = getattr(plugin, cat)("gtk", self.info[2], self.info[3], self.get_address, self.get_traverseaddr, self.win)
+                    if cat == "gui_server_iface":
+                        _tmp = getattr(plugin, cat)("gtk", self.info[2], self.info[3], self.get_address, self.win)
+                    else:
+                        _tmp = getattr(plugin, cat)("gtk", self.info[2], self.info[3], self.get_address, self.get_traverseaddr, self.win)
                     if _tmp is not None:
                         if getattr(plugin, "lname"): #  and getattr(plugin, "lname") is dict:
                             llocale = locale.getlocale()[0]

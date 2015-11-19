@@ -186,7 +186,7 @@ def gtk_send_text(widget, _textwidget, _addressfunc, _traversefunc, certhash):
     _text = _textwidget.get_text()
     _timestamp = create_timestamp()
     with chatlock[certhash]:
-        send_text(_addressfunc(), certhash, _text, _timestamp)
+        send_text(_addressfunc(), _traversefunc(), certhash, _text, _timestamp)
         _textwidget.set_text("")
         #_oldlineno = chatbuf[certhash].get_line_count()
         #chatbuf[certhash].insert(chatbuf[certhash].get_end_iter(), _text+"\n")
@@ -311,12 +311,12 @@ gui_node_actions=[
 #    pass
 #    return widget
 
-def send_text(url, certhash, _text, _timestamp, traverseaddr):
+def send_text(url, traverseserveraddr, certhash, _text, _timestamp):
     init_pathes(certhash)
     _textb = bytes(_text, "utf-8")
     if len(_textb) == 0:
         return True
-    sock, _cert, _hash = request(url, certhash, "send_text", "/{size}".format(size=len(_textb)), traverseaddr)
+    sock, _cert, _hash = request(url, certhash, "send_text", "/{size}".format(size=len(_textb)), traverseserveraddr=traverseserveraddr)
     if sock is None:
         logger().error("request failed")
         return False
