@@ -243,9 +243,33 @@ class client_client(client_admin, client_safe, client_config):
             else:
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
     
-    def use_plugin(self, address, plugin, paction, forcehash=None,originalcert=None,  forceport=False, requester=None):
+    def use_plugin(self, address, plugin, paction, forcehash=None,originalcert=None,  forceport=False, requester=None, traverseserveraddr=None):
         _addr = scnparse_url(address, force_port=forceport)
         con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("timeout"))
+        
+        try:
+            con.connect()
+        except ConnectionRefusedError:
+            if traverseserveraddr is not None:
+                _tsaddr = scnparse_url(traverseserveraddr)
+                contrav = client.HTTPSConnection(_tsaddr[0], _tsaddr[1], context=self.sslcont)
+                contrav.connect()
+                _sport = contrav.sock.getsockname()[1]
+                retserv = self.do_request(contrav, "/server/open_traversal")
+                contrav.close()
+                if retserv[0]:
+                    con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                    con.sock.bind(('', _sport))#retserv.get("traverse_address"))
+                    for count in range(0,3):
+                        try:
+                            con.sock.connect((_addr[0], _addr[1]))
+                            break
+                        except Exception:
+                            pass
+                    con.sock = self.sslcont.wrap_socket(con.sock)
+            else:
+                return None, cert, _hash
+        
         con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
         con.putheader("X-certrewrap", self.cert_hash)
         con.putheader("User-Agent", "simplescn/0.5 (client-plugin)")

@@ -8,13 +8,13 @@ from guigtk import clientdialogs
 run = True
 open_hashes={}
 
-def activate_shielded(action, urlfunc, window, **obdict):
+def activate_shielded(action, urlfunc, window, obdict):
     def shielded(widget):
         action("gtk", urlfunc(), window, obdict.get("forcehash"), obdict.copy())
     return shielded
 
 
-def toggle_shielded(action, togglewidget, urlfunc, window, **obdict):
+def toggle_shielded(action, togglewidget, urlfunc, window, obdict):
     togglewidget._toggle_state_scn = togglewidget.get_active()
     def shielded(widget):
         if togglewidget._toggle_state_scn == True:
@@ -55,10 +55,9 @@ class set_parent_template(object):
 class gtkclient_template(Gtk.Builder, set_parent_template):
     links = None
     resdict = None
-    address = None
-    certhash = None
     info = None
-    #autoclose=0 #closes window after a timeperiod
+    newaddress = None
+    #activeid = None
     
     #own init method
     def init(self, _file, links, _address, obdict):
@@ -71,20 +70,30 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
             ret = self.do_requestdo("info", address=_address)
             if ret[0] == False:
                 return False
-            self.info=ret
+            self.info = ret
             self.resdict["forcehash"] = ret[3]
         
         if self.resdict.get("forcehash") not in open_hashes:
-            open_hashes[self.resdict.get("forcehash")] = [self, set([_address])]
+            open_hashes[self.resdict.get("forcehash")] = [self, set()]
+            if _address is not None:
+                open_hashes[self.resdict.get("forcehash")][1].add(_address)
         else:
-            open_hashes[self.resdict.get("forcehash")][1].add(_address)
+            if _address is not None:
+                open_hashes[self.resdict.get("forcehash")][1].add(_address)
+                open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddresse").set_text(_address)
+                open_hashes[self.resdict.get("forcehash")][0].update_info()
+                open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddress").set_active_id(_address)
             open_hashes[self.resdict.get("forcehash")][0].win.present()
             open_hashes[self.resdict.get("forcehash")][0].win.set_accept_focus(True)
             return False
         Gtk.Builder.__init__(self)
-        
         self.set_application(self.links["gtkclient"])
         self.add_from_file(_file)
+        if self.resdict.get("forcehash") in open_hashes:
+            if _address is not None:
+                open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddresse").set_text(_address)
+            else:
+                open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddresse").set_text("")
         return True
         
     def do_requestdo(self,action, **obdict):
@@ -92,10 +101,18 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
         od.update(obdict)
         return self.links["gtkclient"].do_requestdo(action, **od)
     
+    def get_address_list(self):
+        ret = []
+        for elem in open_hashes[self.resdict.get("forcehash")][1]:
+            ret.append(elem)
+        return sorted(ret)
+    
+    def get_traverseaddr(self):
+        return self.resdict.get("traverseserveraddr")
     def get_address(self):
         if len(open_hashes[self.resdict.get("forcehash")][1])==0:
             return None
-        return open_hashes[self.resdict.get("forcehash")][1].__iter__().__next__()
+        return self.get_object("chooseaddresse").get_text()
     
     def close(self,*args):
         self.win.hide()

@@ -8,6 +8,12 @@
     <property name="take_focus">False</property>
     <property name="reserve_toggle_size">False</property>
   </object>
+  <object class="GtkListStore" id="addresslist">
+    <columns>
+      <!-- column-name url -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
   <object class="GtkImage" id="confirmsimg">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -264,7 +270,7 @@
                   <packing>
                     <property name="left_attach">3</property>
                     <property name="top_attach">2</property>
-                    <property name="height">6</property>
+                    <property name="height">5</property>
                   </packing>
                 </child>
                 <child>
@@ -390,7 +396,7 @@ name</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
-                    <property name="top_attach">5</property>
+                    <property name="top_attach">4</property>
                   </packing>
                 </child>
                 <child>
@@ -401,7 +407,7 @@ name</property>
                   </object>
                   <packing>
                     <property name="left_attach">1</property>
-                    <property name="top_attach">5</property>
+                    <property name="top_attach">4</property>
                   </packing>
                 </child>
                 <child>
@@ -416,7 +422,7 @@ name</property>
                   </object>
                   <packing>
                     <property name="left_attach">2</property>
-                    <property name="top_attach">5</property>
+                    <property name="top_attach">4</property>
                   </packing>
                 </child>
                 <child>
@@ -427,56 +433,8 @@ name</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
-                    <property name="top_attach">6</property>
+                    <property name="top_attach">5</property>
                     <property name="width">3</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="label5">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="halign">end</property>
-                    <property name="valign">center</property>
-                    <property name="label" translatable="yes">Port</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">0</property>
-                    <property name="top_attach">4</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkArrow" id="arrow5">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="valign">center</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">1</property>
-                    <property name="top_attach">4</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="portshowl">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="halign">start</property>
-                    <property name="valign">center</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">2</property>
-                    <property name="top_attach">4</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="addressshowl">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="halign">start</property>
-                    <property name="valign">center</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">2</property>
-                    <property name="top_attach">3</property>
                   </packing>
                 </child>
                 <child>
@@ -516,8 +474,30 @@ name</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
-                    <property name="top_attach">7</property>
+                    <property name="top_attach">6</property>
                     <property name="width">3</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkComboBox" id="chooseaddress">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="model">addresslist</property>
+                    <property name="has_frame">False</property>
+                    <property name="has_entry">True</property>
+                    <property name="entry_text_column">0</property>
+                    <property name="id_column">0</property>
+                    <child internal-child="entry">
+                      <object class="GtkEntry" id="chooseaddresse">
+                        <property name="can_focus">False</property>
+                        <property name="editable">False</property>
+                        <property name="has_frame">False</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">2</property>
+                    <property name="top_attach">3</property>
                   </packing>
                 </child>
               </object>
