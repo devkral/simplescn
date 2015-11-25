@@ -1,8 +1,7 @@
 
 import ssl
-from common import isself, check_hash, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail, check_updated_certs, traverser_helper
-#logger
-from http import client
+from common import isself, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail, check_updated_certs, traverser_helper
+#logger, check_hash
 
 class client_safe(object):
     
@@ -69,7 +68,7 @@ class client_safe(object):
             del obdict["client"]
         else:
             client_addr = "localhost-{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(client_addr, "/server/getservice", obdict, headers=obdict.get("headers"))
+        return self.do_request(client_addr, "/server/getservice", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"))
     
     @check_argsdeco(optional={"client":(str, )})
     def listservices(self, obdict):
@@ -79,7 +78,7 @@ class client_safe(object):
             del obdict["client"]
         else:
             client_addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        _tservices = self.do_request(client_addr, "/server/dumpservices", headers=obdict.get("headers"), forceport=True)
+        _tservices = self.do_request(client_addr, "/server/dumpservices", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"), forceport=True)
         if _tservices[0] == False:
             return _tservices
         out=sorted(_tservices[1].items(), key=lambda t: t[0])
@@ -89,7 +88,7 @@ class client_safe(object):
     def get(self,obdict):
         """ fetch client address """
         #obdict["forcehash"] = obdict["hash"]
-        _getret = self.do_request(obdict["server"],"/server/get", obdict,headers=obdict.get("headers"))
+        _getret = self.do_request(obdict["server"],"/server/get", body={"pwcall_method":obdict.get("pwcall_method")},headers=obdict.get("headers"))
         if _getret[0] == False or check_args(_getret[1], {"address": (str,), "port": (int,)}) == False:
             return _getret
         if _getret[1].get("port", 0) < 1:
@@ -136,7 +135,7 @@ class client_safe(object):
     @check_argsdeco({"server": (str, ), })
     def listnames(self, obdict):
         """ list and sort names from server """
-        _tnames = self.do_request(obdict["server"], "/server/dumpnames", headers=obdict.get("headers"))
+        _tnames = self.do_request(obdict["server"], "/server/dumpnames", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"))
         if _tnames[0] == False:
             return _tnames
         out = []
@@ -155,7 +154,7 @@ class client_safe(object):
             del obdict["address"]
         else:
             _addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/info", headers=obdict.get("headers"), forceport=True)
+        return self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
 
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
     def cap(self, obdict):
@@ -165,7 +164,7 @@ class client_safe(object):
             del obdict["address"]
         else:
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/cap", headers=obdict.get("headers"), forceport=True)
+        return self.do_request(_addr, "/server/cap", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
     
     @check_argsdeco(optional={"address":(str, "url of scn communication partner")})
     def prioty_direct(self, obdict):
@@ -175,7 +174,7 @@ class client_safe(object):
             del obdict["address"]
         else:
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/prioty", headers=obdict.get("headers"), forceport=True)
+        return self.do_request(_addr, "/server/prioty", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
 
     @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})
     def prioty(self, obdict):

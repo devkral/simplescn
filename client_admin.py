@@ -1,9 +1,8 @@
 
-from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs
+from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, logger
 import os, sys
 import threading
-#logger, isself
-import socket
+#isself
 from client_config import client_config
 
 
@@ -53,7 +52,7 @@ class client_admin(object):
         _type = obdict.get("type", "unknown")
         _priority = obdict.get("priority", 20)
         _name,  _certhash = obdict["name"], obdict["hash"]
-        return self.hashdb.addhash(_name, _certhash, _type)
+        return self.hashdb.addhash(_name, _certhash, _type, _priority)
 
     #def deljusthash(self,_certhash,dheader):
     #    temp=self.hashdb.delhash(_certhash)
@@ -129,11 +128,9 @@ class client_admin(object):
     @check_argsdeco({"hash": (str, "hash"), "reference":(str, "reference")})
     def delreference(self, obdict):
         """ delete reference """
-        _name=self.hashdb.certhash_as_name(obdict["hash"])
-        
         _tref=self.hashdb.get(obdict["hash"])
         if _tref is None:
-            return False, "name, hash not exist"
+            return False, "hash not exist"
         return self.hashdb.delreference(_tref[4],obdict["reference"])
 
     @check_argsdeco({"reason": (str, "reason for breaking cert")})
@@ -158,7 +155,6 @@ class client_admin(object):
                 wr.write(obdict.get("reason"))
         else:
             return False, "no pubcert"
-        port = self.links["hserver"].socket.getsockname()[1]
         ret = generate_certs(_cpath)
         if ret == False:
             logger().critical("Fatal error: certs could not be regenerated")

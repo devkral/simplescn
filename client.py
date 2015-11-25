@@ -33,7 +33,7 @@ import time
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client
 #VALMITMError
 
 from common import logger
@@ -96,27 +96,25 @@ class client_client(client_admin, client_safe, client_config):
         self._cache_help = self.cmdhelp()
     
     def pw_auth(self, hashpcert, reqob, reauthcount):
+        authob = None
         if reauthcount == 0:
-            authob = self.links["auth"].reauth(hashpcert, reqob)
-        else:
-            authob = None
+            authob = self.links["auth_client"].reauth(hashpcert, reqob, hashpcert)
         if reauthcount <= 3:
-            authob = self.links["auth"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
+            authob = self.links["auth_client"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
+            # -hashpcert: don't remember failures
         return authob
 
     def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
         if headers is None:
             headers = body.pop("headers", {})
-        else:
-            body.pop("headers", {})
+        elif "headers" in body:
+            del body["headers"]
         
         sendheaders = reference_header.copy()
         for key,value in headers.items():
             if key in ["Connection", "Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent", "X-certrewrap"]:
                 continue
-            key, value = elem
             sendheaders[key] = value
-        
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
         if sendclientcert:
             sendheaders["X-certrewrap"] = self.cert_hash
@@ -173,7 +171,8 @@ class client_client(client_admin, client_safe, client_config):
                 else:
                     validated_name = None
             _certtupel = (validated_name, hashpcert)
-            
+        else:
+            validated_name, hashpcert = _certtupel
         #start connection
         con.putrequest("POST", _path)
         for key, value in sendheaders.items():
@@ -182,6 +181,7 @@ class client_client(client_admin, client_safe, client_config):
         pwcallm = body.get("pwcall_method")
         if pwcallm:
             del body["pwcall_method"]
+        
         ob = bytes(json.dumps(body), "utf-8")
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
@@ -195,7 +195,7 @@ class client_client(client_admin, client_safe, client_config):
         logger().debug("Servertype: {}".format(servertype))
         if response.status == 401:
             body["pwcall_method"] = pwcallm
-            auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ")[1])
+            auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ", 1)[1])
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
                 return False, "no content length", _certtupel[0], _certtupel[1]
@@ -214,17 +214,19 @@ class client_client(client_admin, client_safe, client_config):
 
             if authob is None:
                 con.close()
-                return False, "Authorization handler object invalid", _certtupel[0], _certtupel[1]
+                if _reauthcount==0:
+                    return False, "Authorization handler object invalid", _certtupel[0], _certtupel[1]
+                else:
+                    return False, "Authorization failed", _certtupel[0], _certtupel[1]
             _reauthcount += 1
             auth_parsed[realm] = authob
-            sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
+            sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n",  ""))
             return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, _reauthcount=_reauthcount)
         else:
             if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
                 return False, "No content length", _certtupel[0], _certtupel[1]
             readob = response.read(int(response.getheader("Content-Length")))
-            
             # kill keep-alive connection when finished, or transport connnection
             #if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             con.close()
@@ -245,7 +247,7 @@ class client_client(client_admin, client_safe, client_config):
             else:
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
     
-    def use_plugin(self, address, plugin, paction, forcehash=None,originalcert=None,  forceport=False, requester=None, traverseserveraddr=None):
+    def use_plugin(self, address, plugin, paction, forcehash=None, originalcert=None, forceport=False, requester=None, traverseserveraddr=None):
         _addr = scnparse_url(address, force_port=forceport)
         con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("timeout"))
         
@@ -270,7 +272,7 @@ class client_client(client_admin, client_safe, client_config):
                             pass
                     con.sock = self.sslcont.wrap_socket(con.sock)
             else:
-                return None, cert, _hash
+                return None, None, None
         
         con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
         con.putheader("X-certrewrap", self.cert_hash)
@@ -326,7 +328,7 @@ class client_client(client_admin, client_safe, client_config):
         else:
             _hash = obdict.get("hash")
         for realm, pw in obdict.get("auth"):
-            self.links["auth"].saveauth(realm, pw, _hash)
+            self.links["auth_client"].saveauth(realm, pw, _hash)
         return True
         
     
@@ -350,7 +352,7 @@ class client_client(client_admin, client_safe, client_config):
     access_methods = ["access_main", "access_safe", "access_core"]
     # command wrapper for cmd interfaces
     @generate_error_deco
-    def command(self, inp, authcaller=None):
+    def command(self, inp, callpw_auth=False):
         obdict = parse.parse_qs(inp)
         error=[]
         if check_args(obdict, {"action": (str, "main action"),},error=error) == False:
@@ -362,10 +364,10 @@ class client_client(client_admin, client_safe, client_config):
         del obdict["action"]
         
         def pw_auth_command(pwcerthash, authreqob, reauthcount):
-            if authcaller is None:
-                authob = self.links["auth"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
+            if callpw_auth == False:
+                authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
             else:
-                authob = self.links["auth"].auth(authcaller("Enter pw for : %s" % authreqob.get("realm"))(),obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
+                authob = self.pw_auth(pwcerthash, authreqob, reauthcount)
             return authob
         obdict["pwcall_method"] = pw_auth_command
         try:
@@ -383,7 +385,7 @@ class client_client(client_admin, client_safe, client_config):
         if action in ["cmd_plugin",] or action in self.access_methods:
             return False, "actions: 'access_methods, cmd_plugin' not allowed in access_safe"
         def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
-            authob = self.links["auth"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
+            authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
             return authob
         obdict["pwcall_method"] = pw_auth_plugin
         if action in self.validactions:
@@ -581,14 +583,14 @@ class client_handler(BaseHTTPRequestHandler):
             #if self.client_cert is None:
             #    self.send_error(403, "no permission (no certrewrap) - admin")
             #    return
-            if "admin" in self.links["auth"].realms:
+            if "admin" in self.links["auth_server"].realms:
                 realm = "admin"
             else:
                 realm = "client"
         else:
             realm = "client"
-        if self.links["auth"].verify(realm, self.auth_info) == False:
-            authreq = self.links["auth"].request_auth(realm)
+        if self.links["auth_server"].verify(realm, self.auth_info) == False:
+            authreq = self.links["auth_server"].request_auth(realm)
             ob = bytes(json.dumps(authreq), "utf-8")
             self.scn_send_answer(401, ob)
             return
@@ -641,8 +643,8 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - server")
             return
         
-        if self.links["auth"].verify("server", self.auth_info) == False:
-            authreq = self.links["auth"].request_auth("server")
+        if self.links["auth_server"].verify("server", self.auth_info) == False:
+            authreq = self.links["auth_server"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
             self.scn_send_answer(401, ob)
             return
@@ -918,7 +920,8 @@ class client_init(object):
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         
-        self.links["auth"] = scnauth_server(dhash(pub_cert))
+        self.links["auth_client"] = scnauth_client()
+        self.links["auth_server"] = scnauth_server(dhash(pub_cert))
         
         if confm.getb("webgui")!=False:
             logger().debug("webgui enabled")
@@ -936,30 +939,30 @@ class client_init(object):
             # ensure that password is set when allowing remote
             if confm.getb("remote") == True and confm.getb("local") == False:
                 client_handler.handle_remote = True
-            self.links["auth"].init_realm("client", confm.get("cpwhash"))
+            self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
         elif confm.getb("cpwfile") == True:
             # ensure that password is set when allowing remote
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
             op=open(confm.get("cpwfile"), "r")
             pw = op.readline().strip().rstrip()
-            self.links["auth"].init_realm("client", dhash(pw))
+            self.links["auth_server"].init_realm("client", dhash(pw))
             op.close()
         
         if confm.getb("apwhash") == True:
-            self.links["auth"].init_realm("admin", confm.get("apwhash"))
+            self.links["auth_server"].init_realm("admin", confm.get("apwhash"))
         elif confm.getb("apwfile") == True:
             op = open(confm.get("apwfile"), "r")
             pw = op.readline().strip().rstrip()
-            self.links["auth"].init_realm("admin", dhash(pw))
+            self.links["auth_server"].init_realm("admin", dhash(pw))
             op.close()
             
         if confm.getb("spwhash") == True:
-            self.links["auth"].init_realm("server", confm.get("spwhash"))
+            self.links["auth_server"].init_realm("server", confm.get("spwhash"))
         elif confm.getb("spwfile") == True:
             op = open(confm.get("spwfile"), "r")
             pw = op.readline().strip().rstrip()
-            self.links["auth"].init_realm("server", confm.get(dhash(pw)))
+            self.links["auth_server"].init_realm("server", confm.get(dhash(pw)))
             op.close()
         
 
@@ -1122,7 +1125,7 @@ if __name__ ==  "__main__":
             # help
             if inp == "help":
                 inp = "action=help"
-            ret=cm.links["client"].command(inp, pwcallmethod)
+            ret=cm.links["client"].command(inp, callpw_auth=True)
             if ret[1] is not None:
                 if ret[0] == True:
                     print("Success: ", end="")

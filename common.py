@@ -423,12 +423,6 @@ class configmanager(object):
     def __init__(self, _dbpath):
         self.db_path = _dbpath
         self.lock = threading.Lock()
-        if self.db_path is not None:
-            try:
-                import sqlite3
-            except ImportError as e:
-                logger().error("import sqlite for user settings failed, reason:{}".format(e))
-                self.db_path=None
         self.reload()
 
         
@@ -846,7 +840,7 @@ class scnauth_server(object):
         if realm not in self.realms or self.realms[realm] is None:
             return True
         if realm not in authdict:
-            logger().warning("realm not in authdict")
+            logger().debug("realm not in authdict")
             return False
         if isinstance(authdict[realm].get("timestamp"),str) == False:
             logger().error("no timestamp")
@@ -918,7 +912,7 @@ scn_nostruct = struct.pack(">c511x", b"y")
 addrstrformat = ">HH508s"
 # not needed as far but keep it for future
 def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
-    if ":" in self._dstaddrtupel[0]:
+    if ":" in _dstaddrtupel[0]:
         _socktype = socket.AF_INET6
     else:
         _socktype = socket.AF_INET
@@ -1042,7 +1036,7 @@ class traverser_helper(object):
                     #if self.connectsock is None:
                     #    sock.close()
                 except Exception as e:
-                    _sock.sendto(scn_nostruct, self._destaddrtupel)
+                    sock.sendto(scn_nostruct, self._destaddrtupel)
                     logger().info(e)
                 
             
@@ -1078,14 +1072,12 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=Non
         brokensslcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
         con.sock = con.sock.unwrap()
         #con.sock = cont.wrap_socket(con.sock, server_side=False)
-        #print(ret.closed)
         
         ret = con.getresponse()
         if ret.status != 200:
             logger().info(ret.status, ret.closed)
             continue
         #TODO: keep-alive is ignored
-        #print(con.sock)
         if dhash(brokensslcert) == _hash:
             update_list.append((_hash, _security))
         
@@ -1580,7 +1572,7 @@ class certhash_db(object):
             logger().info("hash contains invalid characters: {}".format(_certhash))
             return False
         if check_security(_security) == False:
-            logger().error("security is invalid type: {}".format(security))
+            logger().error("security is invalid type: {}".format(_security))
             return False
             
         cur = dbcon.cursor()

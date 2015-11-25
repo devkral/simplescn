@@ -29,6 +29,9 @@ proot = None
 # this module
 module = None
 
+# logger
+logger = None
+
 ###### created by pluginmanager end ######
 
 lname = {"*": "Chat"}
@@ -88,11 +91,11 @@ def parse_timestamp(_inp):
     return datetime.datetime.strptime(_inp, "%Y_%m_%d_%H_%M_%S")
 
 def unparse_timestamp(_inp):
-    return inp.strftime(_inp, "%Y_%m_%d_%H_%M_%S")
+    return _inp.strftime(_inp, "%Y_%m_%d_%H_%M_%S")
 
 
 def gtk_create_textob(_text, isowner, isprivate, timestamp):
-    timest = timestamp.strftime("%Y.%m.%d %H:%M%S")
+    timest = timestamp.strftime("%Y.%m.%d %H:%M:%S")
     ret = Gtk.Label(_text, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, selectable=True)
     
     if isowner:
@@ -500,7 +503,7 @@ def receive(action, _socket, _cert, certhash):
         elif action == "send_img":
             _size = int(_rest)
             if _size > config.get("maxsizeimg")*1024:
-                sock.close()
+                _socket.close()
                 return
             countread = 0
             _img = b""
