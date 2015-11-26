@@ -389,7 +389,6 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - server")
             return
         
-        
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")

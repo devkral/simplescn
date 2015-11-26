@@ -99,9 +99,8 @@ class client_client(client_admin, client_safe, client_config):
         authob = None
         if reauthcount == 0:
             authob = self.links["auth_client"].reauth(hashpcert, reqob, hashpcert)
-        if reauthcount <= 3:
-            authob = self.links["auth_client"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert)
-            # -hashpcert: don't remember failures
+        if authob is None and reauthcount <= 3:
+            authob = self.links["auth_client"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert, hashpcert)
         return authob
 
     def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
@@ -214,10 +213,7 @@ class client_client(client_admin, client_safe, client_config):
 
             if authob is None:
                 con.close()
-                if _reauthcount==0:
-                    return False, "Authorization handler object invalid", _certtupel[0], _certtupel[1]
-                else:
-                    return False, "Authorization failed", _certtupel[0], _certtupel[1]
+                return False, "Authorization failed", _certtupel[0], _certtupel[1]
             _reauthcount += 1
             auth_parsed[realm] = authob
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n",  ""))

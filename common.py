@@ -842,7 +842,11 @@ class scnauth_server(object):
         if realm not in authdict:
             logger().debug("realm not in authdict")
             return False
-        if isinstance(authdict[realm].get("timestamp"),str) == False:
+        if isinstance(authdict[realm], dict) == False:
+            logger().debug("realm is no dict")
+            return False
+        
+        if isinstance(authdict[realm].get("timestamp", None),str) == False:
             logger().error("no timestamp")
             return False
         
@@ -897,10 +901,13 @@ class scnauth_client(object):
     def reauth(self, savedata, authreq_ob, pubcert_hash):
         saveid = savedata
         if saveid not in self.save_auth:
-            return authreq_ob.get("realm"), None
+            return None
         if authreq_ob.get("realm") not in self.save_auth[saveid]:
-            return authreq_ob.get("realm"), None
-        return self.auth(self.save_auth[saveid][authreq_ob["realm"]], authreq_ob, pubcert_hash)
+            return None
+        pre, _hashalgo = self.save_auth[saveid][authreq_ob["realm"]]
+        if "algo" not in authreq_ob:
+            authreq_ob["algo"] = _hashalgo
+        return self.asauth(pre, authreq_ob, pubcert_hash)
 
 
 scn_pingstruct = struct.pack(">c511x", b"p")

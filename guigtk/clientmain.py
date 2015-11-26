@@ -890,16 +890,18 @@ class gtkclient_init(client.client_init):
     
     def __init__(self,confm,pluginpathes):
         logger().debug("start gtkclient")
-        logger().replaceHandler(self.links["gtkclient"])
-        parentlist.insert(0, self.links["gtkclient"].win)
         common.pwcallmethodinst = gtkclient_pw
         common.notifyinst = gtkclient_notify
         
         client.client_init.__init__(self, confm, pluginpathes)
+        self.links["gtkclient"] = gtkclient_main(self.links)
+        
+        logger().replaceHandler(self.links["gtkclient"])
+        parentlist.insert(0, self.links["gtkclient"].win)
+        
         if confm.getb("noserver") == False:
             logger().debug("start client server")
             self.serve_forever_nonblock()
-        self.links["gtkclient"] = gtkclient_main(self.links)
 
 def do_gtkiteration():
     
