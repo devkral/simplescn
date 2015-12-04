@@ -1806,7 +1806,7 @@ class certhash_db(object):
             logger().error("invalid reference")
             return None
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash,type,priority,security FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=?);''', (_reference,))
+        cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=?);''', (_reference,))
         out = cur.fetchall()
         if out is None:
             return []

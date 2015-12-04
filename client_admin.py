@@ -20,7 +20,7 @@ class client_admin(object):
         self.write_msg_lock = threading.Lock()
         self.change_name_lock = threading.Lock()
     
-    @check_argsdeco({"priority":(int, "priority of client")}) 
+    @check_argsdeco({"priority":(int, "priority of the client")}) 
     def setpriority(self, obdict):
         """ set priority of client """ 
         if obdict["priority"]<0 or obdict["priority"]>100:
@@ -61,13 +61,13 @@ class client_admin(object):
     #    else:
     #        return (False,error)
     
-    @check_argsdeco({"hash": (str, )})
+    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)")})
     def delhash(self, obdict):
         """ delete hash """
         return self.hashdb.delhash(obdict["hash"])
     
     
-    @check_argsdeco({"hash": (str, ), "security":(str,)})
+    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "security":(str, "security state")})
     def changesecurity(self, obdict):
         """ change security level of hash """
         return self.hashdb.changesecurity(obdict["hash"],obdict["security"])
@@ -77,7 +77,7 @@ class client_admin(object):
     
     #    pass
     
-    @check_argsdeco({"hash": (str, ), "newname": (str, )})
+    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "newname": (str, "entity where hash should moved to")})
     def movehash(self, obdict):
         """ move hash to entity """
         return self.hashdb.movehash(obdict["hash"],obdict["newname"])
@@ -94,7 +94,7 @@ class client_admin(object):
             ret.append((plugin, pluginm.plugin_is_active(plugin)))
         return True, {"items":ret,"map":["plugin","state"]}
     
-    @check_argsdeco({"hash": (str, ), "reference": (str, ), "reftype": (str, )})
+    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "reference": (str, "where to find hash"), "reftype": (str, "type of the reference")})
     def addreference(self, obdict):
         """ add reference to hash """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
@@ -109,7 +109,7 @@ class client_admin(object):
         _tref=self.hashdb.get(obdict["hash"])
         return self.hashdb.addreference(_tref[4],obdict["reference"],obdict["reftype"])
 
-    @check_argsdeco({"hash": (str, ), "reference": (str, ), "newreference": (str, ), "newreftype": (str, )})
+    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "reference": (str, "old location of a node"), "newreference": (str, "new location of a node"), "newreftype": (str, "new type of the reference")})
     def updatereference(self, obdict):
         """ update reference (child of hash) """
         
@@ -125,7 +125,7 @@ class client_admin(object):
         
         return self.hashdb.updatereference(_tref[4],obdict["reference"],obdict["newreference"],obdict["newreftype"])
 
-    @check_argsdeco({"hash": (str, "hash"), "reference":(str, "reference")})
+    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "reference":(str, "reference")})
     def delreference(self, obdict):
         """ delete reference """
         _tref=self.hashdb.get(obdict["hash"])
@@ -133,7 +133,7 @@ class client_admin(object):
             return False, "hash not exist"
         return self.hashdb.delreference(_tref[4],obdict["reference"])
 
-    @check_argsdeco({"reason": (str, "reason for breaking cert")})
+    @check_argsdeco({"reason": (str, "reason for invalidating cert")})
     def invalidatecert(self, obdict):
         """ invalidate certificate """
         if check_security(obdict.get("reason")) == False or obdict.get("reason") == "valid":
