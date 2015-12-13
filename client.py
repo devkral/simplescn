@@ -33,7 +33,7 @@ import time
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper
 #VALMITMError
 
 from common import logger
@@ -61,6 +61,7 @@ class client_client(client_admin, client_safe, client_config):
     receive_redirect_hash = ""
     plugin_pw_caller = open_pwcall_plugin #default
     plugin_notify_caller = open_notify_plugin #default
+    scntraverse_helper = None
     
     #brokencerts = []
     # client_lock = None
@@ -78,9 +79,9 @@ class client_client(client_admin, client_safe, client_config):
         self.sslcont = self.links["hserver"].sslcont #default_sslcont()
         
         if "hserver" in self.links:
-            
             self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
             self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
+            self.scntraverse_helper = traverser_helper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
         
         for elem in os.listdir(os.path.join(self.links["config_root"], "broken")):
             _splitted = elem.rsplit(".", 1)
@@ -880,8 +881,8 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
     sslcont = None
     rawsock = None
     
-    def __init__(self, _client_address, certfpath, address_family):
-        self.address_family = address_family
+    def __init__(self, _client_address, certfpath):
+        self.address_family = socket.AF_INET6
         HTTPServer.__init__(self, _client_address, client_handler, False)
         self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -895,7 +896,6 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
         self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
         self.rawsock = self.socket
         self.socket = self.sslcont.wrap_socket(self.socket)
-
     #def get_request(self):
     #    if self.socket is None:
     #        return None, None
@@ -1003,7 +1003,7 @@ class client_init(object):
         # use timeout argument of BaseServer
         http_client_server.timeout = confm.get("timeout")
         if confm.getb("noserver") == False:
-            self.links["hserver"] = http_client_server(("", port), _cpath+"_cert", socket.AF_INET6)
+            self.links["hserver"] = http_client_server(("", port), _cpath+"_cert")
         self.links["client"] = client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), _cpath+"_cert", self.links)
         
         

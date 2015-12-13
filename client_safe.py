@@ -1,11 +1,12 @@
 
 import ssl
-from common import isself, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail, check_updated_certs, traverser_helper
+from common import isself, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail, check_updated_certs
 #logger, check_hash
 
 class client_safe(object):
     
-    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice", "open_pwrequest", "open_notify"}
+    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
+    #, "open_pwrequest", "open_notify"} not tested and verified, so remove it for now
 
     hashdb = None
     links = None
@@ -15,7 +16,6 @@ class client_safe(object):
     name = None
     sslcont = None
     brokencerts = []
-    nattraversals = {}
     udpsrcsock = None
     
     
@@ -34,11 +34,11 @@ class client_safe(object):
             return False, "cannot register without servercomponent"
         _srvaddr = scnparse_url(obdict.get("server"))
         if _srvaddr:
-            self.nattraversals[_srvaddr] = traverser_helper(serversock.getsockname(), _srvaddr, connectsock=serversock, srcsock=self.udpsrcsock)
+            self.scntraverse_helper.add_desttupel(_srvaddr)
         ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": serversock.getsockname()[1], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True)
         # 
         if _srvaddr and (ret[0] != True or ret[1].get("traverse", False) == True):
-            del(self.nattraversals[_srvaddr])
+             self.scntraverse_helper.del_desttupel(_srvaddr)
         return ret
     
     @check_argsdeco()

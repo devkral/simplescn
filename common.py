@@ -34,6 +34,7 @@ if sharedir not in sys.path:
 
 import importlib
 # import extra
+import ipaddress
 import importlib.machinery
 from types import ModuleType # needed for ModuleType
 from getpass import getpass
@@ -70,7 +71,7 @@ max_serverrequest_size = 4000
 ## timeouts ##
 # time out for auth requests
 auth_request_expire_time = 60*3
-ping_intervall = 50
+ping_interval = 50
 
 ## file positions ##
 confdb_ending = ".confdb"
@@ -980,77 +981,95 @@ class traverser_dropper(object):
 
 
 class traverser_helper(object):
+    desttupels = []
     active = True
-    _srcaddrtupel = None
-    _destaddrtupel = None
-    connectsock = None
-    _socktype = None
-    intervall = None
-    _sock = None
-    
-    def __init__(self, _srcaddrtupel, _destaddrtupel, connectsock=None, srcsock=None, intervall=ping_intervall):
-        self._srcaddrtupel = _srcaddrtupel
-        self._destaddrtupel = _destaddrtupel
+    mutex = None
+    def __init__(self, connectsock, srcsock, interval=ping_interval):
+        self.interval = interval
         self.connectsock = connectsock
-        self.intervall = intervall
-        if ":" in self._destaddrtupel[0]:
-            self._socktype = socket.AF_INET6
-        else:
-            self._socktype = socket.AF_INET
-        if srcsock:
-            self._sock = srcsock
-        else:
-            self._sock = socket.socket(self._socktype, socket.SOCK_DGRAM)
-            self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self._sock.bind(self._srcaddrtupel)
-        t = threading.Thread(target=self._pinger, daemon=True)
+        self.srcsock = srcsock
+        self.mutex = threading.Lock()
+        t = threading.Thread(target=self._connecter, daemon=True)
         t.start()
-        
     
-    # makes client reachable by server by (just by udp?)
-    def _pinger(self):
+    
+    def add_desttupel(self, destaddrtupel):
+        ipaddresstype = None
         try:
-            t2 = threading.Thread(target=self._connecter, daemon=True)
-            t2.start()
+            ipaddresstype = ipaddress.ip_address(destaddrtupel[0])
+        except Exception:
+            pass
+        if self.connectsock.family == socket.AF_INET6 and isinstance(ipaddresstype,ipaddress.IPv4Address):
+            destaddrtupel= ("::ffff:{}".format(destaddrtupel[0]),destaddrtupel[1])
+        self.mutex.acquire()
+        if destaddrtupel in self.desttupels:
+            return True
+        self.desttupels.append(destaddrtupel)
+        self.mutex.release()
+        t = threading.Thread(target=self._pinger, args=(destaddrtupel,), daemon=True)
+        t.start()
+        return True
+    
+    def del_desttupel(self, destaddrtupel):
+        ipaddresstype = None
+        try:
+            ipaddresstype = ipaddress.ip_address(destaddrtupel[0])
+        except Exception:
+            pass
+        if self.connectsock.family == socket.AF_INET6 and isinstance(ipaddresstype,ipaddress.IPv4Address):
+            destaddrtupel= ("::ffff:{}".format(destaddrtupel[0]),destaddrtupel[1])
+        self.mutex.acquire()
+        try:
+            self.desttupels.remove(destaddrtupel)
+        except Exception:
+            pass
+        self.mutex.release()
+        return True
+
+    # makes client reachable by server by (just by udp?)
+    def _pinger(self, _destaddrtupel):
+        try:
             while self.active:
-                self._sock.sendto(scn_pingstruct, self._destaddrtupel)
-                time.sleep(self.intervall)
-            self._sock.close()
+                self.mutex.acquire()
+                if _destaddrtupel not in self.desttupels:
+                    self.mutex.release()
+                    break
+                self.mutex.release()
+                self.srcsock.sendto(scn_pingstruct, _destaddrtupel)
+                time.sleep(self.interval)
         except Exception as e:
             logger().info(e)
-        self.active = False
-    
-    # sub _pinger process
-    def _connecter(self):
+        self.mutex.acquire()
         try:
-            while self.active:
-                recv = self._sock.recv(512)
+            self.desttupels.remove(_destaddrtupel)
+        except Exception:
+            pass
+        self.mutex.release()
+    
+    # sub __init__ thread
+    def _connecter(self):
+        while self.active:
+            try:
+                recv = self.srcsock.recv(512)
                 if len(recv)!=512:
                     # drop invalid packages
                     continue
                 unpstru = struct.unpack(addrstrformat, recv)
                 port = unpstru[0]
                 addr = unpstru[2][:unpstru[1]]
-                if self.connectsock:
-                    sock = self.connectsock
-                else:
-                    sock = socket.socket(self._socktype, socket.SOCK_STREAM)
-                    sock.bind(self._srcaddrtupel) #reuse address necessary
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 try:
+                    if self.connectsock.family == socket.AF_INET6 and ":" not in addr:
+                        addr = "::ffff:{}".format(addr)
                     sock.connect((addr, port))
                     self._sock.sendto(scn_yesstruct, self._destaddrtupel)
-                    #if self.connectsock is None:
-                    #    sock.close()
                 except Exception as e:
                     sock.sendto(scn_nostruct, self._destaddrtupel)
                     logger().info(e)
-                
-            
-            #self._sock.close()
-        except Exception as e:
-            logger().info(e)
-        self.active = False
+
+            except Exception as e:
+                logger().info(e)
+
+
 
 cert_update_header = \
 {
