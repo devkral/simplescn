@@ -193,9 +193,7 @@ class configuration_stuff(object):
             pluginlist.append((plugin[0], ))
     
     def clean_plugins(self, *args):
-        ret = self.do_requestdo("clean_pluginconfig", plugin=_plugin)
-        #if ret[0]:
-        #    self.loadplugins()
+        self.do_requestdo("clean_pluginconfig") #plugin=_plugin needed?
     def toggle_configuration(self,*args):
         usemaint = self.builder.get_object("usemainconf")
         #useplugt = self.builder.get_object("usepluginconf")

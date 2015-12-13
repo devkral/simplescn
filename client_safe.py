@@ -5,7 +5,7 @@ from common import isself, dhash, check_argsdeco, check_args, scnparse_url,Enfor
 
 class client_safe(object):
     
-    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
+    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice", "open_pwrequest", "open_notify"}
 
     hashdb = None
     links = None
@@ -306,3 +306,23 @@ class client_safe(object):
         if temp is None:
             return False, "reference does not exist: {}".format(obdict["reference"])
         return True, {"items":temp, "map": ["name","hash","type","priority","security","certreferenceid"]}
+    
+    @check_argsdeco({"message":(str, "message for password dialog")}, optional={"requester":(str, "plugin calling password dialog")})
+    def open_pwrequest(self, obdict):
+        """ open password request """
+        if obdict.get("clientcert","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != dhash(obdict.get("clientcert","")) or self.plugin_pw_caller is None:
+            return False, "auth failed"
+        temp = self.plugin_pw_caller(obdict.get("message"), obdict.get("requester"))
+        if temp is None:
+            return True, {"pw":temp}
+        else:
+            return False, "auth aborted"
+
+    @check_argsdeco({"message":(str, "message for notify dialog")}, optional={"requester":(str, "plugin calling notify dialog")})
+    def open_notify(self, obdict):
+        """ open notify """
+        if obdict.get("clientcert","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != dhash(obdict.get("clientcert","")) or self.plugin_notify_caller is None:
+            return False, "auth failed"
+        temp = self.plugin_notify_caller(obdict.get("message"), obdict.get("requester"))
+        return True, {"result": temp}
+        

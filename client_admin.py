@@ -7,7 +7,7 @@ from client_config import client_config
 
 
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity"}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity", "requestredirect"} # not tested:, "massimporter"}
     #, "connect"
     hashdb = None
     links = None
@@ -210,16 +210,30 @@ class client_admin(object):
             self.links["client_server"].name = newname
             self.links["client_server"].update_cache()
             return True
-
-    @check_argsdeco({"client": (str, "client address"), "entities":(list, "list with entities"), "hashes":(list, "list with hashes")})
+    
+    @check_argsdeco({"activate": (bool, "activate redirect")})
+    def requestredirect(self, obdict):
+        """ request redirect """
+        if obdict.get("activate") == True:
+            if None in [obdict.get("clientaddress"), obdict.get("clientcert")]:
+                return False, "Cannot request redirect when clientaddress and/or hash is not available"
+            self.redirect_addr = obdict.get("clientaddress")
+            self.redirect_hash = obdict.get("clientcert")
+        else:
+            self.redirect_addr = ""
+            self.redirect_hash = ""
+        return True
+    
+    @check_argsdeco({"sourceaddress": (str, "source client address"), "sourcehash": (str, "source client hash"), "entities":(list, "list with entities"), "hashes":(list, "list with hashes")})
     def massimporter(self, obdict):
         """ import hashes and entities """
+        # NOT TESTET
         #listhashes = obdict.get("hashes")
-        listall = self.do_request(obdict.get("client"), "/client/listnodeall")
+        listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", clientforcehash=obdict.get("sourcehash"))
         
         _imp_ent = obdict.get("entities")
         _imp_hash = obdict.get("hashes")
-        
+            
         for _name, _hash, _type, _priority, _security, _certreferenceid in listall:
             if _name not in _imp_ent and _hash not in _imp_hash:
                 continue

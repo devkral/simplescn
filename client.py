@@ -56,8 +56,12 @@ class client_client(client_admin, client_safe, client_config):
     sslcont = None
     hashdb = None
     links = None
-    redirect_addr = None
-    redirect_hash = None
+    redirect_addr = ""
+    redirect_hash = ""
+    receive_redirect_hash = ""
+    plugin_pw_caller = open_pwcall_plugin #default
+    plugin_notify_caller = open_notify_plugin #default
+    
     #brokencerts = []
     # client_lock = None
     validactions = {"cmd_plugin", "remember_auth" }
@@ -95,6 +99,7 @@ class client_client(client_admin, client_safe, client_config):
         self.validactions.update(client_config.validactions_config)
         self._cache_help = self.cmdhelp()
     
+    # remove, implement in open_pwrequest
     def pw_auth(self, hashpcert, reqob, reauthcount):
         authob = None
         if reauthcount == 0:
@@ -384,6 +389,7 @@ class client_client(client_admin, client_safe, client_config):
             authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
             return authob
         obdict["pwcall_method"] = pw_auth_plugin
+        obdict["requester"] = requester
         if action in self.validactions:
             if action in self.validactions_config:
                 return False, "{} tried to use protected config methods".format(requester)
@@ -804,7 +810,7 @@ class client_handler(BaseHTTPRequestHandler):
             if hasattr(pluginm.plugins[plugin], "receive") == True:
                 # not supported yet
                 # don't forget redirect_hash
-                if self.links["client"].redirect_addr not in ["", None]:
+                if self.links["client"].redirect_addr != "":
                     if hasattr(pluginm.plugins[plugin], "rreceive") == True:
                         try:
                             ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
@@ -1031,7 +1037,7 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "apwfile": ["", str, "<file>: file with password (cleartext)"],
              "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
              "spwfile": ["", str, "<file>: file with password (cleartext)"],
-             "noserver": ["False", bool, "deactivate server component"],
+             "noserver": ["False", bool, "deactivate server component (lacks also pw and notify support)"],
              "local" : ["False", bool, "reachable from localhost (overwrites remote)"],
              "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
              "priority": [str(default_priority), int, "<number>: set priority"],
