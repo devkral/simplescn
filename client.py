@@ -805,8 +805,13 @@ class client_handler(BaseHTTPRequestHandler):
             if plugin not in pluginm.plugins:
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist".format(sub))
                 return
-
             
+            #pluginpw = "plugin:{}".format(plugin)
+            #if self.links["auth_server"].verify(pluginpw, self.auth_info) == False and action not in pluginm.plugins[plugin].whitelist:
+            #    authreq = self.links["auth_server"].request_auth(pluginpw)
+            #    ob = bytes(json.dumps(authreq), "utf-8")
+            #    self.scn_send_answer(401, ob)
+            #    return
             # gui receive
             if hasattr(pluginm.plugins[plugin], "receive") == True:
                 # not supported yet
@@ -1113,6 +1118,9 @@ if __name__ ==  "__main__":
         pluginm.resources["plugin"] = cm.links["client"].use_plugin
         pluginm.resources["access"] = cm.links["client"].access_safe
         pluginm.init_plugins()
+        #for name, elem in pluginm.plugins.items():
+        #    if hasattr(elem, "pluginpw"):
+        #        cm.links["auth_server"].init_realm("plugin:{}".format(name), dhash(elem.pluginpw))
 
     logger().debug("start servercomponent (client)")
     if confm.getb("cmd") != False:

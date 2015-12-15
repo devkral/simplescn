@@ -1,6 +1,19 @@
 
 run: every 5 seconds one step
 
+init:
+clientrequest
+{
+    "spawn": "rabbit",
+    "world": "meee"
+}
+
+serveranswer
+{
+    "token": "1234"
+}
+
+ingame:
 
 serveranswer
 {
@@ -13,6 +26,7 @@ serveranswer
 }
 clientanswer
 {
-    actions: [{"type":"move", "x":-4, "y":+4}, {"type":"shoot", "item": "bow", "angle_horicontal":180, "angle_vertical":0}]
+    "token": "1234"
+    "actions": [{"type":"move", "x":-4, "y":+4}, {"type":"shoot", "item": "bow", "angle_horicontal":180, "angle_vertical":0}]
 
 }

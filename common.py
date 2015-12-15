@@ -705,7 +705,7 @@ class pluginmanager(object):
     def list_plugins(self):
         temp = {}
         for path in self.pathes_plugins:
-            if path in ["__pycache__", ""] or path[0] == " " or path[-1] == " ":
+            if path in ["__pycache__", ""] or path[0] in " \t\b" or path[-1] in " \t\b":
                 continue
             if os.path.isdir(path) == True:
                 for plugin in os.listdir(path):
