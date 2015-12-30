@@ -73,6 +73,9 @@ max_serverrequest_size = 4000
 auth_request_expire_time = 60*3
 ping_interval = 50
 
+## activate experimental functions (maybe insecure) ##
+experimental = False
+
 ## file positions ##
 confdb_ending = ".confdb"
 isself = 'isself'

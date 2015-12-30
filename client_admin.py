@@ -1,5 +1,5 @@
 
-from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, logger
+from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, logger, experimental
 import os, sys
 import threading
 #isself
@@ -7,7 +7,9 @@ from client_config import client_config
 
 
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity", "requestredirect"} # not tested:, "massimporter"}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity", "requestredirect"}
+    if experimental:
+        validactions_admin.add("massimporter")
     #, "connect"
     hashdb = None
     links = None

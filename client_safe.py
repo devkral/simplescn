@@ -1,12 +1,13 @@
 
 import ssl
-from common import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs
-#logger, check_hash
+from common import experimental, isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs
 
 class client_safe(object):
     
     validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
-    #, "open_pwrequest", "open_notify"} not tested and verified, so deactivate them
+    if experimental:
+        validactions_safe.add("open_pwrequest")
+        validactions_safe.add("open_notify") # not tested and verified, so deactivate them
 
     hashdb = None
     links = None
