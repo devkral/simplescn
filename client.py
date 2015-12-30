@@ -47,8 +47,8 @@ def open_notify_plugin(msg, requester=None):
 reference_header = \
 {
 "User-Agent": "simplescn/0.5 (client)",
-"Authorization": 'scn {}', 
-"Connection": 'keep-alive'
+"Authorization": 'scn {}'
+#"Connection": 'keep-alive' # keep-alive is set by server
 }
 class client_client(client_admin, client_safe, client_config):
     name = None
@@ -110,6 +110,7 @@ class client_client(client_admin, client_safe, client_config):
         return authob
 
     def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
+        """ use this method to communicate with clients/servers """
         if headers is None:
             headers = body.pop("headers", {})
         elif "headers" in body:
@@ -250,6 +251,7 @@ class client_client(client_admin, client_safe, client_config):
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
     
     def use_plugin(self, address, plugin, paction, forcehash=None, originalcert=None, forceport=False, requester=None, traverseserveraddr=None):
+        """ use this method to communicate with plugins """
         _addr = scnparse_url(address, force_port=forceport)
         con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("timeout"))
         
@@ -282,16 +284,22 @@ class client_client(client_admin, client_safe, client_config):
         if originalcert:
             con.putheader("X-original_cert", originalcert)
         con.endheaders()
+        cert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
+        _hash = dhash(cert)
+        con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
+        
+        resp = con.getresponse()
+        #sock = con.sock
+        #con.sock = None
+        if resp.status != 200:
+            logger().error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, action, resp.status, resp.reason))
+            
+        if _hash != forcehash:
+            con.close()
+            return None, cert, _hash
         sock = con.sock
         con.sock = None
-        cert = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True)).strip().rstrip()
-        _hash = dhash(cert)
-        if _hash != forcehash:
-            sock.close()
-            return None, cert, _hash
-    
         #sock = sock.unwrap()
-        sock = self.sslcont.wrap_socket(sock, server_side=True)
         return sock, cert, _hash
         
     @check_argsdeco({"plugin": (str, "name of plugin"), "paction": (str, "action of plugin")})
@@ -553,10 +561,13 @@ class client_handler(BaseHTTPRequestHandler):
     statics = {}
     webgui = False
     
-    def scn_send_answer(self, status, ob, _type="application/json"):
+    def scn_send_answer(self, status, ob, _type="application/json", docache=False):
         self.send_response(status)
         self.send_header("Content-Length", len(ob))
         self.send_header("Content-Type", "{}; charset=utf-8".format(_type))
+        self.send_header('Connection', 'keep-alive')
+        if docache == False:
+            self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(ob)
     
@@ -638,6 +649,7 @@ class client_handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
         self.send_header('Content-Length', str(len(ob)))
+        self.send_header('Connection', 'keep-alive')
         self.end_headers()
         self.wfile.write(ob)
 
@@ -661,7 +673,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(411,"POST data+data length needed")
             return
             
-        contsize=int(self.headers.get("Content-Length"))
+        contsize = int(self.headers.get("Content-Length"))
         if contsize>max_serverrequest_size:
             self.send_error(431, "request too large")
         
@@ -698,6 +710,7 @@ class client_handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
         self.send_header('Content-Length', len(ob))
+        self.send_header('Connection', 'keep-alive')
         self.end_headers()
         self.wfile.write(ob)
     
@@ -817,6 +830,7 @@ class client_handler(BaseHTTPRequestHandler):
                 # not supported yet
                 # don't forget redirect_hash
                 if self.links["client"].redirect_addr != "":
+                    # needs to implement http handshake and stop or don't analyze content
                     if hasattr(pluginm.plugins[plugin], "rreceive") == True:
                         try:
                             ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
@@ -835,11 +849,14 @@ class client_handler(BaseHTTPRequestHandler):
                     rw_socket(sockd, self.connection)
                     return
                 else:
+                    self.send_response(200)
+                    self.send_header("Connection", "keep-alive")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
                     try:
                         pluginm.plugins[plugin].receive(action, self.connection, self.client_cert, dhash(self.client_cert))
                     except Exception as e:
                         logger().error(e)
-                        self.send_error(500, "plugin error", str(e))
                         return
         # for invalidating and updating, DON'T USE connection afterward
         elif resource == "usebroken":
@@ -1095,7 +1112,7 @@ if __name__ ==  "__main__":
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     
     # path to config folder of plugins
-    configpath_plugins=os.path.join(configpath, "config", "plugins")
+    configpath_plugins = os.path.join(configpath, "config", "plugins")
     #if configpath[:-1]==os.sep:
     #    configpath=configpath[:-1]
     
@@ -1105,13 +1122,13 @@ if __name__ ==  "__main__":
     confm = configmanager(os.path.join(configpath, "config", "clientmain{}".format(confdb_ending)))
     confm.update(default_client_args, client_args)
     if confm.getb("noplugins") == False:
-        pluginm=pluginmanager(pluginpathes, configpath_plugins, "client")
+        pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
         if confm.getb("webgui") != False:
             pluginm.interfaces += ["web",]
         if confm.getb("cmd") != False:
             pluginm.interfaces += ["cmd",]
     else:
-        pluginm=None
+        pluginm = None
     cm = client_init(confm,pluginm)
 
     if confm.getb("noplugins") == False:

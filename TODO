@@ -1,14 +1,10 @@
 
-
-## incomplete features (urgent)
-* password handling (client side)
-* nat traversal
-
 ## Alpha
-* tests, documentation
+* tests
 * windows compatibility
 
 ## Future
 * announce client/server
 * filesockets
-
+* enable remote pw and notify dialogs (need tests), detached clients
+* pwhandling for plugins

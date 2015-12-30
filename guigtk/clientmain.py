@@ -539,14 +539,22 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
                 return
             clhash.set_text(ret[1]["hash"])
             return
-        if ulocal.get_active()== False:
-            if clurl.get_text()=="":
+        if ulocal.get_active() == False:
+            if clurl.get_text() == "":
                 return
-            if check_hash(clhash.get_text())==False:
+            if check_hash(clhash.get_text()) == False:
                 return
-        self.remoteclient_url=clurl.get_text()
-        self.remoteclient_hash=_hash
-        self.use_localclient=ulocal.get_active()
+        # deactivate old
+        if self.use_localclient == False and self.remoteclient_url != clurl.get_text():
+            self.do_requestdo("requestredirect", activate=False)
+        self.remoteclient_url = clurl.get_text()
+        self.remoteclient_hash = _hash
+        
+        # activate new if it is remote
+        if ulocal.get_active() == False:
+            ret = self.do_requestdo("requestredirect", activate=True)
+        if ret[0] == True or ulocal.get_active() == True: # deactivated if successful or local (always success)
+            self.use_localclient = ulocal.get_active()
         self.close_clientdia()
         
     def client_localtoggle(self,*args):

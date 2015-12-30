@@ -700,7 +700,7 @@ class pluginmanager(object):
         self.path_plugins_config = _path_plugins_config
         self.pluginenv = pluginenv
         self.resources = resources
-        self.interfaces.append(scn_type)
+        self.interfaces.insert(0, scn_type)
         
     def list_plugins(self):
         temp = {}

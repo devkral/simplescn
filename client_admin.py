@@ -54,13 +54,6 @@ class client_admin(object):
         _name,  _certhash = obdict["name"], obdict["hash"]
         return self.hashdb.addhash(_name, _certhash, _type, _priority)
 
-    #def deljusthash(self,_certhash,dheader):
-    #    temp=self.hashdb.delhash(_certhash)
-    #    if temp==True:
-    #        return (True,success
-    #    else:
-    #        return (False,error)
-    
     @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)")})
     def delhash(self, obdict):
         """ delete hash """
@@ -71,11 +64,6 @@ class client_admin(object):
     def changesecurity(self, obdict):
         """ change security level of hash """
         return self.hashdb.changesecurity(obdict["hash"],obdict["security"])
-    
-    #@check_argsdeco({"hash": (str, )}, optional={"security":(str,), "priority":(str,), "type":(str,)})
-    #def updatehash(self, obdict):
-    
-    #    pass
     
     @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "newname": (str, "entity where hash should moved to")})
     def movehash(self, obdict):
@@ -133,7 +121,7 @@ class client_admin(object):
             return False, "hash not exist"
         return self.hashdb.delreference(_tref[4],obdict["reference"])
 
-    @check_argsdeco({"reason": (str, "reason for invalidating cert")})
+    @check_argsdeco({"reason": (str, "reason (=security state) for invalidating cert")})
     def invalidatecert(self, obdict):
         """ invalidate certificate """
         if check_security(obdict.get("reason")) == False or obdict.get("reason") == "valid":
@@ -167,7 +155,7 @@ class client_admin(object):
         self.links["client_server"].cert_hash = dhash(pub_cert)
         self.links["hserver"].shutdown()
         self.links["hserver"].socket.close()
-        print("Keydestruction Success - Please restart process")
+        print("Keydestruction successful - Please restart process")
         sys.exit(0)
         #return True
 
@@ -211,9 +199,9 @@ class client_admin(object):
             self.links["client_server"].update_cache()
             return True
     
-    @check_argsdeco({"activate": (bool, "activate redirect")})
+    @check_argsdeco({"activate": (bool, "activate redirect or deactivate it")})
     def requestredirect(self, obdict):
-        """ request redirect """
+        """ request redirect or deactivate it """
         if obdict.get("activate") == True:
             if None in [obdict.get("clientaddress"), obdict.get("clientcert")]:
                 return False, "Cannot request redirect when clientaddress and/or hash is not available"
@@ -224,10 +212,10 @@ class client_admin(object):
             self.redirect_hash = ""
         return True
     
-    @check_argsdeco({"sourceaddress": (str, "source client address"), "sourcehash": (str, "source client hash"), "entities":(list, "list with entities"), "hashes":(list, "list with hashes")})
+    # TODO: test
+    @check_argsdeco({"sourceaddress": (str, "source client address"), "sourcehash": (str, "source client hash"), "entities":(list, "list with entities to import (recursive), None for all"), "hashes":(list, "list with hashes to import")})
     def massimporter(self, obdict):
         """ import hashes and entities """
-        # NOT TESTET
         #listhashes = obdict.get("hashes")
         listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", clientforcehash=obdict.get("sourcehash"))
         
@@ -235,7 +223,7 @@ class client_admin(object):
         _imp_hash = obdict.get("hashes")
             
         for _name, _hash, _type, _priority, _security, _certreferenceid in listall:
-            if _name not in _imp_ent and _hash not in _imp_hash:
+            if _imp_ent is not None and _name not in _imp_ent and _hash not in _imp_hash:
                 continue
             if self.hashdb.exists(_name) == False:
                 self.hashdb.addentity(_name)

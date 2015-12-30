@@ -1,24 +1,28 @@
 
-
 ###### created by pluginmanager ######
 # specifies the interfaces
-# interfaces
+interfaces = None
 
 # configmanager (see common)
-# config
+config = None
 
 # resources which can be accessed
-# resources
+resources = None
 
 # plugin path
-# proot
+proot = None
 
+# this module
+module = None
+
+# logger
+logger = None
 
 ###### created by pluginmanager end ######
 
 
 # localized name
-lname = {"*": "Test", "de_DE": "Deutsch: Test"}
+lname = {"*": "Test", "de": "Deutsch: Test deutsch", "de_DE": "Deutsch: Test DE"}
 
 # defaults for config (needed)
 defaults={}

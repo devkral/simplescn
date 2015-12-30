@@ -1,12 +1,12 @@
 
 import ssl
-from common import isself, dhash, check_argsdeco, check_args, scnparse_url,EnforcedPortFail, check_updated_certs
+from common import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs
 #logger, check_hash
 
 class client_safe(object):
     
     validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
-    #, "open_pwrequest", "open_notify"} not tested and verified, so remove it for now
+    #, "open_pwrequest", "open_notify"} not tested and verified, so deactivate them
 
     hashdb = None
     links = None
@@ -184,10 +184,9 @@ class client_safe(object):
             return temp
         return self.prioty_direct("{address}-{port}".format(**temp[1]))
 
-    #check if _addr is reachable and update priority
     @check_argsdeco({"address": (str, "node (server/client) url"), "hash": (str, "node certificate hash")})
     def check_direct(self, obdict):
-        """ retrieve priority and type of own client/remote client/server; update own priority/type information """
+        """ for checking if address is reachable; additionally retrieve priority and type of own client/remote client/server; update own priority/type information """
         temp = self.prioty_direct(obdict)
         if temp[0] == False:
             return temp
@@ -318,6 +317,7 @@ class client_safe(object):
         else:
             return False, "auth aborted"
 
+    # result contains result of notify dialog
     @check_argsdeco({"message":(str, "message for notify dialog")}, optional={"requester":(str, "plugin calling notify dialog")})
     def open_notify(self, obdict):
         """ open notify """

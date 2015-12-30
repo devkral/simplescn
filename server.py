@@ -34,8 +34,8 @@ from common import server_port, check_certs, generate_certs, init_config_folder,
 server_broadcast_header = \
 {
 "User-Agent": "simplescn/0.5 (broadcast)",
-"Authorization": 'scn {}', 
-"Connection": 'close' # keep-alive
+"Authorization": 'scn {}'
+#"Connection": 'keep-alive' # keep-alive is set by server
 }
 
 
@@ -325,10 +325,13 @@ class server_handler(BaseHTTPRequestHandler):
     statics = {}
     
     
-    def scn_send_answer(self, status, ob, _type="application/json"):
+    def scn_send_answer(self, status, ob, _type="application/json", docache=False):
         self.send_response(status)
         self.send_header("Content-Length", len(ob))
         self.send_header("Content-Type", "{}; charset=utf-8".format(_type))
+        self.send_header('Connection', 'keep-alive')
+        if docache == False:
+            self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(ob)
         
@@ -491,11 +494,15 @@ class server_handler(BaseHTTPRequestHandler):
             if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
+            self.send_response(200)
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
             try:
                 pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
             except Exception as e:
                 logger().error(e)
-                self.send_error(500, "plugin error", str(e))
+                #self.send_error(500, "plugin error", str(e))
                 return
         elif resource == "usebroken":
             cont = default_sslcont()
@@ -704,7 +711,7 @@ if __name__ == "__main__":
 
         os.makedirs(plugins_config, 0o750, True)
     
-        pluginm = pluginmanager(pluginpathes, plugins_config, "server{}".format(confdb_ending))
+        pluginm = pluginmanager(pluginpathes, plugins_config, "server")
         if server_args["webgui"] is not None:
             pluginm.interfaces+=["web",]
         cm.links["server_server"].pluginmanager = pluginm
