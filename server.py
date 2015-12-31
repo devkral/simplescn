@@ -34,8 +34,8 @@ from common import server_port, check_certs, generate_certs, init_config_folder,
 server_broadcast_header = \
 {
 "User-Agent": "simplescn/0.5 (broadcast)",
-"Authorization": 'scn {}'
-#"Connection": 'keep-alive' # keep-alive is set by server
+"Authorization": 'scn {}',
+"Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
 
 
@@ -595,7 +595,7 @@ class server_init(object):
             _name = readserver.readline().strip().rstrip()
         with open(_spath+"_message.txt", 'r') as readservmessage:
             _message = readservmessage.read()
-        if None in [pub_cert,_name,_message]:
+        if None in [pub_cert, _name, _message]:
             raise(Exception("missing"))
 
         

@@ -47,8 +47,8 @@ def open_notify_plugin(msg, requester=None):
 reference_header = \
 {
 "User-Agent": "simplescn/0.5 (client)",
-"Authorization": 'scn {}'
-#"Connection": 'keep-alive' # keep-alive is set by server
+"Authorization": 'scn {}',
+"Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
 class client_client(client_admin, client_safe, client_config):
     name = None
@@ -277,22 +277,25 @@ class client_client(client_admin, client_safe, client_config):
                     con.sock = self.sslcont.wrap_socket(con.sock)
             else:
                 return None, None, None
-        
+        cert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
+        _hash = dhash(cert)
         con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
         con.putheader("X-certrewrap", self.cert_hash)
         con.putheader("User-Agent", "simplescn/0.5 (client-plugin)")
         if originalcert:
             con.putheader("X-original_cert", originalcert)
         con.endheaders()
-        cert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
-        _hash = dhash(cert)
         con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
-        
-        resp = con.getresponse()
+        # con.send(b"")
+        try:
+            resp = con.getresponse()
+        except socket.timeout:
+            return None, None, None
         #sock = con.sock
         #con.sock = None
         if resp.status != 200:
-            logger().error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, action, resp.status, resp.reason))
+            logger().error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, paction, resp.status, resp.reason))
+            return None, None, None
             
         if _hash != forcehash:
             con.close()
@@ -872,7 +875,10 @@ class client_handler(BaseHTTPRequestHandler):
                 self.connection = cont.wrap_socket(self.connection, server_side=True)
                 #self.connection.getpeercert() # handshake
                 time.sleep(1) # better solution needed
+                # seems to unwrap too much "broken cert test" is unencrypted
                 self.connection = self.connection.unwrap()
+                # helps against too strong unwrap?
+                #self.connection.context = oldsslcont
                 #self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
