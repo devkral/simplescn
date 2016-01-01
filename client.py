@@ -187,8 +187,9 @@ class client_client(client_admin, client_safe, client_config):
         pwcallm = body.get("pwcall_method")
         if pwcallm:
             del body["pwcall_method"]
-        
+
         ob = bytes(json.dumps(body), "utf-8")
+        
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
         if sendclientcert:
@@ -668,6 +669,10 @@ class client_handler(BaseHTTPRequestHandler):
             return
         
         if action in self.links["client_server"].cache:
+            # cleanup stale data
+            if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
+                self.rfile.read(int(self.headers.get("Content-Length")))
+            
             ob = bytes(self.links["client_server"].cache[action], "utf-8")
             self.scn_send_answer(200, ob)
             return
@@ -680,7 +685,7 @@ class client_handler(BaseHTTPRequestHandler):
         if contsize>max_serverrequest_size:
             self.send_error(431, "request too large")
         
-        readob = self.rfile.read(int(self.headers.get("Content-Length")))
+        readob = self.rfile.read(contsize)
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
         obdict = safe_mdecode(readob,self.headers.get("Content-Type", "application/json; charset=utf-8"))
         if obdict is None:
@@ -703,7 +708,7 @@ class client_handler(BaseHTTPRequestHandler):
         
         
         if jsonnized is None:
-            jsonnized = json.dumps(gen_result(generate_error("jsonnized None"), False))
+            jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
             response[0] = False
         if response[0] == False:
             self.send_response(400)

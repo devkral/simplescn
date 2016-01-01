@@ -399,6 +399,10 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         if action in self.links["server_server"].cache:
+            # cleanup stale data
+            if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
+                self.rfile.read(int(self.headers.get("Content-Length")))
+            
             ob = bytes(self.links["server_server"].cache[action], "utf-8")
             self.scn_send_answer(200, ob)
             return
