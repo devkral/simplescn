@@ -329,9 +329,9 @@ class server_handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Length", len(ob))
         self.send_header("Content-Type", "{}; charset=utf-8".format(_type))
-        self.send_header('Connection', 'keep-alive')
         if docache == False:
             self.send_header("Cache-Control", "no-cache")
+            self.send_header('Connection', 'keep-alive')
         self.end_headers()
         self.wfile.write(ob)
         
@@ -348,7 +348,7 @@ class server_handler(BaseHTTPRequestHandler):
         if fullob is None:
             self.send_error(404, "file not found")
         else:
-            self.scn_send_answer(200,  fullob, "text/html")
+            self.scn_send_answer(200, fullob, "text/html", True)
     
     
     def init_scn_stuff(self):
@@ -401,7 +401,8 @@ class server_handler(BaseHTTPRequestHandler):
         if action in self.links["server_server"].cache:
             # cleanup stale data
             if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
-                self.rfile.read(int(self.headers.get("Content-Length")))
+                # protect against big transmissions
+                self.rfile.read(min(2, int(self.headers.get("Content-Length"))))
             
             ob = bytes(self.links["server_server"].cache[action], "utf-8")
             self.scn_send_answer(200, ob)
