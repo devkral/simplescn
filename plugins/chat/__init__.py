@@ -530,7 +530,7 @@ def receive(action, _socket, _cert, certhash):
                     logob.write("rf:{timestamp}:{name},{size}\n".format(name=_name, size=_size, timestamp=timestamp))
             if "gtk" in interfaces:
                 Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, gtk_receive_file, certhash, _name, int(_size), private, timestamp)
-            
+    
 ## executed when redirected, return False, when redirect should not be executed
 # def rreceive(action, _socket, _cert, certhash):
 #     pass

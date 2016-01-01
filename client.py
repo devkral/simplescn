@@ -287,7 +287,6 @@ class client_client(client_admin, client_safe, client_config):
             con.putheader("X-original_cert", originalcert)
         con.endheaders()
         con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
-        # con.send(b"")
         try:
             resp = con.getresponse()
         except socket.timeout:
@@ -297,7 +296,7 @@ class client_client(client_admin, client_safe, client_config):
         if resp.status != 200:
             logger().error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, paction, resp.status, resp.reason))
             return None, None, None
-            
+        
         if _hash != forcehash:
             con.close()
             return None, cert, _hash
@@ -851,6 +850,12 @@ class client_handler(BaseHTTPRequestHandler):
                         ret = True
                     if ret == False:
                         return
+                    self.send_response(200)
+                    self.send_header("Connection", "keep-alive")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    # send if not sent already
+                    self.wfile.flush()
                     sockd = self.links["client"].use_plugin(self.links["client"].redirect_addr, \
                                         plugin, action, forcehash=self.links["client"].redirect_hash, originalcert=self.client_cert)
                     redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
@@ -862,8 +867,12 @@ class client_handler(BaseHTTPRequestHandler):
                     self.send_header("Connection", "keep-alive")
                     self.send_header("Cache-Control", "no-cache")
                     self.end_headers()
+                    # send if not sent already
+                    self.wfile.flush()
                     try:
                         pluginm.plugins[plugin].receive(action, self.connection, self.client_cert, dhash(self.client_cert))
+                        #if self.connection.closed == False:
+                        #    self.connection.close()
                     except Exception as e:
                         logger().error(e)
                         return
