@@ -742,7 +742,7 @@ class pluginmanager(object):
             #init sys pathes
             newenv = self.pluginenv.copy()
             pluginpath = os.path.join(plugin[1], plugin[0])
-            newenv.append(pluginpath)
+            newenv.insert(0,pluginpath)
             pspec.submodule_search_locations = newenv
             #load module
             if not hasattr(pspec.loader, 'exec_module'):
@@ -778,6 +778,7 @@ class pluginmanager(object):
             pload.proot = pluginpath # no copy because it is the only user
             pload.module = pload
             pload.logger = logger
+            pload.sys.path = newenv
             ret = False
             # load plugin init method
             try:
