@@ -104,6 +104,7 @@ very_low_load = (1, 24*60*60)
 ## defaults (most probably no change needed) ##
 default_priority = 20
 default_timeout = 60
+pluginstartfile = "__init__.py"
 
 
 
@@ -697,8 +698,8 @@ class pluginmanager(object):
     interfaces = []
     plugins = {}
     
-    def __init__(self, _pathes_plugins, _path_plugins_config, scn_type, pluginenv = sys.path, resources = {}):
-        self.pluginenv = pluginenv.copy()
+    def __init__(self, _pathes_plugins, _path_plugins_config, scn_type, resources = {}, pluginenv = {}):
+        self.pluginenv = pluginenv
         self.pathes_plugins = _pathes_plugins
         self.path_plugins_config = _path_plugins_config
         self.pluginenv = pluginenv
@@ -708,11 +709,13 @@ class pluginmanager(object):
     def list_plugins(self):
         temp = {}
         for path in self.pathes_plugins:
-            if path in ["__pycache__", ""] or path[0] in " \t\b" or path[-1] in " \t\b":
-                continue
             if os.path.isdir(path) == True:
                 for plugin in os.listdir(path):
-                    temp[plugin] = path
+                    if plugin in ["__pycache__", ""] or plugin[0] in " \t\b" or plugin[-1] in " \t\b":
+                        continue
+                    newpath = os.path.join(path, plugin)
+                    if os.path.isdir(newpath) == True and os.path.isfile(os.path.join(newpath, pluginstartfile)) == True:
+                        temp[plugin] = newpath
         return temp
     
     def plugin_is_active(self, plugin):
@@ -733,68 +736,30 @@ class pluginmanager(object):
             pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
             if pconf.getb("state") == False:
                 continue
-            # path is array with searchpathes
-            pspec = importlib.machinery.PathFinder.find_spec(plugin[0],[plugin[1],])
-            if pspec is None or pspec.loader is None:
-                logger().info("Plugin \"{}\" not loaded\nPath: {}".format(plugin[0],plugin[1]))
-                continue
-
-            #init sys pathes
-            newenv = self.pluginenv.copy()
-            pluginpath = os.path.join(plugin[1], plugin[0])
-            newenv.insert(0,pluginpath)
-            pspec.submodule_search_locations = newenv
-            #load module
-            if not hasattr(pspec.loader, 'exec_module'):
-                pload = pspec.loader.load_module()
-            else:
-                pload = None
-                if hasattr(pspec.loader, 'create_module'):
-                    pload = pspec.loader.create_module(pspec)
-                if pload is None:
-                    pload = ModuleType(pspec.name)
-                try:
-                    pspec.loader.exec_module(pload)
-                except Exception as e:
-                    if "__traceback__" in e.__dict__:
-                        st = "{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
-                    else:
-                        st = str(e)
-                    logger().error("Plugin \"{}\":\n{}".format(plugin[0], st))
-                    continue
-            if "defaults" not in pload.__dict__ or \
-                "init" not in pload.__dict__:
-                continue
+            globalret = self.pluginenv.copy()
+            globalret["__name__"] = plugin[0]
+            #globalret["__package__"] = plugin[0]
+            globalret["__file__"] = os.path.join(plugin[1], pluginstartfile)
+            finobj = None
             try:
-                # no changeable default
-                pload.defaults["state"] = ("False", bool, "is plugin active")
+                with open(os.path.join(plugin[1], pluginstartfile), "r") as readob:
+                    exec(readob.read(), globalret)
+                    # unchangeable default, check that config_defaults is really a dict
+                    if isinstance(globalret.get("config_defaults", None), dict) == False or issubclass(dict, type(globalret["config_defaults"])) == False:
+                        logger().error("global value: config_defaults is no dict/not specified")
+                        continue
+                    globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
+                    pconf.update(globalret["config_defaults"])
+                    finobj = globalret["init"](self.interfaces.copy(), pconf, pluginressources_creater(self.resources, plugin[0]), plugin[1], logger)
             except Exception as e:
-                logger().error("Plugin \"{}\":\ndefaults is a dict?:\n{}".format(plugin[0],e))
-                continue
-            pconf.update(pload.defaults)
-            pload.config = pconf # no copy because it is the only user
-            pload.resources = pluginressources_creater(self.resources, plugin[0]) # no copy because they can change
-            pload.interfaces = self.interfaces.copy() # copy because of isolation
-            pload.proot = pluginpath # no copy because it is the only user
-            pload.module = pload
-            pload.logger = logger
-            pload.sys.path = newenv
-            ret = False
-            # load plugin init method
-            try:
-                # use return False if plugin does not fit
-                ret = pload.init()
-            except Exception as e:
+                st = "Plugin failed to load, reason:\n{}".format(e)
                 if hasattr(e,"tb_frame"):
-                    st = "{}\n\n{}".format(e, traceback.format_tb(e))
-                else:
-                    st = str(e)
+                    st += "\n\n{}".format(traceback.format_tb(e))
                 logger().error(st)
-            # receive is a function to overload, it get connections from handler
-            if ret == True:
-                self.plugins[plugin[0]] = pload
-            else:
-                del pload # delete
+
+                finobj = None
+            if finobj:
+                self.plugins[plugin[0]] = finobj
 
     def register_remote(self, _addr):
         self.redirect_addr = _addr

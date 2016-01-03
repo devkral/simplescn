@@ -4,7 +4,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango, Gio, GLib, GdkPixbuf
 
-import __init__
+from . import __init__
 import os
 import hashlib
 import shutil

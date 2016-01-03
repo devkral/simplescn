@@ -1,80 +1,67 @@
 
-###### created by pluginmanager ######
-# specifies the interfaces
-interfaces = None
 
-# configmanager (see common)
-config = None
-
-# resources which can be accessed
-resources = None
-
-# plugin path
-proot = None
-
-# this module
-module = None
-
-# logger
-logger = None
-
-###### created by pluginmanager end ######
-
-# localized name
-#lname = {"*": "global name", "de": "German name", "de_DE": "German Germany name"}
+###### used by pluginmanager ######
 
 # defaults for config (needed)
-defaults={}
+config_defaults={}
 
-# initialises plugin. Returns False or Exception for not loading  (needed)
-def init():
-    #global gtk_node_iface
-    #global gtk_server_iface
+# interfaces, config, accessable resources (communication with main program), pluginpath, logger
+# return None deactivates plugin
+def init(interfaces, config, resources, proot, logger):
     print("Hello World")
-    return True
+    return sample_test(interfaces, config, resources, proot, logger)
+
+###### used by pluginmanager end ######
 
 
-def sampleaction(gui, url, window, certhash, dheader):
-    print("Hello actions: ", url, gui)
 
-
-def sampleaction_cmd():
-    print("Hello actions world")
-    return "Hello actions world"
+class sample_test(object):
     
-# dict, just shows up in cmd, do localisation in plugin 
-# please don't localise dict keys
-cmd_node_actions={"foo-action": (sampleaction_cmd, "localized description")}
+    def __init__(interfaces, config, resources, proot, logger):
+        self.interfaces, self.config, self.resources, self.proot, self.logger = interfaces, config, resources, proot, logger
+        
+    # localized name
+    #lname = {"*": "global name", "de": "German name", "de_DE": "German Germany name"}
+    
+    # dict, just shows up in cmd, do localisation in plugin 
+    # please don't localise dict keys
+    cmd_node_actions={"foo-action": (self.sampleaction_cmd, "unlocalized description")}
 
-# do it this way
-cmd_node_localized_actions={"Aktion": "foo-action"}
+    # do it this way
+    cmd_node_localized_actions={"Aktion": "foo-action"}
 
-# iterable, for node actions, just shows up in gui, do localization in plugin
-gui_node_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation", \
+    # iterable, for node actions, just shows up in gui, do localization in plugin
+    gui_node_actions=[{"text":"foo-actionname","action": self.sampleaction, "icon":"optionalfoo-iconlocation", \
 "interfaces": ["gtk",], "description": "foo"}, ]
 
-# iterable, for server actions, just shows up in gui, do localization in plugin
-gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation", \
+    # iterable, for server actions, just shows up in gui, do localization in plugin
+    gui_server_actions=[{"text":"foo-actionname","action":self.sampleaction, "icon":"optionalfoo-iconlocation", \
 "interfaces": ["gtk",], "description": "foo"}, ]
 
+    def sampleaction(self, gui, url, window, certhash, dheader):
+        print("Hello actions: ", url, gui)
 
 
+    def sampleaction_cmd(self):
+        print("Hello actions world")
+        return "Hello actions world"
 
-#def gui_server_iface(gui, _name, _hash, _addressfunc):
-#    pass
-#    return widget
 
-#def gui_node_iface(gui, _name, _hash, _addressfunc, _traversefunc):
-#    pass
-#    return widget
+    #def gui_server_iface(self, gui, _name, _hash, _addressfunc):
+    #    pass
+    #    return widget
 
-### uncomment for being accessable by internet
-### client:
-# def receive(action, _socket, _cert, certhash):
-#     pass
-## executed when redirected, return False, when redirect should not be executed
-# def rreceive(action, _socket, _cert, certhash):
-#     pass
-### server:
-# def sreceive(action, _socket, _cert, certhash):
-#     pass
+    #def gui_node_iface(self, gui, _name, _hash, _addressfunc, _traversefunc):
+    #    pass
+    #    return widget
+
+    ### uncomment for being accessable by internet
+    ### client:
+    # def receive(self, action, _socket, _cert, certhash):
+    #     pass
+    ## executed when redirected, return False, when redirect should not be executed
+    # def rreceive(self, action, _socket, _cert, certhash):
+    #     pass
+    ### server:
+    # def sreceive(action, _socket, _cert, certhash):
+    #     pass
