@@ -258,7 +258,10 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         threading.Thread(target=self.pushint, daemon=True).start()
         
     ###logging handling
-    def emit(self, record): 
+    def emit(self, record):
+        Gdk.threads_add_idle(GLib.PRIORITY_HIGH, self._emit, record)
+        
+    def _emit(self, record):
         self.backlog+=[record,]
         if len(self.backlog)>200:
             self.backlog=self.backlog[200:]
