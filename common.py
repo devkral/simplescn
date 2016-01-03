@@ -100,7 +100,7 @@ very_low_load = (1, 24*60*60)
 ## defaults (most probably no change needed) ##
 default_priority = 20
 default_timeout = 60
-pluginstartfile = "__init__.py"
+pluginstartfile = "main.py"
 
 
 
@@ -734,9 +734,15 @@ class pluginmanager(object):
                 continue
             globalret = self.pluginenv.copy()
             globalret["__name__"] = plugin[0]
-            #globalret["__package__"] = plugin[0]
+            globalret["__package__"] = plugin[0]
             globalret["__file__"] = os.path.join(plugin[1], pluginstartfile)
+            
+            if "__path__" not in globalret:
+                globalret["__path__"] = []
+            globalret["__path__"].insert(0, plugin[1])
             finobj = None
+            # hack around strange import system
+            sys.path.insert(0,plugin[1])
             try:
                 with open(os.path.join(plugin[1], pluginstartfile), "r") as readob:
                     exec(readob.read(), globalret)
@@ -754,6 +760,8 @@ class pluginmanager(object):
                 logger().error(st)
 
                 finobj = None
+            # hack around strange import system
+            del sys.path[0]
             if finobj:
                 self.plugins[plugin[0]] = finobj
 

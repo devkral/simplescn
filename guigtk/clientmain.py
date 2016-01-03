@@ -245,16 +245,18 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     def pushint(self):
         time.sleep(5)
         #self.messagecount-=1
+        Gdk.threads_add_idle(GLib.PRIORITY_LOW, self._pushint)
+        
+    
+    def _pushint(self):
         self.statusbar.pop(messageid)
         self.hashstatusbar.pop(messageid)
 
     def pushmanage(self,*args):
         #self.messagecount+=1
         #if self.messagecount>1:
-        self.sb=threading.Thread(target=self.pushint)
-        self.sb.daemon = True
-        self.sb.start()
-
+        threading.Thread(target=self.pushint, daemon=True).start()
+        
     ###logging handling
     def emit(self, record): 
         self.backlog+=[record,]

@@ -277,6 +277,7 @@ class client_client(client_admin, client_safe, client_config):
                             pass
                     con.sock = self.sslcont.wrap_socket(con.sock)
             else:
+                logger().error("connection failed and no traverse address")
                 return None, None, None
         cert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
         _hash = dhash(cert)
@@ -287,10 +288,19 @@ class client_client(client_admin, client_safe, client_config):
             con.putheader("X-original_cert", originalcert)
         con.endheaders()
         con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
+        
+        sock = con.sock
         try:
-            resp = con.getresponse()
+            # kills connection
+            #resp = con.getresponse()
+            # so do manually
+            resp = client.HTTPResponse(con.sock, con.debuglevel, method=con._method)
+            resp.begin()
         except socket.timeout:
+            logger().error("timeout connection")
             return None, None, None
+        # set to None before connection can destroy socket
+        con.sock = None
         #sock = con.sock
         #con.sock = None
         if resp.status != 200:
@@ -300,8 +310,6 @@ class client_client(client_admin, client_safe, client_config):
         if _hash != forcehash:
             con.close()
             return None, cert, _hash
-        sock = con.sock
-        con.sock = None
         #sock = sock.unwrap()
         return sock, cert, _hash
         
