@@ -32,10 +32,7 @@ if sharedir not in sys.path:
 #if platform.python_implementation()=="PyPy":
 #    sys.path+=['', '/usr/lib/python34.zip', '/usr/lib/python3.4', '/usr/lib/python3.4/plat-linux', '/usr/lib/python3.4/lib-dynload', '/usr/lib/python3.4/site-packages', '/usr/lib/site-python']
 
-import importlib
-# import extra
 import ipaddress
-import importlib.machinery
 from types import ModuleType # needed for ModuleType
 from getpass import getpass
 
