@@ -353,7 +353,6 @@ class server_handler(BaseHTTPRequestHandler):
     
     def init_scn_stuff(self):
         useragent = self.headers.get("User-Agent", "")
-        #print(useragent)
         if "simplescn" in useragent:
             self.error_message_format = "%(code)d: %(message)s – %(explain)s"
         _auth = self.headers.get("Authorization", 'scn {}')

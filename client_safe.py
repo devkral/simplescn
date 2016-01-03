@@ -86,10 +86,10 @@ class client_safe(object):
         return _tservices[0], {"items": out, "map":["name", "port"]}, _tservices[2], _tservices[3]
     
     @check_argsdeco({"server": (str, ), "name": (str, ), "hash": (str, )})
-    def get(self,obdict):
+    def get(self, obdict):
         """ fetch client address """
         #obdict["forcehash"] = obdict["hash"]
-        _getret = self.do_request(obdict["server"],"/server/get", body={"pwcall_method":obdict.get("pwcall_method")},headers=obdict.get("headers"))
+        _getret = self.do_request(obdict["server"],"/server/get", body={"pwcall_method":obdict.get("pwcall_method"), "hash":obdict.get("hash"), "name":obdict.get("name")},headers=obdict.get("headers"))
         if _getret[0] == False or check_args(_getret[1], {"address": (str,), "port": (int,)}) == False:
             return _getret
         if _getret[1].get("port", 0) < 1:

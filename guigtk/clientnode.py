@@ -446,7 +446,6 @@ class gtkclient_node(gtkclient_template):
         
         _check = self.do_requestdo("check", server=self.get_address(), name=_name, hash=_hash)
         if _check[0] == False:
-            
             return
         
         _node = self.do_requestdo("get", server=self.get_address(), name=_name, hash=_hash)
