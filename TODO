@@ -2,9 +2,15 @@
 ## Alpha
 * tests
 * windows compatibility
+* fix use_broken (decrypts stream with unwrapping socket)
+
+## Alpha 2
+* enable remote pw and notify dialogs (need tests), detached clients
+
+## Beta
+* stabilize
 
 ## Future
 * announce client/server
 * filesockets
-* enable remote pw and notify dialogs (need tests), detached clients
 * pwhandling for plugins
