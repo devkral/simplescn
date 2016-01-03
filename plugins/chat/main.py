@@ -17,7 +17,7 @@ from threading import Lock
 ###### used by pluginmanager ######
 
 # defaults for config (needed)
-config_defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": ["400", int, "max image size in KB"], "maxsizetext": ["4000", int, "max size text"]}
+config_defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": ["4000", int, "max image size in KB"], "maxsizetext": ["4000", int, "max size text in B"]}
 
 # interfaces, config, accessable resources (communication with main program), pluginpath, logger
 # return None deactivates plugin
@@ -173,7 +173,7 @@ class chat_plugin(object):
                         logob.write("rt:{timestamp}:{text}\n".format(timestamp=timestamp, text=_text.replace("\n", "\\n").replace("\r", "\\r")))
                         # improve
                 if "gtk" in self.interfaces and gtkstuff is not None:
-                    gtkstuff.Gdk.threads_add_idle(gtkstuff.GLib.PRIORITY_DEFAULT, self.gui.gtk_receive_text, certhash, _text, private, timestamp)
+                    self.gui.gtk_receive_text(certhash, _text, private, timestamp)
             elif action == "send_img":
                 _size = int(_rest)
                 if _size > self.config.get("maxsizeimg")*1024:
@@ -196,14 +196,14 @@ class chat_plugin(object):
                         logob.write("ri:{timestamp}:{name}\n".format(timestamp=timestamp, name=_imgname))
             
                 if "gtk" in self.interfaces and gtkstuff is not None:
-                    gtkstuff.Gdk.threads_add_idle(gtkstuff.GLib.PRIORITY_DEFAULT, self.gui.gtk_receive_img, certhash, _img, private, timestamp)
+                    self.gui.gtk_receive_img(certhash, _img, private, timestamp)
             elif action == "send_file":
                 _name, _size = _rest.split("/", 1)
                 if private == False:
                     with open (os.path.join(os.path.expanduser(self.config.get("chatdir")), certhash, "log.txt"), "a") as logob:
                         logob.write("rf:{timestamp}:{name},{size}\n".format(name=_name, size=_size, timestamp=timestamp))
                 if "gtk" in self.interfaces and gtkstuff is not None:
-                    gtkstuff.Gdk.threads_add_idle(gtkstuff.GLib.PRIORITY_DEFAULT, self.gui.gtk_receive_file, certhash, _name, int(_size), private, timestamp)
+                    self.gui.gtk_receive_file(certhash, _name, int(_size), private, timestamp)
     
     ## executed when redirected, return False, when redirect should not be executed
     # def rreceive(self, action, _socket, _cert, certhash):

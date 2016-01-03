@@ -6,6 +6,7 @@ from gi.repository import Gtk, Gdk, Pango, Gio, GLib, GdkPixbuf
 
 from main import create_timestamp, parse_timestamp, unparse_timestamp
 
+import threading
 import os
 import hashlib
 import shutil
@@ -13,11 +14,19 @@ import shutil
 def myListBoxCreateWidgetFunc(item, **userdata):
     return item
 
+    
+
 class gtkstuff(object):
     parent = None
     def __init__(self, parent):
         self.parent = parent
-
+    
+    def glist_add_certhash(self, certhash, func, *args):
+        Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, self._glist_add_certhash, certhash, func, *args)
+    def _glist_add_certhash(self, certhash, func, *args):
+        self.parent.chatbuf[certhash].append(func(*args))
+        
+        
     def gtk_create_textob(self, _text, isowner, isprivate, timestamp):
         timest = timestamp.strftime("%Y.%m.%d %H:%M:%S")
         ret = Gtk.Label(_text, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, selectable=True)
@@ -128,7 +137,8 @@ class gtkstuff(object):
             sock.sendall(_textb)
             sock.close()
             _textwidget.set_text("")
-            self.parent.chatbuf[certhash].append(self.gtk_create_textob(_text, True, self.parent.private_state.get(certhash, False), parse_timestamp(_timestamp)))
+            self.glist_add_certhash(certhash, self.gtk_create_textob, _text, True, self.parent.private_state.get(certhash, False), parse_timestamp(_timestamp))
+            #self.parent.chatbuf[certhash].append(self.gtk_create_textob(_text, True, self.parent.private_state.get(certhash, False), parse_timestamp(_timestamp)))
 
     def gtk_send_file(self, widget, _addressfunc, _traversefunc, window, certhash):
         with self.parent.chatlock[certhash]:
@@ -150,7 +160,8 @@ class gtkstuff(object):
                 timestamp = create_timestamp()
                 with open(os.path.join(os.path.expanduser(self.parent.config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
                     wrio.write("of:{timestamp}:{},{}\n".format(_newname, _size, timestamp=timestamp))
-            self.parent.chatbuf[certhash].append(self.gtk_create_fileob(_addressfunc, _traversefunc, certhash, _newname, _size, True, self.parent.private_state.get(certhash, False), parse_timestamp(timestamp)))
+            self.glist_add_certhash(certhash, self.gtk_create_fileob, _addressfunc, _traversefunc, certhash, _newname, _size, True, self.parent.private_state.get(certhash, False), parse_timestamp(timestamp))
+            #self.parent.chatbuf[certhash].append(self.gtk_create_fileob(_addressfunc, _traversefunc, certhash, _newname, _size, True, self.parent.private_state.get(certhash, False), parse_timestamp(timestamp)))
             sock, _cert, _hash = self.parent.request(_addressfunc(), certhash, "send_file","/{name}/{size}".format(name=_newname, size=_size), _traversefunc())
             if sock is None:
                 self.parent.logger().error("Cannot connect/other error")
@@ -199,7 +210,8 @@ class gtkstuff(object):
                     
                 with open(os.path.join(os.path.expanduser(self.parent.config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
                     wrio.write("oi:{timestamp}:{}\n".format(_imgname, timestamp=timest))
-            self.parent.chatbuf[certhash].append(self.gtk_create_imageob(newimg, True, self.parent.private_state.get(certhash, False), parse_timestamp(timest)))
+            self.glist_add_certhash(certhash, self.gtk_create_imageob, newimg, True, self.parent.private_state.get(certhash, False), parse_timestamp(timest))
+            #self.parent.chatbuf[certhash].append(self.gtk_create_imageob(newimg, True, self.parent.private_state.get(certhash, False), parse_timestamp(timest)))
             
 
     def gtk_node_iface(self, _name, certhash, _addressfunc, _traversefunc, window):
@@ -225,8 +237,8 @@ class gtkstuff(object):
         if certhash not in self.parent.chatbuf:
             self.parent.chatbuf[certhash] = Gio.ListStore()
             #init_async( certhash, _addressfunc)
-            Gdk.threads_add_idle(GLib.PRIORITY_LOW, self.init_async, certhash, _addressfunc, _traversefunc)
-        
+            #Gdk.threads_add_idle(GLib.PRIORITY_LOW, self.init_async, certhash, _addressfunc, _traversefunc)
+            threading.Thread(target=self.init_async, args=(certhash, _addressfunc, _traversefunc), daemon=True).start()
             # broken so use own function to workaround
             #clist.bind_model(chatbuf[certhash], Gtk.ListBoxCreateWidgetFunc)
         clist.bind_model(self.parent.chatbuf[certhash], myListBoxCreateWidgetFunc)
@@ -246,9 +258,11 @@ class gtkstuff(object):
                             line = line[:-1]
                         _type, timestamp, _rest = line.split(":", 2)
                         if _type == "ot":
-                            self.parent.chatbuf[certhash].append(self.gtk_create_textob(_rest, True, False, parse_timestamp(timestamp)))
+                            self.glist_add_certhash(certhash, self.gtk_create_textob, _rest, True, False, parse_timestamp(timestamp))
+                            #self.parent.chatbuf[certhash].append(self.gtk_create_textob(_rest, True, False, parse_timestamp(timestamp)))
                         elif _type == "rt":
-                            self.parent.chatbuf[certhash].append(self.gtk_create_textob(_rest, False, False, parse_timestamp(timestamp)))
+                            self.glist_add_certhash(certhash, self.gtk_create_textob, _rest, False, False, parse_timestamp(timestamp))
+                            #self.parent.chatbuf[certhash].append(self.gtk_create_textob(_rest, False, False, parse_timestamp(timestamp)))
                         elif _type == "oi":
                             _imgpath = os.path.join(os.path.expanduser(self.parent.config.get("chatdir")), certhash, "images", _rest)
                             try:
@@ -258,7 +272,8 @@ class gtkstuff(object):
                                         newimg.write(rob.read())
                                         newimg.close()
                                         newimg = newimg.get_pixbuf()
-                                        chatbuf[certhash].append(self.gtk_create_imageob(newimg, True, False, parse_timestamp(timestamp)))
+                                        self.glist_add_certhash(certhash, self.gtk_create_imageob, newimg, True, False, parse_timestamp(timestamp))
+                                        #self.parent.chatbuf[certhash].append(self.gtk_create_imageob(newimg, True, False, parse_timestamp(timestamp)))
                                 else:
                                     self.parent.logger().debug("path: {} does not exist anymore".format(_imgpath))
                             except Exception as e:
@@ -272,7 +287,8 @@ class gtkstuff(object):
                                         newimg.write(rob.read())
                                         newimg.close()
                                         newimg = newimg.get_pixbuf()
-                                        self.parent.chatbuf[certhash].append(self.gtk_create_imageob(newimg, False, False, parse_timestamp(timestamp)))
+                                        self.glist_add_certhash(certhash, self.gtk_create_imageob, newimg, False, False, parse_timestamp(timestamp))
+                                        #self.parent.chatbuf[certhash].append(self.gtk_create_imageob(newimg, False, False, parse_timestamp(timestamp)))
                                 else:
                                     self.parent.logger().debug("path: {} does not exist anymore".format(_imgpath))
                             except Exception as e:
@@ -280,18 +296,20 @@ class gtkstuff(object):
                         elif _type == "of":
                             _name, _size = _rest.rsplit(",", 1)
                             # autoclean
-                            self.parent.chatbuf[certhash].append(self.gtk_create_fileob(_addressfunc, _traversefunc, certhash, _name, int(_size), True, False, parse_timestamp(timestamp)))
+                            self.glist_add_certhash(certhash, self.gtk_create_fileob, _addressfunc, _traversefunc, certhash, _name, int(_size), True, False, parse_timestamp(timestamp))
+                            #self.parent.chatbuf[certhash].append(self.gtk_create_fileob(_addressfunc, _traversefunc, certhash, _name, int(_size), True, False, parse_timestamp(timestamp)))
                         elif _type == "rf":
                             _name, _size = _rest.rsplit(",", 1)
-                            self.parent.chatbuf[certhash].append(self.gtk_create_fileob(_addressfunc, _traversefunc, certhash, _name, int(_size), False, False, parse_timestamp(timestamp)))
+                            self.glist_add_certhash(certhash, self.gtk_create_fileob, _addressfunc, _traversefunc, certhash, _name, int(_size), False, False, parse_timestamp(timestamp))
+                            #self.parent.chatbuf[certhash].append(self.gtk_create_fileob(_addressfunc, _traversefunc, certhash, _name, int(_size), False, False, parse_timestamp(timestamp)))
                         
             except FileNotFoundError:
                 pass
         
 
     def gtk_receive_text(self, certhash, _text, _private, timestamp):
-        self.parent.chatbuf[certhash].append(self.gtk_create_textob(_text, False, _private, parse_timestamp(timestamp)))
-        return False # for not beeing readded (threads_add_idle)
+        self.glist_add_certhash(certhash, self.gtk_create_textob, _text, False, _private, parse_timestamp(timestamp))
+        return False # for not beeing read (threads_add_idle)
 
 
     def gtk_receive_img(self, certhash, img, private, timestamp):
@@ -299,12 +317,12 @@ class gtkstuff(object):
         newimg.write(img)
         newimg.close()
         newimg = newimg.get_pixbuf()
-        self.parent.chatbuf[certhash].append(self.gtk_create_imageob(newimg, False, private, parse_timestamp(timestamp)))
-        return False # for not beeing readded (threads_add_idle)
+        self.glist_add_certhash(certhash, self.gtk_create_imageob, newimg, False, private, parse_timestamp(timestamp))
+        return False # for not beeing read (threads_add_idle)
 
     def gtk_receive_file(self, certhash, filename, size, private, timestamp):
         if certhash not in self.parent.chaturl:
             return
-        self.parent.chatbuf[certhash].append(self.gtk_create_fileob(self.parent.chaturl[certhash][0], self.parent.chaturl[certhash][1], certhash, filename, size, False, private, parse_timestamp(timestamp)))
-        return False # for not beeing readded (threads_add_idle)
+        self.glist_add_certhash(certhash, self.gtk_create_fileob, self.parent.chaturl[certhash][0], self.parent.chaturl[certhash][1], certhash, filename, size, False, private, parse_timestamp(timestamp))
+        return False # for not beeing read (threads_add_idle)
 
