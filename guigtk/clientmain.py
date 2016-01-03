@@ -919,7 +919,10 @@ class gtkclient_init(client.client_init):
 def do_gtkiteration():
     
     logger().debug("enter mainloop")
-    GLib.threads_init()
+    # needed? https://developer.gnome.org/glib/stable/glib-Deprecated-Thread-APIs.html
+    # threadsubsystem seems to be initialized automatically
+    #GLib.threads_init()
     #Gtk.main()
-    while run==True:
+    while run == True:
         Gtk.main_iteration_do(True)
+    

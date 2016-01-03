@@ -53,6 +53,7 @@ def signal_handler(*args):
     #global run
     #win.close()
     clientmain.run = False
+    sys.exit(0)
     #app.close()
 
 
