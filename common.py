@@ -33,7 +33,6 @@ if sharedir not in sys.path:
 #    sys.path+=['', '/usr/lib/python34.zip', '/usr/lib/python3.4', '/usr/lib/python3.4/plat-linux', '/usr/lib/python3.4/lib-dynload', '/usr/lib/python3.4/site-packages', '/usr/lib/site-python']
 
 import ipaddress
-from types import ModuleType # needed for ModuleType
 from getpass import getpass
 
 import logging
