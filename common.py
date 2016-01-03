@@ -733,7 +733,7 @@ class pluginmanager(object):
             if pconf.getb("state") == False:
                 continue
             globalret = self.pluginenv.copy()
-            globalret["__name__"] = plugin[0]
+            globalret["__name__"] = pluginstartfile #plugin[0]
             #globalret["__package__"] = plugin[0]
             globalret["__file__"] = os.path.join(plugin[1], pluginstartfile)
             
