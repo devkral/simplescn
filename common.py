@@ -734,7 +734,7 @@ class pluginmanager(object):
                 continue
             globalret = self.pluginenv.copy()
             globalret["__name__"] = plugin[0]
-            globalret["__package__"] = plugin[0]
+            #globalret["__package__"] = plugin[0]
             globalret["__file__"] = os.path.join(plugin[1], pluginstartfile)
             
             if "__path__" not in globalret:
