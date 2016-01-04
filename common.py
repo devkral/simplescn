@@ -1060,23 +1060,28 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=Non
     cont = default_sslcont()
     con = HTTPSConnection(_address, _port, timeout=timeout, context=cont)
     con.connect()
-    if newhash and newhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
+    oldhash = dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip())
+    if newhash and newhash != oldhash:
         return None
+    oldsslcont = con.sock.context
     for _hash, _security in certhashlist:
         con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
         
-        #con.sock = con.sock.unwrap()
+        con.sock = con.sock.unwrap()
         con.sock = cont.wrap_socket(con.sock, server_side=False)
         con.sock.do_handshake()
         brokensslcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
         con.sock = con.sock.unwrap()
-        #con.sock = cont.wrap_socket(con.sock, server_side=False)
+        # without next line the connection would be unencrypted now
+        con.sock = oldsslcont.wrap_socket(con.sock, server_side=False)
         
         ret = con.getresponse()
+        if oldhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
+            logger().error("certificate exchanged, break")
+            break
         if ret.status != 200:
             logger().info(ret.status, ret.closed)
             continue
-        #TODO: keep-alive is ignored
         if dhash(brokensslcert) == _hash:
             update_list.append((_hash, _security))
         

@@ -193,6 +193,12 @@ class client_client(client_admin, client_safe, client_config):
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
         if sendclientcert:
+            #servercerthash = con.sock.read(1)
+            #while servercerthash[-1] != b";":
+            #    servercerthash += con.sock.read(1)
+            #servercerthash = str(servercerthash[-1], "utf-8")
+            #if servercerthash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
+            #    return False, "certificate exchanged", _certtupel[0], _certtupel[1]
             #con.sock = con.sock.unwrap()
             con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
         con.send(ob)
@@ -287,6 +293,13 @@ class client_client(client_admin, client_safe, client_config):
         if originalcert:
             con.putheader("X-original_cert", originalcert)
         con.endheaders()
+        #servercerthash = con.sock.read(1)
+        #while servercerthash[-1] != b";":
+        #    servercerthash += con.sock.read(1)
+        #servercerthash = str(servercerthash[-1], "utf-8")
+        #if servercerthash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
+        #    return None, None, None
+        #con.sock = con.sock.unwrap()
         con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
         
         sock = con.sock
@@ -571,6 +584,7 @@ class client_handler(BaseHTTPRequestHandler):
     handle_remote = False
     statics = {}
     webgui = False
+    alreadyrewrapped = False
     
     def scn_send_answer(self, status, ob, _type="application/json", docache=False):
         self.send_response(status)
@@ -793,8 +807,13 @@ class client_handler(BaseHTTPRequestHandler):
         _origcert = self.headers.get("X-original_cert")
         if _rewrapcert is not None:
             cont = self.connection.context
+            # send out of band hash
+            #self.connection.send(bytes(self.links["server_server"].client+";", "utf-8"))
+            # wrap tcp socket, not ssl socket
             #self.connection = self.connection.unwrap()
-            self.connection = cont.wrap_socket(self.connection, server_side=False)
+            if self.alreadyrewrapped == False:
+                self.connection = cont.wrap_socket(self.connection, server_side=False)
+                self.alreadyrewrapped = True
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
             if _rewrapcert != dhash(self.client_cert):
                 return False
@@ -884,38 +903,38 @@ class client_handler(BaseHTTPRequestHandler):
                     except Exception as e:
                         logger().error(e)
                         return
-        # for invalidating and updating, DON'T USE connection afterward
+        # for invalidating and updating, don't use connection afterwards 
         elif resource == "usebroken":
             cont = default_sslcont()
             certfpath = os.path.join(self.links["config_root"], "broken", sub)
             if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
                 cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
-                #self.end_headers()
-                
                 oldsslcont = self.connection.context
                 
-                #self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=True)
-                #self.connection.getpeercert() # handshake
-                time.sleep(1) # better solution needed
-                # seems to unwrap too much "broken cert test" is unencrypted
                 self.connection = self.connection.unwrap()
-                # helps against too strong unwrap?
-                #self.connection.context = oldsslcont
-                #self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+                self.connection = cont.wrap_socket(self.connection, server_side=True)
+                self.connection = self.connection.unwrap()
+                # without next line the connection would be unencrypted now
+                #self.connection.context(oldsslcont)
+                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
                 
-                #self.wfile.write(b"test")
                 self.send_response(200, "broken cert test")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header('Connection', 'keep-alive')
                 self.end_headers()
                 
             else:
                 oldsslcont = self.connection.context
-                #self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                #time.sleep(1) self.connection.getpeercert() # handshake
+                
                 self.connection = self.connection.unwrap()
+                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+                #time.sleep(1) # better solution needed
+                self.connection = self.connection.unwrap()
+                # without next line the connection would be unencrypted now
+                #self.connection.context(oldsslcont)
+                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
                 self.send_error(404, "broken cert not found")

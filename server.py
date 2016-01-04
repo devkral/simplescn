@@ -323,6 +323,7 @@ class server_handler(BaseHTTPRequestHandler):
     
     auth_info = None
     statics = {}
+    alreadyrewrapped = False
     
     
     def scn_send_answer(self, status, ob, _type="application/json", docache=False):
@@ -373,9 +374,16 @@ class server_handler(BaseHTTPRequestHandler):
         _rewrapcert = self.headers.get("X-certrewrap")
         if _rewrapcert is not None:
             cont = self.connection.context
+            ## send out of band hash
+            ##self.connection.send(bytes(self.links["server_server"].cert_hash+";", "utf-8"))
+            # wrap tcp socket, not ssl socket
             #self.connection = self.connection.unwrap()
-            self.connection = cont.wrap_socket(self.connection, server_side=False)
+            if self.alreadyrewrapped == False:
+                self.connection = cont.wrap_socket(self.connection, server_side=False)
+                self.alreadyrewrapped = True
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
+            #self.connection = self.connection.unwrap()
+            #cont.wrap_socket(self.connection, server_side=True)
             if _rewrapcert != dhash(self.client_cert):
                 return False
             #self.rfile.close()
@@ -508,35 +516,38 @@ class server_handler(BaseHTTPRequestHandler):
                 logger().error(e)
                 #self.send_error(500, "plugin error", str(e))
                 return
+        # for invalidating and updating, don't use connection afterwards
         elif resource == "usebroken":
             cont = default_sslcont()
             certfpath = os.path.join(self.links["config_root"], "broken", sub)
             if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
                 cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
-                #self.end_headers()
-                
                 oldsslcont = self.connection.context
                 
-                #self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=True)
-                
-                time.sleep(1)
-                #self.connection.getpeercert() # handshake
                 self.connection = self.connection.unwrap()
-                #self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+                self.connection = cont.wrap_socket(self.connection, server_side=True)
+                #time.sleep(1) # better solution needed
+                self.connection = self.connection.unwrap()
+                # without next line the connection would be unencrypted now
+                #self.connection.context(oldsslcont)
+                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
                 
-                #self.wfile.write(b"test")
                 self.send_response(200, "broken cert test")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header('Connection', 'keep-alive')
                 self.end_headers()
                 
             else:
                 oldsslcont = self.connection.context
-                #self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                #time.sleep(1) self.connection.getpeercert() 
                 self.connection = self.connection.unwrap()
+                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+                #time.sleep(1) # better solution needed
+                self.connection = self.connection.unwrap()
+                # without next line the connection would be unencrypted now
+                #self.connection.context(oldsslcont)
+                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
                 self.send_error(404, "broken cert not found")
