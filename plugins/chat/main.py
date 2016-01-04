@@ -4,9 +4,7 @@ import sys
 try:
     import gtkstuff
 except ImportError as e:
-    print(e)
-    print(sys.path)
-    print(__path__)
+    logger().debug(e)
     gtkstuff = None
 import datetime
 import os.path
