@@ -59,6 +59,7 @@ from http.client import HTTPSConnection
 
 ## sizes ##
 salt_size = 10
+token_size = salt_size
 key_size = 4096
 # size of chunks (only in use by rw_socket?)
 default_buffer_size = 1400
@@ -1115,7 +1116,7 @@ class commonscn(object):
             self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
 
 def create_certhashheader(certhash):
-    _random = dhash(os.urandom(salt_size))
+    _random = str(base64.urlsafe_b64encode(os.urandom(token_size)), "utf-8")
     return "{};{}".format(certhash, _random), _random
 
 
