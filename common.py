@@ -1074,14 +1074,14 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=Non
         con.sock = con.sock.unwrap()
         # without next line the connection would be unencrypted now
         con.sock = oldsslcont.wrap_socket(con.sock, server_side=False)
-        
+        #con.sock.do_handshake()
         ret = con.getresponse()
-        if oldhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
-            logger().error("certificate exchanged, break")
-            break
         if ret.status != 200:
-            logger().info(ret.status, ret.closed)
+            logger().info("checking cert failed, code: {}, reason: {}".format(ret.status, ret.reason))
             continue
+        if con.sock and oldhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
+            logger().error("certificateexchange detected, stop checking ")
+            break
         if dhash(brokensslcert) == _hash:
             update_list.append((_hash, _security))
         
@@ -1114,6 +1114,9 @@ class commonscn(object):
             self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
             self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
 
+def create_certhashheader(certhash):
+    _random = dhash(os.urandom(salt_size))
+    return "{};{}".format(certhash, _random), _random
 
 
 def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):

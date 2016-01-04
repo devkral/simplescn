@@ -33,7 +33,7 @@ import time
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader
 #VALMITMError
 
 from common import logger
@@ -123,7 +123,7 @@ class client_client(client_admin, client_safe, client_config):
             sendheaders[key] = value
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
         if sendclientcert:
-            sendheaders["X-certrewrap"] = self.cert_hash
+            sendheaders["X-certrewrap"], _random = create_certhashheader(self.cert_hash)
         
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             _addr = scnparse_url(_addr_or_con,force_port=forceport)
@@ -193,13 +193,7 @@ class client_client(client_admin, client_safe, client_config):
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
         if sendclientcert:
-            #servercerthash = con.sock.read(1)
-            #while servercerthash[-1] != b";":
-            #    servercerthash += con.sock.read(1)
-            #servercerthash = str(servercerthash[-1], "utf-8")
-            #if servercerthash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
-            #    return False, "certificate exchanged", _certtupel[0], _certtupel[1]
-            #con.sock = con.sock.unwrap()
+            con.sock = con.sock.unwrap()
             con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
         con.send(ob)
         
@@ -233,7 +227,7 @@ class client_client(client_admin, client_safe, client_config):
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n",  ""))
             return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, _reauthcount=_reauthcount)
         else:
-            if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
+            if response.getheader("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
                 return False, "No content length", _certtupel[0], _certtupel[1]
             readob = response.read(int(response.getheader("Content-Length")))
@@ -242,13 +236,17 @@ class client_client(client_admin, client_safe, client_config):
             con.close()
             if response.status == 200:
                 status = True
+                if sendclientcert:
+                    if _random != response.getheader("X-certrewrap", ""):
+                        return False, "rewrapped cert secret does not match", _certtupel[0], _certtupel[1]
+        
             else:
                 status = False
             
-            if response.headers.get("Content-Type").split(";")[0].strip().rstrip() in ["text/plain","text/html"]:
+            if response.getheader("Content-Type").split(";")[0].strip().rstrip() in ["text/plain","text/html"]:
                 obdict = gen_result(str(readob, "utf-8"), status)
             else:
-                obdict = safe_mdecode(readob, response.headers.get("Content-Type", "application/json"))
+                obdict = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
             if check_result(obdict, status) == False:
                 return False, "error parsing request\n{}".format(readob), _certtupel[0], _certtupel[1]
             
@@ -256,7 +254,9 @@ class client_client(client_admin, client_safe, client_config):
                 return status, obdict["result"], _certtupel[0], _certtupel[1]
             else:
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
-    
+
+
+
     def use_plugin(self, address, plugin, paction, forcehash=None, originalcert=None, forceport=False, requester=None, traverseserveraddr=None):
         """ use this method to communicate with plugins """
         _addr = scnparse_url(address, force_port=forceport)
@@ -288,7 +288,8 @@ class client_client(client_admin, client_safe, client_config):
         cert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
         _hash = dhash(cert)
         con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
-        con.putheader("X-certrewrap", self.cert_hash)
+        _certheader, _random = create_certhashheader(self.cert_hash)
+        con.putheader("X-certrewrap", _certheader)
         con.putheader("User-Agent", "simplescn/0.5 (client-plugin)")
         if originalcert:
             con.putheader("X-original_cert", originalcert)
@@ -319,11 +320,13 @@ class client_client(client_admin, client_safe, client_config):
         if resp.status != 200:
             logger().error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, paction, resp.status, resp.reason))
             return None, None, None
-        
         if _hash != forcehash:
             con.close()
             return None, cert, _hash
-        #sock = sock.unwrap()
+        if _random != resp.getheader("X-certrewrap", ""):
+            logger().error("rewrapped cert secret does not match")
+            con.close()
+            return None, cert, _hash
         return sock, cert, _hash
         
     @check_argsdeco({"plugin": (str, "name of plugin"), "paction": (str, "action of plugin")})
@@ -593,6 +596,8 @@ class client_handler(BaseHTTPRequestHandler):
         if docache == False:
             self.send_header("Cache-Control", "no-cache")
             self.send_header('Connection', 'keep-alive')
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
         self.end_headers()
         self.wfile.write(ob)
     
@@ -675,6 +680,8 @@ class client_handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', "application/json; charset=utf-8")
         self.send_header('Content-Length', str(len(ob)))
         self.send_header('Connection', 'keep-alive')
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
         self.end_headers()
         self.wfile.write(ob)
 
@@ -741,6 +748,8 @@ class client_handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', "application/json; charset=utf-8")
         self.send_header('Content-Length', len(ob))
         self.send_header('Connection', 'keep-alive')
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
         self.end_headers()
         self.wfile.write(ob)
     
@@ -809,13 +818,13 @@ class client_handler(BaseHTTPRequestHandler):
             cont = self.connection.context
             # send out of band hash
             #self.connection.send(bytes(self.links["server_server"].client+";", "utf-8"))
-            # wrap tcp socket, not ssl socket
-            #self.connection = self.connection.unwrap()
             if self.alreadyrewrapped == False:
+                # wrap tcp socket, not ssl socket
+                self.connection = self.connection.unwrap()
                 self.connection = cont.wrap_socket(self.connection, server_side=False)
                 self.alreadyrewrapped = True
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
-            if _rewrapcert != dhash(self.client_cert):
+            if _rewrapcert.split(";")[0] != dhash(self.client_cert):
                 return False
             if _origcert:
                 if _rewrapcert == self.links.get("trusted_certhash"):
@@ -880,6 +889,8 @@ class client_handler(BaseHTTPRequestHandler):
                     self.send_response(200)
                     self.send_header("Connection", "keep-alive")
                     self.send_header("Cache-Control", "no-cache")
+                    if self.headers.get("X-certrewrap") is not None:
+                        self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
                     self.end_headers()
                     # send if not sent already
                     self.wfile.flush()
@@ -893,6 +904,8 @@ class client_handler(BaseHTTPRequestHandler):
                     self.send_response(200)
                     self.send_header("Connection", "keep-alive")
                     self.send_header("Cache-Control", "no-cache")
+                    if self.headers.get("X-certrewrap") is not None:
+                        self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
                     self.end_headers()
                     # send if not sent already
                     self.wfile.flush()
@@ -923,6 +936,8 @@ class client_handler(BaseHTTPRequestHandler):
                 self.send_response(200, "broken cert test")
                 self.send_header("Cache-Control", "no-cache")
                 self.send_header('Connection', 'keep-alive')
+                if self.headers.get("X-certrewrap") is not None:
+                    self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
                 self.end_headers()
                 
             else:

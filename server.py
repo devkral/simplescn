@@ -28,7 +28,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader
 #configmanager,, rw_socket
 
 server_broadcast_header = \
@@ -39,22 +39,6 @@ server_broadcast_header = \
 }
 
 
-def broadcast_helper(_addr, _path, payload, _certhash, _timeout):
-    try:
-        con = HTTPSConnection(_addr,  timeout=_timeout)
-        con.connect()
-        pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
-        hashpcert = dhash(pcert)
-        if hashpcert != _certhash:
-            return
-        _headers = server_broadcast_header.copy()
-        _headers["X-client_cert"] = pcert
-        con.request("POST", _path, body=payload, headers=_headers)
-        con.close()
-    except socket.timeout:
-        pass
-    except Exception as e:
-        logger().debug(e)
         
 class server(commonscn):
     capabilities = ["basic",]
@@ -64,6 +48,7 @@ class server(commonscn):
     cert_hash = None
     scn_type = "server"
     traverse = None
+    links = None
     
     # explicitly allowed, note: server plugin can activate
     # this by their own version of this variable
@@ -102,6 +87,7 @@ class server(commonscn):
         self.cert_hash = d["certhash"]
         self.name = d["name"]
         self.message = d["message"]
+        self.links = d["links"]
         self.update_cache()
         
         self.load_balance(0)
@@ -277,6 +263,29 @@ class server(commonscn):
         else:
             return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
     
+    def broadcast_helper(self, _addr, _path, payload, _certhash, timeout=None):
+        try:
+            con = HTTPSConnection(_addr,  timeout=_timeout)
+            con.connect()
+            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
+            hashpcert = dhash(pcert)
+            if hashpcert != _certhash:
+                return
+            _headers = server_broadcast_header.copy()
+            _headers["X-certrewrap"], _random = create_certhashheader(self.cert_hash)
+            con.putrequest("POST", _path)
+            for _name, _val in _headers:
+                con.putheader(_name, _val)
+            con.putheader("Content-Length", str(len(payload)))
+            con.endheaders()
+            con.sock = con.sock.unwrap()
+            con.sock = self.links["hserver"].sslcont.wrap_socket(con.sock, server_side=True)
+            con.send(payload)
+            con.close()
+        except socket.timeout:
+            pass
+        except Exception as e:
+            logger().debug(e)
     
     # limited by maxrequest size
     @check_argsdeco({"plugin":(str, "plugin"), "receivers": (list, "list with receivertuples"), "paction":(str, "plugin action"), "payload": (str, "stringpayload")})
@@ -295,8 +304,8 @@ class server(commonscn):
                 continue
             if _hash not in self.nhipmap[_name]:
                 continue
-            _telem2 = self.nhipmap[_name]
-            broadcast_helper("{}-{}".format(_telem2.get("address", ""), _telem2.get("port", -1)), "/plugin/{}/{}".format(_plugin, obdict.get("paction")), bytes(obdict.get("payload"), "utf-8"))
+            _telem2 = self.nhipmap[_name][_hash]
+            self.broadcast_helper("{}-{}".format(_telem2.get("address", ""), _telem2.get("port", -1)), "/plugin/{}/{}".format(_plugin, obdict.get("paction")), bytes(obdict.get("payload"), "utf-8"))
         #requester=None):
 
 
@@ -333,6 +342,9 @@ class server_handler(BaseHTTPRequestHandler):
         if docache == False:
             self.send_header("Cache-Control", "no-cache")
             self.send_header('Connection', 'keep-alive')
+        
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
         self.end_headers()
         self.wfile.write(ob)
         
@@ -377,14 +389,15 @@ class server_handler(BaseHTTPRequestHandler):
             ## send out of band hash
             ##self.connection.send(bytes(self.links["server_server"].cert_hash+";", "utf-8"))
             # wrap tcp socket, not ssl socket
-            #self.connection = self.connection.unwrap()
             if self.alreadyrewrapped == False:
+                # wrap tcp socket, not ssl socket
+                self.connection = self.connection.unwrap()
                 self.connection = cont.wrap_socket(self.connection, server_side=False)
                 self.alreadyrewrapped = True
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
             #self.connection = self.connection.unwrap()
             #cont.wrap_socket(self.connection, server_side=True)
-            if _rewrapcert != dhash(self.client_cert):
+            if _rewrapcert.split(";")[0] != dhash(self.client_cert):
                 return False
             #self.rfile.close()
             #self.wfile.close()
@@ -453,6 +466,8 @@ class server_handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.send_header('Content-Type', "application/json; charset=utf-8")
         self.send_header('Content-Length', len(ob))
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
         self.end_headers()
         self.wfile.write(ob)
         
@@ -509,6 +524,8 @@ class server_handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Connection", "keep-alive")
             self.send_header("Cache-Control", "no-cache")
+            if self.headers.get("X-certrewrap") is not None:
+                self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
             self.end_headers()
             try:
                 pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
@@ -537,6 +554,8 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_response(200, "broken cert test")
                 self.send_header("Cache-Control", "no-cache")
                 self.send_header('Connection', 'keep-alive')
+                if self.headers.get("X-certrewrap") is not None:
+                    self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
                 self.end_headers()
                 
             else:
@@ -625,15 +644,14 @@ class server_init(object):
         else:
             _port = server_port
         
-        serverd={"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": kwargs["priority"], "message":_message} #, "traversesrcaddr": kwargs.get("notraversal")
+        serverd = {"name": _name[0], "certhash": dhash(pub_cert),
+                "priority": kwargs["priority"], "message":_message, "links": self.links} #, "traversesrcaddr": kwargs.get("notraversal")
         # use direct way instead of traversesrcaddr
         server_handler.links = self.links
         
         
         self.links["server_server"] = server(serverd)
         
-        # use timeout argument of BaseServer
         http_server_server.timeout = int(kwargs["timeout"])
         self.links["hserver"] = http_server_server(("", _port), _spath+"_cert", socket.AF_INET6)
         if kwargs.get("notraversal", False) == False:
