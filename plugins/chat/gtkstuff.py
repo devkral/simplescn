@@ -4,7 +4,8 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango, Gio, GLib, GdkPixbuf
 
-from main import create_timestamp, parse_timestamp, unparse_timestamp
+#from plugins.chat.main import create_timestamp, parse_timestamp, unparse_timestamp
+from .main import create_timestamp, parse_timestamp, unparse_timestamp
 
 import threading
 import os

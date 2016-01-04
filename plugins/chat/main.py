@@ -2,9 +2,9 @@
 
 import sys
 try:
-    import gtkstuff
+    from . import gtkstuff
 except ImportError as e:
-    logger().debug(e)
+    print(e)
     gtkstuff = None
 import datetime
 import os.path

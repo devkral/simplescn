@@ -294,13 +294,7 @@ class client_client(client_admin, client_safe, client_config):
         if originalcert:
             con.putheader("X-original_cert", originalcert)
         con.endheaders()
-        #servercerthash = con.sock.read(1)
-        #while servercerthash[-1] != b";":
-        #    servercerthash += con.sock.read(1)
-        #servercerthash = str(servercerthash[-1], "utf-8")
-        #if servercerthash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
-        #    return None, None, None
-        #con.sock = con.sock.unwrap()
+        con.sock = con.sock.unwrap()
         con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
         
         sock = con.sock

@@ -34,6 +34,7 @@ if sharedir not in sys.path:
 
 import ipaddress
 from getpass import getpass
+import importlib.machinery
 
 import logging
 from cryptography import x509
@@ -702,6 +703,10 @@ class pluginmanager(object):
         self.pluginenv = pluginenv
         self.resources = resources
         self.interfaces.insert(0, scn_type)
+        module = importlib.machinery.ModuleSpec("_plugins", None)
+        module = importlib.util.module_from_spec(module)
+        sys.modules[module.__name__] = module
+        
         
     def list_plugins(self):
         temp = {}
@@ -711,8 +716,8 @@ class pluginmanager(object):
                     if plugin in ["__pycache__", ""] or plugin[0] in " \t\b" or plugin[-1] in " \t\b":
                         continue
                     newpath = os.path.join(path, plugin)
-                    if os.path.isdir(newpath) == True and os.path.isfile(os.path.join(newpath, pluginstartfile)) == True:
-                        temp[plugin] = newpath
+                    if os.path.isdir(newpath) == True and os.path.isfile(os.path.join(newpath, pluginstartfile)) == True and plugin not in temp:
+                        temp[plugin] = path
         return temp
     
     def plugin_is_active(self, plugin):
@@ -729,24 +734,23 @@ class pluginmanager(object):
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
     
     def init_plugins(self):
-        for plugin in self.list_plugins().items():
+        for plugin in lplugins.items():
             pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
             if pconf.getb("state") == False:
                 continue
+            # hack around importsystem
+            module = importlib.machinery.ModuleSpec("_plugins.{}".format(plugin[0]), None, origin=plugin[1])
+            module.submodule_search_locations = [os.path.join(plugin[1],plugin[0]), plugin[1]]
+            module = importlib.util.module_from_spec(module)
+            sys.modules[module.__name__] = module
+            #print(sys.modules.get("plugins"),sys.modules.get("plugins.{}".format(plugin[0])))
             globalret = self.pluginenv.copy()
-            #globalret["__name__"] = "{}.{}".format(plugin[0], pluginstartfile.rsplit(".",1)[0])
-            globalret["__name__"] = pluginstartfile.rsplit(".",1)[0]
-            #globalret["__package__"] = plugin[0]
-            globalret["__file__"] = os.path.join(plugin[1], pluginstartfile)
-            
-            if "__path__" not in globalret:
-                globalret["__path__"] = []
-            globalret["__path__"].insert(0, plugin[1])
+            globalret["__name__"] = "_plugins.{}.{}".format(plugin[0], pluginstartfile.rsplit(".",1)[0])
+            globalret["__package__"] = "_plugins.{}".format(plugin[0])
+            globalret["__file__"] = os.path.join(plugin[1], plugin[0], pluginstartfile)
             finobj = None
-            # hack around strange import system
-            sys.path.insert(0,plugin[1])
             try:
-                with open(os.path.join(plugin[1], pluginstartfile), "r") as readob:
+                with open(os.path.join(plugin[1], plugin[0], pluginstartfile), "r") as readob:
                     exec(readob.read(), globalret)
                     # unchangeable default, check that config_defaults is really a dict
                     if isinstance(globalret.get("config_defaults", None), dict) == False or issubclass(dict, type(globalret["config_defaults"])) == False:
@@ -754,7 +758,7 @@ class pluginmanager(object):
                         continue
                     globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
                     pconf.update(globalret["config_defaults"])
-                    finobj = globalret["init"](self.interfaces.copy(), pconf, pluginressources_creater(self.resources, plugin[0]), plugin[1], logger)
+                    finobj = globalret["init"](self.interfaces.copy(), pconf, pluginressources_creater(self.resources, plugin[0]), os.path.join(plugin[1], plugin[0]), logger)
             except Exception as e:
                 st = "Plugin failed to load, reason:\n{}".format(e)
                 if hasattr(e,"tb_frame"):
@@ -762,10 +766,11 @@ class pluginmanager(object):
                 logger().error(st)
 
                 finobj = None
-            # hack around strange import system
-            del sys.path[0]
             if finobj:
                 self.plugins[plugin[0]] = finobj
+            else:
+                # delete namespace stub
+                del sys.modules[module.__name__]
 
     def register_remote(self, _addr):
         self.redirect_addr = _addr
