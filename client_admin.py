@@ -5,11 +5,11 @@ import threading
 #isself
 from client_config import client_config
 
-
 class client_admin(object): 
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity", "requestredirect"}
     if experimental:
         validactions_admin.add("massimporter")
+    
     #, "connect"
     hashdb = None
     links = None
@@ -299,7 +299,7 @@ class client_admin(object):
                         self.hashdb.addreference(localref, _ref, _reftype)
                 
         return True, "import finished"
-
+    
 def is_admin_func(funcname):
     if funcname in client_admin.validactions_admin or funcname in client_config.validactions_config:
         return True

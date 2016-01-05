@@ -1148,17 +1148,7 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
         ret = tmp.hexdigest()
     return ret
 
-
-def classify_admin(func):
-    if is_admin_func(funcname):
-        return " (admin)"
-    else:
-        return ""
-
-
 def gen_doc_deco(func):
-    if hasattr(globals(), "classify") == False:
-        classify = lambda x:""
     if hasattr(func, "requires"):
         requires = func.requires
     else:
@@ -1185,12 +1175,10 @@ def gen_doc_deco(func):
             _docrequires[_key] = parsed[1].strip().rstrip()
         if _key in optional:
             _docoptional[_key] = parsed[1].strip().rstrip()
-        #if _key in optional and _key in  requires:
-        #    print(_key, "error")
-    #spacing = " "*(len(func.__name__)+2)
+
     spacing = " "*2
     sep = ",\n{spaces}  ".format(spaces=spacing)
-    newdoc = "{}{classify}: {}\n{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify(func.__name__))
+    newdoc = "{}: {}\n{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing)
     if len(requires) == 0:
         newdoc = "{}{spaces}requires: n.a.{sep}".format(newdoc, spaces=spacing, sep=sep)
     else:
