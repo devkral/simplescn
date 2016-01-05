@@ -29,7 +29,6 @@ import logging
 import ssl
 import signal,threading
 import json
-import time
 from os import path
 from urllib import parse
 
@@ -110,7 +109,7 @@ class client_client(client_admin, client_safe, client_config):
         return authob
 
     def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
-        """ use this method to communicate with clients/servers """
+        """ func: use this method to communicate with clients/servers """
         if headers is None:
             headers = body.pop("headers", {})
         elif "headers" in body:
@@ -323,9 +322,12 @@ class client_client(client_admin, client_safe, client_config):
             return None, cert, _hash
         return sock, cert, _hash
         
-    @check_argsdeco({"plugin": (str, "name of plugin"), "paction": (str, "action of plugin")})
+    @check_argsdeco({"plugin": str, "paction": str})
     def cmd_plugin(self, obdict):
-        """ trigger commandline action of plugin """ 
+        """ func: trigger commandline action of plugin
+            return: answer of plugin
+            plugin: name of plugin
+            paction: cmdaction of plugin """ 
         plugins = self.links["client_server"].pluginmanager.plugins
         if plugins is None:
             return False, "no plugins loaded"
@@ -348,9 +350,14 @@ class client_client(client_admin, client_safe, client_config):
             False, generate_error(e)
     
     # auth is special variable see safe_mdecode in common
-    @check_argsdeco({"auth": (dict, ), "hash": (str, ), "address": (str, )})
+    @check_argsdeco({"auth": dict, "hash": str, "address": str})
     def remember_auth(self, obdict):
-        """ Remember Authentification info for as long the program runs """
+        """ func: Remember Authentification info for as long the program runs
+            return: True, when success
+            auth: authdict
+            hash: hash to remember
+            address: address of server/client for which the pw should be saved
+        """
         if obdict.get("hash") is None:
             _hashob = self.gethash(obdict)
             if _hashob[0] == False:
@@ -386,7 +393,7 @@ class client_client(client_admin, client_safe, client_config):
     def command(self, inp, callpw_auth=False):
         obdict = parse.parse_qs(inp)
         error=[]
-        if check_args(obdict, {"action": (str, "main action"),},error=error) == False:
+        if check_args(obdict, {"action": str},error=error) == False:
             return False, "{}:{}".format(*error)
             #return False, "no action given", isself, self.cert_hash
         if obdict["action"] in ["command"] or obdict["action"] in self.access_methods:
@@ -448,57 +455,12 @@ class client_client(client_admin, client_safe, client_config):
     def cmdhelp(self):
         out="""### cmd-commands ###
 hash <pw>: calculate hash for pw
-plugin <plugin>:<...>: speak with plugin
+plugin <plugin>:<...>: communicate with plugin
 """
         for funcname in sorted(self.validactions):
-            if is_admin_func(funcname):
-                eperm = " (admin)"
-            else:
-                eperm = ""
             func = getattr(self, funcname)
-            out+="{func}{admin}:{doku}".format(func=funcname, admin=eperm, doku=func.__doc__)
-            if hasattr(func, "requires") == False or hasattr(func, "optional") == False:
-                print("skip non decorated function: "+funcname)
-                continue
-            try:
-                if len(func.requires) == 0:
-                    # xx gets deleted [:-2]
-                    out+="\n reqargs: n.a.xx"
-                else:
-                    out+="\n reqargs: "
-                for name, val in func.requires.items():
-                    if len(val) == 2:
-                        _type, doc = val
-                        doc = ":{}".format(doc)
-                    elif len(val) == 1:
-                        _type = val[0]
-                        doc = ""
-                    else:
-                        print(funcname, "invalid element: ", val)
-                        continue
-                    out+="{} ({}){}, ".format(name, _type.__name__, doc)
-                out=out[:-2]
-                if len(func.optional) == 0:
-                    # xx gets deleted [:-2]
-                    out+="\n optargs: n.a.xx"
-                else:
-                    out+="\n optargs: "
-                for name, val in func.optional.items():
-                    if len(val) == 2:
-                        _type, doc = val
-                        doc = ": {}".format(doc)
-                    elif len(val) == 1:
-                        _type = val[0]
-                        doc = ""
-                    else:
-                        print(funcname, "invalid element: ", val)
-                        continue
-                    out+="{} ({}){}, ".format(name, _type.__name__, doc)
-                out=out[:-2]
-                out+="\n"
-            except Exception as e:
-                print("Function : \""+funcname+"\" has broken check_argdeco arguments")
-                raise(e)
+            out+="{doc}\n".format(doc=func.__doc__)
+
         return out
 
 
@@ -531,9 +493,12 @@ class client_server(commonscn):
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
-    @check_argsdeco({"name": (str,), "port": (int,)})
+    @check_argsdeco({"name": str, "port": int})
     def registerservice(self, obdict):
-        """ register a service = (map port to name) """
+        """ func: register a service = (map port to name)
+            return: success or error
+            name: service name
+            port: port number """
         if obdict.get("clientaddress") is None:
             False, "bug: clientaddress is None"
         if obdict.get("clientaddress")[0] in ["localhost", "127.0.0.1", "::1"]:
@@ -546,9 +511,11 @@ class client_server(commonscn):
         return False, "no permission"
     
     ### don't annote list with "map" dict structure on serverside (overhead)
-    @check_argsdeco({"name": (str, )})
+    @check_argsdeco({"name": str})
     def delservice(self, obdict):
-        """ delete a service"""
+        """ func: delete a service
+            return: success or error
+            name: service name """
         if obdict.get("clientaddress") is None:
             False, "bug: clientaddress is None"
         if obdict.get("clientaddress")[0] in ["localhost", "127.0.0.1", "::1"]:
@@ -561,9 +528,11 @@ class client_server(commonscn):
         return False, "no permission"
         
     ### management section - end ###
-    @check_argsdeco({"name":(str,)})
+    @check_argsdeco({"name": str})
     def getservice(self, obdict):
-        """ get the port of a service """
+        """ func: get the port of a service
+            return: portnumber
+            name: servicename """
         if obdict["name"] not in self.spmap:
             return False
         return True, self.spmap[obdict["name"]]

@@ -18,7 +18,6 @@ if sharedir not in sys.path:
 
 from os import path
 
-import logging
 import signal
 
 from guigtk import clientmain
@@ -30,23 +29,28 @@ import client
 from client import paramhelp, client_args
 
 from common import configmanager, pluginmanager, confdb_ending
-#, pwcallmethod, notify
-
-#VALError
 from common import logger
-#init_logger()
-
-#logger=getlogger()
+import logging
 
 cm = None
 
 def open_gtk_node(_address, forcehash=None, page=0, requester=None):
+    """ plugin: open a node window
+        forcehash: shall a certification hash be enforced
+        page: name or number of page
+        requester: requesting plugin """
     gtkclient_node(cm.links, _address, forcehash=forcehash, page=page)
     
 def open_gtk_pwcall_plugin(msg, requester=None):
+    """ plugin: open a password dialog
+        return: pw or None
+        requester: requesting plugin """
     return gtkclient_pw(msg, requester, ismain=False)
     
 def open_gtk_notify_plugin(msg, requester=None):
+    """ plugin: open a notification dialog
+        return: True or False
+        requester: requesting plugin """
     return gtkclient_notify(msg, requester, ismain=False)
 
 def signal_handler(*args):
@@ -65,8 +69,6 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     dclargs = client.default_client_args.copy()
     del dclargs["cmd"]
-    #clargs = client.client_args.copy()
-    #del client_args["cmd"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
 
     if len(sys.argv) > 1:
@@ -115,8 +117,6 @@ if __name__ == "__main__":
         pluginm.interfaces += ["cmd","gtk"]
     else:
         pluginm = None
-    #logger().debug("start client")
-    #global cm
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
         pluginm.resources["access"] = cm.links["client"].access_safe

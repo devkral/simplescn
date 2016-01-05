@@ -14,6 +14,11 @@ def get_parent():
     return parentlist[-1]
 
 def gtkclient_notify(msg, requester=None, ismain=True):
+    """ gtk notification dialog
+        return: True or False
+        requester: plugin which requests the dialog
+        ismain: if main application had requested the dialog (requester is ignored)
+    """
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.png"))
     if icon:
         dia = Gtk.Dialog(parent=get_parent(), title="Notify", icon=icon)
@@ -40,6 +45,11 @@ def gtkclient_notify(msg, requester=None, ismain=True):
     
 
 def gtkclient_pw(msg, requester=None, ismain=True):
+    """ gtk password dialog
+        return: None or pw
+        requester: plugin which requests the dialog
+        ismain: if main application had requested the dialog (requester is ignored)
+    """
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.png"))
     if icon:
         dia = Gtk.Dialog(title="Password", parent=get_parent(), icon=icon, destroy_with_parent=False)

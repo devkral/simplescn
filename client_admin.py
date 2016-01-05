@@ -22,9 +22,11 @@ class client_admin(object):
         self.write_msg_lock = threading.Lock()
         self.change_name_lock = threading.Lock()
     
-    @check_argsdeco({"priority":(int, "priority of the client")}) 
+    @check_argsdeco({"priority": int}) 
     def setpriority(self, obdict):
-        """ set priority of client """ 
+        """ func: set priority of client
+            return: success or error
+            priority: priority of the client""" 
         if obdict["priority"]<0 or obdict["priority"]>100:
             return False, "out of range"
         
@@ -33,50 +35,71 @@ class client_admin(object):
         return True
         
     #local management
-    @check_argsdeco({"name": (str, "entity name")})
+    @check_argsdeco({"name": str})
     def addentity(self, obdict):
-        """ add entity (= named group for hashes) """ 
+        """ func: add entity (=named group for hashes)
+            return: success or erro
+            name: entity name """
         return self.hashdb.addentity(obdict["name"])
 
-    @check_argsdeco({"name": (str, "entity name")})
+    @check_argsdeco({"name": str})
     def delentity(self, obdict):
-        """ delete entity """
+        """ func: delete entity (=named group for hashes)
+            return: success or error
+            name: entity name """
         return self.hashdb.delentity(obdict["name"])
 
-    @check_argsdeco({"name": (str, "entity name"), "newname": (str, "new entity name")})
+    @check_argsdeco({"name": str, "newname": str})
     def renameentity(self, obdict):
-        """ rename entity """
+        """ func: rename entity (=named group for hashes)
+            return success or error
+            name: entity name
+            newname: new entity name """
         return self.hashdb.renameentity(obdict["name"],obdict["newname"])
 
-    @check_argsdeco({"name": (str, "entity"),"hash": (str, "hash of client/server/notimagined yet")}, optional={"type": (str, "type (=client/server/notimagined yet)"), "priority": (int, "initial priority")})
+    @check_argsdeco({"name": str,"hash": str}, optional={"type": str, "priority": int})
     def addhash(self, obdict):
-        """ add hash to entity """
+        """ func: add hash to entity (=named group for hashes)
+            return: success or error
+            name: entity name
+            hash: certificate hash
+            type: type (=client/server/notimagined yet)
+            priority: initial priority """
         _type = obdict.get("type", "unknown")
         _priority = obdict.get("priority", 20)
         _name,  _certhash = obdict["name"], obdict["hash"]
         return self.hashdb.addhash(_name, _certhash, _type, _priority)
 
-    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)")})
+    @check_argsdeco({"hash": str})
     def delhash(self, obdict):
-        """ delete hash """
+        """ func: delete hash
+            return: success or error
+            hash: certificate hash (=part of entity) """
         return self.hashdb.delhash(obdict["hash"])
     
     
-    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "security":(str, "security state")})
+    @check_argsdeco({"hash": str, "security": str})
     def changesecurity(self, obdict):
-        """ change security level of hash """
+        """ func: change security level of hash
+            return: success or error
+            hash: certificate hash (=part of entity)
+            security: security level """
         return self.hashdb.changesecurity(obdict["hash"],obdict["security"])
     
-    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "newname": (str, "entity where hash should moved to")})
+    @check_argsdeco({"hash": str, "newname": str})
     def movehash(self, obdict):
-        """ move hash to entity """
+        """ func: move hash to entity
+            return: success or error
+            hash: certificate hash (=part of entity)
+            newname: entity where hash should moved to """
         return self.hashdb.movehash(obdict["hash"],obdict["newname"])
     
     # don't expose to other plugins, at least not without question
     # other plugins could check for insecure plugins
     @check_argsdeco()
     def listplugins(self, obdict):
-        """ list plugins """
+        """ func: list plugins
+            return: plugins """
         pluginm = self.links["client_server"].pluginmanager
         out = sorted(pluginm.list_plugins().items())
         ret = []
@@ -84,9 +107,13 @@ class client_admin(object):
             ret.append((plugin, pluginm.plugin_is_active(plugin)))
         return True, {"items":ret,"map":["plugin","state"]}
     
-    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "reference": (str, "where to find hash"), "reftype": (str, "type of the reference")})
+    @check_argsdeco({"hash": str, "reference": str, "reftype": str})
     def addreference(self, obdict):
-        """ add reference to hash """
+        """ func: add reference (=child of hash) to hash
+            return: success or error
+            hash: certificate hash (=part of entity)
+            reference: reference (=where to find node)
+            reftype: reference type """
         _name=self.hashdb.certhash_as_name(obdict["hash"])
         if _name is None:
             return False,"hash not in db: {}".format(obdict["hash"])
@@ -99,10 +126,14 @@ class client_admin(object):
         _tref=self.hashdb.get(obdict["hash"])
         return self.hashdb.addreference(_tref[4],obdict["reference"],obdict["reftype"])
 
-    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "reference": (str, "old location of a node"), "newreference": (str, "new location of a node"), "newreftype": (str, "new type of the reference")})
+    @check_argsdeco({"hash": str, "reference": str, "newreference": str, "newreftype": str})
     def updatereference(self, obdict):
-        """ update reference (child of hash) """
-        
+        """ func: update reference (=child of hash)
+            return: success or error
+            hash: certificate hash (=part of entity)
+            reference: old reference (=reference to update)
+            newreference: new reference (=new location)
+            newreftype: new reference type """
         if check_reference(obdict["newreference"]) == False:
             return False, "reference invalid"
         
@@ -115,21 +146,24 @@ class client_admin(object):
         
         return self.hashdb.updatereference(_tref[4],obdict["reference"],obdict["newreference"],obdict["newreftype"])
 
-    @check_argsdeco({"hash": (str, "certificate hash of a node (part of an entity)"), "reference":(str, "reference")})
+    @check_argsdeco({"hash": str, "reference": str})
     def delreference(self, obdict):
-        """ delete reference """
+        """ func: delete reference (=child of hash)
+            return: success or error
+            hash: certificate hash (=part of entity)
+            reference: reference (=where to find node)"""
         _tref=self.hashdb.get(obdict["hash"])
         if _tref is None:
             return False, "hash not exist"
         return self.hashdb.delreference(_tref[4],obdict["reference"])
 
-    @check_argsdeco({"reason": (str, "reason (=security state) for invalidating cert")})
+    @check_argsdeco({"reason": str})
     def invalidatecert(self, obdict):
-        """ invalidate certificate """
+        """ func: invalidate certificate
+            return: success or error
+            reason: reason (=security level) for invalidating cert"""
         if check_security(obdict.get("reason")) == False or obdict.get("reason") == "valid":
             return False, "wrong reason"
-        #if notify() == False:
-        #    
         _cpath = os.path.join(self.links["config_root"],"client_cert")
         
         if os.path.isfile(_cpath+".pub"):
@@ -161,9 +195,12 @@ class client_admin(object):
         sys.exit(0)
         #return True
 
-    @check_argsdeco({"message": (str, "message")},optional={"permanent":(bool, "store permanent (default:True)")})
+    @check_argsdeco({"message": str},optional={"permanent": bool})
     def changemsg(self, obdict):
-        """ change message """
+        """ func: change message
+            return: success or error
+            message: new message
+            permanent: permanent or just temporary (cleared when closing client) (default: True) """
         #_type = self.links.get("client_server").scn_type
         configr = self.links["config_root"]
         with self.write_msg_lock:
@@ -174,9 +211,12 @@ class client_admin(object):
                     wm.write(obdict.get("message"))
         return True
     
-    @check_argsdeco({"name": (str, "client name")},optional={"permanent":(bool, "store permanent (default:True)")})
+    @check_argsdeco({"name": str},optional={"permanent": bool})
     def changename(self, obdict):
-        """ change name """
+        """ func: change name
+            return: success or error
+            name: client name
+            permanent: permanent or just temporary (cleared when closing client) (default: True) """
         with self.change_name_lock:
             newname = obdict.get("name")
             if check_name(newname) == False:
@@ -201,9 +241,11 @@ class client_admin(object):
             self.links["client_server"].update_cache()
             return True
     
-    @check_argsdeco({"activate": (bool, "activate redirect or deactivate it")})
+    @check_argsdeco({"activate": bool})
     def requestredirect(self, obdict):
-        """ request redirect or deactivate it """
+        """ func: request redirect or deactivate it
+            return: success or error
+            activate: activate or deactivate redirection"""
         if obdict.get("activate") == True:
             if None in [obdict.get("clientaddress"), obdict.get("clientcert")]:
                 return False, "Cannot request redirect when clientaddress and/or hash is not available"
@@ -215,9 +257,14 @@ class client_admin(object):
         return True
     
     # TODO: test
-    @check_argsdeco({"sourceaddress": (str, "source client address"), "sourcehash": (str, "source client hash"), "entities":(list, "list with entities to import (recursive), None for all"), "hashes":(list, "list with hashes to import")})
+    @check_argsdeco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
     def massimporter(self, obdict):
-        """ import hashes and entities """
+        """ func: import hashes and entities
+            return: success or error
+            sourceaddress: address of source (client)
+            sourcehash: hash of source
+            entities: list with entities to import (imports hashes below), None for all
+            hashes: list with hashes to import (imports references below) """
         #listhashes = obdict.get("hashes")
         listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", clientforcehash=obdict.get("sourcehash"))
         

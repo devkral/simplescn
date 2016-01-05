@@ -11,14 +11,43 @@ class client_config(object):
     cert_hash = None
 
 
-    @check_argsdeco({"key": (str, "config key"), "value": (str, "key value")})
+    @check_argsdeco({"key": str, "value": str})
     def set_config(self, obdict):
-        """ set key in main configuration of client """
+        """ func: set key in main configuration of client
+            return: success or error
+            key: config key
+            value: config value """
         return self.links["configmanager"].set(obdict["key"], obdict["value"])
 
-    @check_argsdeco({"key": (str, "config key"), "value": (str, "key value"), "plugin": (str, "plugin name")})
+
+    @check_argsdeco({"key": str})
+    def reset_configkey(self, obdict):
+        """ func: reset key in main configuration of client
+            return: success or error
+            key: config key """
+        return self.links["configmanager"].set_default(obdict["key"])
+    
+    @check_argsdeco({"key": str})
+    def get_config(self, obdict):
+        """ func: get key in main configuration of client
+            return: key value
+            key: config key """
+        return True, {"value": self.links["configmanager"].get(obdict["key"])}
+    
+    @check_argsdeco(optional={"onlypermanent": bool})
+    def list_config(self, obdict):
+        """ func: list main configuration of client
+            return: key, value, ...
+            onlypermanent: list only permanent settings (default: False) """
+        return True, {"items": self.links["configmanager"].list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
+
+    @check_argsdeco({"key": str, "value": str, "plugin": str})
     def set_pluginconfig(self, obdict):
-        """ set key in plugin configuration """
+        """ func: set key in plugin configuration
+            return: success or error
+            key: config key
+            value: config value
+            plugin: plugin name """
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
@@ -30,24 +59,12 @@ class client_config(object):
             config = pluginm.plugins[obdict["plugin"]].config
         return config.set(obdict["key"], obdict["value"])
 
-    @check_argsdeco({"key": (str, "config key"),})
-    def reset_configkey(self, obdict):
-        """ reset key in main configuration of client """
-        return self.links["configmanager"].set_default(obdict["key"])
-    
-    @check_argsdeco({"key": (str, "config key"),})
-    def get_config(self, obdict):
-        """ get key in main configuration of client """
-        return True, {"value": self.links["configmanager"].get(obdict["key"])}
-    
-    @check_argsdeco(optional={"onlypermanent":(bool, "shall only permanent settings be included (default: False)")})
-    def list_config(self, obdict):
-        """ list main configuration of client """
-        return True, {"items": self.links["configmanager"].list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
-    
-    @check_argsdeco({"key": (str, "config key"), "plugin": (str, "plugin name")})
+    @check_argsdeco({"key": str, "plugin": str})
     def reset_pluginconfigkey(self, obdict):
-        """ reset key in plugin configuration """
+        """ func: reset key in plugin configuration
+            return: success or error
+            key: config key
+            plugin: plugin name """
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
@@ -59,9 +76,12 @@ class client_config(object):
             config = pluginm.plugins[obdict["plugin"]].config
         return config.set_default(str(obdict["key"]))
         
-    @check_argsdeco({"key": (str, "config key"), "plugin": (str, "plugin name")})
+    @check_argsdeco({"key": str, "plugin": str})
     def get_pluginconfig(self, obdict):
-        """ get key in plugin configuration """
+        """ func: get key in plugin configuration
+            return: key value
+            key: config key
+            plugin: plugin name """
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
@@ -73,17 +93,12 @@ class client_config(object):
             config = pluginm.plugins[obdict["plugin"]].config
         return True, {"value": config.get(obdict["key"])}
     
-    @check_argsdeco()
-    def clean_pluginconfig(self, obdict):
-        """ clean orphan plugin configurations """
-        pluginm=self.links["client_server"].pluginmanager
-        pluginm.clean_plugin_config()
-        return True
-    
-    
-    @check_argsdeco({"plugin":(str,)}, optional={"onlypermanent":(bool, "shall only permanent settings be included (default: False)")})
+    @check_argsdeco({"plugin": str}, optional={"onlypermanent": bool})
     def list_pluginconfig(self, obdict):
-        """ list plugin configuration """
+        """ func: list plugin configuration
+            return: key, value, ...
+            onlypermanent: list only permanent settings (default: False)
+            plugin: plugin name """
         pluginm = self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
@@ -94,3 +109,11 @@ class client_config(object):
         else:
             _config = pluginm.plugins[obdict["plugin"]].config
         return True, {"items": _config.list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
+
+    @check_argsdeco()
+    def clean_pluginconfig(self, obdict):
+        """ func: clean orphan plugin configurations
+            return: success or error """
+        pluginm=self.links["client_server"].pluginmanager
+        pluginm.clean_plugin_config()
+        return True

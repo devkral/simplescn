@@ -28,7 +28,8 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, confdb_ending, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader
+#confdb_ending
 #configmanager,, rw_socket
 
 server_broadcast_header = \
@@ -166,7 +167,6 @@ class server(commonscn):
         if update_list in [None, []]:
             return
         
-        
         self.changeip_lock.acquire(True)
         update_time = int(time.time())
         for _uhash, _usecurity in update_list:
@@ -175,9 +175,13 @@ class server(commonscn):
         # notify that change happened
         self.nhipmap_cond.set()
     
-    @check_argsdeco({"name": (str, "client name"),"port": (int, "listen port of client")}, optional={"update": (list, "list of compromised hashes/security")})
+    @check_argsdeco({"name": str, "port": int}, optional={"update": list})
     def register(self, obdict):
-        """ register client """
+        """ func: register client
+            return: success or error
+            name: client name
+            port: listen port of client
+            update: list with compromised hashes (includes reason=security) """
         if check_name(obdict["name"])==False:
             return False, "invalid_name"
         if obdict["clientcert"] is None:
@@ -214,9 +218,11 @@ class server(commonscn):
         self.nhipmap_cond.set()
         return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
     
-    @check_argsdeco({"destaddr":(str, "destination address")}) #"traverseport":(int, "port for traversal"), 
+    @check_argsdeco({"destaddr": str})
     def open_traversal(self, obdict):
-        """ open traversal connection """
+        """ func: open traversal connection
+            return: traverse_address (=remote own address)
+            destaddr: destination address """
         if self.traverse is None:
             return False, "no traversal possible"
         #travport = obdict["clientaddress"][1]
@@ -237,11 +243,17 @@ class server(commonscn):
     
     @check_argsdeco()
     def get_ownaddr(self, obdict):
+        """ func: return remote own address
+            return: remote requester address """
         return True, {"address": obdict["clientaddress"]}
     
-    @check_argsdeco({"hash":(str, "client hash"), "name":(str, "client name")}, optional={"autotraverse":(bool, "open traversal when necessary (default: False)")})
+    @check_argsdeco({"hash": str, "name": str}, optional={"autotraverse": bool})
     def get(self, obdict):
-        """ get address of a client with name, hash """
+        """ func: get address of a client 
+            return: client address
+            name: client name
+            hash: client hash
+            autotraverse: open traversal when necessary (default: False) """
         if obdict["name"] not in self.nhipmap:
             return False, "name not exist"
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
@@ -265,7 +277,7 @@ class server(commonscn):
     
     def broadcast_helper(self, _addr, _path, payload, _certhash, timeout=None):
         try:
-            con = HTTPSConnection(_addr,  timeout=_timeout)
+            con = HTTPSConnection(_addr,  timeout=timeout)
             con.connect()
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             hashpcert = dhash(pcert)
@@ -288,9 +300,14 @@ class server(commonscn):
             logger().debug(e)
     
     # limited by maxrequest size
-    @check_argsdeco({"plugin":(str, "plugin"), "receivers": (list, "list with receivertuples"), "paction":(str, "plugin action"), "payload": (str, "stringpayload")})
+    @check_argsdeco({"plugin": str, "receivers": list, "paction": str, "payload": str})
     def broadcast_plugin(self, obdict):
-        """ Broadcast to client plugins """
+        """ func: broadcast to client plugins
+            return: success or error
+            plugin: plugin name
+            receivers: list with receivertuples
+            paction: plugin action
+            payload: payload as string """
         _plugin = obdict.get("plugin")
         paction = obdict.get("paction").split("/", 1)[0]
         if (_plugin, paction) not in self.allowed_plugin_broadcasts:

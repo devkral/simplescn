@@ -734,6 +734,7 @@ class pluginmanager(object):
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
     
     def init_plugins(self):
+        lplugins = self.list_plugins()
         for plugin in lplugins.items():
             pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
             if pconf.getb("state") == False:
@@ -1148,6 +1149,60 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
     return ret
 
 
+def classify_admin(func):
+    if is_admin_func(funcname):
+        return " (admin)"
+    else:
+        return ""
+
+
+def gen_doc_deco(func):
+    if hasattr(globals(), "classify") == False:
+        classify = lambda x:""
+    if hasattr(func, "requires"):
+        requires = func.requires
+    else:
+        requires = {}
+    
+    if hasattr(func, "optional"):
+        optional = func.optional
+    else:
+        optional = {}
+    
+    _docrequires = {}
+    _docoptional = {}
+    _docfunc, _docreturn = "n.a.", "n.a."
+    for line in func.__doc__.split("\n"):
+        parsed = line.split(":")
+        if len(parsed) != 2:
+            continue
+        _key = parsed[0].strip().rstrip()
+        if _key == "func":
+            _docfunc = parsed[1].strip().rstrip()
+        if _key == "return":
+            _docreturn = parsed[1].strip().rstrip()
+        if _key in requires:
+            _docrequires[_key] = parsed[1].strip().rstrip()
+        if _key in optional:
+            _docoptional[_key] = parsed[1].strip().rstrip()
+    #spacing = " "*(len(func.__name__)+2)
+    spacing = " "*2
+    sep = ",\n{spaces}  ".format(spaces=spacing)
+    newdoc = "{}{classify}: {}\n{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify(func.__name__))
+    if len(requires) == 0:
+        newdoc = "{}{spaces}requires: n.a.{sep}".format(newdoc, spaces=spacing, sep=sep)
+    else:
+        newdoc = "{}{spaces}requires:\n{spaces}  ".format(newdoc, spaces=spacing)
+    for key in requires.keys():
+        newdoc = "{}{}({}): {}{sep}".format(newdoc, key, requires[key].__name__, _docrequires.get(key, "n.a."), sep=sep)
+    if len(optional) != 0:
+        newdoc = "{}\n{spaces}optional:\n{spaces}  ".format(newdoc[:-len(sep)], spaces=spacing)
+    for key in optional.keys():
+        newdoc = "{}{}({}): {}{sep}".format(newdoc, key, optional[key].__name__, _docoptional.get(key, "n.a."), sep=sep)
+    func.__origdoc__ = func.__doc__
+    func.__doc__ = newdoc[:-len(sep)]
+    return func
+
 # args is iterable with (argname, type)
 # _moddic is modified
 def check_args(_moddict, requires={}, optional={}, error=[]):
@@ -1161,9 +1216,7 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
     #_optionallist = [elemoptional[0] for elemoptional in optional]
     search.update(optional.items())
     for argname, value in search:
-        if len(value) not in [1, 2]:
-            raise(IndexError("len invalid: "+str(value)))
-        _type = value[0]
+        _type = value
         if argname not in _moddict:
             if argname in optional:
                 continue
@@ -1193,13 +1246,14 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
         return False
     return True
 
+
 # args is iterable with (argname, type)
 # _moddic is modified
 def check_argsdeco(requires={}, optional={}):
     def func_to_check(func):
         def get_args(*args):
             if len(args)!=2:
-                logger().error("check_args:wrong functioncall: {}: {}".format(func.__name__, args))
+                logger().error("check_args: wrong function call: {}: {}".format(func.__name__, args))
             #    return False, "check_args failed ({}) wrong amount args: {}".format(func.__name__, args), isself, self.cert_hash
             self, obdict = args
             error = []
@@ -1222,7 +1276,7 @@ def check_argsdeco(requires={}, optional={}):
         get_args.requires = requires
         get_args.optional = optional
         get_args.__doc__ = func.__doc__
-        return get_args
+        return gen_doc_deco(get_args)
     return func_to_check
 
 def safe_mdecode(inp, encoding, charset="utf-8"):
