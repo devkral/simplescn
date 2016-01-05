@@ -148,6 +148,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         self.update_storage()
 
     def update_storage(self):
+        """ func: update local storage """
         _storage=self.do_requestdo("listnodenametypes")
         if logger().check(_storage)==False:
             return
@@ -223,6 +224,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
                     self.update_serverlist_refid(_hash[4])
 
     def do_requestdo(self, action, **obdict):
+        """ func: update local storage """
         uselocal = self.builder.get_object("uselocal")
         if uselocal.get_active() == True:
             resp = self.links["client"].access_main(action, **obdict)
@@ -243,12 +245,14 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         return resp
 
     def pushint(self):
+        """ func: delete messsage after 5 seconds """
         time.sleep(5)
         #self.messagecount-=1
         Gdk.threads_add_idle(GLib.PRIORITY_LOW, self._pushint)
         
     
     def _pushint(self):
+        """ func: intern pushint """
         self.statusbar.pop(messageid)
         self.hashstatusbar.pop(messageid)
 
@@ -259,9 +263,11 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         
     ###logging handling
     def emit(self, record):
+        """ func: handle logging records """
         Gdk.threads_add_idle(GLib.PRIORITY_HIGH, self._emit, record)
         
     def _emit(self, record):
+        """ func: intern emit """
         self.backlog+=[record,]
         if len(self.backlog)>200:
             self.backlog=self.backlog[200:]
@@ -280,6 +286,9 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         self.pushmanage()
     
     def _verifyserver(self,serverurl):
+        """ func: update verifystateserver widget
+            return: ask information
+            serverurl: server url """ 
         _veri=self.builder.get_object("veristateserver")
         if serverurl == "":
             _veri.set_text("")
@@ -298,6 +307,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         return _hash[1]
         
     def veristate_server(self,*args):
+        """ use servercomboentry widget, call _verifyserver """
         serverurl=self.builder.get_object("servercomboentry").get_text()
         servlist=self.builder.get_object("serverlist")
         if self._verifyserver(serverurl) is not None:
@@ -306,6 +316,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
                 self.serverlist_dic.append(serverurl)
     
     def set_curnode(self, _clientaddress,_name,_hash,_serveraddress=None):
+        """ set current node """
         if self.curnode is not None and self.curnode[0] != isself:
             self.recentstore.prepend(self.curnode)
             if self.recentcount < 20:
@@ -342,8 +353,8 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
             opennodeb.set_sensitive(True)
             self.curnode=(_ask[1].get("localname"),_clientaddress,_name,_hash,_serveraddress)
 
-    
     def open_server(self,*args):
+        """ func: use servercomboentry to open node """
         serverurl = self.builder.get_object("servercomboentry").get_text()
         askinfo = self._verifyserver(serverurl)
         if askinfo is None:
@@ -465,16 +476,19 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         self.opennode()
     
     def opennode(self,*args):
+        """ func: open current node """
         if self.curnode is not None:
             gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], page="services", traverseserveraddr=self.curnode[4])
     
     def opennode_self(self,*args):
+        """ func: open own node """
         ret=self.do_requestdo("show")
         if ret[0] == True:
             gtkclient_node(self.links, "localhost-{}".format(ret[1]["port"]), forcehash=ret[1]["hash"], page="services")
     
     
     def activate_recent(self,*args):
+        """ func: set current node from recent list """
         view=self.builder.get_object("recentstore")
         _sel=view.get_selection().get_selected()
         if _sel[1] is None:
@@ -488,6 +502,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     #### server actions ####
     
     def addserverhash(self,*args):
+        """ func: add server hash """
         serverurl = self.builder.get_object("servercomboentry").get_text().strip(" ").rstrip(" ")
         serverurl = "{}-{}".format(*scnparse_url(serverurl))
         localview = self.builder.get_object("localview")
@@ -523,6 +538,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
     #### client actions ####
     
     def clientme(self,*args):
+        """ func: switch between controlling remote client and own client """
         self.builder.get_object("clienturl").set_text(self.remoteclient_url)
         self.builder.get_object("clienthash").set_text(self.remoteclient_hash)
         self.builder.get_object("uselocal").set_active(self.use_localclient)

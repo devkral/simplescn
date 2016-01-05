@@ -1173,7 +1173,7 @@ def gen_doc_deco(func):
     _docoptional = {}
     _docfunc, _docreturn = "n.a.", "n.a."
     for line in func.__doc__.split("\n"):
-        parsed = line.split(":")
+        parsed = line.split(":", 1)
         if len(parsed) != 2:
             continue
         _key = parsed[0].strip().rstrip()
@@ -1185,6 +1185,8 @@ def gen_doc_deco(func):
             _docrequires[_key] = parsed[1].strip().rstrip()
         if _key in optional:
             _docoptional[_key] = parsed[1].strip().rstrip()
+        #if _key in optional and _key in  requires:
+        #    print(_key, "error")
     #spacing = " "*(len(func.__name__)+2)
     spacing = " "*2
     sep = ",\n{spaces}  ".format(spaces=spacing)
@@ -1276,6 +1278,7 @@ def check_argsdeco(requires={}, optional={}):
         get_args.requires = requires
         get_args.optional = optional
         get_args.__doc__ = func.__doc__
+        get_args.__name__ = func.__name__
         return gen_doc_deco(get_args)
     return func_to_check
 

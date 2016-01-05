@@ -251,6 +251,7 @@ class client_safe(object):
         """ func: check if client is reachable; update local information when reachable
             return: priority, type, certificate security
             server: server url
+            name: client name
             hash: client certificate hash """
         temp = self.get(obdict)
         if temp[0] == False:
