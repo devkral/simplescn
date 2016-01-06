@@ -3,7 +3,7 @@
 import sys
 import os
 # fix import
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "simplescn"))
 
 
 import unittest
