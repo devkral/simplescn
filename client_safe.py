@@ -181,13 +181,8 @@ class client_safe(object):
             del obdict["address"]
         else:
             _addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        ret = self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
-        if ret[0] == False:
-            return ret
-        ret[1]["name"] = normalize_name(ret[1].get("name", ""))
-        ret[1]["type"] = ret[1].get("type", "")[:max_typelength]
-        return ret
-
+        return self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
+        
     @check_argsdeco(optional={"address": str})
     def cap(self, obdict):
         """ func: retrieve capabilities of node
