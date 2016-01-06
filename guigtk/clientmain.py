@@ -293,7 +293,8 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         if serverurl == "":
             _veri.set_text("")
             return None
-        _hash=self.do_requestdo("ask",address=serverurl)
+        
+        _hash = self.do_requestdo("ask", address=serverurl)
         if _hash[0]==False:
             _veri.set_text("")
             return None
