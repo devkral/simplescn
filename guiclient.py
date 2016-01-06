@@ -21,9 +21,7 @@ from os import path
 import signal
 
 from guigtk import clientmain
-from guigtk.clientmain import gtkclient_init, do_gtkiteration
-from guigtk.clientnode import gtkclient_node
-from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify
+from guigtk.clientmain import gtkclient_init
 
 import client
 from client import paramhelp, client_args
@@ -34,24 +32,6 @@ import logging
 
 cm = None
 
-def open_gtk_node(_address, forcehash=None, page=0, requester=None):
-    """ plugin: open a node window
-        forcehash: shall a certification hash be enforced
-        page: name or number of page
-        requester: requesting plugin """
-    gtkclient_node(cm.links, _address, forcehash=forcehash, page=page)
-    
-def open_gtk_pwcall_plugin(msg, requester=None):
-    """ plugin: open a password dialog
-        return: pw or None
-        requester: requesting plugin """
-    return gtkclient_pw(msg, requester, ismain=False)
-    
-def open_gtk_notify_plugin(msg, requester=None):
-    """ plugin: open a notification dialog
-        return: True or False
-        requester: requesting plugin """
-    return gtkclient_notify(msg, requester, ismain=False)
 
 def signal_handler(*args):
     #global run
@@ -118,13 +98,6 @@ if __name__ == "__main__":
     else:
         pluginm = None
     cm = gtkclient_init(confm, pluginm)
-    if confm.getb("noplugins") == False:
-        pluginm.resources["access"] = cm.links["client"].access_safe
-        pluginm.resources["plugin"] = cm.links["client"].use_plugin
-        pluginm.resources["open_node"] = open_gtk_node
-        pluginm.resources["open_pwrequest"] = open_gtk_pwcall_plugin
-        pluginm.resources["open_notify"] = open_gtk_notify_plugin
-        pluginm.init_plugins()
-    do_gtkiteration()
-    #del cm
+    cm.enter_gtkmainloop()
+    
     sys.exit(0)

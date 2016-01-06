@@ -2,8 +2,8 @@
 
 import unittest
 
-def do_tests():
+class do_tests():
     pass
 
 if __name__ == "main":
-    do_tests
+    do_tests()

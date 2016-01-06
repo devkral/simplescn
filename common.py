@@ -60,11 +60,14 @@ from http.client import HTTPSConnection
 
 ## sizes ##
 salt_size = 10
-token_size = salt_size
+token_size = 10
 key_size = 4096
 # size of chunks (only in use by rw_socket?)
 default_buffer_size = 1400
 max_serverrequest_size = 4000
+# maybe a bad idea to change
+max_typelength = 15
+max_namelength = 64
 
 ## timeouts ##
 # time out for auth requests
@@ -75,9 +78,11 @@ ping_interval = 50
 experimental = False
 
 ## file positions ##
-confdb_ending = ".confdb"
-isself = 'isself'
 default_configdir = '~/.simplescn/'
+confdb_ending = ".confdb"
+# don't change
+isself = 'isself'
+pluginstartfile = "main.py"
 
 ## ports ##
 client_port = 0
@@ -85,10 +90,10 @@ server_port = 4040
 
 ## hash algorithms ##
 algorithms_strong = ['sha512', 'sha384', 'sha256', 'whirlpool']
+cert_sign_hash = hashes.SHA512()
+# don't change
 DEFAULT_HASHALGORITHM = "sha256"
 DEFAULT_HASHALGORITHM_len = 64
-
-cert_sign_hash = hashes.SHA512()
 
 ## server only ##
 
@@ -102,7 +107,6 @@ very_low_load = (1, 24*60*60)
 ## defaults (most probably no change needed) ##
 default_priority = 20
 default_timeout = 60
-pluginstartfile = "main.py"
 
 
 
@@ -149,6 +153,8 @@ resp_st={
 
 def generate_error(err):
     error={"msg": "unknown", "type":"unknown"}
+    if err is None:
+        return error
     if hasattr(err, "msg"):
         error["msg"] = str(err.msg)
     else:
@@ -158,7 +164,7 @@ def generate_error(err):
     else:
         error["type"] = type(err).__name__
         if hasattr(err,"__traceback__"):
-            error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)[3]).replace("\\n", "")
+            error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "") #[3]
         elif sys.exc_info()[2] is not None:
             error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
     return error # json.dumps(error)
@@ -181,6 +187,7 @@ def generate_error_deco(func):
     return get_args
 
 def gen_result(res, status):
+    """ generate result """
     s = resp_st.copy()
     if status == True:
         s["status"] = "ok"
@@ -193,6 +200,7 @@ def gen_result(res, status):
     return s
 
 def check_result(obdict, status):
+    """ is result valid """
     if obdict is None:
         return False
     if "status" not in obdict:
@@ -253,46 +261,51 @@ def init_logger(_logger = scn_logger()):
 
 
 
-def inp_passw_cmd(msg):
-    return getpass(msg+"\n")
+def inp_passw_cmd(msg, requester=None):
+    if requester:
+        inp = getpass(msg+" (from {}):\n".format(requester))
+    else:
+        inp = getpass(msg+":\n")
+    return inp
 pwcallmethodinst=inp_passw_cmd
 
-# returns func which asks the user for the password with message
-def pwcallmethod(msg):
-    def func(*args):
-        return pwcallmethodinst(msg)
-    return func
+# returns pw or ""
+def pwcallmethod(msg, requester=None):
+    return pwcallmethodinst(msg, requester)
 
-def notify_cmd(msg):
-    inp = input(msg)
+def notify_cmd(msg, requester):
+    if requester:
+        inp = input(msg+" (from {}): ".format(requester))
+    else:
+        inp = getpass(msg+": ")
     if inp.lower() in ["y", "j"]:
         return True
-    elif inp.lower() in ["n",]:
+    elif inp.lower() in ["n"]:
         return False
     else:
         return None
         
-notifyinst=notify_cmd
+notifyinst = notify_cmd
 
 # returns True, False, None
-def notify(msg):
-    return notifyinst(msg)
+def notify(msg, requester=None):
+    return notifyinst(msg, requester)
 
 
 
 ##### init ######
 
 def generate_certs(_path):
-    _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key:")()
-    if isinstance(_passphrase, (str, None)) == False:
+    _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key:")
+    if _passphrase is not None and isinstance(_passphrase, str) == False:
         logger().error("passphrase not str, None")
         return False
-    if _passphrase not in ["", None]:
-        _passphrase2 = pwcallmethod("Retype:\n")()
+    if _passphrase != "":
+        _passphrase2 = pwcallmethod("Retype:\n")
         if _passphrase != _passphrase2:
             return False
-    else:
-        _passphrase = None
+        if isinstance(_passphrase, str):
+            _passphrase = bytes(_passphrase, "utf-8")
     _key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=key_size,
@@ -320,7 +333,7 @@ def generate_certs(_path):
     # builder = builder.add_extension(extendedext, critical=True) # = extensions
     
     cert = builder.sign(_key, cert_sign_hash, default_backend())
-    if _passphrase is None:
+    if _passphrase == "":
         encryption_algorithm = serialization.NoEncryption()
     else:
         encryption_algorithm = serialization.BestAvailableEncryption(_passphrase)
@@ -342,7 +355,7 @@ def check_certs(_path):
         return False
     try:
         _context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        _context.load_cert_chain(pubpath, keyfile=privpath, password = pwcallmethod("Enter passphrase for decrypting privatekey:"))
+        _context.load_cert_chain(pubpath, keyfile=privpath, password=lambda : bytes(pwcallmethod("Enter passphrase for decrypting privatekey:"), "utf-8"))
         return True
     except Exception as e:
         logger().error(e)
@@ -372,14 +385,6 @@ def init_config_folder(_dir, prefix):
 
 ##### etc ######
 
-#work around crappy python ssl implementation
-#which doesn't allow reads from strings
-def workaround_ssl(text_cert):
-    import tempfile
-    t = tempfile.NamedTemporaryFile()
-    t.write(text_cert)
-    return t
-
 def default_sslcont():
     sslcont = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     sslcont.set_ciphers("HIGH")
@@ -389,12 +394,10 @@ def default_sslcont():
 def gen_sslcont(path):
     sslcont = default_sslcont()
     if os.path.isdir(path) == True: #if dir, then capath, if file then cafile
-        sslcont.load_verify_locations(capath = path)
+        sslcont.load_verify_locations(capath=path)
     else:
-        sslcont.load_verify_locations(path)
+        sslcont.load_verify_locations(cafile=path)
     return sslcont
-
-
 
 
 re_parse_url_old = re.compile("\\[?(.*)\\]?:([0-9]+)")
@@ -672,7 +675,7 @@ class configmanager(object):
                 ret.append((_key, _val2, str(_converter), _defaultval, _doc, ispermanent))
         return ret
 
-def pluginressources_creater(_dict, requester):
+def pluginresources_creater(_dict, requester):
     def wrap(res):
         ob = _dict.get(res)
         if ob is None:
@@ -759,7 +762,7 @@ class pluginmanager(object):
                         continue
                     globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
                     pconf.update(globalret["config_defaults"])
-                    finobj = globalret["init"](self.interfaces.copy(), pconf, pluginressources_creater(self.resources, plugin[0]), os.path.join(plugin[1], plugin[0]), logger)
+                    finobj = globalret["init"](self.interfaces.copy(), pconf, pluginresources_creater(self.resources, plugin[0]), os.path.join(plugin[1], plugin[0]), logger)
             except Exception as e:
                 st = "Plugin failed to load, reason:\n{}".format(e)
                 if hasattr(e,"tb_frame"):
@@ -1354,7 +1357,7 @@ badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"
 # no .:[]to differ name from ip address
 badnamechars += ".:[]"
 
-def normalize_name(_name, maxlength=64):
+def normalize_name(_name, maxlength=max_namelength):
     if _name is None:
         return None
     # name shouldn't be too long or ""
@@ -1375,7 +1378,7 @@ def normalize_name(_name, maxlength=64):
         _name = "fake_"+isself
     return _name
 
-def check_name(_name, maxlength=64):
+def check_name(_name, maxlength=max_namelength):
     if _name is None:
         return False
     # name shouldn't be too long or 0
@@ -1390,7 +1393,7 @@ def check_name(_name, maxlength=64):
         return False
     return True
 
-def check_typename(_type, maxlength = 15):
+def check_typename(_type, maxlength = max_typelength):
     if _type is None:
         return False
     # type shouldn't be too long or 0

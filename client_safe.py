@@ -181,7 +181,12 @@ class client_safe(object):
             del obdict["address"]
         else:
             _addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
+        ret = self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
+        if ret[0] == False:
+            return ret
+        ret[1]["name"] = normalize_name(ret[1].get("name", ""))
+        ret[1]["type"] = ret[1].get("type", "")[:max_typelength]
+        return ret
 
     @check_argsdeco(optional={"address": str})
     def cap(self, obdict):
@@ -371,11 +376,9 @@ class client_safe(object):
             requester: plugin calling the password dialog (default: None=main application) """
         if obdict.get("clientcert","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != dhash(obdict.get("clientcert","")) or self.plugin_pw_caller is None:
             return False, "auth failed"
-        temp = self.plugin_pw_caller(obdict.get("message"), obdict.get("requester"))
-        if temp is None:
-            return True, {"pw":temp}
-        else:
-            return False, "auth aborted"
+        temp = pwcallmethod(obdict.get("message"), obdict.get("requester"))
+        return True, {"pw": temp}
+        
 
     # result contains result of notify dialog
     @check_argsdeco({"message": str}, optional={"requester": str})
@@ -384,8 +387,8 @@ class client_safe(object):
             return: True or False, or error when not allowed
             message: message for the notification dialog
             requester: plugin calling the notification dialog (default: None=main application) """
-        if obdict.get("clientcert","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != dhash(obdict.get("clientcert","")) or self.plugin_notify_caller is None:
+        if obdict.get("clientcert","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != dhash(obdict.get("clientcert","")) or self.notify_caller is None:
             return False, "auth failed"
-        temp = self.plugin_notify_caller(obdict.get("message"), obdict.get("requester"))
+        temp = notify(obdict.get("message"), obdict.get("requester"))
         return True, {"result": temp}
         

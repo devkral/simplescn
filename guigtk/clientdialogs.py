@@ -15,11 +15,10 @@ def get_parent():
         return None
     return parentlist[-1]
 
-def gtkclient_notify(msg, requester=None, ismain=True):
+def gtkclient_notify(msg, requester=None):
     """ func: gtk notification dialog
         return: True or False
-        requester: plugin which requests the dialog
-        ismain: if main application had requested the dialog (requester is ignored) """
+        requester: plugin which requests the dialog (None: for main) """
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.png"))
     if icon:
         dia = Gtk.Dialog(parent=get_parent(), title="Notify", icon=icon)
@@ -28,15 +27,10 @@ def gtkclient_notify(msg, requester=None, ismain=True):
     dia.add_button("Confirm", 1)
     dia.add_button("Cancel", 0)
     box = dia.get_content_area()
-    if ismain == False:
-        if requester:
-            labelreq = Gtk.Label("{} asks:".format(requester))
-    #        dia.set_title(requester)
-        else:
-            labelreq = Gtk.Label("Unknown requester ask:")
-    #        dia.set_title("Unknown requester")
+    if requester:
+        labelreq = Gtk.Label("{} asks:".format(requester))
+        #dia.set_title(requester)
         box.pack_start(labelreq, False, False, 0)
-    #else:
     box.pack_end(Gtk.Label(msg), True, True, 0)
     box.show_all()
     dia.present()
@@ -45,11 +39,10 @@ def gtkclient_notify(msg, requester=None, ismain=True):
     return ret
     
 
-def gtkclient_pw(msg, requester=None, ismain=True):
+def gtkclient_pw(msg, requester=None):
     """ func: gtk password dialog
         return: None or pw
-        requester: plugin which requests the dialog
-        ismain: if main application had requested the dialog (requester is ignored)
+        requester: plugin which requests the dialog (None: for main)
     """
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.png"))
     if icon:
@@ -59,15 +52,13 @@ def gtkclient_pw(msg, requester=None, ismain=True):
     dia.add_button("Confirm", 1)
     dia.add_button("Cancel", 0)
     box = dia.get_content_area()
-    if ismain == False:
-        if requester:
-            labelreq = Gtk.Label("{} requests pw for:\n{}".format(requester, msg))
-        else:
-            labelreq = Gtk.Label("Unknown requester requests pw for:\n{}".format(msg))
+    if requester:
+        labelreq = Gtk.Label("{} requests pw for:\n{}".format(requester, msg))
         box.pack_start(labelreq, False, False, 0)
+    box.pack_end(Gtk.Label(msg), True, True, 0)
         
     pwentry = Gtk.Entry(input_purpose=Gtk.InputPurpose.PASSWORD, invisible_char="*", hexpand=True)
-    box.pack_end(pwentry, False, False, 0)
+    box.pack_end(pwentry, True, True, 0)
     box.show_all()
     dia.present()
     ret = dia.run()
@@ -76,4 +67,4 @@ def gtkclient_pw(msg, requester=None, ismain=True):
     if ret == 1:
         return pw
     else:
-        return None
+        return ""

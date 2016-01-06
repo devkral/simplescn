@@ -37,11 +37,6 @@ from common import check_certs, generate_certs, init_config_folder, default_conf
 
 from common import logger
 
-def open_pwcall_plugin(msg, requester=None):
-    pwcallmethod("{}: {}".format(requester, msg))()
-
-def open_notify_plugin(msg, requester=None):
-    notify("{}: {}".format(requester, msg))
 
 reference_header = \
 {
@@ -58,8 +53,6 @@ class client_client(client_admin, client_safe, client_config):
     redirect_addr = ""
     redirect_hash = ""
     receive_redirect_hash = ""
-    plugin_pw_caller = open_pwcall_plugin #default
-    plugin_notify_caller = open_notify_plugin #default
     scntraverse_helper = None
     
     #brokencerts = []
@@ -105,7 +98,7 @@ class client_client(client_admin, client_safe, client_config):
         if reauthcount == 0:
             authob = self.links["auth_client"].reauth(hashpcert, reqob, hashpcert)
         if authob is None and reauthcount <= 3:
-            authob = self.links["auth_client"].auth(pwcallmethod("Please enter password for {}:\n".format(reqob["realm"]))(), reqob, hashpcert, hashpcert)
+            authob = self.links["auth_client"].auth(pwcallmethod("Please enter password for {}".format(reqob["realm"])), reqob, hashpcert, hashpcert)
         return authob
 
     def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
@@ -944,7 +937,7 @@ class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
             self.server_close()
             raise
         self.sslcont = default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda:bytes(pwcallmethod("Enter client certificate pw"), "utf-8"))
         self.rawsock = self.socket
         self.socket = self.sslcont.wrap_socket(self.socket)
     #def get_request(self):

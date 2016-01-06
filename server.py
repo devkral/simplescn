@@ -606,7 +606,7 @@ class http_server_server(socketserver.ThreadingMixIn, HTTPServer):
             self.server_close()
             raise
         self.sslcont = default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv", pwcallmethod)
+        self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv", lambda:bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
         self.socket = self.sslcont.wrap_socket(self.socket)
 
 

@@ -13,11 +13,11 @@ import traceback, sys
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk,Gdk, GLib #,Pango
-from guigtk.clientnode import gtkclient_node
 from guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
 from guigtk.clientmain_managehash import hashmanagement
 
 from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
+from guigtk.clientnode import gtkclient_node
 from guigtk.guicommon import set_parent_template
 
 import common
@@ -915,31 +915,62 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         run=False
         self.win.destroy()
 
+def open_gtk_node(_address, forcehash=None, page=0, requester=None):
+    """ plugin: open a node window
+        forcehash: shall a certification hash be enforced
+        page: name or number of page
+        requester: requesting plugin """
+    gtkclient_node(cm.links, _address, forcehash=forcehash, page=page)
+    
+def open_gtk_pwcall_plugin(msg, requester):
+    """ plugin: open a password dialog
+        return: pw or None
+        requester: requesting plugin """
+    if requester:
+        return gtkclient_pw(msg, requester)
+    else:
+        return None
+    
+def open_gtk_notify_plugin(msg, requester=None):
+    """ plugin: open a notification dialog
+        return: True or False
+        requester: requesting plugin """
+    if requester:
+        return gtkclient_notify(msg, requester)
+    else:
+        return None
 
 class gtkclient_init(client.client_init):
     
-    def __init__(self,confm,pluginpathes):
+    def __init__(self, confm, pluginm):
         logger().debug("start gtkclient")
         common.pwcallmethodinst = gtkclient_pw
         common.notifyinst = gtkclient_notify
         
-        client.client_init.__init__(self, confm, pluginpathes)
+        client.client_init.__init__(self, confm, pluginm)
         self.links["gtkclient"] = gtkclient_main(self.links)
         
         logger().replaceHandler(self.links["gtkclient"])
         parentlist.insert(0, self.links["gtkclient"].win)
         
+        
+        if confm.getb("noplugins") == False:
+            pluginm.resources["access"] = self.links["client"].access_safe
+            pluginm.resources["plugin"] = self.links["client"].use_plugin
+            pluginm.resources["open_node"] = open_gtk_node
+            pluginm.resources["open_pwrequest"] = open_gtk_pwcall_plugin
+            pluginm.resources["open_notify"] = open_gtk_notify_plugin
+            pluginm.init_plugins()
+        
         if confm.getb("noserver") == False:
             logger().debug("start client server")
             self.serve_forever_nonblock()
-
-def do_gtkiteration():
-    
-    logger().debug("enter mainloop")
-    # needed? https://developer.gnome.org/glib/stable/glib-Deprecated-Thread-APIs.html
-    # threadsubsystem seems to be initialized automatically
-    #GLib.threads_init()
-    #Gtk.main()
-    while run == True:
-        Gtk.main_iteration_do(True)
+    def enter_gtkmainloop(self):
+        logger().debug("enter mainloop")
+        # needed? https://developer.gnome.org/glib/stable/glib-Deprecated-Thread-APIs.html
+        # threadsubsystem seems to be initialized automatically
+        #GLib.threads_init()
+        #Gtk.main()
+        while run == True:
+            Gtk.main_iteration_do(True)
     
