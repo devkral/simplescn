@@ -57,6 +57,8 @@ import json
 import base64
 from urllib import parse
 from http.client import HTTPSConnection 
+from http.server import HTTPServer
+import socketserver
 
 ## sizes ##
 salt_size = 10
@@ -892,11 +894,41 @@ class scnauth_client(object):
             authreq_ob["algo"] = _hashalgo
         return self.asauth(pre, authreq_ob, pubcert_hash)
 
+        
+class http_server(socketserver.ThreadingMixIn,HTTPServer):
+    """ server part of client/server """
+    sslcont = None
+    rawsock = None
+    
+    def __init__(self, _address, certfpath, _handler, pwmsg):
+        self.address_family = socket.AF_INET6
+        HTTPServer.__init__(self, _address, _handler, False)
+        try:
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        except Exception:
+            # python for windows has disabled it
+            # hope that it works without
+            pass
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            self.server_bind()
+            self.server_activate()
+        except:
+            self.server_close()
+            raise
+        self.sslcont = default_sslcont()
+        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda:bytes(pwcallmethod(pwmsg), "utf-8"))
+        self.rawsock = self.socket
+        self.socket = self.sslcont.wrap_socket(self.socket)
+    #def get_request(self):
+    #    if self.socket is None:
+    #        return None, None
+    #    socketserver.TCPServer.get_request(self)
+
 
 scn_pingstruct = struct.pack(">c511x", b"p")
 scn_yesstruct = struct.pack(">c511x", b"y")
 scn_nostruct = struct.pack(">c511x", b"y")
-
 
 #port size, address
 addrstrformat = ">HH508s"

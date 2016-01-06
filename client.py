@@ -22,9 +22,8 @@ from client_admin import client_admin
 from client_safe import client_safe
 from client_config import client_config
 
-from http.server  import BaseHTTPRequestHandler,HTTPServer
+from http.server import BaseHTTPRequestHandler
 from http import client
-import socketserver
 import logging
 import ssl
 import signal,threading
@@ -32,7 +31,7 @@ import json
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
 #VALMITMError
 
 from common import logger
@@ -938,32 +937,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.handle_client(sub)
         else:
             self.send_error(404, "resource not found", "could not find {}".format(resource))
-        
-class http_client_server(socketserver.ThreadingMixIn,HTTPServer):
-    """server part of client; inheritates client_server to provide
-        client information"""
-    sslcont = None
-    rawsock = None
-    
-    def __init__(self, _client_address, certfpath):
-        self.address_family = socket.AF_INET6
-        HTTPServer.__init__(self, _client_address, client_handler, False)
-        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            self.server_bind()
-            self.server_activate()
-        except:
-            self.server_close()
-            raise
-        self.sslcont = default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda:bytes(pwcallmethod("Enter client certificate pw"), "utf-8"))
-        self.rawsock = self.socket
-        self.socket = self.sslcont.wrap_socket(self.socket)
-    #def get_request(self):
-    #    if self.socket is None:
-    #        return None, None
-    #    socketserver.TCPServer.get_request(self)
+
 
 class client_init(object):
     config_root = None
@@ -1065,9 +1039,9 @@ class client_init(object):
         client_handler.links = self.links
         
         # use timeout argument of BaseServer
-        http_client_server.timeout = confm.get("timeout")
+        http_server.timeout = confm.get("timeout")
         if confm.getb("noserver") == False:
-            self.links["hserver"] = http_client_server(("", port), _cpath+"_cert")
+            self.links["hserver"] = http_server(("", port), _cpath+"_cert", client_handler, "Enter client certificate pw")
         self.links["client"] = client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), _cpath+"_cert", self.links)
         
         

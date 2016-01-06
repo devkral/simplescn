@@ -16,10 +16,9 @@ if sharedir not in sys.path:
     sys.path.append(sharedir)
 
 from http.client import HTTPSConnection 
-from http.server import BaseHTTPRequestHandler,HTTPServer
+from http.server import BaseHTTPRequestHandler
 import time
 import signal, threading
-import socketserver
 import logging
 import json
 #, base64
@@ -28,7 +27,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
 #confdb_ending
 #configmanager,, rw_socket
 
@@ -593,23 +592,6 @@ class server_handler(BaseHTTPRequestHandler):
             self.handle_server(sub)
         else:
             self.send_error(404, "resource not found", "could not find {}".format(resource))
-    
-class http_server_server(socketserver.ThreadingMixIn, HTTPServer):
-    sslcont = None
-
-    def __init__(self, server_address, certfpath, address_family):
-        self.address_family = address_family
-        HTTPServer.__init__(self, server_address, server_handler, False)
-        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-        try:
-            self.server_bind()
-            self.server_activate()
-        except:
-            self.server_close()
-            raise
-        self.sslcont = default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub",certfpath+".priv", lambda:bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
-        self.socket = self.sslcont.wrap_socket(self.socket)
 
 
 class server_init(object):
@@ -671,8 +653,8 @@ class server_init(object):
         
         self.links["server_server"] = server(serverd)
         
-        http_server_server.timeout = int(kwargs["timeout"])
-        self.links["hserver"] = http_server_server(("", _port), _spath+"_cert", socket.AF_INET6)
+        http_server.timeout = int(kwargs["timeout"])
+        self.links["hserver"] = http_server(("", _port), _spath+"_cert", server_handler, "Enter server certificate pw")
         if kwargs.get("notraversal", False) == False:
             srcaddr = self.links["hserver"].socket.getsockname()
             self.links["server_server"].traverse = traverser_dropper(srcaddr)
