@@ -1,4 +1,7 @@
-include guigtk/*
-include plugins/*/*
-include static/*
-include html/*/*
+#include guigtk/*.py
+#include guigtk/*.ui
+#recursive-include html *.html
+#recursive-include static *
+#exclude .gitignore
+#exclude LICENSE
+#exclude MANIFEST.in
