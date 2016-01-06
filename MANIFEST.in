@@ -1,0 +1,4 @@
+include guigtk/*
+include plugins/*/*
+include static/*
+include html/*/*
