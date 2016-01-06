@@ -372,16 +372,14 @@ def init_config_folder(_dir, prefix):
         os.chmod(os.path.join(_dir, "broken"), 0o700)
     _path = os.path.join(_dir, prefix)
     if os.path.exists("{}_name.txt".format(_path)) == False:
-        e = open("{}_name.txt".format(_path), "w")
-        if prefix == "client":
-            e.write("{}/{}".format(normalize_name(os.uname()[1]), 0))
-        else:
-            e.write("{}/{}".format(normalize_name(os.uname()[1]), server_port))
-        e.close()
+        with open("{}_name.txt".format(_path), "w") as writeo:
+            if prefix == "client":
+                writeo.write("{}/{}".format(normalize_name(os.getenv("USERNAME")), 0))
+            else:
+                writeo.write("{}/{}".format(normalize_name(os.getenv("USERNAME")), server_port))
     if os.path.exists(_path+"_message.txt") == False:
-        e=open("{}_message.txt".format(_path), "w")
-        e.write("<message>")
-        e.close()
+        with open("{}_message.txt".format(_path), "w") as writeo:
+            writeo.write("<message>")
 
 ##### etc ######
 
