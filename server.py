@@ -28,7 +28,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access
 #confdb_ending
 #configmanager,, rw_socket
 
@@ -329,6 +329,7 @@ class server(commonscn):
 
     
     @generate_error_deco
+    @classify_access
     def access_server(self, action, requester=None, **obdict):
         if action in self.cache:
             return self.cache[action]

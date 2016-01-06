@@ -32,7 +32,7 @@ import json
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin,classify_local
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
 #VALMITMError
 
 from common import logger
@@ -371,11 +371,18 @@ class client_client(client_admin, client_safe, client_config):
     # NEVER include in validactions
     # headers=headers
     # client_address=client_address
+    @classify_access
     def access_core(self, action, obdict):
         """ internal method to access functions """
-        if action in self.access_methods:
-            return False, "actions: 'access_methods not allowed in access_core", isself, self.cert_hash
+        
         if action in self.validactions:
+            if hasattr(getattr(self, action), "classify") and "access" in getattr(self, action).classify:
+                return False, "actions: 'classified access not allowed in access_core", isself, self.cert_hash
+            if hasattr(getattr(self, action), "classify") and "insecure" in getattr(self, action).classify:
+                return False, "method call not allowed this way (insecure)", isself, self.cert_hash
+            if experimental == False:
+                if hasattr(getattr(self, action), "classify") and "experimental" in getattr(self, action).classify:
+                    return False, "experimental method (is not enabled, use on own risk)", isself, self.cert_hash
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
                 return getattr(self, action)(obdict)
@@ -384,7 +391,6 @@ class client_client(client_admin, client_safe, client_config):
         else:
             return False, "not in validactions", isself, self.cert_hash
     
-    access_methods = ["access_main", "access_safe", "access_core"]
     # command wrapper for cmd interfaces
     
     @generate_error_deco
@@ -395,8 +401,8 @@ class client_client(client_admin, client_safe, client_config):
         if check_args(obdict, {"action": str},error=error) == False:
             return False, "{}:{}".format(*error)
             #return False, "no action given", isself, self.cert_hash
-        if obdict["action"] in ["command"] or obdict["action"] in self.access_methods:
-            return False, "actions: 'access_methods, command' not allowed in command"
+        if obdict["action"] in ["command"] or (hasattr(self, obdict["action"]) and hasattr(getattr(self, obdict["action"]), "classify") and "access" in getattr(self, obdict["action"]).classify):
+            return False, "actions: 'classified access, command' not allowed in command"
         action = obdict["action"]
         del obdict["action"]
         
@@ -418,6 +424,7 @@ class client_client(client_admin, client_safe, client_config):
     # headers=headers
     # client_address=client_address
     @generate_error_deco
+    @classify_access
     def access_safe(self, action, requester=None, **obdict):
         if action in ["cmd_plugin",] or action in self.access_methods:
             return False, "actions: 'access_methods, cmd_plugin' not allowed in access_safe"
@@ -442,6 +449,7 @@ class client_client(client_admin, client_safe, client_config):
     # headers=headers
     # client_address=client_address
     @generate_error_deco
+    @classify_access
     def access_main(self, action, **obdict):
         obdict["pwcall_method"] = self.pw_auth
         try:

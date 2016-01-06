@@ -1172,9 +1172,26 @@ def classify_local(func):
     func.classify.add("local")
     return func
     
-# signals that method should be included, as stable or experimental
+# signals that method is experimental
 def classify_experimental(func):
+    if hasattr(func, "classify") == False:
+        func.classify=set()
     func.classify.add("experimental")
+    return func
+
+# signals that method is insecure
+def classify_insecure(func):
+    if hasattr(func, "classify") == False:
+        func.classify=set()
+    func.classify.add("insecure")
+    return func
+
+# signals that method is access method
+#access = accessing client/server
+def classify_access(func):
+    if hasattr(func, "classify") == False:
+        func.classify=set()
+    func.classify.add("access")
     return func
 
 def gen_doc_deco(func):
