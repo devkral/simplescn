@@ -1152,11 +1152,14 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
     return ret
 
 def gen_doc_deco(func):
+    # skip when no documentation is available
+    if func.__doc__ is None:
+        return func
+    
     if hasattr(func, "requires"):
         requires = func.requires
     else:
         requires = {}
-    
     if hasattr(func, "optional"):
         optional = func.optional
     else:

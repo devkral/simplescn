@@ -452,10 +452,13 @@ plugin <plugin>:<...>: communicate with plugin
 """
         for funcname in sorted(self.validactions):
             func = getattr(self, funcname)
-            if is_admin_func(funcname):
-                out+="(admin) {doc}\n".format(doc=func.__doc__)
+            if func.__doc__ is not None:
+                if is_admin_func(funcname):
+                    out+="(admin) {doc}\n".format(doc=func.__doc__)
+                else:
+                    out+="{doc}\n".format(doc=func.__doc__)
             else:
-                out+="{doc}\n".format(doc=func.__doc__)
+                logger().info("Missing __doc__: {}".format(funcname))
 
         return out
 
