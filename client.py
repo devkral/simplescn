@@ -18,7 +18,7 @@ if sharedir not in sys.path:
     sys.path.append(sharedir)
 
 
-from client_admin import client_admin, is_admin_func
+from client_admin import client_admin
 from client_safe import client_safe
 from client_config import client_config
 
@@ -32,7 +32,7 @@ import json
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader
+from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin,classify_local
 #VALMITMError
 
 from common import logger
@@ -315,7 +315,9 @@ class client_client(client_admin, client_safe, client_config):
             return None, cert, _hash
         return sock, cert, _hash
         
+    
     @check_argsdeco({"plugin": str, "paction": str})
+    @classify_noplugin
     def cmd_plugin(self, obdict):
         """ func: trigger commandline action of plugin
             return: answer of plugin
@@ -343,7 +345,9 @@ class client_client(client_admin, client_safe, client_config):
             False, generate_error(e)
     
     # auth is special variable see safe_mdecode in common
+    
     @check_argsdeco({"auth": dict, "hash": str, "address": str})
+    @classify_local
     def remember_auth(self, obdict):
         """ func: Remember Authentification info for as long the program runs
             return: True, when success
@@ -382,7 +386,9 @@ class client_client(client_admin, client_safe, client_config):
     
     access_methods = ["access_main", "access_safe", "access_core"]
     # command wrapper for cmd interfaces
+    
     @generate_error_deco
+    @classify_noplugin
     def command(self, inp, callpw_auth=False):
         obdict = parse.parse_qs(inp)
         error=[]
@@ -421,10 +427,10 @@ class client_client(client_admin, client_safe, client_config):
         obdict["pwcall_method"] = pw_auth_plugin
         obdict["requester"] = requester
         if action in self.validactions:
-            if action in self.validactions_config:
+            if hasattr(getattr(self, action), "classify") and "noplugin" in getattr(self, action).classify:
                 return False, "{} tried to use protected config methods".format(requester)
-            if is_admin_func(action):
-                if requester is None or notify('"{}" wants admin permissions\nAllow(y/n)?: '.format(requester)):
+            if hasattr(getattr(self, action), "classify") and "admin" in getattr(self, action).classify:
+                if requester is None or notify('"{}" wants admin permissions\nAllow?'.format(requester)):
                     return False, "no permission"
             return self.access_core(action, obdict)
         else:
@@ -453,10 +459,7 @@ plugin <plugin>:<...>: communicate with plugin
         for funcname in sorted(self.validactions):
             func = getattr(self, funcname)
             if func.__doc__ is not None:
-                if is_admin_func(funcname):
-                    out+="(admin) {doc}\n".format(doc=func.__doc__)
-                else:
-                    out+="{doc}\n".format(doc=func.__doc__)
+                out+="{doc}\n".format(doc=func.__doc__)
             else:
                 logger().info("Missing __doc__: {}".format(funcname))
 
@@ -492,7 +495,9 @@ class client_server(commonscn):
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
+    
     @check_argsdeco({"name": str, "port": int})
+    @classify_local
     def registerservice(self, obdict):
         """ func: register a service = (map port to name)
             return: success or error
@@ -510,7 +515,9 @@ class client_server(commonscn):
         return False, "no permission"
     
     ### don't annote list with "map" dict structure on serverside (overhead)
+    
     @check_argsdeco({"name": str})
+    @classify_local
     def delservice(self, obdict):
         """ func: delete a service
             return: success or error
@@ -527,7 +534,9 @@ class client_server(commonscn):
         return False, "no permission"
         
     ### management section - end ###
+    
     @check_argsdeco({"name": str})
+    @classify_local
     def getservice(self, obdict):
         """ func: get the port of a service
             return: portnumber
@@ -585,7 +594,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(403, "no permission - client")
             return
         
-        if is_admin_func(action):
+        if hasattr(getattr(self, action), "classify") and "admin" in getattr(self, action).classify:
             #if self.client_cert is None:
             #    self.send_error(403, "no permission (no certrewrap) - admin")
             #    return

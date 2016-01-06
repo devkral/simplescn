@@ -1151,6 +1151,32 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
         ret = tmp.hexdigest()
     return ret
 
+# signals that method not be accessed by plugins
+def classify_noplugin(func):
+    if hasattr(func, "classify") == False:
+        func.classify=set()
+    func.classify.add("noplugin")
+    return func
+
+
+# signals that method needs admin permission
+def classify_admin(func):
+    if hasattr(func, "classify") == False:
+        func.classify=set()
+    func.classify.add("admin")
+    return func
+# signals that method only access internal methods and send no requests (e.g. do_request)
+def classify_local(func):
+    if hasattr(func, "classify") == False:
+        func.classify=set()
+    func.classify.add("local")
+    return func
+    
+# signals that method should be included, as stable or experimental
+def classify_experimental(func):
+    func.classify.add("experimental")
+    return func
+
 def gen_doc_deco(func):
     # skip when no documentation is available
     if func.__doc__ is None:
@@ -1184,7 +1210,11 @@ def gen_doc_deco(func):
 
     spacing = " "*2
     sep = ",\n{spaces}  ".format(spaces=spacing)
-    newdoc = "{}: {}\n{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing)
+    if hasattr(func, "classify"):
+        classify = " ({})".format(", ".join(sorted(func.classify)))
+    else:
+        classify = ""
+    newdoc = "{}{classify}: {}\n{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify)
     if len(requires) == 0:
         newdoc = "{}{spaces}requires: n.a.{sep}".format(newdoc, spaces=spacing, sep=sep)
     else:
@@ -1273,6 +1303,8 @@ def check_argsdeco(requires={}, optional={}):
         get_args.optional = optional
         get_args.__doc__ = func.__doc__
         get_args.__name__ = func.__name__
+        if hasattr(func, "classify"):
+            get_args.classify = func.classify
         return gen_doc_deco(get_args)
     return func_to_check
 

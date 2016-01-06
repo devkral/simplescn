@@ -1,7 +1,7 @@
 
 
 import os
-from common import configmanager, confdb_ending, check_argsdeco
+from common import configmanager, confdb_ending, check_argsdeco, classify_local, classify_noplugin, classify_admin
 
 class client_config(object): 
     validactions_config = {"set_config", "set_pluginconfig", "clean_pluginconfig", "reset_configkey", "reset_pluginconfigkey", "list_config", "list_pluginconfig", "get_pluginconfig", "get_config"}
@@ -12,6 +12,9 @@ class client_config(object):
 
 
     @check_argsdeco({"key": str, "value": str})
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def set_config(self, obdict):
         """ func: set key in main configuration of client
             return: success or error
@@ -21,27 +24,42 @@ class client_config(object):
 
 
     @check_argsdeco({"key": str})
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def reset_configkey(self, obdict):
         """ func: reset key in main configuration of client
             return: success or error
             key: config key """
         return self.links["configmanager"].set_default(obdict["key"])
     
+    
     @check_argsdeco({"key": str})
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def get_config(self, obdict):
         """ func: get key in main configuration of client
             return: key value
             key: config key """
         return True, {"value": self.links["configmanager"].get(obdict["key"])}
     
+    
     @check_argsdeco(optional={"onlypermanent": bool})
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def list_config(self, obdict):
         """ func: list main configuration of client
             return: key, value, ...
             onlypermanent: list only permanent settings (default: False) """
         return True, {"items": self.links["configmanager"].list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
 
+    
     @check_argsdeco({"key": str, "value": str, "plugin": str})
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def set_pluginconfig(self, obdict):
         """ func: set key in plugin configuration
             return: success or error
@@ -59,7 +77,11 @@ class client_config(object):
             config = pluginm.plugins[obdict["plugin"]].config
         return config.set(obdict["key"], obdict["value"])
 
+    
     @check_argsdeco({"key": str, "plugin": str})
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def reset_pluginconfigkey(self, obdict):
         """ func: reset key in plugin configuration
             return: success or error
@@ -75,8 +97,12 @@ class client_config(object):
         else:
             config = pluginm.plugins[obdict["plugin"]].config
         return config.set_default(str(obdict["key"]))
-        
+    
+    
     @check_argsdeco({"key": str, "plugin": str})
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def get_pluginconfig(self, obdict):
         """ func: get key in plugin configuration
             return: key value
@@ -93,7 +119,11 @@ class client_config(object):
             config = pluginm.plugins[obdict["plugin"]].config
         return True, {"value": config.get(obdict["key"])}
     
+    
     @check_argsdeco({"plugin": str}, optional={"onlypermanent": bool})
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def list_pluginconfig(self, obdict):
         """ func: list plugin configuration
             return: key, value, ...
@@ -110,7 +140,11 @@ class client_config(object):
             _config = pluginm.plugins[obdict["plugin"]].config
         return True, {"items": _config.list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
 
+    
     @check_argsdeco()
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def clean_pluginconfig(self, obdict):
         """ func: clean orphan plugin configurations
             return: success or error """

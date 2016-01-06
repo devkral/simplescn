@@ -1,5 +1,5 @@
 
-from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, logger, experimental
+from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, logger, experimental, classify_admin, classify_experimental, classify_noplugin, classify_local
 import os, sys
 import threading
 #isself
@@ -22,7 +22,10 @@ class client_admin(object):
         self.write_msg_lock = threading.Lock()
         self.change_name_lock = threading.Lock()
     
-    @check_argsdeco({"priority": int}) 
+    
+    @check_argsdeco({"priority": int})
+    @classify_admin
+    @classify_local
     def setpriority(self, obdict):
         """ func: set priority of client
             return: success or error
@@ -35,21 +38,30 @@ class client_admin(object):
         return True
         
     #local management
+    
     @check_argsdeco({"name": str})
+    @classify_admin
+    @classify_local
     def addentity(self, obdict):
         """ func: add entity (=named group for hashes)
             return: success or erro
             name: entity name """
         return self.hashdb.addentity(obdict["name"])
 
+    
     @check_argsdeco({"name": str})
+    @classify_admin
+    @classify_local
     def delentity(self, obdict):
         """ func: delete entity (=named group for hashes)
             return: success or error
             name: entity name """
         return self.hashdb.delentity(obdict["name"])
 
+    
     @check_argsdeco({"name": str, "newname": str})
+    @classify_admin
+    @classify_local
     def renameentity(self, obdict):
         """ func: rename entity (=named group for hashes)
             return success or error
@@ -57,7 +69,10 @@ class client_admin(object):
             newname: new entity name """
         return self.hashdb.renameentity(obdict["name"],obdict["newname"])
 
+    
     @check_argsdeco({"name": str,"hash": str}, optional={"type": str, "priority": int})
+    @classify_admin
+    @classify_local
     def addhash(self, obdict):
         """ func: add hash to entity (=named group for hashes)
             return: success or error
@@ -70,7 +85,10 @@ class client_admin(object):
         _name,  _certhash = obdict["name"], obdict["hash"]
         return self.hashdb.addhash(_name, _certhash, _type, _priority)
 
+    
     @check_argsdeco({"hash": str})
+    @classify_admin
+    @classify_local
     def delhash(self, obdict):
         """ func: delete hash
             return: success or error
@@ -78,7 +96,10 @@ class client_admin(object):
         return self.hashdb.delhash(obdict["hash"])
     
     
+    
     @check_argsdeco({"hash": str, "security": str})
+    @classify_admin
+    @classify_local
     def changesecurity(self, obdict):
         """ func: change security level of hash
             return: success or error
@@ -86,7 +107,10 @@ class client_admin(object):
             security: security level """
         return self.hashdb.changesecurity(obdict["hash"],obdict["security"])
     
+    
     @check_argsdeco({"hash": str, "newname": str})
+    @classify_admin
+    @classify_local
     def movehash(self, obdict):
         """ func: move hash to entity
             return: success or error
@@ -96,7 +120,11 @@ class client_admin(object):
     
     # don't expose to other plugins, at least not without question
     # other plugins could check for insecure plugins
+    
     @check_argsdeco()
+    @classify_admin
+    @classify_noplugin
+    @classify_local
     def listplugins(self, obdict):
         """ func: list plugins
             return: plugins """
@@ -107,7 +135,10 @@ class client_admin(object):
             ret.append((plugin, pluginm.plugin_is_active(plugin)))
         return True, {"items":ret,"map":["plugin","state"]}
     
+    
     @check_argsdeco({"hash": str, "reference": str, "reftype": str})
+    @classify_admin
+    @classify_local
     def addreference(self, obdict):
         """ func: add reference (=child of hash) to hash
             return: success or error
@@ -126,7 +157,10 @@ class client_admin(object):
         _tref=self.hashdb.get(obdict["hash"])
         return self.hashdb.addreference(_tref[4],obdict["reference"],obdict["reftype"])
 
+    
     @check_argsdeco({"hash": str, "reference": str, "newreference": str, "newreftype": str})
+    @classify_admin
+    @classify_local
     def updatereference(self, obdict):
         """ func: update reference (=child of hash)
             return: success or error
@@ -146,7 +180,10 @@ class client_admin(object):
         
         return self.hashdb.updatereference(_tref[4],obdict["reference"],obdict["newreference"],obdict["newreftype"])
 
+    
     @check_argsdeco({"hash": str, "reference": str})
+    @classify_admin
+    @classify_local
     def delreference(self, obdict):
         """ func: delete reference (=child of hash)
             return: success or error
@@ -157,7 +194,10 @@ class client_admin(object):
             return False, "hash not exist"
         return self.hashdb.delreference(_tref[4],obdict["reference"])
 
+    
     @check_argsdeco({"reason": str})
+    @classify_admin
+    @classify_local
     def invalidatecert(self, obdict):
         """ func: invalidate certificate
             return: success or error
@@ -195,7 +235,10 @@ class client_admin(object):
         sys.exit(0)
         #return True
 
+    
     @check_argsdeco({"message": str},optional={"permanent": bool})
+    @classify_admin
+    @classify_local
     def changemsg(self, obdict):
         """ func: change message
             return: success or error
@@ -211,7 +254,10 @@ class client_admin(object):
                     wm.write(obdict.get("message"))
         return True
     
+    
     @check_argsdeco({"name": str},optional={"permanent": bool})
+    @classify_admin
+    @classify_local
     def changename(self, obdict):
         """ func: change name
             return: success or error
@@ -241,7 +287,10 @@ class client_admin(object):
             self.links["client_server"].update_cache()
             return True
     
+    
     @check_argsdeco({"activate": bool})
+    @classify_admin
+    @classify_local
     def requestredirect(self, obdict):
         """ func: request redirect or deactivate it
             return: success or error
@@ -258,6 +307,8 @@ class client_admin(object):
     
     # TODO: test
     @check_argsdeco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
+    @classify_experimental
+    @classify_admin
     def massimporter(self, obdict):
         """ func: import hashes and entities
             return: success or error
@@ -299,8 +350,4 @@ class client_admin(object):
                         self.hashdb.addreference(localref, _ref, _reftype)
                 
         return True, "import finished"
-    
-def is_admin_func(funcname):
-    if funcname in client_admin.validactions_admin or funcname in client_config.validactions_config:
-        return True
-    return False
+

@@ -28,7 +28,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader
+from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local
 #confdb_ending
 #configmanager,, rw_socket
 
@@ -233,7 +233,7 @@ class server(commonscn):
             destaddr = scnparse_url(obdict.get("destaddr"), True)
         except Exception: # as e:
             return False, "destaddr invalid"
-        travaddr = obdict["clientaddress"] #(obdict["clientaddress"][0], travport)
+        travaddr = obdict.get("clientaddress") #(obdict["clientaddress"][0], travport)
         ret = threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr),daemon=True)
         ret.start()
         #if ret:
@@ -242,10 +242,11 @@ class server(commonscn):
         #    return False, "traverse request failed"
     
     @check_argsdeco()
+    @classify_local
     def get_ownaddr(self, obdict):
         """ func: return remote own address
             return: remote requester address """
-        return True, {"address": obdict["clientaddress"]}
+        return True, {"address": obdict.get("clientaddress")}
     
     @check_argsdeco({"hash": str, "name": str}, optional={"autotraverse": bool})
     def get(self, obdict):
