@@ -1,7 +1,4 @@
-#include guigtk/*.py
-#include guigtk/*.ui
-#recursive-include html *.html
-#recursive-include static *
-#exclude .gitignore
-#exclude LICENSE
-#exclude MANIFEST.in
+include LICENSE
+include README.md
+
+global-exclude *.pyc *.pyo *.swp *.swo

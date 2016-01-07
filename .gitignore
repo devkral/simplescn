@@ -4,4 +4,5 @@ __pycache__
 *.build
 *.dist
 tests/temp_*
+*.egg-info
 build

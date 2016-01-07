@@ -7,13 +7,13 @@ setup(name='simplescn',
     author='Alex',
     author_email='devkral@web.de',
     url='https://github.com/devkral/simplescn',
-    scripts = ['client.py', 'guiclient.py', 'server.py', 'common.py'],
+    #scripts = ['client.py', 'guiclient.py', 'server.py', 'common.py'],
     include_package_data = True,
     #package_data = {
         # If any package contains *.ui files, include them:
     #    '.': ['*.ui', '*.py'],
     #},
-    packages = ['.', 'plugins'],
+    packages = ['simplescn'],
     
     license = "BSD3",
     test_suite = "tests"
