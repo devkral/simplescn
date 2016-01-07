@@ -3,7 +3,8 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk
-from guigtk import clientdialogs
+
+from simplescn.guigtk import clientdialogs
 
 run = True
 open_hashes={}

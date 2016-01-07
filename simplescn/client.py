@@ -9,7 +9,7 @@ if "__file__" not in globals():
 
 if sharedir is None:
     # use sys
-    sharedir = os.path.dirname(os.path.realpath(__file__))
+    sharedir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # append to pathes
 if sharedir[-1] == os.sep:
@@ -18,9 +18,9 @@ if sharedir not in sys.path:
     sys.path.append(sharedir)
 
 
-from client_admin import client_admin
-from client_safe import client_safe
-from client_config import client_config
+from simplescn.client_admin import client_admin
+from simplescn.client_safe import client_safe
+from simplescn.client_config import client_config
 
 from http.server import BaseHTTPRequestHandler
 from http import client
@@ -31,10 +31,10 @@ import json
 from os import path
 from urllib import parse
 
-from common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
+from simplescn.common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
 #VALMITMError
 
-from common import logger
+from simplescn.common import logger
 
 
 reference_header = \
@@ -425,8 +425,8 @@ class client_client(client_admin, client_safe, client_config):
     @generate_error_deco
     @classify_access
     def access_safe(self, action, requester=None, **obdict):
-        if action in ["cmd_plugin",] or action in self.access_methods:
-            return False, "actions: 'access_methods, cmd_plugin' not allowed in access_safe"
+        if "access" in getattr(self, action).classify:
+            return False, "actions: 'access methods not allowed in access_safe"
         def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
             authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
             return authob
@@ -434,7 +434,7 @@ class client_client(client_admin, client_safe, client_config):
         obdict["requester"] = requester
         if action in self.validactions:
             if hasattr(getattr(self, action), "classify") and "noplugin" in getattr(self, action).classify:
-                return False, "{} tried to use protected config methods".format(requester)
+                return False, "{} tried to use noplugin protected methods".format(requester)
             if hasattr(getattr(self, action), "classify") and "admin" in getattr(self, action).classify:
                 if requester is None or notify('"{}" wants admin permissions\nAllow?'.format(requester)):
                     return False, "no permission"
@@ -1087,7 +1087,7 @@ client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
              "port": [str(client_port), int, "<number>: Port"]}
 
 if __name__ ==  "__main__":
-    from common import scn_logger, init_logger
+    from simplescn.common import scn_logger, init_logger
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)

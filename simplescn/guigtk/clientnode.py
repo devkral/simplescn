@@ -1,13 +1,14 @@
 #! /usr/bin/env python3
 
-import os, locale
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib #, Pango
 import socket
 
-from guigtk.guicommon import gtkclient_template, activate_shielded, toggle_shielded, open_hashes
-from common import sharedir,isself, logger, check_name, security_states, scnparse_url
+import os, locale
+
+from simplescn.guigtk.guicommon import gtkclient_template, activate_shielded, toggle_shielded, open_hashes
+from simplescn.common import sharedir,isself, logger, check_name, security_states, scnparse_url
 
 
 

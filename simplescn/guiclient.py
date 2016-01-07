@@ -7,7 +7,7 @@ if "__file__" not in globals():
 
 if not sharedir:
     # use sys
-    sharedir = os.path.dirname(os.path.realpath(__file__))
+    sharedir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # append to pathes
 if sharedir[-1] == os.sep:
@@ -16,18 +16,17 @@ if sharedir not in sys.path:
     sys.path.append(sharedir)
 
 
-from os import path
 
 import signal
 
-from guigtk import clientmain
-from guigtk.clientmain import gtkclient_init
+from simplescn.guigtk import clientmain
+from simplescn.guigtk.clientmain import gtkclient_init
 
-import client
-from client import paramhelp, client_args
+from simplescn import client
+from simplescn.client import paramhelp, client_args
 
-from common import configmanager, pluginmanager, confdb_ending
-from common import logger
+from simplescn.common import configmanager, pluginmanager, confdb_ending
+from simplescn.common import logger
 import logging
 
 cm = None
@@ -43,7 +42,7 @@ def signal_handler(*args):
 
 
 if __name__ == "__main__":
-    from common import scn_logger, init_logger
+    from simplescn.common import scn_logger, init_logger
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
@@ -77,7 +76,7 @@ if __name__ == "__main__":
                     client_args[tparam[0]][0] = tparam[1]
 
     configpath = client_args["config"][0]
-    configpath = path.expanduser(configpath)
+    configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
         configpath = configpath[:-1]
     client_args["config"][0] = configpath

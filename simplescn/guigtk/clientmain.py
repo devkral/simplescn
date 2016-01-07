@@ -13,16 +13,18 @@ import traceback, sys
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk,Gdk, GLib #,Pango
-from guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
-from guigtk.clientmain_managehash import hashmanagement
 
-from guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
-from guigtk.clientnode import gtkclient_node
-from guigtk.guicommon import set_parent_template
+from simplescn import common
+from simplescn import client
 
-import common
-from common import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error, logger
-import client
+from simplescn.guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
+from simplescn.guigtk.clientmain_managehash import hashmanagement
+
+from simplescn.guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
+from simplescn.guigtk.clientnode import gtkclient_node
+from simplescn.guigtk.guicommon import set_parent_template
+
+from simplescn.common import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error, logger
 
 client.client_handler.webgui = False
 

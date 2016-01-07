@@ -7,7 +7,7 @@ if "__file__" not in globals():
 
 if sharedir is None:
     # use sys
-    sharedir = os.path.dirname(os.path.realpath(__file__))
+    sharedir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # append to pathes
 if sharedir[-1] == os.sep:
@@ -27,7 +27,7 @@ import ssl
 
 import socket
 
-from common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
+from simplescn.common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
 #confdb_ending
 #configmanager,, rw_socket
 
@@ -700,7 +700,7 @@ server_args={"config":default_configdir,
              "notraversal": False}
     
 if __name__ == "__main__":
-    from common import scn_logger, init_logger
+    from simplescn.common import scn_logger, init_logger
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
