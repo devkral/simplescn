@@ -19,7 +19,6 @@ if sharedir not in sys.path:
 
 import signal
 
-from simplescn.guigtk import clientmain
 from simplescn.guigtk.clientmain import gtkclient_init
 
 from simplescn import client
@@ -35,7 +34,7 @@ cm = None
 def signal_handler(*args):
     #global run
     #win.close()
-    clientmain.run = False
+    gtkclient_init.run = False
     sys.exit(0)
     #app.close()
 

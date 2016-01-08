@@ -7,7 +7,7 @@ import socket
 
 import os, locale
 
-from simplescn.guigtk.guicommon import gtkclient_template, activate_shielded, toggle_shielded, open_hashes
+from simplescn.guigtk import gtkclient_template, activate_shielded, toggle_shielded, open_hashes
 from simplescn.common import sharedir,isself, logger, check_name, security_states, scnparse_url
 
 

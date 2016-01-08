@@ -22,14 +22,13 @@ from simplescn.guigtk.clientmain_managehash import hashmanagement
 
 from simplescn.guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
 from simplescn.guigtk.clientnode import gtkclient_node
-from simplescn.guigtk.guicommon import set_parent_template
+from simplescn.guigtk import set_parent_template
 
 from simplescn.common import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error, logger
 
 client.client_handler.webgui = False
 
 messageid = 0
-run = True
 
 implementedrefs = ["surl", "url", "name"]
 
@@ -913,8 +912,7 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         return True
         
     def close(self,*args):
-        global run
-        run=False
+        gtkclient_init.run=False
         self.win.destroy()
 
 def open_gtk_node(_address, forcehash=None, page=0, requester=None):
@@ -943,6 +941,7 @@ def open_gtk_notify_plugin(msg, requester=None):
         return None
 
 class gtkclient_init(client.client_init):
+    run = True
     
     def __init__(self, confm, pluginm):
         logger().debug("start gtkclient")
@@ -973,6 +972,6 @@ class gtkclient_init(client.client_init):
         # threadsubsystem seems to be initialized automatically
         #GLib.threads_init()
         #Gtk.main()
-        while run == True:
+        while gtkclient_init.run == True:
             Gtk.main_iteration_do(True)
     

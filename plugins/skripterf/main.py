@@ -16,6 +16,11 @@ def init(interfaces, config, resources, proot, logger):
 
 
 class sample_test(object):
+    interfaces = None
+    config = None
+    resources = None
+    proot = None
+    logger = None
     
     def __init__(interfaces, config, resources, proot, logger):
         self.interfaces, self.config, self.resources, self.proot, self.logger = interfaces, config, resources, proot, logger

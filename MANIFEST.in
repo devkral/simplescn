@@ -1,4 +1,6 @@
 include LICENSE
 include README.md
+include static/*
+recursive-include html *.html
 
-global-exclude *.pyc *.pyo *.swp *.swo
+# global-exclude *.pyc *.pyo *.swp *.swo __pycache__

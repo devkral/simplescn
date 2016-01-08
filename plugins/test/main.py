@@ -6,7 +6,11 @@ class test(object):
 
     # localized name
     lname = {"*": "Test", "de": "Deutsch: Test deutsch", "de_DE": "Deutsch: Test DE"}
-
+    interfaces = None
+    config = None
+    resources = None
+    proot = None
+    logger = None
 
     # initialises plugin. Returns False or Exception for not loading  (needed)
     def __init__(self, interfaces, config, resources, proot, logger):

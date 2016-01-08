@@ -1,9 +1,9 @@
 
-from common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, logger, classify_admin, classify_experimental, classify_noplugin, classify_local
 import os, sys
 import threading
 #isself
-from client_config import client_config
+from simplescn.client_config import client_config
+from simplescn.common import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, logger, classify_admin, classify_experimental, classify_noplugin, classify_local
 
 class client_admin(object): 
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity", "requestredirect", "massimporter"}
