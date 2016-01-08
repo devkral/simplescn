@@ -27,6 +27,11 @@ setup(name='simplescn',
     extras_require = {
         'gtkgui':  ["pygobject"],
     },
+    #entry_points= {
+    #"setuptools.file_finders": [
+    #    "simplescn.plugins = my_foobar_module:find_files_for_foobar"
+    #]
+    #},
     #entry_points="""
     #      [console_scripts]
     #      scnclient_nogui = simplescn.client:main
