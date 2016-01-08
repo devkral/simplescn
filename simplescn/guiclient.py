@@ -19,7 +19,7 @@ if sharedir not in sys.path:
 
 import signal
 
-from simplescn.guigtk.clientmain import gtkclient_init
+from simplescn.guigtk.clientmain import _gtkclient_init_method
 
 from simplescn import client
 from simplescn.client import paramhelp, client_args
@@ -28,7 +28,6 @@ from simplescn.common import configmanager, pluginmanager, confdb_ending
 from simplescn.common import logger
 import logging
 
-cm = None
 
 
 def signal_handler(*args):
@@ -40,7 +39,7 @@ def signal_handler(*args):
 
 
 
-if __name__ == "__main__":
+def _init_method():
     from simplescn.common import scn_logger, init_logger
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)
@@ -95,7 +94,9 @@ if __name__ == "__main__":
         pluginm.interfaces += ["cmd","gtk"]
     else:
         pluginm = None
-    cm = gtkclient_init(confm, pluginm)
-    cm.enter_gtkmainloop()
+    _gtkclient_init_method(confm, pluginm)
     
-    sys.exit(0)
+    
+
+if __name__ == "__main__":
+    _init_method()

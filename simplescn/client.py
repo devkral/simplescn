@@ -1085,8 +1085,7 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              
 client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
              "port": [str(client_port), int, "<number>: Port"]}
-
-if __name__ ==  "__main__":
+def _init_method():
     from simplescn.common import scn_logger, init_logger
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)
@@ -1191,3 +1190,5 @@ if __name__ ==  "__main__":
     else:
         cm.serve_forever_block()
 
+if __name__ ==  "__main__":
+    _init_method()

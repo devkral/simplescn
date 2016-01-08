@@ -699,7 +699,7 @@ server_args={"config":default_configdir,
              "timeout": str(default_timeout),
              "notraversal": False}
     
-if __name__ == "__main__":
+def _init_method():
     from simplescn.common import scn_logger, init_logger
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)
@@ -759,3 +759,6 @@ if __name__ == "__main__":
         
     logger().debug("server initialized. Enter serveloop")
     cm.serve_forever_block()
+
+if __name__ == "__main__":
+    _init_method()
