@@ -12,18 +12,15 @@ if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
 import logging
 import signal
 
-from simplescn.guigtk.clientmain import _gtkclient_init_method
+from simplescn.guigtk.clientmain import _gtkclient_init_method, gtkclient_init
 from simplescn.client import paramhelp, client_args, default_client_args
 from simplescn.common import configmanager, pluginmanager, confdb_ending, logger
 
 
 
 def signal_handler(*args):
-    #global run
-    #win.close()
     gtkclient_init.run = False
     sys.exit(0)
-    #app.close()
 
 
 

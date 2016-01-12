@@ -12,7 +12,7 @@ import traceback, sys
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk,Gdk, GLib #,Pango
+from gi.repository import Gtk,Gdk, GLib, Gio #,Pango
 
 from simplescn import common
 from simplescn import client
@@ -32,11 +32,12 @@ messageid = 0
 
 implementedrefs = ["surl", "url", "name"]
 
-class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement, set_parent_template):
+class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement, set_parent_template):
     links = None
 
     curnode = None
     curlocal = None
+    app = None
     
     builder = None
     clip = None
@@ -70,24 +71,25 @@ class gtkclient_main(logging.Handler,Gtk.Application, configuration_stuff, cmd_s
         self.links = _links
         logging.Handler.__init__(self)
         self.setFormatter(logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'))
-        Gtk.Application.__init__(self)
-        self.sslcont=default_sslcont()
-        self.builder=Gtk.Builder()
-        self.builder.set_application(self)
+        self.app = Gtk.Application()
+        self.sslcont = default_sslcont()
+        self.builder = Gtk.Builder()
+        self.builder.set_application(self.app)
         self.builder.add_from_file(os.path.join(sharedir, "guigtk", "clientmain.ui"))
         self.builder.add_from_file(os.path.join(sharedir, "guigtk", "clientmain_sub.ui"))
+        #self.app.add_window(self.builder.get_object("mainwin"))
         self.builder.connect_signals(self)
         
-        self.clip=Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        self.clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         
-        self.win=self.builder.get_object("mainwin")
-        self.localstore=self.builder.get_object("localstore")
-        self.recentstore=self.builder.get_object("recentstore")
-        self.statusbar=self.builder.get_object("mainstatusbar")
-        self.hashstatusbar=self.builder.get_object("hashstatusbar")
+        self.win = self.builder.get_object("mainwin")
+        self.localstore = self.builder.get_object("localstore")
+        self.recentstore = self.builder.get_object("recentstore")
+        self.statusbar = self.builder.get_object("mainstatusbar")
+        self.hashstatusbar = self.builder.get_object("hashstatusbar")
         
-        recentview=self.builder.get_object("recentview")
-        localview=self.builder.get_object("localview")
+        recentview = self.builder.get_object("recentview")
+        localview = self.builder.get_object("localview")
         
         debug_stuff.__init__(self)
         configuration_stuff.__init__(self)
