@@ -1,35 +1,28 @@
 #! /usr/bin/env python3
 
 import sys, os
-import socket
-
-sharedir = None
 if "__file__" not in globals():
     __file__ = sys.argv[0]
 
-if sharedir is None:
-    # use sys
-    sharedir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-
+sharedir = os.path.dirname(os.path.realpath(__file__))
 # append to pathes
-if sharedir[-1] == os.sep:
-    sharedir = sharedir[:-1]
-if sharedir not in sys.path:
-    sys.path.append(sharedir)
+if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 
-from simplescn.client_admin import client_admin
-from simplescn.client_safe import client_safe
-from simplescn.client_config import client_config
-
+import socket
 from http.server import BaseHTTPRequestHandler
 from http import client
 import logging
 import ssl
 import signal,threading
 import json
-from os import path
 from urllib import parse
+
+
+from simplescn.client_admin import client_admin
+from simplescn.client_safe import client_safe
+from simplescn.client_config import client_config
 
 from simplescn.common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
 #VALMITMError
@@ -1063,7 +1056,7 @@ def paramhelp():
     return t
     
 def signal_handler(_signal, frame):
-  sys.exit(0)
+    sys.exit(0)
 
 
 #specified seperately because of chicken egg problem
@@ -1081,10 +1074,40 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "priority": [str(default_priority), int, "<number>: set priority"],
              "timeout": [str(default_timeout), int, "<number>: set priority"],
              "webgui": ["False", bool, "enables webgui"],
-             "cmd": ["False", bool, "enables cmd"]}
+             "cmd": ["False", bool, "use cmd"]}
              
 client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
              "port": [str(client_port), int, "<number>: Port"]}
+             
+def cmdloop():
+    while True:
+        inp = input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
+        if inp in ["exit", "close", "quit"]:
+            break
+        # help
+        if inp == "help":
+            inp = "action=help"
+        ret = cm.links["client"].command(inp, callpw_auth=True)
+        if ret[1] is not None:
+            if ret[0] == True:
+                print("Success: ", end="")
+            else:
+                print("Error: ", end="")
+            if ret[2] == isself:
+                print("This client:")
+            elif ret[2] == None:
+                print("Unknown partner, hash: {}:".format(ret[3]))
+            else:
+                print("Known, name: {} ({}):".format(ret[2][0],ret[2][1]))
+            if isinstance(ret[1], dict):
+                for elem in ret[1].items():
+                    if isinstance(elem[1], str):
+                        print("{}:{}".format(elem[0], elem[1].replace("\\n", "\n")))
+                    else:
+                        print("{}:{}".format(elem[0], elem[1]))
+            else:
+                print(ret[1])
+
 def _init_method():
     from simplescn.common import scn_logger, init_logger
     init_logger(scn_logger())
@@ -1119,7 +1142,7 @@ def _init_method():
                     client_args[tparam[0]][0] = tparam[1]
     
     configpath = client_args["config"][0]
-    configpath = path.expanduser(configpath)
+    configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
         configpath = configpath[:-1]
     client_args["config"][0] = configpath
@@ -1160,33 +1183,8 @@ def _init_method():
         logger().debug("start console")
         for name, value in cm.links["client"].show({})[1].items():
             print(name, value, sep=":")
-        while True:
-            inp = input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
-            if inp in ["exit", "close", "quit"]:
-                break
-            # help
-            if inp == "help":
-                inp = "action=help"
-            ret=cm.links["client"].command(inp, callpw_auth=True)
-            if ret[1] is not None:
-                if ret[0] == True:
-                    print("Success: ", end="")
-                else:
-                    print("Error: ", end="")
-                if ret[2] == isself:
-                    print("This client:")
-                elif ret[2] == None:
-                    print("Unknown partner, hash: {}:".format(ret[3]))
-                else:
-                    print("Known, name: {} ({}):".format(ret[2][0],ret[2][1]))
-                if isinstance(ret[1], dict):
-                    for elem in ret[1].items():
-                        if isinstance(elem[1], str):
-                            print("{}:{}".format(elem[0], elem[1].replace("\\n", "\n")))
-                        else:
-                            print("{}:{}".format(elem[0], elem[1]))
-                else:
-                    print(ret[1])
+        cmdloop()
+    
     else:
         cm.serve_forever_block()
 

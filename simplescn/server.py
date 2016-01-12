@@ -1,19 +1,13 @@
 #! /usr/bin/env python3
 
-import sys,os
-sharedir = None
+import sys, os
 if "__file__" not in globals():
     __file__ = sys.argv[0]
 
-if sharedir is None:
-    # use sys
-    sharedir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-
+sharedir = os.path.dirname(os.path.realpath(__file__))
 # append to pathes
-if sharedir[-1] == os.sep:
-    sharedir = sharedir[:-1]
-if sharedir not in sys.path:
-    sys.path.append(sharedir)
+if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from http.client import HTTPSConnection 
 from http.server import BaseHTTPRequestHandler
@@ -23,8 +17,6 @@ import logging
 import json
 #, base64
 import ssl
-
-
 import socket
 
 from simplescn.common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
@@ -370,8 +362,7 @@ class server_handler(BaseHTTPRequestHandler):
         if self.webgui == False:
             self.send_error(404,"no webgui")
             return
-            
-        _ppath=os.path.join(sharedir, "html",lang, page)
+        _ppath = os.path.join(sharedir, "html",lang, page)
         
         fullob = None
         with open(_ppath, "rb") as rob:

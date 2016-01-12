@@ -1,32 +1,20 @@
 #! /usr/bin/env python3
 
-import sys,os
-sharedir = None
+import sys, os
 if "__file__" not in globals():
     __file__ = sys.argv[0]
 
-if not sharedir:
-    # use sys
-    sharedir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-
+sharedir = os.path.dirname(os.path.realpath(__file__))
 # append to pathes
-if sharedir[-1] == os.sep:
-    sharedir = sharedir[:-1]
-if sharedir not in sys.path:
-    sys.path.append(sharedir)
+if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-
-
+import logging
 import signal
 
 from simplescn.guigtk.clientmain import _gtkclient_init_method
-
-from simplescn import client
-from simplescn.client import paramhelp, client_args
-
-from simplescn.common import configmanager, pluginmanager, confdb_ending
-from simplescn.common import logger
-import logging
+from simplescn.client import paramhelp, client_args, default_client_args
+from simplescn.common import configmanager, pluginmanager, confdb_ending, logger
 
 
 
@@ -44,7 +32,7 @@ def _init_method():
     init_logger(scn_logger())
     logger().setLevel(logging.DEBUG)
     signal.signal(signal.SIGINT, signal_handler)
-    dclargs = client.default_client_args.copy()
+    dclargs = default_client_args.copy()
     del dclargs["cmd"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
 

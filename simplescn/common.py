@@ -18,16 +18,14 @@
 
 # not preamble used by sharedir files
 import os, sys
+
 if "__file__" not in globals():
     __file__ = sys.argv[0]
+
 sharedir = os.path.dirname(os.path.realpath(__file__))
-
 # append to pathes
-if sharedir[-1] == os.sep:
-    sharedir = sharedir[:-1]
-if sharedir not in sys.path:
-    sys.path.append(sharedir)
-
+if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 #if platform.python_implementation()=="PyPy":
 #    sys.path+=['', '/usr/lib/python34.zip', '/usr/lib/python3.4', '/usr/lib/python3.4/plat-linux', '/usr/lib/python3.4/lib-dynload', '/usr/lib/python3.4/site-packages', '/usr/lib/site-python']

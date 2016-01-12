@@ -971,8 +971,8 @@ class gtkclient_init(client.client_init):
 def _gtkclient_init_method(confm, pluginm):
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
-        pluginm.resources["access"] = self.links["client"].access_safe
-        pluginm.resources["plugin"] = self.links["client"].use_plugin
+        pluginm.resources["access"] = cm.links["client"].access_safe
+        pluginm.resources["plugin"] = cm.links["client"].use_plugin
         pluginm.resources["open_node"] = open_gtk_node
         pluginm.resources["open_pwrequest"] = open_gtk_pwcall_plugin
         pluginm.resources["open_notify"] = open_gtk_notify_plugin
