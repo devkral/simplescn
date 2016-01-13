@@ -88,7 +88,7 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
             open_hashes[self.resdict.get("forcehash")][0].win.set_accept_focus(True)
             return False
         Gtk.Builder.__init__(self)
-        self.set_application(self.links["gtkclient"])
+        self.set_application(self.links["gtkclient"].app)
         self.add_from_file(_file)
         if self.resdict.get("forcehash") in open_hashes:
             if _address is not None:
@@ -117,7 +117,7 @@ class gtkclient_template(Gtk.Builder, set_parent_template):
     
     def close(self,*args):
         self.win.hide()
-        self.links["gtkclient"].remove_window(self.win)
+        self.links["gtkclient"].app.remove_window(self.win)
         del open_hashes[self.resdict.get("forcehash")]
         self.win.destroy()
         del self
