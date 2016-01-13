@@ -37,7 +37,7 @@ class client_safe(object):
         _srvaddr = scnparse_url(obdict.get("server"))
         if _srvaddr:
             self.scntraverse_helper.add_desttupel(_srvaddr)
-        ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": serversock.getsockname()[1], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True)
+        ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": serversock.getsockname()[1], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True, forcehash=obdict.get("forcehash"))
         # 
         if _srvaddr and (ret[0] != True or ret[1].get("traverse", False) == True):
              self.scntraverse_helper.del_desttupel(_srvaddr)
@@ -56,37 +56,47 @@ class client_safe(object):
             return True, {"name": self.name, "hash": self.cert_hash}
     
     
-    @check_argsdeco({"name": str, "port": int})
+    @check_argsdeco({"name": str, "port": int}, optional={"client": str})
     #@classify_local
     def registerservice(self, obdict):
         """ func: register service (second way)
             return: success or error
             name: service name
-            port: port number """
-        return self.do_request("localhost-{}".format(self.links["hserver"].socket.getsockname()[1]), "/server/registerservice", obdict)
+            port: port number
+            client: LOCAL client url (default: own client) """
+        if "hserver" in self.links or obdict.get("client") is not None:
+            return self.do_request(obdict.get("client","localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/registerservice", obdict, forcehash=self.cert_hash)
+        else:
+            return False, "no servercomponent/client available"
     
     
-    @check_argsdeco({"name": str})
+    @check_argsdeco({"name": str}, optional={"client": str})
     #@classify_local
     def delservice(self, obdict):
         """ func: delete service (second way)
             return: success or error
-            name: service name """
-        return self.do_request("localhost-{}".format(self.links["hserver"].socket.getsockname()[1]), "/server/delservice", obdict)
+            name: service name
+            client: LOCAL client url (default: own client) """
+        if "hserver" in self.links or obdict.get("client") is not None:
+            return self.do_request(obdict.get("client","localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/delservice", obdict, forcehash=self.cert_hash)
+        else:
+            return False, "no servercomponent/client available"
     
     
-    @check_argsdeco({"name": str}, {"client": str})
+    @check_argsdeco({"name": str}, optional={"client": str})
     def getservice(self, obdict):
         """ func: get port of a service
             return: port of service
             name: service name
-            client: client url """
-        if obdict.get("client") == False:
+            client: client url (default: own client) """
+        if obdict.get("client") is not None:
             client_addr = obdict["client"]
             del obdict["client"]
+            _forcehash = obdict.get("forcehash")
         else:
+            _forcehash = self.cert_hash
             client_addr = "localhost-{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(client_addr, "/server/getservice", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"))
+        return self.do_request(client_addr, "/server/getservice", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=_forcehash)
     
     
     @check_argsdeco(optional={"client": str})
@@ -94,12 +104,14 @@ class client_safe(object):
         """ func: list services with ports
             return port, service pairs
             client: client url (default: own client) """
-        if obdict.get("client") == False:
+        if obdict.get("client") is not None:
             client_addr = obdict["client"]
+            _forcehash = obdict.get("forcehash")
             del obdict["client"]
         else:
+            _forcehash = self.client_hash
             client_addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        _tservices = self.do_request(client_addr, "/server/dumpservices", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"), forceport=True)
+        _tservices = self.do_request(client_addr, "/server/dumpservices", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         if _tservices[0] == False:
             return _tservices
         out=sorted(_tservices[1].items(), key=lambda t: t[0])
@@ -114,7 +126,7 @@ class client_safe(object):
             name: client name
             hash: client hash """
         #obdict["forcehash"] = obdict["hash"]
-        _getret = self.do_request(obdict["server"],"/server/get", body={"pwcall_method":obdict.get("pwcall_method"), "hash":obdict.get("hash"), "name":obdict.get("name")},headers=obdict.get("headers"))
+        _getret = self.do_request(obdict["server"],"/server/get", body={"pwcall_method":obdict.get("pwcall_method"), "hash":obdict.get("hash"), "name":obdict.get("name")},headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
         if _getret[0] == False or check_args(_getret[1], {"address": str, "port": int}) == False:
             return _getret
         if _getret[1].get("port", 0) < 1:
@@ -170,7 +182,7 @@ class client_safe(object):
         """ func: sort and list names from server
             return: sorted list of client names with additional informations
             server: server url """
-        _tnames = self.do_request(obdict["server"], "/server/dumpnames", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"))
+        _tnames = self.do_request(obdict["server"], "/server/dumpnames", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
         if _tnames[0] == False:
             return _tnames
         out = []
@@ -188,11 +200,13 @@ class client_safe(object):
             return: info section
             address: remote node url (default: own client) """
         if obdict.get("address") is not None:
-            _addr=obdict["address"]
+            _addr = obdict["address"]
+            _forcehash = obdict.get("forcehash")
             del obdict["address"]
         else:
-            _addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
+            _forcehash = self.cert_hash
+            _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
+        return self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
     
     
     @check_argsdeco(optional={"address": str})
@@ -202,10 +216,12 @@ class client_safe(object):
             address: remote node url (default: own client) """
         if obdict.get("address") is not None:
             _addr = obdict["address"]
+            _forcehash = obdict.get("forcehash")
             del obdict["address"]
         else:
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/cap", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
+            _forcehash = self.cert_hash
+        return self.do_request(_addr, "/server/cap", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
     
     
     @check_argsdeco(optional={"address": str})
@@ -216,9 +232,11 @@ class client_safe(object):
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             del obdict["address"]
+            _forcehash = obdict.get("forcehash")
         else:
+            _forcehash = self.cert_hash
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/prioty", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True)
+        return self.do_request(_addr, "/server/prioty", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=_forcehash, forceport=True)
 
     
     @check_argsdeco({"server": str, "name": str, "hash": str})

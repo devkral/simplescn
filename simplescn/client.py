@@ -93,7 +93,7 @@ class client_client(client_admin, client_safe, client_config):
             authob = self.links["auth_client"].auth(pwcallmethod("Please enter password for {}".format(reqob["realm"])), reqob, hashpcert, hashpcert)
         return authob
 
-    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, clientforcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
+    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
         """ func: use this method to communicate with clients/servers """
         if headers is None:
             headers = body.pop("headers", {})
@@ -128,7 +128,7 @@ class client_client(client_admin, client_safe, client_config):
                 contrav.close()
                 if retserv[0]:
                     con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-                    con.sock.bind(('', _sport))#retserv.get("traverse_address"))
+                    con.sock.bind(('', _sport)) #retserv.get("traverse_address"))
                     for count in range(0,3):
                         try:
                             con.sock.connect((_addr[0], _addr[1]))
@@ -144,8 +144,8 @@ class client_client(client_admin, client_safe, client_config):
         if _certtupel is None:
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
             hashpcert = dhash(pcert)
-            if clientforcehash is not None:
-                if clientforcehash != hashpcert:
+            if forcehash is not None:
+                if forcehash != hashpcert:
                     raise(VALHashError)
             elif body.get("forcehash") is not None:
                 if body.get("forcehash") != hashpcert:
@@ -169,7 +169,7 @@ class client_client(client_admin, client_safe, client_config):
             #if key != "Proxy-Authorization":
             con.putheader(key, value)
         pwcallm = body.get("pwcall_method")
-        if pwcallm:
+        if "pwcall_method" in body:
             del body["pwcall_method"]
 
         ob = bytes(json.dumps(body), "utf-8")
@@ -209,7 +209,7 @@ class client_client(client_admin, client_safe, client_config):
             _reauthcount += 1
             auth_parsed[realm] = authob
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n",  ""))
-            return self.do_request(con, _path, body=body, clientforcehash=clientforcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, _reauthcount=_reauthcount)
+            return self.do_request(con, _path, body=body, forcehash=forcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, _reauthcount=_reauthcount)
         else:
             if response.getheader("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
@@ -578,12 +578,18 @@ class client_handler(BaseHTTPRequestHandler):
             return
         _ppath = os.path.join(sharedir, "html", lang, page)
         fullob = None
-        with open(_ppath, "rb") as rob:
+        with open(_ppath, "r") as rob:
             fullob = rob.read()
         if fullob is None:
             self.send_error(404, "file not found")
         else:
-            self.scn_send_answer(200, fullob, "text/html", True)
+            try:
+                _temp = self.links["client"].show({})[1]
+                _temp.update(self.links["client"].info({})[1])
+                fullob = fullob.format(**_temp)
+            except KeyError:
+                pass
+            self.scn_send_answer(200, bytes(fullob, "utf-8"), "text/html", True)
 
     def handle_client(self, action):
         if action not in self.links["client"].validactions:
@@ -740,8 +746,8 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(404, "no webgui enabled")
         
         _path=self.path[1:].split("/")
-        if _path[0] in ("","server","html","index"):
-            self.html("server.html")
+        if _path[0] in ("","client","html","index"):
+            self.html("client.html")
             return
         elif  _path[0]=="static" and len(_path)>=2:
             if _path[1] in self.statics:
@@ -1079,7 +1085,7 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
 client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
              "port": [str(client_port), int, "<number>: Port"]}
              
-def cmdloop():
+def cmdloop(clientinitm):
     while True:
         inp = input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
         if inp in ["exit", "close", "quit"]:
@@ -1087,7 +1093,7 @@ def cmdloop():
         # help
         if inp == "help":
             inp = "action=help"
-        ret = cm.links["client"].command(inp, callpw_auth=True)
+        ret = clientinitm.links["client"].command(inp, callpw_auth=True)
         if ret[1] is not None:
             if ret[0] == True:
                 print("Success: ", end="")
@@ -1183,7 +1189,7 @@ def _init_method():
         logger().debug("start console")
         for name, value in cm.links["client"].show({})[1].items():
             print(name, value, sep=":")
-        cmdloop()
+        cmdloop(cm)
     
     else:
         cm.serve_forever_block()

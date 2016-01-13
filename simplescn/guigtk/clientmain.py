@@ -237,20 +237,18 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             if clienthash == "":
                 clienthash = None
             try:
-                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action),body=obdict, clientforcehash=clienthash, forceport=True)
+                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action),body=obdict, forcehash=clienthash, forceport=True)
             except Exception as e:
                 logger().error(e)
                 return False, generate_error(e), isself, self.links["client"].cert_hash
         
-        if resp[0] == False:
-            pass
-            #logger().error("{}: {}".format(action, resp))
+        #if resp[0] == False:
+        #    logger().error("{}: {}".format(action, resp))
         return resp
 
     def pushint(self):
         """ func: delete messsage after 5 seconds """
         time.sleep(5)
-        #self.messagecount-=1
         Gdk.threads_add_idle(GLib.PRIORITY_LOW, self._pushint)
         
     
@@ -260,8 +258,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         self.hashstatusbar.pop(messageid)
 
     def pushmanage(self,*args):
-        #self.messagecount+=1
-        #if self.messagecount>1:
         threading.Thread(target=self.pushint, daemon=True).start()
         
     ###logging handling

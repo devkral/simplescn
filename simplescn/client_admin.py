@@ -315,7 +315,7 @@ class client_admin(object):
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below) """
         #listhashes = obdict.get("hashes")
-        listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", clientforcehash=obdict.get("sourcehash"))
+        listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", forcehash=obdict.get("sourcehash"))
         
         _imp_ent = obdict.get("entities")
         _imp_hash = obdict.get("hashes")
