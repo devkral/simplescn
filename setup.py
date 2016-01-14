@@ -21,7 +21,7 @@ setup(name='simplescn',
     scripts = ['simplescn/client.py', 'simplescn/guiclient.py', 'simplescn/server.py'],
     include_package_data=True,
     package_data={
-        'simplescn': ['guigtk/*.ui', 'guigtk/*.svg', 'guigtk/*.py', 'static/*', 'html/*/*.html'],
+        'simplescn': ['*.txt', '*.md', 'guigtk/*.ui', 'guigtk/*.svg', 'guigtk/*.py', 'static/*', 'html/*/*.html'],
     },
     install_requires=["cryptography>=1.1"],
     extras_require = {
