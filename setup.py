@@ -19,6 +19,7 @@ setup(name='simplescn',
     author_email='devkral@web.de',
     url='https://github.com/devkral/simplescn',
     scripts = ['simplescn/client.py', 'simplescn/guiclient.py', 'simplescn/server.py'],
+    zip_safe=True,
     include_package_data=True,
     package_data={
         'simplescn': ['*.txt', '*.md', 'guigtk/*.ui', 'guigtk/*.svg', 'guigtk/*.py', 'static/*', 'html/*/*.html'],
