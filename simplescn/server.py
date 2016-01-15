@@ -1,25 +1,18 @@
 #! /usr/bin/env python3
 
-import sys, os
-if "__file__" not in globals():
-    __file__ = sys.argv[0]
-
-sharedir = os.path.dirname(os.path.realpath(__file__))
-# append to pathes
-if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+import os
+from simplescn import sharedir
 
 from http.client import HTTPSConnection 
 from http.server import BaseHTTPRequestHandler
 import time
-import signal, threading
-import logging
+import  threading
 import json
 #, base64
 import ssl
 import socket
 
-from simplescn.common import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, pluginmanager, safe_mdecode, logger, pwcallmethod, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
+from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, logger, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
 #confdb_ending
 #configmanager,, rw_socket
 
@@ -658,14 +651,8 @@ class server_init(object):
         sthread = threading.Thread(target=self.serve_forever_block, daemon=True)
         sthread.start()
 
-
-
-def signal_handler(_signal, frame):
-    sys.exit(0)
-
-def paramhelp():
-    print(\
-"""
+def server_paramhelp():
+    print("""
 ### parameters ###
 config=<dir>: path to config dir
 port=<number>: Port
@@ -688,68 +675,6 @@ server_args={"config":default_configdir,
              "useplugins": None,
              "priority": str(default_priority),
              "timeout": str(default_timeout),
-             "notraversal": False}
-    
-def _init_method():
-    from simplescn.common import scn_logger, init_logger
-    init_logger(scn_logger())
-    logger().setLevel(logging.DEBUG)
-    signal.signal(signal.SIGINT, signal_handler)
+             "notraversal": str(False)}
 
-    if len(sys.argv) > 1:
-        tparam=()
-        for elem in sys.argv[1:]: #strip filename from arg list
-            elem= elem.strip("-")
-            if elem in ["help","h"]:
-                paramhelp()
-                sys.exit(0)
-            else:
-                tparam = elem.split("=")
-                if len(tparam) == 1:
-                    tparam=elem.split(":")
-                if len(tparam) == 1:
-                    server_args[tparam[0]] = "True"
-                    continue
-                server_args[tparam[0]] = tparam[1]
-    
-    configpath = os.path.expanduser(server_args["config"])
-    if configpath[-1] == os.sep:
-        configpath = configpath[:-1]
-    #should be gui agnostic so specify here
-    if server_args["webgui"] is not None:
-        server_handler.webgui = True
-        #load static files  
-        for elem in os.listdir(os.path.join(sharedir, "static")):
-            with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
-                server_handler.statics[elem]=_staticr.read()
-                #against ssl failures
-                if len(server_handler.statics[elem]) == 0:
-                    server_handler.statics[elem] = b" "
-    else:
-        server_handler.webgui = False
 
-    cm = server_init(configpath ,**server_args)
-    if server_args["useplugins"] is not None:
-        pluginpathes = [os.path.join(sharedir, "plugins")]
-        pluginpathes.insert(1, os.path.join(configpath, "plugins"))
-        plugins_config = os.path.join(configpath, "config", "plugins")
-
-        os.makedirs(plugins_config, 0o750, True)
-    
-        pluginm = pluginmanager(pluginpathes, plugins_config, "server")
-        if server_args["webgui"] is not None:
-            pluginm.interfaces+=["web",]
-        cm.links["server_server"].pluginmanager = pluginm
-        pluginm.resources["access"] = cm.links["server_server"].access_server
-        pluginm.init_plugins()
-        _broadc = cm.links["server_server"].allowed_plugin_broadcasts
-        for _name, plugin in pluginm.plugins.items():
-            if hasattr(plugin, "allowed_plugin_broadcasts"):
-                for _broadfuncname in getattr(plugin, "allowed_plugin_broadcasts"):
-                    _broadc.insert((_name, _broadfuncname))
-        
-    logger().debug("server initialized. Enter serveloop")
-    cm.serve_forever_block()
-
-if __name__ == "__main__":
-    _init_method()

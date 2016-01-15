@@ -4,8 +4,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath
 
 import unittest
 
-class do_tests():
+class TestServer(unittest.TestCase):
     pass
 
 if __name__ == "main":
-    do_tests()
+    unittest.main(verbosity=2)

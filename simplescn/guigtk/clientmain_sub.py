@@ -5,7 +5,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 
-from simplescn.common import isself, logger
+from simplescn import isself, logger
 
 class configuration_stuff(object):
     configurationwin = None

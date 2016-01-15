@@ -1,7 +1,7 @@
 
 
 import os
-from simplescn.common import configmanager, confdb_ending, check_argsdeco, classify_local, classify_noplugin, classify_admin
+from simplescn import configmanager, confdb_ending, check_argsdeco, classify_local, classify_noplugin, classify_admin
 
 class client_config(object): 
     validactions_config = {"set_config", "set_pluginconfig", "clean_pluginconfig", "reset_configkey", "reset_pluginconfigkey", "list_config", "list_pluginconfig", "get_pluginconfig", "get_config"}

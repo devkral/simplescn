@@ -6,7 +6,7 @@ from gi.repository import Gtk
 import logging
 
 
-from simplescn.common import logger, scnparse_url
+from simplescn import logger, scnparse_url
 
 from simplescn.guigtk.clientnode import gtkclient_node
 from simplescn.guigtk import clientmain

@@ -1,21 +1,14 @@
 #! /usr/bin/env python3
 
 import sys, os
-if "__file__" not in globals():
-    __file__ = sys.argv[0]
 
-sharedir = os.path.dirname(os.path.realpath(__file__))
-# append to pathes
-if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-
+from simplescn import sharedir
 
 import socket
 from http.server import BaseHTTPRequestHandler
 from http import client
-import logging
 import ssl
-import signal,threading
+import threading
 import json
 from urllib import parse
 
@@ -24,10 +17,13 @@ from simplescn.client_admin import client_admin
 from simplescn.client_safe import client_safe
 from simplescn.client_config import client_config
 
-from simplescn.common import check_certs, generate_certs, init_config_folder, default_configdir, certhash_db, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pluginmanager, configmanager, pwcallmethod, rw_socket, notify, confdb_ending, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
+
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pwcallmethod, rw_socket, notify, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
+
+from simplescn.common import certhash_db
 #VALMITMError
 
-from simplescn.common import logger
+from simplescn import logger
 
 
 reference_header = \
@@ -314,13 +310,11 @@ class client_client(client_admin, client_safe, client_config):
         """ func: trigger commandline action of plugin
             return: answer of plugin
             plugin: name of plugin
-            paction: cmdaction of plugin """ 
+            paction: cmdaction of plugin """
         plugins = self.links["client_server"].pluginmanager.plugins
         if plugins is None:
             return False, "no plugins loaded"
         if obdict["plugin"] not in plugins:
-            ret[0] = False
-            ret[1] = "Error: plugin does not exist"
             return False, "Error: plugin does not exist"
         plugin = plugins[obdict["plugin"]]
         if hasattr(plugin, "cmd_node_actions") == False:
@@ -942,6 +936,7 @@ class client_init(object):
     config_root = None
     plugins_config = None
     links = None
+    run = True # necessary for some runmethods
     
     def __init__(self, confm, pluginm):
         self.links = {}
@@ -1052,7 +1047,7 @@ class client_init(object):
         sthread.start()
         
 
-def paramhelp():
+def client_paramhelp():
     t = "### parameters (permanent) ###\n"
     for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
         t += _key+":"+elem[0]+":"+elem[2]+"\n"
@@ -1060,9 +1055,7 @@ def paramhelp():
     for _key, elem in sorted(client_args.items(), key=lambda x: x[0]):
         t += _key+":"+elem[0]+":"+elem[2]+"\n"
     return t
-    
-def signal_handler(_signal, frame):
-    sys.exit(0)
+
 
 
 #specified seperately because of chicken egg problem
@@ -1114,85 +1107,4 @@ def cmdloop(clientinitm):
             else:
                 print(ret[1])
 
-def _init_method():
-    from simplescn.common import scn_logger, init_logger
-    init_logger(scn_logger())
-    logger().setLevel(logging.DEBUG)
-    signal.signal(signal.SIGINT, signal_handler)
-    
-    pluginpathes = [os.path.join(sharedir, "plugins")]
-    
-    if len(sys.argv) > 1:
-        tparam = ()
-        for elem in sys.argv[1:]: #strip filename from arg list
-            elem = elem.strip("-")
-            if elem in ["help","h"]:
-                print(paramhelp())
-                sys.exit(0)
-            else:
-                tparam = elem.split("=")
-                if len(tparam) == 1:
-                    tparam = elem.split(":")
-                if len(tparam) == 1:
-                    if tparam[0] not in client_args:
-                        client_args[tparam[0]] = ["True"]
-                    else:
-                        client_args[tparam[0]][0] = "True"
-                    continue
-                if tparam[0] in ["pluginpath", "pp"]:
-                    pluginpathes += [tparam[1], ]
-                    continue
-                if tparam[0] not in client_args:
-                    client_args[tparam[0]] = [tparam[1], None]
-                else:
-                    client_args[tparam[0]][0] = tparam[1]
-    
-    configpath = client_args["config"][0]
-    configpath = os.path.expanduser(configpath)
-    if configpath[-1] == os.sep:
-        configpath = configpath[:-1]
-    client_args["config"][0] = configpath
-    # path  to plugins in config folder
-    pluginpathes.insert(1, os.path.join(configpath, "plugins"))
-    
-    # path to config folder of plugins
-    configpath_plugins = os.path.join(configpath, "config", "plugins")
-    #if configpath[:-1]==os.sep:
-    #    configpath=configpath[:-1]
-    
-    os.makedirs(os.path.join(configpath, "config"), 0o750, True)
-    os.makedirs(configpath_plugins, 0o750, True)
-    
-    confm = configmanager(os.path.join(configpath, "config", "clientmain{}".format(confdb_ending)))
-    confm.update(default_client_args, client_args)
-    if confm.getb("noplugins") == False:
-        pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
-        if confm.getb("webgui") != False:
-            pluginm.interfaces += ["web",]
-        if confm.getb("cmd") != False:
-            pluginm.interfaces += ["cmd",]
-    else:
-        pluginm = None
-    cm = client_init(confm,pluginm)
 
-    if confm.getb("noplugins") == False:
-        pluginm.resources["plugin"] = cm.links["client"].use_plugin
-        pluginm.resources["access"] = cm.links["client"].access_safe
-        pluginm.init_plugins()
-        #for name, elem in pluginm.plugins.items():
-        #    if hasattr(elem, "pluginpw"):
-        #        cm.links["auth_server"].init_realm("plugin:{}".format(name), dhash(elem.pluginpw))
-
-    logger().debug("start servercomponent (client)")
-    if confm.getb("cmd") != False:
-        cm.serve_forever_nonblock()
-        logger().debug("start console")
-        for name, value in cm.links["client"].show({})[1].items():
-            print(name, value, sep=":")
-        cmdloop(cm)
-    
-    else:
-        cm.serve_forever_block()
-
-if __name__ ==  "__main__":
-    _init_method()

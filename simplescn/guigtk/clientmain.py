@@ -1,20 +1,16 @@
 #! /usr/bin/env python3
 
-import os
-#,sys
-#sys.path.append(os.path.dirname(__file__))
-
-
+import os, sys
 import logging
 import time, threading
 
-import traceback, sys
+import traceback
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk,Gdk, GLib, Gio #,Pango
+from gi.repository import Gtk,Gdk, GLib #,Pango
 
-from simplescn import common
+import simplescn
 from simplescn import client
 
 from simplescn.guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
@@ -24,13 +20,15 @@ from simplescn.guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, paren
 from simplescn.guigtk.clientnode import gtkclient_node
 from simplescn.guigtk import set_parent_template
 
-from simplescn.common import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error, logger
+from simplescn import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error, logger
 
 client.client_handler.webgui = False
 
 messageid = 0
 
 implementedrefs = ["surl", "url", "name"]
+# for open_gtk_node
+cm = None
 
 class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement, set_parent_template):
     links = None
@@ -939,12 +937,10 @@ def open_gtk_notify_plugin(msg, requester=None):
         return None
 
 class gtkclient_init(client.client_init):
-    run = True
-    
     def __init__(self, confm, pluginm):
         logger().debug("start gtkclient")
-        common.pwcallmethodinst = gtkclient_pw
-        common.notifyinst = gtkclient_notify
+        simplescn.pwcallmethodinst = gtkclient_pw
+        simplescn.notifyinst = gtkclient_notify
         
         client.client_init.__init__(self, confm, pluginm)
         self.links["gtkclient"] = gtkclient_main(self.links)
@@ -967,6 +963,7 @@ class gtkclient_init(client.client_init):
             Gtk.main_iteration_do(True)
 
 def _gtkclient_init_method(confm, pluginm):
+    global cm
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
         pluginm.resources["access"] = cm.links["client"].access_safe

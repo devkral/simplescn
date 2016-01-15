@@ -1,6 +1,6 @@
 
 import ssl
-from simplescn.common import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_experimental, classify_local
+from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_experimental, classify_local, pwcallmethod, notify
 
 class client_safe(object):
     
