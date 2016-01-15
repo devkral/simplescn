@@ -1,7 +1,7 @@
 
 import os, sys
 import importlib.machinery
-import importlib.utils
+import importlib
 import traceback
 import threading
 from simplescn import pluginstartfile, logger, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type

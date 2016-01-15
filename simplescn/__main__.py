@@ -2,6 +2,11 @@
 
 import sys, os
 
+if __name__ == "__main__":
+    _tpath = os.path.realpath(os.path.dirname(sys.modules[__name__].__file__))
+    _tpath = os.path.dirname(_tpath)
+    sys.path.insert(0, _tpath)
+
 import simplescn
 from simplescn import sharedir, confdb_ending
 import simplescn.client
@@ -73,7 +78,7 @@ def server():
     cm.serve_forever_block()
 
 
-def client_cmd():
+def rawclient():
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, client_args, default_client_args, cmdloop, client_init
     pluginpathes = [os.path.join(sharedir, "plugins")]
@@ -224,9 +229,15 @@ def _init_method():
     #plugins_config = os.path.join(configpath, "config", "plugins")
     if len(sys.argv)>1:
         toexe = sys.argv[1]
-        del sys.argv[1]
-        globals().get(toexe, client)()
-
+        toexe = globals().get(toexe)
+        if toexe:
+            del sys.argv[1]
+            toexe()
+        else:
+            print("Not available")
+            print("Available: client, rawclient, server")
+    else:
+        client()
 
 if __name__ == "__main__":
     _init_method()
