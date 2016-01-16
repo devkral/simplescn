@@ -1,4 +1,5 @@
 
+#license: bsd3, see LICENSE.txt
 
 import os
 from simplescn import confdb_ending, check_argsdeco, classify_local, classify_noplugin, classify_admin

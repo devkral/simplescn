@@ -1,4 +1,5 @@
 
+#license: bsd3, see LICENSE.txt
 import ssl
 from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_experimental, classify_local, pwcallmethod, notify
 

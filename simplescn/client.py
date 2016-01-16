@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+#license: bsd3, see LICENSE.txt
 
 import sys, os
 

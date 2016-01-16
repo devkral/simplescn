@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+#license: bsd3, see LICENSE.txt
 
 from setuptools import setup, Distribution
 #from pkg_resources import Environment, working_set

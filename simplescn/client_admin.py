@@ -1,4 +1,5 @@
 
+#license: bsd3, see LICENSE.txt
 import os, sys
 import threading
 

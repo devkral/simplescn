@@ -19,3 +19,4 @@
 * localisation
 * better isolation of plugins
 * mass import
+* cmd configuration seperate from client
