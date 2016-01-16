@@ -69,7 +69,12 @@ class TestConfigmanager(unittest.TestCase):
         
     def test_Config(self):
         config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb"+simplescn.confdb_ending))
-        testdefault={"default_a": "a"}
+        testdefault={"default_a": ("aval",str, "a description"),
+                    "b": ("bval", str, "eafjalka")}
+        testoverride={"b": "bnewval"}
+        testoverridec={"c": "cnewvalunavailable"}
+        config.update(testdefault,testoverride)
+        with self.assertRaises(SomeException):
     
     #TODO
 
