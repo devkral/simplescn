@@ -1,5 +1,5 @@
 
-code (exclude plugins but if no license is available apply too): see LICENSE.txt
+code (exclude plugins except no seperate license is available): see LICENSE.txt
 
 gobject, gtk, ...: GPL; code: git.gnome.org
 python: www.python.org
