@@ -10,90 +10,6 @@ from simplescn import pluginstartfile, check_conftype, check_name, check_hash, c
 from simplescn import confdb_ending, isself
 
 
-if hasattr(importlib.util, "module_from_spec"):
-    module_from_spec = importlib.util.module_from_spec
-else:
-    from importlib._bootstrap import _new_module, _warnings, _bootstrap_external
-    def _init_module_attrs(spec, module, *, override=False):
-        # The passed-in module may be not support attribute assignment,
-        # in which case we simply don't set the attributes.
-        # __name__
-        if (override or getattr(module, '__name__', None) is None):
-            try:
-                module.__name__ = spec.name
-            except AttributeError:
-                pass
-        # __loader__
-        if override or getattr(module, '__loader__', None) is None:
-            loader = spec.loader
-            if loader is None:
-                # A backward compatibility hack.
-                if spec.submodule_search_locations is not None:
-                    if _bootstrap_external is None:
-                        raise NotImplementedError
-                    _NamespaceLoader = _bootstrap_external._NamespaceLoader
-
-                    loader = _NamespaceLoader.__new__(_NamespaceLoader)
-                    loader._path = spec.submodule_search_locations
-            try:
-                module.__loader__ = loader
-            except AttributeError:
-                pass
-        # __package__
-        if override or getattr(module, '__package__', None) is None:
-            try:
-                module.__package__ = spec.parent
-            except AttributeError:
-                pass
-        # __spec__
-        try:
-            module.__spec__ = spec
-        except AttributeError:
-            pass
-        # __path__
-        if override or getattr(module, '__path__', None) is None:
-            if spec.submodule_search_locations is not None:
-                try:
-                    module.__path__ = spec.submodule_search_locations
-                except AttributeError:
-                    pass
-        # __file__/__cached__
-        if spec.has_location:
-            if override or getattr(module, '__file__', None) is None:
-                try:
-                    module.__file__ = spec.origin
-                except AttributeError:
-                    pass
-
-            if override or getattr(module, '__cached__', None) is None:
-                if spec.cached is not None:
-                    try:
-                        module.__cached__ = spec.cached
-                    except AttributeError:
-                        pass
-        return module
-            
-            
-            
-            
-            
-    def module_from_spec(spec):
-        """Create a module based on the provided spec."""
-        # Typically loaders will not implement create_module().
-        module = None
-        if hasattr(spec.loader, 'create_module'):
-            # If create_module() returns `None` then it means default
-            # module creation should be used.
-            module = spec.loader.create_module(spec)
-        elif hasattr(spec.loader, 'exec_module'):
-            _warnings.warn('starting in Python 3.6, loaders defining exec_module() '
-                           'must also define create_module()',
-                           DeprecationWarning, stacklevel=2)
-        if module is None:
-            module = _new_module(spec.name)
-        _init_module_attrs(spec, module)
-        return module
-
 
 class configmanager(object):
     db_path = None
@@ -382,8 +298,12 @@ class pluginmanager(object):
         self.pluginenv = pluginenv
         self.resources = resources
         self.interfaces.insert(0, scn_type)
-        module = importlib.machinery.ModuleSpec("_plugins", None)
-        module = module_from_spec(module)
+        if hasattr(importlib.util, "module_from_spec"):
+            module = importlib.machinery.ModuleSpec("_plugins", None)
+            module = importlib.util.module_from_spec(module)
+        else:
+            import types
+            module = types.ModuleType("_plugins", None)
         sys.modules[module.__name__] = module
         
         
