@@ -10,24 +10,39 @@ import logging
 
 import os, locale
 
-from simplescn.guigtk import gtkclient_template, activate_shielded, toggle_shielded
+from simplescn.guigtk import set_parent_template, activate_shielded, toggle_shielded, open_hashes
 #, open_hashes
 from simplescn import sharedir, isself, check_name, security_states, scnparse_url, logcheck
 
 
 
-class gtkclient_node(gtkclient_template):
+class _gtkclient_node(Gtk.Builder,set_parent_template):
     isregistered = False
     sfilter = None
     page_names = None
     messagebuf = None
+    links = None
+    resdict = None
+    info = None
+    newaddress = None
     info_had_run = False
-    def __init__(self, links, _address, page="info", **obdict):
+    def __init__(self, links, obdict):
         self.page_names = {}
-        
-        if self.init(os.path.join(sharedir, "guigtk", "clientnode.ui"), links, _address, obdict) == False:
-            #del self
-            return
+        self.links = links
+        self.resdict = obdict
+        set_parent_template.__init__(self)
+        Gtk.Builder.__init__(self)
+        self.set_application(self.links["gtkclient"].app)
+        self.add_from_file(os.path.join(sharedir, "guigtk", "clientnode.ui"))
+
+    def init(self, page="info"):
+        print("\""+self.get_address()+"\"")
+        if self.resdict.get("forcehash") in open_hashes:
+            if self.get_address() is not None:
+                open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddresse").set_text(self.get_address())
+            else:
+                open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddresse").set_text("")
+
         self.win = self.get_object("nodewin")
         
         self.win.connect('delete-event', self.close)
@@ -35,6 +50,7 @@ class gtkclient_node(gtkclient_template):
         
         self.init_connects()
         self.init_nodebook(page)
+        return True
     
     def visible_func (self,_model,_iter,_data):
         _entry = self.get_object("servernodeentry")
@@ -51,6 +67,7 @@ class gtkclient_node(gtkclient_template):
 
     def update_info(self, *args):
         _address = self.get_address()
+        print(_address)
         if _address is not None:
             infoob = self.do_requestdo("info", address=_address)
             if infoob[0] == False:
@@ -81,9 +98,9 @@ class gtkclient_node(gtkclient_template):
             
         else:
             infoob = self.do_requestdo("getlocal", hash=self.resdict.get("forcehash"))
-            if infoob == False:
-                #self.info = None
+            if infoob[0] == False:
                 return
+            print(infoob)
             name = (infoob[1]["name"], infoob[1]["security"])
             self.info = (True, {"type": infoob[1]["type"], "message": "", "name": name[0]}, name, self.resdict.get("forcehash"))
         self.update_info_slate()
@@ -526,3 +543,60 @@ class gtkclient_node(gtkclient_template):
             self.resdict["forcehash"] = self.links["client"].cert_hash
     def cancel_security(self, *args):
         self.get_object("setsecuritywin").hide()
+## gtk template
+
+    def do_requestdo(self,action, **obdict):
+        od = self.resdict.copy()
+        od.update(obdict)
+        return self.links["gtkclient"].do_requestdo(action, **od)
+    
+    def get_address_list(self):
+        ret = []
+        for elem in open_hashes[self.resdict.get("forcehash")][1]:
+            ret.append(elem)
+        return sorted(ret)
+    
+    def get_traverseaddr(self):
+        return self.resdict.get("traverseserveraddr")
+
+    def get_address(self):
+        if len(open_hashes[self.resdict.get("forcehash")][1])==0:
+            return None
+        return self.get_object("chooseaddresse").get_text()
+    
+    def close(self,*args):
+        self.win.hide()
+        self.links["gtkclient"].app.remove_window(self.win)
+        del open_hashes[self.resdict.get("forcehash")]
+        self.win.destroy()
+        del self
+
+
+def gtkclient_node(links, _address, page="info", **obdict):
+    if obdict.get("forcehash") is None and _address is None:
+        return None
+    elif obdict.get("forcehash") is None:
+        ret = links["gtkclient"].do_requestdo("info", address=_address)
+        if ret[0] == False:
+            return None
+        self.info = ret
+        obdict["forcehash"] = ret[3]
+    
+    ret = None
+    if obdict.get("forcehash") not in open_hashes:
+        ret = _gtkclient_node(links, obdict)
+        open_hashes[obdict.get("forcehash")] = [ret, set()]
+        if _address is not None:
+            open_hashes[obdict.get("forcehash")][1].add(_address)
+            open_hashes[obdict.get("forcehash")][0].get_object("chooseaddresse").set_text(_address)
+        ret.init(page="info")
+    else:
+        if _address is not None:
+            open_hashes[obdict.get("forcehash")][1].add(_address)
+            open_hashes[obdict.get("forcehash")][0].get_object("chooseaddresse").set_text(_address)
+            open_hashes[obdict.get("forcehash")][0].update_info()
+            open_hashes[obdict.get("forcehash")][0].get_object("chooseaddress").set_active_id(_address)
+        open_hashes[obdict.get("forcehash")][0].win.present()
+        open_hashes[obdict.get("forcehash")][0].win.set_accept_focus(True)
+        ret = open_hashes[obdict.get("forcehash")][0]
+    return ret

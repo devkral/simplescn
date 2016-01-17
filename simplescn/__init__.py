@@ -200,7 +200,7 @@ def logcheck(ret, level = logging.DEBUG):
         return True
     else:
         if level != 0:
-            logging.log(level, ret[1])
+            logging.root._log(level, ret[1], [])
         return False
 
 def inp_passw_cmd(msg, requester=None):

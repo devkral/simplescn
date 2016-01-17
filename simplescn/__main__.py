@@ -18,7 +18,7 @@ import simplescn.server
 
 
 def signal_handler(_signal, frame):
-    simplescn.client.run = False
+    simplescn.client.client_init.run = False
     logging.shutdown()
     sys.exit(0)
 
