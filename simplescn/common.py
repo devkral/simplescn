@@ -10,7 +10,7 @@ from simplescn import pluginstartfile, check_conftype, check_name, check_hash, c
 from simplescn import confdb_ending, isself
 
 
-if False and hasattr(importlib.util, "module_from_spec"):
+if hasattr(importlib.util, "module_from_spec"):
     module_from_spec = importlib.util.module_from_spec
 else:
     from importlib._bootstrap import _new_module, _warnings, _init_module_attrs
