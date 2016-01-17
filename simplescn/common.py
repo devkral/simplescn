@@ -10,6 +10,27 @@ from simplescn import pluginstartfile, check_conftype, check_name, check_hash, c
 from simplescn import confdb_ending, isself
 
 
+if False and hasattr(importlib.util, "module_from_spec"):
+    module_from_spec = importlib.util.module_from_spec
+else:
+    from importlib._bootstrap import _new_module, _warnings, _init_module_attrs
+    def module_from_spec(spec):
+        """Create a module based on the provided spec."""
+        # Typically loaders will not implement create_module().
+        module = None
+        if hasattr(spec.loader, 'create_module'):
+            # If create_module() returns `None` then it means default
+            # module creation should be used.
+            module = spec.loader.create_module(spec)
+        elif hasattr(spec.loader, 'exec_module'):
+            _warnings.warn('starting in Python 3.6, loaders defining exec_module() '
+                           'must also define create_module()',
+                           DeprecationWarning, stacklevel=2)
+        if module is None:
+            module = _new_module(spec.name)
+        _init_module_attrs(spec, module)
+        return module
+
 
 class configmanager(object):
     db_path = None
@@ -299,7 +320,7 @@ class pluginmanager(object):
         self.resources = resources
         self.interfaces.insert(0, scn_type)
         module = importlib.machinery.ModuleSpec("_plugins", None)
-        module = importlib.util.module_from_spec(module)
+        module = module_from_spec(module)
         sys.modules[module.__name__] = module
         
         
