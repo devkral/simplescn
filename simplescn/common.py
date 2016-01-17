@@ -9,7 +9,8 @@ import logging
 from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
 from simplescn import confdb_ending, isself
 
-
+if hasattr(importlib.util, "module_from_spec") == False:
+    import types
 
 class configmanager(object):
     db_path = None
@@ -302,7 +303,6 @@ class pluginmanager(object):
             module = importlib.machinery.ModuleSpec("_plugins", None)
             module = importlib.util.module_from_spec(module)
         else:
-            import types
             module = types.ModuleType("_plugins", None)
         sys.modules[module.__name__] = module
         
@@ -338,10 +338,17 @@ class pluginmanager(object):
             pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
             if pconf.getb("state") == False:
                 continue
-            # hack around importsystem
-            module = importlib.machinery.ModuleSpec("_plugins.{}".format(plugin[0]), None, origin=plugin[1])
-            module.submodule_search_locations = [os.path.join(plugin[1],plugin[0]), plugin[1]]
-            module = importlib.util.module_from_spec(module)
+                
+            
+            if hasattr(importlib.util, "module_from_spec"):
+                module = importlib.machinery.ModuleSpec("_plugins.{}".format(plugin[0]), None, origin=plugin[1])
+                module.submodule_search_locations = [os.path.join(plugin[1],plugin[0]), plugin[1]]
+                module = importlib.util.module_from_spec(module)
+            else:
+                module = types.ModuleType("_plugins.{}".format(plugin[0]), None)
+                module.__path__ = [os.path.join(plugin[1],plugin[0]), plugin[1]]
+            
+                
             sys.modules[module.__name__] = module
             #print(sys.modules.get("plugins"),sys.modules.get("plugins.{}".format(plugin[0])))
             globalret = self.pluginenv.copy()
