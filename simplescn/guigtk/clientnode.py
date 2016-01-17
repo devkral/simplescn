@@ -36,7 +36,6 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
         self.add_from_file(os.path.join(sharedir, "guigtk", "clientnode.ui"))
 
     def init(self, page="info"):
-        print("\""+self.get_address()+"\"")
         if self.resdict.get("forcehash") in open_hashes:
             if self.get_address() is not None:
                 open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddresse").set_text(self.get_address())
@@ -67,7 +66,6 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
 
     def update_info(self, *args):
         _address = self.get_address()
-        print(_address)
         if _address is not None:
             infoob = self.do_requestdo("info", address=_address)
             if infoob[0] == False:
@@ -100,7 +98,6 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
             infoob = self.do_requestdo("getlocal", hash=self.resdict.get("forcehash"))
             if infoob[0] == False:
                 return
-            print(infoob)
             name = (infoob[1]["name"], infoob[1]["security"])
             self.info = (True, {"type": infoob[1]["type"], "message": "", "name": name[0]}, name, self.resdict.get("forcehash"))
         self.update_info_slate()
@@ -122,6 +119,7 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
                 securtypes.remove(self.info[2][1])
                 secwhat.set_text("Set key state:")
             else:
+                self.get_object("securityshow").set_label("invisible")
                 self.get_object("securityshow").hide()
         
             for entry in securtypes:
@@ -589,7 +587,7 @@ def gtkclient_node(links, _address, page="info", **obdict):
         if _address is not None:
             open_hashes[obdict.get("forcehash")][1].add(_address)
             open_hashes[obdict.get("forcehash")][0].get_object("chooseaddresse").set_text(_address)
-        ret.init(page="info")
+        ret.init(page)
     else:
         if _address is not None:
             open_hashes[obdict.get("forcehash")][1].add(_address)

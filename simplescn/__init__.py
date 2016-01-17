@@ -314,11 +314,23 @@ def init_config_folder(_dir, prefix):
         os.chmod(os.path.join(_dir, "broken"), 0o700)
     _path = os.path.join(_dir, prefix)
     if os.path.exists("{}_name.txt".format(_path)) == False:
+        _name = os.getenv("USERNAME")
+        if _name is None:
+            _name = os.getenv("USER")
+        if _name is None:
+            _name = os.getenv("HOME")
+            if _name:
+                _name = os.path.basename(_name)
+        if _name is None:
+            try:
+                _name = socket.gethostname()
+            except Exception:
+                pass
         with open("{}_name.txt".format(_path), "w") as writeo:
             if prefix == "client":
-                writeo.write("{}/{}".format(normalize_name(os.getenv("USERNAME")), 0))
+                writeo.write("{}/{}".format(normalize_name(_name), 0))
             else:
-                writeo.write("{}/{}".format(normalize_name(os.getenv("USERNAME")), server_port))
+                writeo.write("{}/{}".format(normalize_name(_name), server_port))
     if os.path.exists(_path+"_message.txt") == False:
         with open("{}_message.txt".format(_path), "w") as writeo:
             writeo.write("<message>")
