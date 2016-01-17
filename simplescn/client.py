@@ -1074,7 +1074,7 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "priority": [str(default_priority), int, "<number>: set priority"],
              "timeout": [str(default_timeout), int, "<number>: set priority"],
              "webgui": ["False", bool, "enables webgui"],
-             "cmd": ["False", bool, "use cmd"]}
+             "nocmd": ["False", bool, "use no cmd"]}
              
 client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
              "port": [str(client_port), int, "<number>: Port"]}

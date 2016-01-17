@@ -132,7 +132,7 @@ def rawclient():
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
         if confm.getb("webgui") != False:
             pluginm.interfaces += ["web",]
-        if confm.getb("cmd") != False:
+        if confm.getb("nocmd") == False:
             pluginm.interfaces += ["cmd",]
     else:
         pluginm = None
@@ -147,7 +147,7 @@ def rawclient():
         #        cm.links["auth_server"].init_realm("plugin:{}".format(name), dhash(elem.pluginpw))
 
     logging.debug("start servercomponent (client)")
-    if confm.getb("cmd") != False:
+    if confm.getb("nocmd") == False:
         cm.serve_forever_nonblock()
         logging.debug("start console")
         for name, value in cm.links["client"].show({})[1].items():
@@ -171,7 +171,7 @@ def client_gtk():
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, client_args, default_client_args
     dclargs = default_client_args.copy()
-    del dclargs["cmd"]
+    del dclargs["nocmd"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
     if len(sys.argv) > 1:
         tparam = ()
