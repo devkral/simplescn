@@ -21,7 +21,7 @@ def gtkclient_notify(msg, requester=None):
     """ func: gtk notification dialog
         return: True or False
         requester: plugin which requests the dialog (None: for main) """
-    icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.png"))
+    icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.svg"))
     if icon:
         dia = Gtk.Dialog(parent=get_parent(), title="Notify", icon=icon)
     else:
@@ -46,7 +46,7 @@ def gtkclient_pw(msg, requester=None):
         return: None or pw
         requester: plugin which requests the dialog (None: for main)
     """
-    icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.png"))
+    icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.svg"))
     if icon:
         dia = Gtk.Dialog(title="Password", parent=get_parent(), icon=icon, destroy_with_parent=False)
     else:
