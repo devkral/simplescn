@@ -6,12 +6,13 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib #, Pango
 import socket
+import logging
 
 import os, locale
 
 from simplescn.guigtk import gtkclient_template, activate_shielded, toggle_shielded
 #, open_hashes
-from simplescn import sharedir, isself, logger, check_name, security_states, scnparse_url
+from simplescn import sharedir, isself, check_name, security_states, scnparse_url, logcheck
 
 
 
@@ -25,6 +26,7 @@ class gtkclient_node(gtkclient_template):
         self.page_names = {}
         
         if self.init(os.path.join(sharedir, "guigtk", "clientnode.ui"), links, _address, obdict) == False:
+            #del self
             return
         self.win = self.get_object("nodewin")
         
@@ -53,11 +55,11 @@ class gtkclient_node(gtkclient_template):
             infoob = self.do_requestdo("info", address=_address)
             if infoob[0] == False:
                 if self.resdict.get("forcehash") is None:
-                    logger().error("no hash found")
+                    logging.error("no hash found")
                     return
                 travret = self.do_requestdo("getreferences", hash=self.resdict.get("forcehash"), filter="surl")
                 if travret[0] == False:
-                    logger().error("fetching references failed")
+                    logging.error("fetching references failed")
                     return
                 for _tsaddr, _type in travret[1]["items"]:
                     try:
@@ -151,7 +153,7 @@ class gtkclient_node(gtkclient_template):
             return
         _names=self.do_requestdo("listnames",server=self.get_address())
         if _names[0]==False:
-            logger().error(_names[1])
+            logging.error(_names[1])
             return
         
         for name, _hash, _security, _localname in _names[1]["items"]:
@@ -197,8 +199,7 @@ class gtkclient_node(gtkclient_template):
             return
         ret = self.do_requestdo("listservices", address=self.get_address())
         servicel.clear()
-        if ret[0] == False:
-            logger().info(ret[1])
+        if logcheck(ret,logging.INFO) == False:
             return
         for elem in ret[1]["items"]:
             servicel.append((elem[0],elem[1]))
@@ -266,7 +267,7 @@ class gtkclient_node(gtkclient_template):
                 counter += 1
                 _tmplabel = Gtk.Label("Servicelist")
         else:
-            logger().warning("Category not exist")
+            logging.warning("Category not exist")
             noteb.show_all()
             self.connect_signals(self)
             return
@@ -297,7 +298,7 @@ class gtkclient_node(gtkclient_template):
                         self.page_names[pname] = counter
                         counter += 1
                 except Exception as e:
-                    logger().error(e)
+                    logging.error(e)
         
         noteb.show_all()
         # don't connect signals, should be done by plugins itself
@@ -314,7 +315,7 @@ class gtkclient_node(gtkclient_template):
         elif category == "client":
             cat = "gui_node_actions"
         else:
-            logger().warning("Category not exist")
+            logging.warning("Category not exist")
             cat = "gui_node_actions"
         actionmenub = self.get_object("nodeactionbutton")
         issensitiveset = False
@@ -352,7 +353,7 @@ class gtkclient_node(gtkclient_template):
                             actionmenub.set_sensitive(True)
                             issensitiveset = True
                 except Exception as e:
-                    logger().error(e)
+                    logging.error(e)
                     
 
 # update message
@@ -372,7 +373,7 @@ class gtkclient_node(gtkclient_template):
     def update_name(self, *args):
         _name = self.get_object("rnamee").get_text()
         if check_name(_name) == False:
-            logger().info("Invalid name: {}".format(_name))
+            logging.info("Invalid name: {}".format(_name))
             return
         #ret = 
         self.do_requestdo("changename", name=_name, permanent=self.get_object("changenamepermanent").get_active())
@@ -398,14 +399,14 @@ class gtkclient_node(gtkclient_template):
         service = servicee.get_text().strip(" ").rstrip(" ")
         port = porte.get_text().strip(" ").rstrip(" ")
         if service=="":
-            logger().debug("service invalid")
+            logging.debug("service invalid")
             return
         if port == "" or port.isdecimal() == False:
-            logger().debug("port invalid")
+            logging.debug("port invalid")
             return
         ret = self.do_requestdo("registerservice", name=service, port=port)
         if ret[0] == False:
-            logger().debug(ret[1])
+            logging.debug(ret[1])
             return
         servicee.set_text("")
         porte.set_text("")
@@ -449,12 +450,11 @@ class gtkclient_node(gtkclient_template):
         _name, _hash = _sel[0][_sel[1]][2:4] #_entry.get_text().split("/",1)
         
         _check = self.do_requestdo("check", server=self.get_address(), name=_name, hash=_hash)
-        if _check[0] == False:
+        if logcheck(_check, logging.DEBUG) == False:
             return
         
         _node = self.do_requestdo("get", server=self.get_address(), name=_name, hash=_hash)
-        if _node[0] == False:
-            logger().error(_node[1])
+        if logcheck(_node, logging.ERROR) == False:
             return
         
         self.links["gtkclient"].set_curnode("{}-{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.get_address())
@@ -491,12 +491,12 @@ class gtkclient_node(gtkclient_template):
         namestore = self.get_object("servernodelist")
         res = self.do_requestdo("register", server=self.get_address())
         if res[0] == False:
-            logger().error(res[1])
+            logging.error(res[1])
             return
         if self.isregistered==False:
             res_show = self.do_requestdo("show")
             if res_show == False:
-                logger().error(res[1])
+                logging.error(res[1])
                 return
             self.isregistered=True
             namestore.prepend(("This Client", "valid", res_show[1]["name"], res_show[1]["hash"], res_show[1]["name"]))

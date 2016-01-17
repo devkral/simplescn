@@ -3,7 +3,7 @@
 import os, sys
 import threading
 
-from simplescn import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, logger, classify_admin, classify_experimental, classify_noplugin, classify_local
+from simplescn import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, classify_admin, classify_experimental, classify_noplugin, classify_local
 
 class client_admin(object): 
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity", "requestredirect", "massimporter"}
@@ -219,7 +219,7 @@ class client_admin(object):
             return False, "no pubcert"
         ret = generate_certs(_cpath)
         if ret == False:
-            logger().critical("Fatal error: certs could not be regenerated")
+            logging.critical("Fatal error: certs could not be regenerated")
             # in case logger is catched and handler doesn't output
             print("Fatal error: certs could not be regenerated")
             sys.exit(1)

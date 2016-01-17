@@ -110,7 +110,7 @@ class client_safe(object):
             _forcehash = obdict.get("forcehash")
             del obdict["client"]
         else:
-            _forcehash = self.client_hash
+            _forcehash = self.cert_hash
             client_addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
         _tservices = self.do_request(client_addr, "/server/dumpservices", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         if _tservices[0] == False:
@@ -302,6 +302,7 @@ class client_safe(object):
             #return False, "Certificate updated, verify"
             obdict["hash"] = temp[3]
         obdict["address"] = "{address}-{port}".format(**temp[1])
+        obdict["forcehash"] = obdict["hash"]
         return self.check_direct(obdict)
     
     ### local management ###

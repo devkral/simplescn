@@ -13,8 +13,8 @@ class test(object):
     logger = None
 
     # initialises plugin. Returns False or Exception for not loading  (needed)
-    def __init__(self, interfaces, config, resources, proot, logger):
-        self.interfaces, self.config, self.resources, self.proot, self.logger = interfaces, config, resources, proot, logger
+    def __init__(self, interfaces, config, resources, proot):
+        self.interfaces, self.config, self.resources, self.proot = interfaces, config, resources, proot
         print("Hello "+self.interfaces[0])
         print("I offer: {}".format(self.interfaces[1:]))
 

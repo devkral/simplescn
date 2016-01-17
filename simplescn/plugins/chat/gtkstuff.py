@@ -82,7 +82,7 @@ class gtkstuff(object):
         _filech.destroy()
         _socket, _cert, _hash = self.parent.request(_addressfunc(), certhash, "fetch_file", "/{filename}/{pos}".format(filename=filename, pos=pos), _traversefunc())
         if _socket is None:
-            self.parent.logger().error("fetching file failed")
+            logging.error("fetching file failed")
             return
         
         if os.path.exists(_file2) and pos > 0:
@@ -130,7 +130,7 @@ class gtkstuff(object):
                 return True
             sock, _cert, _hash = self.parent.request(_addressfunc(), certhash, "send_text", "/{size}".format(size=len(_textb)), traverseserveraddr=_traversefunc())
             if sock is None:
-                self.parent.logger().error("request failed")
+                logging.error("request failed")
                 return False
             if self.parent.private_state.get(certhash, False) == False:
                 with open(os.path.join(os.path.expanduser(self.parent.config.get("chatdir")), certhash, "log.txt"), "a") as wrio:
@@ -165,7 +165,7 @@ class gtkstuff(object):
             #self.parent.chatbuf[certhash].append(self.gtk_create_fileob(_addressfunc, _traversefunc, certhash, _newname, _size, True, self.parent.private_state.get(certhash, False), parse_timestamp(timestamp)))
             sock, _cert, _hash = self.parent.request(_addressfunc(), certhash, "send_file","/{name}/{size}".format(name=_newname, size=_size), _traversefunc())
             if sock is None:
-                self.parent.logger().error("Cannot connect/other error")
+                logging.error("Cannot connect/other error")
                 return
 
     def gtk_send_img(self, widget, _addressfunc, _traversefunc, window, certhash):
@@ -193,11 +193,11 @@ class gtkstuff(object):
         else:
             _img2 = _img2[1]    
         if len(_img2) > self.parent.config.get("maxsizeimg")*1024:
-            self.parent.logger().info("Image too big")
+            logging.info("Image too big")
             return
         sock, _cert, _hash = self.parent.request(_addressfunc(), certhash, "send_img", "/{size}".format(size=len(_img2)), _traversefunc())
         if sock is None:
-            self.parent.logger().error("sending failed")
+            logging.error("sending failed")
             return
         sock.sendall(_img2)
         
@@ -276,9 +276,9 @@ class gtkstuff(object):
                                         self.glist_add_certhash(certhash, self.gtk_create_imageob, newimg, True, False, parse_timestamp(timestamp))
                                         #self.parent.chatbuf[certhash].append(self.gtk_create_imageob(newimg, True, False, parse_timestamp(timestamp)))
                                 else:
-                                    self.parent.logger().debug("path: {} does not exist anymore".format(_imgpath))
+                                    logging.debug("path: {} does not exist anymore".format(_imgpath))
                             except Exception as e:
-                                self.parent.logger().error(e)
+                                logging.error(e)
                         elif _type == "ri":
                             _imgpath = os.path.join(os.path.expanduser(self.parent.config.get("chatdir")), certhash, "images", _rest)
                             try:
@@ -291,9 +291,9 @@ class gtkstuff(object):
                                         self.glist_add_certhash(certhash, self.gtk_create_imageob, newimg, False, False, parse_timestamp(timestamp))
                                         #self.parent.chatbuf[certhash].append(self.gtk_create_imageob(newimg, False, False, parse_timestamp(timestamp)))
                                 else:
-                                    self.parent.logger().debug("path: {} does not exist anymore".format(_imgpath))
+                                    logging.debug("path: {} does not exist anymore".format(_imgpath))
                             except Exception as e:
-                                self.parent.logger().error(e)
+                                logging.error(e)
                         elif _type == "of":
                             _name, _size = _rest.rsplit(",", 1)
                             # autoclean

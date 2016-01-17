@@ -5,7 +5,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 
-from simplescn import isself, logger
+from simplescn import isself
 
 class configuration_stuff(object):
     configurationwin = None
@@ -186,7 +186,7 @@ class configuration_stuff(object):
         pluginlist.clear()
         _listplugins = self.do_requestdo("listplugins")
         if _listplugins[0] == False:
-            logger.error(_listplugins[1])
+            logging.error(_listplugins[1])
             _listplugins = []
         else:
             _listplugins = _listplugins[1]["items"]

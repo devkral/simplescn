@@ -5,8 +5,10 @@ import importlib.machinery
 import importlib
 import traceback
 import threading
-from simplescn import pluginstartfile, logger, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
+import logging
+from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
 from simplescn import confdb_ending, isself
+
 
 
 class configmanager(object):
@@ -40,7 +42,7 @@ class configmanager(object):
                     st = "{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
                 else:
                     st = "{}".format(e)
-                logger().error(st)
+                logging.error(st)
             dbcon.close()
             self.lock.release()
             return temp
@@ -69,7 +71,7 @@ class configmanager(object):
             elif len(elem) == 3:
                 tmp = list(elem)
             if tmp is None:
-                logger().error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
+                logging.error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
                 return False
             if check_conftype(tmp[0], tmp[1]) == False or isinstance(tmp[0], str) == False: # must be string
                 return False
@@ -78,7 +80,7 @@ class configmanager(object):
         for _key, elem  in _overlays.items():
             tmp = None
             if isinstance(elem[0], (str, None)) == False: # must be string
-                logger().error("invalid config object {}".format(elem))
+                logging.error("invalid config object {}".format(elem))
                 continue
             if len(elem) == 1 or (len(elem) == 2 and elem[1] is None):
                 if _key in self.defaults:
@@ -91,11 +93,11 @@ class configmanager(object):
             elif len(elem) == 3:
                 tmp = list(elem)
             if tmp is None:
-                logger().error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
+                logging.error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
                 return False
             if _key in self.defaults:
                 if tmp[1] != self.defaults[_key][1]:
-                    logger().error("converter mismatch between defaults: {} and overlays: {}".format(self.defaults[_key][1], tmp[1]))
+                    logging.error("converter mismatch between defaults: {} and overlays: {}".format(self.defaults[_key][1], tmp[1]))
                     return False
 
             if check_conftype(tmp[0], tmp[1]) == False:
@@ -121,16 +123,16 @@ class configmanager(object):
     @dbaccess
     def set(self, dbcon, name, value):
         if isinstance(name, str) == False:
-            logger().error("name not string")
+            logging.error("name not string")
             return False
         if name in self.overlays and check_conftype(value, self.overlays[name][1]) == False:
-            #logger().error("overlays value type missmatch")
+            #logging.error("overlays value type missmatch")
             return False
         elif name in self.defaults and check_conftype(value, self.defaults[name][1]) == False:
-            #logger().error("invalid defaults value type")
+            #logging.error("invalid defaults value type")
             return False
         elif name not in self.defaults and name not in self.overlays:
-            logger().error("not in defaults/overlays")
+            logging.error("not in defaults/overlays")
             return False
         
         if value is None:
@@ -158,7 +160,7 @@ class configmanager(object):
     @dbaccess
     def get(self, dbcon, _key):
         if isinstance(_key, str) == False:
-            logger().error("key no string")
+            logging.error("key no string")
             return None
         
         # key can be in overlays but not in defaults
@@ -167,7 +169,7 @@ class configmanager(object):
             _converter = self.overlays[_key][1]
         else:
             if _key not in self.defaults:
-                logger().error("\"{}\" is no key".format(_key))
+                logging.error("\"{}\" is no key".format(_key))
                 return None
             _converter = self.defaults[_key][1]
             ret = self.defaults[_key][0]
@@ -229,7 +231,7 @@ class configmanager(object):
         
         for elem in _listitems:
             if len(elem) != 2 or len(elem[1]) != 3:
-                logger().error("invalid element {}".format(elem))
+                logging.error("invalid element {}".format(elem))
                 continue
             _key, (_defaultval, _converter, _doc) = elem
             _val2 = _defaultval
@@ -256,7 +258,7 @@ class configmanager(object):
             if _key in ["state",] and _val2 in [None, "", "False"]:
                 _val2 = "False"
             if isinstance(_val2, str) == False:
-                logger().info("value should be str")
+                logging.info("value should be str")
                 
             if onlypermanent == True and ispermanent == True:
                 ret.append((_key, _val2, str(_converter), _defaultval, _doc, ispermanent))
@@ -268,7 +270,7 @@ def pluginresources_creater(_dict, requester):
     def wrap(res):
         ob = _dict.get(res)
         if ob is None:
-            logger().error("Resource: {} not available".format(res))
+            logging.error("Resource: {} not available".format(res))
             return None
         elif callable(ob) == True:
             def wrap2(*args, **kwargs):
@@ -348,16 +350,16 @@ class pluginmanager(object):
                     exec(readob.read(), globalret)
                     # unchangeable default, check that config_defaults is really a dict
                     if isinstance(globalret.get("config_defaults", None), dict) == False or issubclass(dict, type(globalret["config_defaults"])) == False:
-                        logger().error("global value: config_defaults is no dict/not specified")
+                        logging.error("global value: config_defaults is no dict/not specified")
                         continue
                     globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
                     pconf.update(globalret["config_defaults"])
-                    finobj = globalret["init"](self.interfaces.copy(), pconf, pluginresources_creater(self.resources, plugin[0]), os.path.join(plugin[1], plugin[0]), logger)
+                    finobj = globalret["init"](self.interfaces.copy(), pconf, pluginresources_creater(self.resources, plugin[0]), os.path.join(plugin[1], plugin[0]))
             except Exception as e:
                 st = "Plugin failed to load, reason:\n{}".format(e)
                 if hasattr(e,"tb_frame"):
                     st += "\n\n{}".format(traceback.format_tb(e))
-                logger().error(st)
+                logging.error(st)
 
                 finobj = None
             if finobj:
@@ -384,7 +386,7 @@ class certhash_db(object):
         try:
             con = sqlite3.connect(self.db_path)
         except Exception as e:
-            logger().error(e)
+            logging.error(e)
             return
         self.lock.acquire()
         try:
@@ -396,7 +398,7 @@ class certhash_db(object):
             con.commit()
         except Exception as e:
             con.rollback()
-            logger().error(e)
+            logging.error(e)
         con.close()
         self.lock.release()
 
@@ -413,7 +415,7 @@ class certhash_db(object):
                 st = str(e)
                 if "tb_frame" in e.__dict__:
                     st = "{}\n\n{}".format(st, traceback.format_tb(e))
-                logger().error("{}\n{}".format(st, type(func).__name__))
+                logging.error("{}\n{}".format(st, type(func).__name__))
             self.lock.release()
             return temp
         return funcwrap
@@ -423,10 +425,10 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
         if cur.fetchone() is not None:
-            logger().info("name exist: {}".format(_name))
+            logging.info("name exist: {}".format(_name))
             return False
         if check_name(_name) == False:
-            logger().info("name contains invalid elements")
+            logging.info("name contains invalid elements")
             return False
         cur.execute('''INSERT INTO certs(name,certhash) values (?,'default');''', (_name,))
         dbcon.commit()
@@ -437,7 +439,7 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
-            #logger().info("name does not exist: {}".format(_name))
+            #logging.info("name does not exist: {}".format(_name))
             return True
         cur.execute('''DELETE FROM certs WHERE name=?;''', (_name,))
         dbcon.commit()
@@ -448,11 +450,11 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
-            logger().info("name does not exist: {}".format(_name))
+            logging.info("name does not exist: {}".format(_name))
             return False
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
         if cur.fetchone() is not None:
-            logger().info("newname already exist: {}".format(_newname))
+            logging.info("newname already exist: {}".format(_newname))
             return False
         cur.execute('''UPDATE certs SET name=? WHERE name=?;''', (_newname, _name,))
         dbcon.commit()
@@ -461,26 +463,26 @@ class certhash_db(object):
     @connecttodb
     def addhash(self, dbcon, _name, _certhash, nodetype="unknown", priority=20, security="valid"):
         if _name is None:
-            logger().error("name None")
+            logging.error("name None")
         if nodetype is None:
-            logger().error("nodetype None")
+            logging.error("nodetype None")
         
         if check_hash(_certhash) == False:
-            logger().error("hash contains invalid characters: {}".format(_certhash))
+            logging.error("hash contains invalid characters: {}".format(_certhash))
             return False
         
         if check_security(security) == False:
-            logger().error("security is invalid type: {}".format(security))
+            logging.error("security is invalid type: {}".format(security))
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
-            logger().info("name does not exist: {}".format(_name))
+            logging.info("name does not exist: {}".format(_name))
             return False
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (_certhash,))
         _oldname=cur.fetchone()
         if _oldname is not None:
-            logger().info("hash already exist: {}".format(_certhash))
+            logging.info("hash already exist: {}".format(_certhash))
             return False
 
         #hack
@@ -498,13 +500,13 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
         if cur.fetchone() is None:
-            logger().info("name does not exist: {}".format(_newname))
+            logging.info("name does not exist: {}".format(_newname))
             return False
 
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (_certhash,))
         _oldname = cur.fetchone()
         if _oldname is None:
-            logger().info("certhash does not exist: {}".format(_certhash))
+            logging.info("certhash does not exist: {}".format(_certhash))
             return False
         cur.execute('''UPDATE certs SET name=? WHERE certhash=?;''', (_newname, _certhash,))
 
@@ -514,15 +516,15 @@ class certhash_db(object):
     @connecttodb
     def changetype(self, dbcon, _certhash, _type):
         if check_typename(_type,15) == False:
-            logger().info("type contains invalid characters or is too long (maxlen: {}): {}".format(15, _type))
+            logging.info("type contains invalid characters or is too long (maxlen: {}): {}".format(15, _type))
             return False
         if check_hash(_certhash) == False:
-            logger().info("hash contains invalid characters")
+            logging.info("hash contains invalid characters")
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
-            logger().info("hash does not exist: {}".format(_certhash))
+            logging.info("hash does not exist: {}".format(_certhash))
             return False
         cur.execute('''UPDATE certs SET type=? WHERE certhash=?;''', (_type, _certhash))
 
@@ -534,26 +536,26 @@ class certhash_db(object):
         #convert str to int and fail if either no integer in string format
         # or datatype is something else except int
         if isinstance(_priority, str) == True and _priority.isdecimal() == False:
-            logger().info("priority can not parsed as integer: {}".format(_priority))
+            logging.info("priority can not parsed as integer: {}".format(_priority))
             return False
         elif isinstance(_priority, str) == True:
             _priority=int(_priority)
         elif isinstance(_priority, int) == False:
-            logger().info("priority has unsupported datatype: {}".format(type(_priority).__name__))
+            logging.info("priority has unsupported datatype: {}".format(type(_priority).__name__))
             return False
 
         if _priority < 0 or _priority > 100:
-            logger().info("priority too big (>100) or smaller 0")
+            logging.info("priority too big (>100) or smaller 0")
             return False
         
         if check_hash(_certhash) == False:
-            logger().info("hash contains invalid characters: {}".format(_certhash))
+            logging.info("hash contains invalid characters: {}".format(_certhash))
             return False
         cur = dbcon.cursor()
         
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
-            logger().info("hash does not exist: {}".format(_certhash))
+            logging.info("hash does not exist: {}".format(_certhash))
             return False
 
         cur.execute('''UPDATE certs SET priority=? WHERE certhash=?;''', (_priority, _certhash))
@@ -564,17 +566,17 @@ class certhash_db(object):
     @connecttodb
     def changesecurity(self, dbcon, _certhash, _security):
         if check_hash(_certhash) == False:
-            logger().info("hash contains invalid characters: {}".format(_certhash))
+            logging.info("hash contains invalid characters: {}".format(_certhash))
             return False
         if check_security(_security) == False:
-            logger().error("security is invalid type: {}".format(_security))
+            logging.error("security is invalid type: {}".format(_security))
             return False
             
         cur = dbcon.cursor()
         
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
-            logger().info("hash does not exist: {}".format(_certhash))
+            logging.info("hash does not exist: {}".format(_certhash))
             return False
 
         cur.execute('''UPDATE certs SET security=? WHERE certhash=?;''', (_security, _certhash))
@@ -597,13 +599,13 @@ class certhash_db(object):
     @connecttodb
     def delhash(self, dbcon, _certhash):
         if _certhash == "default":
-            logger().error("tried to delete reserved hash 'default'")
+            logging.error("tried to delete reserved hash 'default'")
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
 
         if cur.fetchone() is None:
-            #logger().info("hash does not exist: {}".format(_certhash))
+            #logging.info("hash does not exist: {}".format(_certhash))
             return True
 
         cur.execute('''DELETE FROM certs WHERE certhash=?;''', (_certhash,))
@@ -615,13 +617,13 @@ class certhash_db(object):
         if _certhash is None:
             return None
         if check_hash(_certhash) == False:
-            logger().error("Invalid certhash: {}".format(_certhash))
+            logging.error("Invalid certhash: {}".format(_certhash))
             return None
         cur = dbcon.cursor()
         cur.execute('''SELECT name,type,priority,security,certreferenceid FROM certs WHERE certhash=?;''', (_certhash,))
         ret = cur.fetchone()
         if ret is not None and ret[0] == isself:
-            logger().critical("\"{}\" is in the db".format(isself))
+            logging.critical("\"{}\" is in the db".format(isself))
             return None
         return ret
     
@@ -701,15 +703,15 @@ class certhash_db(object):
     @connecttodb
     def addreference(self, dbcon, _referenceid, _reference, _reftype):
         if check_reference(_reference) == False:
-            logger().error("reference invalid: {}".format(_reference))
+            logging.error("reference invalid: {}".format(_reference))
             return False
         if check_reference_type(_reftype) == False:
-            logger().error("reference type invalid: {}".format(_reftype))
+            logging.error("reference type invalid: {}".format(_reftype))
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_referenceid, _reference))
         if cur.fetchone() is not None:
-            logger().info("certreferenceid exist: {}".format(_referenceid))
+            logging.info("certreferenceid exist: {}".format(_referenceid))
             return False
         cur.execute('''INSERT INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_referenceid, _reference, _reftype))
         dbcon.commit()
@@ -720,7 +722,7 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
-            #logger().info("certreferenceid/reference does not exist: {}, {}".format(_certreferenceid, _reference))
+            #logging.info("certreferenceid/reference does not exist: {}, {}".format(_certreferenceid, _reference))
             return True
         cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         dbcon.commit()
@@ -731,12 +733,12 @@ class certhash_db(object):
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
-            logger().info("certreferenceid/reference does not exist:{}, {}".format(_certreferenceid, _reference))
+            logging.info("certreferenceid/reference does not exist:{}, {}".format(_certreferenceid, _reference))
             return False
         if _reference != _newreference:
             cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _newreference))
             if cur.fetchone() is not None:
-                logger().info("new reference does exist: {}, {}".format(_certreferenceid, _reference))
+                logging.info("new reference does exist: {}, {}".format(_certreferenceid, _reference))
                 return False
         if _reference != _newreference:
             cur.execute('''UPDATE certreferences SET certreference=?, type=? WHERE certreferenceid=? and certreference=?;''', (_newreference, _newreftype, _certreferenceid, _reference))
@@ -748,7 +750,7 @@ class certhash_db(object):
     @connecttodb
     def getreferences(self, dbcon, _referenceid, _reftype = None):
         if isinstance(_referenceid, int) == False:
-            logger().error("invalid referenceid")
+            logging.error("invalid referenceid")
             return None
         cur = dbcon.cursor()
         if _reftype is None:
@@ -768,12 +770,12 @@ class certhash_db(object):
         
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_oldrefid,))
         if cur.fetchone() is None:
-            logger().info("src certrefid does not exist: {}".format(_oldrefid))
+            logging.info("src certrefid does not exist: {}".format(_oldrefid))
             return False
             
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_newrefid,))
         if cur.fetchone() is None:
-            logger().info("dest certrefid does not exist: {}".format(_newrefid))
+            logging.info("dest certrefid does not exist: {}".format(_newrefid))
             return False
 
         cur.execute('''UPDATE certreferences SET certreferenceid=? WHERE certreferenceid=?;''', (_newrefid, _oldrefid))
@@ -791,7 +793,7 @@ class certhash_db(object):
     @connecttodb
     def findbyref(self, dbcon, _reference):
         if check_reference(_reference) == False:
-            logger().error("invalid reference")
+            logging.error("invalid reference")
             return None
         cur = dbcon.cursor()
         cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=?);''', (_reference,))

@@ -10,6 +10,7 @@ import datetime
 import os.path
 import hashlib
 import shutil
+import logging
 from threading import Lock
 
 ###### used by pluginmanager ######
@@ -19,7 +20,7 @@ config_defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chat
 
 # interfaces, config, accessable resources (communication with main program), pluginpath, logger
 # return None deactivates plugin
-def init(interfaces, config, resources, proot, _logger):
+def init(interfaces, config, resources, proot):
     #global logger
     
     if "gtk" not in interfaces or gtkstuff is None:
@@ -31,7 +32,7 @@ def init(interfaces, config, resources, proot, _logger):
     # assign port to answer
     #/{timestamp}
     os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir"))), 0o770, exist_ok=True)
-    return chat_plugin(interfaces, config, resources, proot, _logger)
+    return chat_plugin(interfaces, config, resources, proot)
 
 ###### used by pluginmanager end ######
 
@@ -57,8 +58,8 @@ class chat_plugin(object):
 
     gui_node_actions = None
     
-    def __init__(self, interfaces, config, resources, proot, logger):
-        self.interfaces, self.config, self.resources, self.proot, self.logger = interfaces, config, resources, proot, logger
+    def __init__(self, interfaces, config, resources, proot):
+        self.interfaces, self.config, self.resources, self.proot = interfaces, config, resources, proot
         self.reqstring = "{action}/{privstate}/%s{other}" % resources("access")("show")[1]["port"]
         self.gui_node_actions = [
 {"text":"private", "action": self.toggle_private, \
@@ -81,7 +82,7 @@ class chat_plugin(object):
 
     def request(self, url, certhash, action, arguments, traverseserveraddr=None): #, timestamp=create_timestamp()): #, _traversefunc()
         if url is None:
-            self.logger().error("No address")
+            logging.error("No address")
             return None
         if self.private_state.get(certhash, False):
             privstate = "private"
@@ -135,7 +136,7 @@ class chat_plugin(object):
         if action == "fetch_file":
             name, pos = _rest.split("/", 1)
             if "/" in name or "\\" in name or name[0] == ".":
-                self.logger().error("Invalid filename")
+                logging.error("Invalid filename")
                 return
             _path = os.path.join(os.path.expanduser(self.config.get("chatdir")), certhash, "tosend", name)
             if os.path.isfile(_path):

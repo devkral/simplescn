@@ -7,9 +7,9 @@ config_defaults = {}
 
 # interfaces, config, accessable resources (communication with main program), pluginpath, logger
 # return None deactivates plugin
-def init(interfaces, config, resources, proot, logger):
+def init(interfaces, config, resources, proot):
     print("Hello World")
-    return sample_test(interfaces, config, resources, proot, logger)
+    return sample_test(interfaces, config, resources, proot)
 
 ###### used by pluginmanager end ######
 
@@ -20,10 +20,9 @@ class sample_test(object):
     config = None
     resources = None
     proot = None
-    logger = None
     
-    def __init__(interfaces, config, resources, proot, logger):
-        self.interfaces, self.config, self.resources, self.proot, self.logger = interfaces, config, resources, proot, logger
+    def __init__(interfaces, config, resources, proot):
+        self.interfaces, self.config, self.resources, self.proot = interfaces, config, resources, proot
         
     # localized name
     #lname = {"*": "global name", "de": "German name", "de_DE": "German Germany name"}

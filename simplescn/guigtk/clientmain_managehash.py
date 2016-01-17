@@ -7,7 +7,7 @@ from gi.repository import Gtk
 import logging
 
 
-from simplescn import logger, scnparse_url
+from simplescn import scnparse_url
 
 from simplescn.guigtk.clientnode import gtkclient_node
 from simplescn.guigtk import clientmain
@@ -71,12 +71,12 @@ class hashmanagement(object):
         hashlist=self.builder.get_object("hashlist")
         hashlist.clear()
         if temp[0]==False:
-            logger().debug("Exist?")
+            logging.debug("Exist?")
             return
         for elem in temp[1]["items"]:
             if elem[1] is None:
                 if elem[0]!="default":
-                    logger().info("invalid element: {}".format(elem))
+                    logging.info("invalid element: {}".format(elem))
             elif elem[1]==self.curlocal[0]:
                 hashlist.append((elem[0],))
         
@@ -144,7 +144,7 @@ class hashmanagement(object):
         reflist=self.builder.get_object("reflist")
         reflist.clear()
         if temp[0]==False:
-            logger().debug("Exist?")
+            logging.debug("Exist?")
             return
         reflist.append(("None","None")) #special for just open node
         for elem in temp[1]["items"]:
@@ -170,28 +170,28 @@ class hashmanagement(object):
         if _type == "name":
             serverurl = servercombo.get_text().strip(" ").rstrip(" ")
             if serverurl=="":
-                logger().info("no server selected")
+                logging.info("no server selected")
                 return
             
             turl = self.do_requestdo("get", server=serverurl, reference=_ref, hash=_hash)
-            if logger().check(turl, logging.INFO)==False:
+            if logging.check(turl, logging.INFO)==False:
                 return
             _url="{address}-{port}".format(**turl[1])
         elif _type == "surl":
             serverurl=_ref
             namesret=self.do_requestdo("getreferences", hash=_hash, type="name")
             if namesret[0]==False:
-                logger().info("getrefences failed")
+                logging.info("getrefences failed")
                 return
             tempret=None
             for elem in namesret[1]["items"]: #try all names
                 if elem[0] in ["", None]:
-                    logger().warn("references type name contain invalid element: {}".format(elem[0]))
+                    logging.warn("references type name contain invalid element: {}".format(elem[0]))
                 else:
                     tempret = self.do_requestdo("get", server=serverurl, name=elem[0], hash=_hash)
                     if tempret[0]==True:
                         break
-            if tempret is None or logger().check(tempret, logging.INFO)==False:
+            if tempret is None or logging.check(tempret, logging.INFO)==False:
                 return
             _url="{address}-{port}".format(**tempret[1])
         elif _type == "url":
@@ -201,10 +201,10 @@ class hashmanagement(object):
         elif _type in clientmain.implementedrefs:
             return
         else:
-            logger().info("invalid type")
+            logging.info("invalid type")
             return
         if _url is not None and "-"  not in _url:
-            logger().info("invalid url: {}".format(_url))
+            logging.info("invalid url: {}".format(_url))
             return
         
         if _url is None:
@@ -228,7 +228,7 @@ class hashmanagement(object):
             else:
                 gtkclient_node(self.links,"{}-{}".format(*scnparse_url(_url)), forcehash=_hash, page=1)
         else:
-            logger().error(ret[1])
+            logging.error(ret[1])
     
     def select_node(self, action):
         self.action_node(True)

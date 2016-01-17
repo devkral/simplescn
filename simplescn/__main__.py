@@ -8,16 +8,18 @@ if __name__ == "__main__":
     _tpath = os.path.dirname(_tpath)
     sys.path.insert(0, _tpath)
 
+import logging
+import signal
+
 import simplescn
-from simplescn import sharedir, confdb_ending
+from simplescn import sharedir, confdb_ending,logformat
 import simplescn.client
 import simplescn.server
 
-from simplescn import logger
-import signal
 
 def signal_handler(_signal, frame):
     simplescn.client.run = False
+    logging.shutdown()
     sys.exit(0)
 
 def server():
@@ -75,7 +77,7 @@ def server():
                 for _broadfuncname in getattr(plugin, "allowed_plugin_broadcasts"):
                     _broadc.insert((_name, _broadfuncname))
         
-    logger().debug("server initialized. Enter serveloop")
+    logging.debug("server initialized. Enter serveloop")
     cm.serve_forever_block()
 
 
@@ -144,10 +146,10 @@ def rawclient():
         #    if hasattr(elem, "pluginpw"):
         #        cm.links["auth_server"].init_realm("plugin:{}".format(name), dhash(elem.pluginpw))
 
-    logger().debug("start servercomponent (client)")
+    logging.debug("start servercomponent (client)")
     if confm.getb("cmd") != False:
         cm.serve_forever_nonblock()
-        logger().debug("start console")
+        logging.debug("start console")
         for name, value in cm.links["client"].show({})[1].items():
             print(name, value, sep=":")
         cmdloop(cm)
@@ -160,8 +162,9 @@ def client():
     try:
         client_gtk()
     except Exception as e:
-        print(e)
-        client_cmd()
+        raise(e)
+        logging.error(e)
+        rawclient()
         return
 def client_gtk():
     from simplescn.guigtk.clientmain import _gtkclient_init_method
@@ -221,9 +224,8 @@ def client_gtk():
 
 def _init_method():
     import logging
-    from simplescn import scn_logger, init_logger
-    init_logger(scn_logger())
-    logger().setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG, format=logformat)
+    
     signal.signal(signal.SIGINT, signal_handler)
     
     #pluginpathes.insert(1, os.path.join(configpath, "plugins"))

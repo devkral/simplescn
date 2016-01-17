@@ -9,11 +9,12 @@ from http.server import BaseHTTPRequestHandler
 import time
 import  threading
 import json
+import logging
 #, base64
 import ssl
 import socket
 
-from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, logger, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
+from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
 #confdb_ending
 #configmanager,, rw_socket
 
@@ -61,12 +62,12 @@ class server(commonscn):
         
 
         if d["name"] is None or len(d["name"]) == 0:
-            logger().debug("Name empty")
+            logging.debug("Name empty")
             d["name"] = "<noname>"
         
         #self.msg=_msg
         if d["message"] is None or len(d["message"]) == 0:
-            logger().debug("Message empty")
+            logging.debug("Message empty")
             d["message"] = "<empty>"
         
         self.priority = int(d["priority"])
@@ -91,7 +92,7 @@ class server(commonscn):
         try:
             self.refreshthread.join(4)
         except Exception as e:
-            logger().error(e)
+            logging.error(e)
             
     # private, do not include in validactions
     def refresh_nhipmap(self):
@@ -283,7 +284,7 @@ class server(commonscn):
         except socket.timeout:
             pass
         except Exception as e:
-            logger().debug(e)
+            logging.debug(e)
     
     # limited by maxrequest size
     @check_argsdeco({"plugin": str, "receivers": list, "paction": str, "payload": str})
@@ -533,7 +534,7 @@ class server_handler(BaseHTTPRequestHandler):
             try:
                 pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
             except Exception as e:
-                logger().error(e)
+                logging.error(e)
                 #self.send_error(500, "plugin error", str(e))
                 return
         # for invalidating and updating, don't use connection afterwards
@@ -591,9 +592,9 @@ class server_init(object):
         init_config_folder(self.links["config_root"],"server")
         
         if check_certs(_spath+"_cert")==False:
-            logger().debug("Certificate(s) not found. Generate new...")
+            logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(_spath+"_cert")
-            logger().debug("Certificate generation complete")
+            logging.debug("Certificate generation complete")
         
         with open(_spath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert=readinpubkey.read().strip().rstrip()
@@ -621,7 +622,7 @@ class server_init(object):
         
         _name=_name.split("/")
         if len(_name)>2 or check_name(_name[0])==False:
-            logger().error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_spath+"_name"))
+            logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_spath+"_name"))
         
         if port is not None:
             _port = int(port)

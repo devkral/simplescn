@@ -12,7 +12,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk,Gdk, GLib #,Pango
 
 import simplescn
-from simplescn import client
+from simplescn import client, logcheck
 
 from simplescn.guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
 from simplescn.guigtk.clientmain_managehash import hashmanagement
@@ -21,7 +21,7 @@ from simplescn.guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, paren
 from simplescn.guigtk.clientnode import gtkclient_node
 from simplescn.guigtk import set_parent_template
 
-from simplescn import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error, logger
+from simplescn import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
 
 client.client_handler.webgui = False
 
@@ -69,7 +69,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def __init__(self,_links):
         self.links = _links
         logging.Handler.__init__(self)
-        self.setFormatter(logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'))
+        #self.setFormatter(logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'))
         self.app = Gtk.Application()
         self.sslcont = default_sslcont()
         self.builder = Gtk.Builder()
@@ -152,7 +152,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def update_storage(self):
         """ func: update local storage """
         _storage=self.do_requestdo("listnodenametypes")
-        if logger().check(_storage)==False:
+        if logcheck(_storage)==False:
             return
         
         self.localstore.clear()
@@ -169,7 +169,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         #serverlist.clear()
         for elem in _storage[1]["items"]:
             if elem[0] is None:
-                logger().critical("None element as name")
+                logging.critical("None element as name")
                 return
             if elem[1] is None:
                 self.empty_dic+=[elem[0],]
@@ -197,7 +197,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         localnames.clear()
         localnames.append(("",))
         _names=self.do_requestdo("listnodenames")
-        if logger().check(_names)==False:
+        if logcheck(_names)==False:
             return
         
         for elem in _names[1]["items"]:
@@ -207,7 +207,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         serverlist=self.builder.get_object("serverlist")
         
         _serverrefs=self.do_requestdo("getreferences",certreferenceid=_refid)
-        if logger().check(_serverrefs)== False:
+        if logcheck(_serverrefs)== False:
             return
         for elem in _serverrefs[1]["items"]:
             if elem[0] not in self.serverlist_dic:
@@ -220,7 +220,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                     
     def update_serverlist(self, _localname):
         _serverhashes=self.do_requestdo("listhashes",name=_localname)
-        if logger().check(_serverhashes)==True:
+        if logcheck(_serverhashes)==True:
             for _hash in _serverhashes[1]["items"]:
                 if _hash[0]!="default":
                     self.update_serverlist_refid(_hash[4])
@@ -238,11 +238,11 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             try:
                 resp = self.links["client"].do_request(clienturl, "/client/{}".format(action),body=obdict, forcehash=clienthash, forceport=True)
             except Exception as e:
-                logger().error(e)
+                logging.error(e)
                 return False, generate_error(e), isself, self.links["client"].cert_hash
         
         #if resp[0] == False:
-        #    logger().error("{}: {}".format(action, resp))
+        #    logging.error("{}: {}".format(action, resp))
         return resp
 
     def pushint(self):
@@ -275,9 +275,9 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         if self.debugbuffer.get_end_iter().is_start()==False:
             self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"-----------------------\n")
         if record.levelno <= logging.INFO or sys.exc_info()[2] is None:
-            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n".format(self.format(record)))
+            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n".format(self.format(record).replace("\\n", "\n")))
         else:
-            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n--- stacktrace:\n{}".format(self.format(record), "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", ""))) #[3])
+            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n--- stacktrace:\n{}".format(self.format(record).replace("\\n", "\n"), "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", ""))) #[3])
         self.debugbuffer.move_mark_by_name("scroll", self.debugbuffer.get_end_iter())
         scrollmark = self.debugbuffer.get_mark("scroll")
         self.debugview.scroll_to_mark(scrollmark,0.4,True,0,1)
@@ -417,10 +417,10 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             _type = "unknown"
         
         if check_hash(_hash) == False:
-            logger().debug("invalid hash")
+            logging.debug("invalid hash")
             return
         res = self.do_requestdo("addhash", name=_name, hash=_hash, type=_type)
-        if logger().check(res) == True:
+        if logcheck(res) == True:
             self.update_storage()
             if self.curlocal is not None and _type==self.curlocal[0]:
                 it=hashlist.prepend((_hash,))
@@ -432,7 +432,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             
             self.close_addnodedia()
         else:
-            logger().error(res[1])
+            logging.error(res[1])
     
     def delnodehash(self,*args):
         view=self.builder.get_object("recentview")
@@ -442,7 +442,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         _hash=_sel[0][_sel[1]][3]
         ret = self.do_request("delhash", hash=_hash)
         if ret[0] == True:
-            logger().info("Could not delete hash")
+            logging.info("Could not delete hash")
     
     
     def enternode(self,*args):
@@ -457,18 +457,18 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         _hash=_hasho.get_text().strip(" ").rstrip(" ")
         if _hash=="":
             ret = self.do_requestdo("gethash", address=_address)
-            if logger().check(ret,logging.INFO)==False:
+            if logcheck(ret,logging.INFO)==False:
                 return
             _hasho.set_text(ret[1]["hash"])
             return
         if check_hash(_hash)==False:
-            logger().info("hash wrong")
+            logging.info("hash wrong")
             return
         if _address=="":
-            logger().info("address wrong")
+            logging.info("address wrong")
             return
         ret=self.do_requestdo("info",hash=_hash)
-        if logger().check(ret, logging.ERROR)==False:
+        if logcheck(ret, logging.ERROR)==False:
             return
         self.set_curnode(_address, ret[1]["name"], _hash, None)
         self.close_enternodedia()
@@ -509,7 +509,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         
         temp = self._verifyserver(serverurl)
         if temp is None:
-            logger().debug("Something failed")
+            logging.debug("Something failed")
             return
             
         _hash = temp.get("hash")
@@ -529,7 +529,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             #temp = self.do_requestdo("findbyref",reference=serverurl)
             res=self.do_requestdo("addreference", hash=_hash, reference=serverurl, reftype="url")
             if res[0] == False:
-                logger().debug("Already exists")
+                logging.debug("Already exists")
     
         
     
@@ -555,7 +555,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             return
         if _hash == "":
             ret = self.do_requestdo("gethash", address=clurl.get_text())
-            if logger().check(ret,logging.INFO)==False:
+            if logcheck(ret,logging.INFO)==False:
                 return
             clhash.set_text(ret[1]["hash"])
             return
@@ -600,10 +600,10 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         try:
             serverurl="{}-{}".format(*scnparse_url(serverurl))
         except AddressEmptyFail:
-            logger().debug("Address Empty")
+            logging.debug("Address Empty")
             return
         if self.do_requestdo("prioty_direct",address=serverurl)==False:
-            logger().debug("Server address invalid")
+            logging.debug("Server address invalid")
             return
         self.update_storage()
         
@@ -702,7 +702,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             return
         
         if _ref.find(":")==-1:
-            logger().debug("invalid input")
+            logging.debug("invalid input")
             return
         _type, _ref=_ref.split(":",1)
         
@@ -715,7 +715,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         
         
         if not _type in implementedrefs:
-            logger().debug("invalid type")
+            logging.debug("invalid type")
             return
         
         res=self.do_requestdo("addreference", hash=ref_hash, reference=_ref, reftype=_type)
@@ -732,7 +732,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             updatereftb.set_active(False)
             
         else:
-            logger().error(res[1])
+            logging.error(res[1])
 
     def updatereference_way(self,*args):
         updatereftb = self.builder.get_object("updatereftb")
@@ -748,7 +748,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         
         _selh = hview.get_selection().get_selected()
         if _selh[1] is None:
-            logger().debug("invalid hash selection")
+            logging.debug("invalid hash selection")
             updatereftb.set_active(True)
             return
         ref_hash = _selh[0][_selh[1]][0]
@@ -762,14 +762,14 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             return
         
         if _ref_entry.find(":") == -1:
-            logger().debug("invalid input")
+            logging.debug("invalid input")
             updatereftb.set_active(True)
             return
         _type, _ref=_ref_entry.split(":", 1)
         
         
         if not _type in implementedrefs:
-            logger().debug("invalid type")
+            logging.debug("invalid type")
             updatereftb.set_active(True)
             return
         
@@ -786,7 +786,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             updatereftb.set_active(False)
             
         else:
-            logger().error(res[1])
+            logging.error(res[1])
             updatereftb.set_active(True)
 
             
@@ -871,7 +871,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             self.close_renameentitydia()
             self.update_storage()
         else:
-            logger().info(ret[1])
+            logging.info(ret[1])
     ### close
     
         
@@ -939,23 +939,23 @@ def open_gtk_notify_plugin(msg, requester=None):
 
 class gtkclient_init(client.client_init):
     def __init__(self, confm, pluginm):
-        logger().debug("start gtkclient")
+        logging.debug("start gtkclient")
         simplescn.pwcallmethodinst = gtkclient_pw
         simplescn.notifyinst = gtkclient_notify
         
         client.client_init.__init__(self, confm, pluginm)
         self.links["gtkclient"] = gtkclient_main(self.links)
         
-        logger().replaceHandler(self.links["gtkclient"])
+        logging.getLogger().addHandler(self.links["gtkclient"])
         parentlist.insert(0, self.links["gtkclient"].win)
         
         
         
         if confm.getb("noserver") == False:
-            logger().debug("start client server")
+            logging.debug("start client server")
             self.serve_forever_nonblock()
     def enter_gtkmainloop(self):
-        logger().debug("enter mainloop")
+        logging.debug("enter mainloop")
         # needed? https://developer.gnome.org/glib/stable/glib-Deprecated-Thread-APIs.html
         # threadsubsystem seems to be initialized automatically
         #GLib.threads_init()

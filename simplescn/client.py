@@ -11,6 +11,7 @@ from http import client
 import ssl
 import threading
 import json
+import logging
 from urllib import parse
 
 
@@ -24,7 +25,6 @@ from simplescn import check_certs, generate_certs, init_config_folder, default_c
 from simplescn.common import certhash_db
 #VALMITMError
 
-from simplescn import logger
 
 
 reference_header = \
@@ -180,7 +180,7 @@ class client_client(client_admin, client_safe, client_config):
         
         response = con.getresponse()
         servertype = response.headers.get("Server", "")
-        logger().debug("Servertype: {}".format(servertype))
+        logging.debug("Servertype: {}".format(servertype))
         if response.status == 401:
             body["pwcall_method"] = pwcallm
             auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ", 1)[1])
@@ -264,7 +264,7 @@ class client_client(client_admin, client_safe, client_config):
                             pass
                     con.sock = self.sslcont.wrap_socket(con.sock)
             else:
-                logger().error("connection failed and no traverse address")
+                logging.error("connection failed and no traverse address")
                 return None, None, None
         cert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
         _hash = dhash(cert)
@@ -286,20 +286,20 @@ class client_client(client_admin, client_safe, client_config):
             resp = client.HTTPResponse(con.sock, con.debuglevel, method=con._method)
             resp.begin()
         except socket.timeout:
-            logger().error("timeout connection")
+            logging.error("timeout connection")
             return None, None, None
         # set to None before connection can destroy socket
         con.sock = None
         #sock = con.sock
         #con.sock = None
         if resp.status != 200:
-            logger().error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, paction, resp.status, resp.reason))
+            logging.error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, paction, resp.status, resp.reason))
             return None, None, None
         if _hash != forcehash:
             con.close()
             return None, cert, _hash
         if _random != resp.getheader("X-certrewrap", ""):
-            logger().error("rewrapped cert secret does not match")
+            logging.error("rewrapped cert secret does not match")
             con.close()
             return None, cert, _hash
         return sock, cert, _hash
@@ -456,7 +456,7 @@ plugin <plugin>:<...>: communicate with plugin
             if func.__doc__ is not None:
                 out+="{doc}\n".format(doc=func.__doc__)
             else:
-                logger().info("Missing __doc__: {}".format(funcname))
+                logging.info("Missing __doc__: {}".format(funcname))
 
         return out
 
@@ -474,11 +474,11 @@ class client_server(commonscn):
         commonscn.__init__(self)
         self.wlock = threading.Lock()
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
-            logger().info("Name empty")
+            logging.info("Name empty")
             dcserver["name"] = "<noname>"
 
         if dcserver["message"] is None or len(dcserver["message"]) == 0:
-            logger().info("Message empty")
+            logging.info("Message empty")
             dcserver["message"] = "<empty>"
             
         self.name = dcserver["name"]
@@ -766,7 +766,7 @@ class client_handler(BaseHTTPRequestHandler):
     
     def init_scn_stuff(self):
         useragent = self.headers.get("User-Agent", "")
-        logger().debug("Useragent: {}".format(useragent))
+        logging.debug("Useragent: {}".format(useragent))
         if "simplescn" in useragent:
             self.error_message_format = "%(code)d: %(message)s – %(explain)s"
         _auth = self.headers.get("Authorization", 'scn {}')
@@ -802,7 +802,7 @@ class client_handler(BaseHTTPRequestHandler):
                 if _rewrapcert == self.links.get("trusted_certhash"):
                     self.client_cert = _origcert
                 else:
-                    logger().debug("rewrapcert incorrect")
+                    logging.debug("rewrapcert incorrect")
                     return False
             #self.rfile.close()
             #self.wfile.close()
@@ -851,7 +851,7 @@ class client_handler(BaseHTTPRequestHandler):
                         try:
                             ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
                         except Exception as e:
-                            logger().error(e)
+                            logging.error(e)
                             self.send_error(500, "plugin error", str(e))
                             ret = False
                     else:
@@ -886,7 +886,7 @@ class client_handler(BaseHTTPRequestHandler):
                         #if self.connection.closed == False:
                         #    self.connection.close()
                     except Exception as e:
-                        logger().error(e)
+                        logging.error(e)
                         return
         # for invalidating and updating, don't use connection afterwards 
         elif resource == "usebroken":
@@ -949,9 +949,9 @@ class client_init(object):
         
         
         if check_certs(_cpath+"_cert") == False:
-            logger().info("Certificate(s) not found. Generate new...")
+            logging.info("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
-            logger().info("Certificate generation complete")
+            logging.info("Certificate generation complete")
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         
@@ -959,7 +959,7 @@ class client_init(object):
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
         
         if confm.getb("webgui")!=False:
-            logger().debug("webgui enabled")
+            logging.debug("webgui enabled")
             client_handler.webgui=True
             #load static files
             for elem in os.listdir(os.path.join(sharedir, "static")):
@@ -1012,7 +1012,7 @@ class client_init(object):
         
         _name = _name.split("/")
         if len(_name)>2 or check_name(_name[0]) == False:
-            logger().error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_cpath+"_name"))
+            logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_cpath+"_name"))
             sys.exit(1)
 
         if confm.getb("port") == True:
