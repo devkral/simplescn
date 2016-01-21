@@ -34,17 +34,15 @@ class TestGenerateError(unittest.TestCase):
 
 class TestGenerateCerts(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_certs")
-    @classmethod
-    def setUpClass(cls):
-        if os.path.isdir(cls.temptestdir):
-            shutil.rmtree(cls.temptestdir)
-        os.mkdir(cls.temptestdir, 0o700)
-        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
+    def setUp(self):
+        if os.path.isdir(self.temptestdir):
+            shutil.rmtree(self.temptestdir)
+        os.mkdir(self.temptestdir, 0o700)
+        self.oldpwcallmethodinst = simplescn.pwcallmethodinst
 
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.temptestdir)
-        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+    def tearDown(self):
+        shutil.rmtree(self.temptestdir)
+        simplescn.pwcallmethodinst = self.oldpwcallmethodinst
     
     def test_NoPw(self):
         simplescn.pwcallmethodinst = lambda msg, requester: ""
@@ -65,15 +63,13 @@ class TestConfigmanager(unittest.TestCase):
     _testoverride={"b": ("bnewval", str, "doc")}
     _testoverridec={"c": ("cnewvalunavailable", str , "doc")}
     
-    @classmethod
-    def setUpClass(cls):
-        if os.path.isdir(cls.temptestdir):
-            shutil.rmtree(cls.temptestdir)
-        os.mkdir(cls.temptestdir, 0o700)
+    def setUp(self):
+        if os.path.isdir(self.temptestdir):
+            shutil.rmtree(self.temptestdir)
+        os.mkdir(self.temptestdir, 0o700)
 
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.temptestdir)
+    def tearDown(self):
+        shutil.rmtree(self.temptestdir)
         
     def test_Config(self):
         config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb"+simplescn.confdb_ending))
@@ -142,18 +138,18 @@ class TestConfigmanager(unittest.TestCase):
         
 
 class TestAuth(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.hashserver = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
-        cls.hashserver_wrong = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
+
+    def setUp(self):
+        self.hashserver = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
+        self.hashserver_wrong = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
         
-        cls.pwserver = base64.urlsafe_b64encode(os.urandom(10))
-        cls.pwadmin = base64.urlsafe_b64encode(os.urandom(10))
-        cls.pwinvalid = base64.urlsafe_b64encode(os.urandom(10))
-        cls.authserver = simplescn.scnauth_server(cls.hashserver)
-        cls.authclient = simplescn.scnauth_client()
-        cls.authserver.init_realm("server", simplescn.dhash(cls.pwserver))
-        cls.authserver.init_realm("admin", simplescn.dhash(cls.pwadmin))
+        self.pwserver = base64.urlsafe_b64encode(os.urandom(10))
+        self.pwadmin = base64.urlsafe_b64encode(os.urandom(10))
+        self.pwinvalid = base64.urlsafe_b64encode(os.urandom(10))
+        self.authserver = simplescn.scnauth_server(self.hashserver)
+        self.authclient = simplescn.scnauth_client()
+        self.authserver.init_realm("server", simplescn.dhash(self.pwserver))
+        self.authserver.init_realm("admin", simplescn.dhash(self.pwadmin))
     
     def test_construct_correct(self):
         serverra=self.authserver.request_auth("server")
