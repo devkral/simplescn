@@ -960,44 +960,26 @@ def check_argsdeco(requires={}, optional={}):
 
 def safe_mdecode(inp, encoding, charset="utf-8"):
     try:
-        splitted=encoding.split(";",1)
-        enctype=splitted[0].strip().rstrip()
-        if isinstance(inp, dict) == True:
-            logging.warning("already parsed")
-            return None
-        elif isinstance(inp, str) == True:
+        splitted = encoding.split(";",1)
+        enctype = splitted[0].strip().rstrip()
+        if isinstance(inp, str):
             string = inp
-        else:
+        elif isinstance(inp, bytes):
             if len(splitted)==2:
                 #splitted in format charset=utf-8
                 split2 = splitted[1].split("=")
                 charset = split2[1].strip().rstrip()
             string = str(inp,charset)
+        else:
+            logging.error("Invalid type: {}".format(type(inp)))
+            return
         if string == "":
             logging.debug("Input empty")
             return None
-        if enctype == "application/x-www-form-urlencoded":
-            tparse=parse.parse_qs(string)
-            if "auth" in tparse:
-                authold = tparse.copy()
-                authnew = {}
-                for elem in authold:
-                    splitted = elem.split(":", 1)
-                    if len(splitted) == 1:
-                        return False, "auth object invalid (<realm>:<pw>)"
-                    realm,  pw = splitted
-                    authnew[realm] = pw
-                tparse["auth"] = authnew
-            # auth needs to be json formatted
-            if tparse.get("jauth", None) is not None:
-                tparse["auth"] = json.loads(tparse.get("auth")[0])
-            return tparse
-        elif enctype == "application/json": 
+        if enctype == "application/json":
             return json.loads(string)
-        elif enctype in ["text/html", "text/plain"]:
-            logging.warning("try to parse plain/html text")
-            return None
         else:
+            logging.error("invalid parsing type: {}".format(enctype))
             return None
     except LookupError as e:
         logging.error("charset not available")

@@ -282,9 +282,9 @@ class client_client(client_admin, client_safe, client_config):
         
         sock = con.sock
         try:
-            # kills connection
+            # terminates connection, even keep-alive is set
             #resp = con.getresponse()
-            # so do manually
+            # so do it manually
             resp = client.HTTPResponse(con.sock, con.debuglevel, method=con._method)
             resp.begin()
         except socket.timeout:
@@ -292,8 +292,6 @@ class client_client(client_admin, client_safe, client_config):
             return None, None, None
         # set to None before connection can destroy socket
         con.sock = None
-        #sock = con.sock
-        #con.sock = None
         if resp.status != 200:
             logging.error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, paction, resp.status, resp.reason))
             return None, None, None
@@ -338,7 +336,7 @@ class client_client(client_admin, client_safe, client_config):
     @check_argsdeco({"auth": dict, "hash": str, "address": str})
     @classify_local
     def remember_auth(self, obdict):
-        """ func: Remember Authentification info for as long the program runs
+        """ func: Remember authentication info for as long the program runs
             return: True, when success
             auth: authdict
             hash: hash to remember
