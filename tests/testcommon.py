@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 
 import unittest
+import logging
 import shutil
 import base64
 
@@ -57,6 +58,13 @@ class TestGenerateCerts(unittest.TestCase):
         
 class TestConfigmanager(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_config")
+    
+    _testdefault={"default_a": ("aval", str, "a description"),
+                "b": ("bval", str, "doc b"),
+                "int_d": ("90", int, "doc d")}
+    _testoverride={"b": ("bnewval", str, "doc")}
+    _testoverridec={"c": ("cnewvalunavailable", str , "doc")}
+    
     @classmethod
     def setUpClass(cls):
         if os.path.isdir(cls.temptestdir):
@@ -69,27 +77,133 @@ class TestConfigmanager(unittest.TestCase):
         
     def test_Config(self):
         config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb"+simplescn.confdb_ending))
-        testdefault={"default_a": ("aval",str, "a description"),
-                    "b": ("bval", str, "eafjalka")}
-        testoverride={"b": "bnewval"}
-        testoverridec={"c": "cnewvalunavailable"}
-        config.update(testdefault,testoverride)
-        with self.assertRaises(SomeException):
+        self.assertTrue(os.path.isfile(os.path.join(self.temptestdir, "testdb"+simplescn.confdb_ending)))
+        with self.subTest(msg="override without default key"):
+            self.assertTrue(config.update(self._testdefault,self._testoverridec))
+            self.assertIsNone(config.get_default("c"))
+        #config.update(self._testdefault,self._testoverride)
+    def test_rw_valid(self):
+        config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb2"+simplescn.confdb_ending))
+        config.update(self._testdefault,self._testoverride)
+        self.assertEqual(config.get("default_a"), "aval")
+        self.assertTrue(config.set("default_a", "av3al2"))
+        self.assertEqual(config.get("default_a"), "av3al2")
+        self.assertEqual(config.get_default("default_a"), "aval")
+        # b
+        self.assertEqual(config.get("b"), "bnewval")
+        self.assertEqual(config.get_default("b"), "bval")
+        # d
+        self.assertEqual(config.get("int_d"), 90)
+        self.assertEqual(config.get_default("int_d"), "90")
+        
+        
+    def test_rw_invalid(self):
+        config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb3"+simplescn.confdb_ending))
+        config.update(self._testdefault,self._testoverride)
+        with self.assertLogs(level=logging.ERROR):
+            self.assertFalse(config.set("c", "llsl"))
+        
+        with self.assertLogs(level=logging.ERROR):
+            self.assertFalse(config.get("c"))
+        
+        # has no default
+        self.assertIsNone(config.get_default("c"))
+        #invalid key
+        with self.assertLogs(level=logging.ERROR):
+            self.assertIsNone(config.get("e"))
+
+    def test_reload(self):
+        config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb4"+simplescn.confdb_ending))
+        config.update(self._testdefault,self._testoverride)
+        self.assertTrue(config.set("default_a", "av3al2"))
+        self.assertTrue(config.set("b", "kskla"))
+        
+        del config
+        config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb4"+simplescn.confdb_ending))
+        config.update(self._testdefault,self._testoverride)
+        
+        self.assertEqual(config.get("default_a"), "av3al2")
+        self.assertEqual(config.get("b"), "bnewval")
     
-    #TODO
+    def test_multiple_update(self):
+        config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb5"+simplescn.confdb_ending))
+        config.update(self._testdefault,self._testoverride)
+        with self.assertLogs(level=logging.ERROR):
+            self.assertFalse(config.set("c", "llsl"))
+        self.assertTrue(config.set("b", "meh"))
+        config.update(self._testdefault,self._testoverridec)
+        self.assertNotEqual(config.get("c"), "llsl")
+        self.assertTrue(config.set("c", "lal"))
+        self.assertEqual(config.get("c"), "lal")
+        config.update(self._testdefault,self._testoverride)
+        
+        self.assertEqual(config.get("b"), "bnewval")
+        
+        
 
 class TestAuth(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.hashserver = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
+        cls.hashserver_wrong = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
         
-        cls.pwsclient = base64.urlsafe_b64encode(os.urandom(10))
-        cls.pwaclient = base64.urlsafe_b64encode(os.urandom(10))
-        cls.pwcclient = base64.urlsafe_b64encode(os.urandom(10))
+        cls.pwserver = base64.urlsafe_b64encode(os.urandom(10))
+        cls.pwadmin = base64.urlsafe_b64encode(os.urandom(10))
+        cls.pwinvalid = base64.urlsafe_b64encode(os.urandom(10))
         cls.authserver = simplescn.scnauth_server(cls.hashserver)
         cls.authclient = simplescn.scnauth_client()
-    #TODO
+        cls.authserver.init_realm("server", simplescn.dhash(cls.pwserver))
+        cls.authserver.init_realm("admin", simplescn.dhash(cls.pwadmin))
+    
+    def test_construct_correct(self):
+        serverra=self.authserver.request_auth("server")
+        self.assertEqual(serverra.get("realm"), "server")
+        self.assertEqual(serverra.get("algo"), simplescn.DEFAULT_HASHALGORITHM)
+        self.assertEqual(serverra.get("nonce"), self.authserver.realms["server"][1])
+        self.assertIn("timestamp", serverra)
+        clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver)
+        self.assertEqual(clienta.get("timestamp"), serverra.get("timestamp"))
+        self.assertIn("auth", clienta)
+        
+    def test_verisuccess(self):
+        serverra = self.authserver.request_auth("server")
+        clienta = {"server":self.authclient.auth(self.pwserver, serverra, self.hashserver)}
+        self.assertTrue(self.authserver.verify("server", clienta))
+    
+    def test_veriwrongdomain(self):
+        serverra = self.authserver.request_auth("server")
+        clienta = {"server":self.authclient.auth(self.pwadmin, serverra, self.hashserver)}
+        self.assertFalse(self.authserver.verify("server", clienta))
+        clienta["admin"] = self.authclient.auth(self.pwserver, serverra, self.hashserver)
+        self.assertFalse(self.authserver.verify("server", clienta))
+    
+    def test_verifalse(self):
+        serverra = self.authserver.request_auth("server")
+        clienta = {"server":self.authclient.auth(self.pwinvalid, serverra, self.hashserver)}
+        self.assertFalse(self.authserver.verify("server", clienta))
+        clienta = {"server":self.authclient.auth(self.pwserver, serverra, self.hashserver_wrong)}
+        self.assertFalse(self.authserver.verify("server", clienta))
+    
+    def test_reauth(self):
+        serverra = self.authserver.request_auth("server")
+        self.assertIsNone(self.authclient.reauth("123", serverra, self.hashserver))
+        clienta = {"server":self.authclient.auth(self.pwserver, serverra, self.hashserver, "123")}
+        clienta2 = {"server":self.authclient.reauth("123", serverra, self.hashserver)}
+        self.assertIsNone(self.authclient.reauth("d2s3", serverra, self.hashserver))
+        self.assertTrue(self.authserver.verify("server", clienta2))
+        self.assertEqual(clienta, clienta2)
+        
+        # delete 
+        self.authclient.delauth("123", "server")
+        self.assertIsNone(self.authclient.reauth("123", serverra, self.hashserver))
+        
+        # manually add
+        self.authclient.saveauth(self.pwserver, "123", "server")
+        self.assertEqual(clienta, {"server":self.authclient.reauth("123", serverra, self.hashserver)})
 
+
+class Test_safe_mdecode(unittest.TestCase):
+    pass
 #TODO safe_mdecode, 
 
 if __name__ == '__main__':

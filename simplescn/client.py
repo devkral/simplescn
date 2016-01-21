@@ -87,6 +87,8 @@ class client_client(client_admin, client_safe, client_config):
         if reauthcount == 0:
             authob = self.links["auth_client"].reauth(hashpcert, reqob, hashpcert)
         if authob is None and reauthcount <= 3:
+            if reqob.get("realm") is not None:
+                self.links["auth_client"].delauth(hashpcert, reqob["realm"])
             authob = self.links["auth_client"].auth(pwcallmethod("Please enter password for {}".format(reqob["realm"])), reqob, hashpcert, hashpcert)
         return authob
 
@@ -350,7 +352,7 @@ class client_client(client_admin, client_safe, client_config):
         else:
             _hash = obdict.get("hash")
         for realm, pw in obdict.get("auth"):
-            self.links["auth_client"].saveauth(realm, pw, _hash)
+            self.links["auth_client"].saveauth(pw, _hash, realm)
         return True
         
     

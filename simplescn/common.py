@@ -160,8 +160,9 @@ class configmanager(object):
     # get converted value
     @dbaccess
     def get(self, dbcon, _key):
+        """ get converted value """
         if isinstance(_key, str) == False:
-            logging.error("key no string")
+            logging.error("key is no string")
             return None
         
         # key can be in overlays but not in defaults
@@ -192,12 +193,14 @@ class configmanager(object):
             return _converter(ret)
     
     def getb(self, name):
+        """ evaluate value to True/False """
         temp = self.get(name)
         if temp in [None, "-1", -1, "", False]:
             return False
         return True
     
     def get_default(self, name):
+        """ return default value as string """
         if name in self.defaults:
             if self.defaults[name] is None:
                 return ""
@@ -207,6 +210,7 @@ class configmanager(object):
             return None
     
     def get_meta(self, name):
+        """ return value with additional information """
         if name in self.overlays:
             return self.overlays[name][1:]
         elif name in self.defaults:

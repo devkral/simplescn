@@ -449,16 +449,20 @@ class scnauth_client(object):
     def __init__(self):
         self.save_auth = {}
     
-    def auth(self, pw, authreq_ob, serverpubcert_hash, savedata=None):
-        realm = authreq_ob["realm"]
-        pre = dhash((dhash(pw, authreq_ob["algo"]), authreq_ob["realm"]), authreq_ob["algo"])
-        if savedata != None:
-            saveid = savedata 
+    # wrap in dictionary with {realm: return value}
+    def auth(self, pw, authreq_ob, serverpubcert_hash, saveid=None):
+        realm = authreq_ob.get("realm")
+        algo = authreq_ob.get("algo")
+        if None in [realm, algo, pw]:
+            return None
+        pre = dhash((dhash(pw, algo), realm), algo)
+        if saveid is not None:
             if saveid not in self.save_auth:
                 self.save_auth[saveid] = {}
-            self.save_auth[saveid][realm] = (pre, authreq_ob["algo"])
+            self.save_auth[saveid][realm] = (pre, algo)
         return self.asauth(pre, authreq_ob, serverpubcert_hash)
     
+    # wrap in dictionary with {realm: return value}
     def asauth(self, pre, authreq_ob, pubcert_hash):
         if pre is None:
             return None
@@ -467,15 +471,23 @@ class scnauth_client(object):
         dauth["auth"] = dhash((authreq_ob["nonce"], pubcert_hash, authreq_ob["timestamp"]), authreq_ob["algo"], prehash=pre)
         return dauth
 
-    def saveauth(self, realm, pw, savedata, algo=DEFAULT_HASHALGORITHM):
-        saveid = savedata
+    def saveauth(self, pw, saveid, realm, algo=DEFAULT_HASHALGORITHM):
         pre = dhash((dhash(pw, algo), realm), algo)
         if saveid not in self.save_auth:
             self.save_auth[saveid] = {}
         self.save_auth[saveid][realm] = (pre, algo)
-
-    def reauth(self, savedata, authreq_ob, pubcert_hash):
-        saveid = savedata
+    
+    def delauth(self, saveid, realm=None):
+        if saveid not in self.save_auth:
+            return
+        if realm is None:
+            del self.save_auth[saveid]
+            return
+        if realm not in self.save_auth[saveid]:
+            return
+        del self.save_auth[saveid][realm]
+        
+    def reauth(self, saveid, authreq_ob, pubcert_hash):
         if saveid not in self.save_auth:
             return None
         if authreq_ob.get("realm") not in self.save_auth[saveid]:
