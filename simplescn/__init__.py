@@ -967,7 +967,7 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
             logging.error("Invalid type: {}".format(type(inp)))
             return
         if string == "":
-            logging.debug("Input empty")
+            logging.info("Input empty")
             return None
         if enctype == "application/json":
             return json.loads(string)
