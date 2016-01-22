@@ -390,8 +390,10 @@ class client_client(client_admin, client_safe, client_config):
         if check_args(obdict, {"action": str},error=error) == False:
             return False, "{}:{}".format(*error)
             #return False, "no action given", isself, self.cert_hash
-        if obdict["action"] == "command" or "access" in getattr(getattr(self, obdict["action"]), "classify", set()):
-            return False, "actions: 'classified as access, command' not allowed in command"
+        if obdict["action"] not in self.validactions:
+            return False, "action: \"{}\" not in validactions".format(obdict["action"])
+        if obdict["action"] == "command"  or "access" in getattr(getattr(self, obdict["action"]), "classify", set()):
+            return False, "action: 'classified as access, command' not allowed in command"
         action = obdict["action"]
         del obdict["action"]
         
