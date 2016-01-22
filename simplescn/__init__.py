@@ -832,14 +832,8 @@ def gen_doc_deco(func):
     if func.__doc__ is None:
         return func
     
-    if hasattr(func, "requires"):
-        requires = func.requires
-    else:
-        requires = {}
-    if hasattr(func, "optional"):
-        optional = func.optional
-    else:
-        optional = {}
+    requires = getattr(func, "requires", {})
+    optional = getattr(func, "optional", {})
     
     _docrequires = {}
     _docoptional = {}
@@ -860,7 +854,7 @@ def gen_doc_deco(func):
 
     spacing = " "*2
     sep = ",\n{spaces}  ".format(spaces=spacing)
-    if hasattr(func, "classify"):
+    if len(getattr(func, "classify", set())) > 0:
         classify = " ({})".format(", ".join(sorted(func.classify)))
     else:
         classify = ""
@@ -953,8 +947,7 @@ def check_argsdeco(requires={}, optional={}):
         get_args.optional = optional
         get_args.__doc__ = func.__doc__
         get_args.__name__ = func.__name__
-        if hasattr(func, "classify"):
-            get_args.classify = func.classify
+        get_args.classify = getattr(func, "classify", set())
         return gen_doc_deco(get_args)
     return func_to_check
 
@@ -978,6 +971,21 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
             return None
         if enctype == "application/json":
             return json.loads(string)
+        elif enctype == "application/x-www-form-urlencoded":
+            obdict = parse.parse_qs(string)
+            # json object encoded as string is parsed
+            if obdict.get("jauth"):
+                obdict["auth"] = json.loads(obdict.get("jauth")[0])
+            # fix limitation of parse_qs, "realm:pw" are splitted into dict format needed
+            elif obdict.get("auth"):
+                oldauth = obdict.get("auth").copy()
+                obdict["auth"] = {}
+                for elem in oldauth:
+                    # splitted = realm, pw
+                    splitted = elem.split(":", 1)
+                    if len(splitted)==2:
+                        obdict["auth"][splitted[0]] = splitted[1]
+            return obdict
         else:
             logging.error("invalid parsing type: {}".format(enctype))
             return None

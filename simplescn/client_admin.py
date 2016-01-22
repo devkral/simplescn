@@ -294,10 +294,10 @@ class client_admin(object):
             return: success or error
             activate: activate or deactivate redirection"""
         if obdict.get("activate") == True:
-            if None in [obdict.get("clientaddress"), obdict.get("clientcert")]:
+            if None in [obdict.get("clientaddress"), obdict.get("clientcerthash")]:
                 return False, "Cannot request redirect when clientaddress and/or hash is not available"
             self.redirect_addr = obdict.get("clientaddress")
-            self.redirect_hash = obdict.get("clientcert")
+            self.redirect_hash = obdict.get("clientcerthash")
         else:
             self.redirect_addr = ""
             self.redirect_hash = ""

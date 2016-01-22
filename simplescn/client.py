@@ -363,12 +363,12 @@ class client_client(client_admin, client_safe, client_config):
         """ internal method to access functions """
         
         if action in self.validactions:
-            if hasattr(getattr(self, action), "classify") and "access" in getattr(self, action).classify:
+            if "access" in getattr(getattr(self, action), "classify", set()):
                 return False, "actions: 'classified access not allowed in access_core", isself, self.cert_hash
-            if hasattr(getattr(self, action), "classify") and "insecure" in getattr(self, action).classify:
+            if "insecure" in getattr(getattr(self, action), "classify", set()):
                 return False, "method call not allowed this way (insecure)", isself, self.cert_hash
             if experimental == False:
-                if hasattr(getattr(self, action), "classify") and "experimental" in getattr(self, action).classify:
+                if "experimental" in getattr(getattr(self, action), "classify", set()):
                     return False, "experimental method (is not enabled, use on own risk)", isself, self.cert_hash
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
@@ -379,17 +379,19 @@ class client_client(client_admin, client_safe, client_config):
             return False, "not in validactions", isself, self.cert_hash
     
     # command wrapper for cmd interfaces
-    
     @generate_error_deco
     @classify_noplugin
     def command(self, inp, callpw_auth=False):
-        obdict = parse.parse_qs(inp)
+        # use safe_mdecode for x-www-form-urlencoded compatibility with auth extension
+        obdict = safe_mdecode(inp, "application/x-www-form-urlencoded")
+        if obdict is None:
+            return False, "decoding failed"
         error=[]
         if check_args(obdict, {"action": str},error=error) == False:
             return False, "{}:{}".format(*error)
             #return False, "no action given", isself, self.cert_hash
-        if obdict["action"] in ["command"] or (hasattr(self, obdict["action"]) and hasattr(getattr(self, obdict["action"]), "classify") and "access" in getattr(self, obdict["action"]).classify):
-            return False, "actions: 'classified access, command' not allowed in command"
+        if obdict["action"] == "command" or "access" in getattr(getattr(self, obdict["action"]), "classify", set()):
+            return False, "actions: 'classified as access, command' not allowed in command"
         action = obdict["action"]
         del obdict["action"]
         
@@ -413,7 +415,7 @@ class client_client(client_admin, client_safe, client_config):
     @generate_error_deco
     @classify_access
     def access_safe(self, action, requester=None, **obdict):
-        if "access" in getattr(self, action).classify:
+        if "access" in getattr(getattr(self, action), "classify", set()):
             return False, "actions: 'access methods not allowed in access_safe"
         def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
             authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
@@ -421,9 +423,9 @@ class client_client(client_admin, client_safe, client_config):
         obdict["pwcall_method"] = pw_auth_plugin
         obdict["requester"] = requester
         if action in self.validactions:
-            if hasattr(getattr(self, action), "classify") and "noplugin" in getattr(self, action).classify:
+            if "noplugin" in getattr(getattr(self, action), "classify", set()):
                 return False, "{} tried to use noplugin protected methods".format(requester)
-            if hasattr(getattr(self, action), "classify") and "admin" in getattr(self, action).classify:
+            if "admin" in getattr(getattr(self, action), "classify", set()):
                 if requester is None or notify('"{}" wants admin permissions\nAllow?'.format(requester)):
                     return False, "no permission"
             return self.access_core(action, obdict)
@@ -443,8 +445,7 @@ class client_client(client_admin, client_safe, client_config):
             return self.access_core(action, obdict)
         except Exception as e:
             return False, e
-        
-    
+
     # help section
     def cmdhelp(self):
         out="""### cmd-commands ###
@@ -453,11 +454,10 @@ plugin <plugin>:<...>: communicate with plugin
 """
         for funcname in sorted(self.validactions):
             func = getattr(self, funcname)
-            if func.__doc__ is not None:
+            if getattr(func, "__doc__", None) is not None:
                 out+="{doc}\n".format(doc=func.__doc__)
             else:
                 logging.info("Missing __doc__: {}".format(funcname))
-
         return out
 
 
@@ -546,10 +546,10 @@ class client_handler(BaseHTTPRequestHandler):
     sys_version = "" # would say python xy, no need and maybe security hole
     auth_info = None
     
-    client_certhash = None
+    client_cert = None
+    client_cert_hash = None
     links = None
     handle_local = False
-    # overwrite handle_local
     handle_remote = False
     statics = {}
     webgui = False
@@ -591,11 +591,11 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - client")
             return
         if self.handle_remote == False and (self.handle_local == False \
-                and not self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]):
+                or not self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]):
             self.send_error(403, "no permission - client")
             return
         
-        if hasattr(getattr(self, action), "classify") and "admin" in getattr(self, action).classify:
+        if "admin" in getattr(getattr(self, action), "classify", set()):
             #if self.client_cert is None:
             #    self.send_error(403, "no permission (no certrewrap) - admin")
             #    return
@@ -622,6 +622,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         obdict["clientaddress"] = self.client_address2
         obdict["clientcert"] = self.client_cert
+        obdict["clientcerthash"] = self.client_cert_hash
         obdict["headers"] = self.headers
         response = self.links["client"].access_core(action, obdict)
 
@@ -694,6 +695,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         obdict["clientaddress"] = self.client_address2
         obdict["clientcert"] = self.client_cert
+        obdict["clientcerthash"] = self.client_cert_hash
         obdict["headers"] = self.headers
         try:
             func = getattr(self.links["client_server"], action)
@@ -796,11 +798,13 @@ class client_handler(BaseHTTPRequestHandler):
                 self.connection = cont.wrap_socket(self.connection, server_side=False)
                 self.alreadyrewrapped = True
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
-            if _rewrapcert.split(";")[0] != dhash(self.client_cert):
+            self.client_cert_hash = dhash(self.client_cert)
+            if _rewrapcert.split(";")[0] != self.client_cert_hash:
                 return False
             if _origcert:
                 if _rewrapcert == self.links.get("trusted_certhash"):
                     self.client_cert = _origcert
+                    self.client_cert_hash = dhash(_origcert)
                 else:
                     logging.debug("rewrapcert incorrect")
                     return False
@@ -810,6 +814,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.wfile = self.connection.makefile(mode='wb')
         else:
             self.client_cert = None
+            self.self.client_cert_hash = None
         return True
 
     def do_POST(self):
@@ -882,7 +887,7 @@ class client_handler(BaseHTTPRequestHandler):
                     # send if not sent already
                     self.wfile.flush()
                     try:
-                        pluginm.plugins[plugin].receive(action, self.connection, self.client_cert, dhash(self.client_cert))
+                        pluginm.plugins[plugin].receive(action, self.connection, self.client_cert, self.client_cert_hash)
                         #if self.connection.closed == False:
                         #    self.connection.close()
                     except Exception as e:
@@ -971,12 +976,12 @@ class client_init(object):
         if confm.getb("local"):
             client_handler.handle_local = True
         if confm.getb("cpwhash") == True:
-            # ensure that password is set when allowing remote
+            # ensure that password is set when allowing remote access (and local is disabled)
             if confm.getb("remote") == True and confm.getb("local") == False:
                 client_handler.handle_remote = True
             self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
         elif confm.getb("cpwfile") == True:
-            # ensure that password is set when allowing remote
+            # ensure that password is set when allowing remote access (and local is disabled)
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
             op=open(confm.get("cpwfile"), "r")
@@ -997,7 +1002,7 @@ class client_init(object):
         elif confm.getb("spwfile") == True:
             op = open(confm.get("spwfile"), "r")
             pw = op.readline().strip().rstrip()
-            self.links["auth_server"].init_realm("server", confm.get(dhash(pw)))
+            self.links["auth_server"].init_realm("server", dhash(pw))
             op.close()
         
 

@@ -414,29 +414,25 @@ class client_safe(object):
         return True, {"items":temp, "map": ["name","hash","type","priority","security","certreferenceid"]}
     
     @check_argsdeco({"message": str}, optional={"requester": str})
-    @classify_experimental
     @classify_local
     def open_pwrequest(self, obdict):
         """ func: open password dialog
             return: pw or None, or error when not allowed
             message: message for the password dialog
             requester: plugin calling the password dialog (default: None=main application) """
-        if obdict.get("clientcert","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != dhash(obdict.get("clientcert","")) or self.plugin_pw_caller is None:
+        if obdict.get("clientcerthash","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash",""):
             return False, "auth failed"
         temp = pwcallmethod(obdict.get("message"), obdict.get("requester"))
         return True, {"pw": temp}
-        
 
-    # result contains result of notify dialog
     @check_argsdeco({"message": str}, optional={"requester": str})
-    @classify_experimental
     @classify_local
     def open_notify(self, obdict):
         """ func: open notification dialog
             return: True or False, or error when not allowed
             message: message for the notification dialog
             requester: plugin calling the notification dialog (default: None=main application) """
-        if obdict.get("clientcert","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != dhash(obdict.get("clientcert","")) or self.notify_caller is None:
+        if obdict.get("clientcerthash","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash",""):
             return False, "auth failed"
         temp = notify(obdict.get("message"), obdict.get("requester"))
         return True, {"result": temp}
