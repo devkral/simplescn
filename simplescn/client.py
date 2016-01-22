@@ -20,7 +20,7 @@ from simplescn.client_safe import client_safe
 from simplescn.client_config import client_config
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pwcallmethod, rw_socket, notify, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, experimental
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pwcallmethod, rw_socket, notify, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -367,9 +367,8 @@ class client_client(client_admin, client_safe, client_config):
                 return False, "actions: 'classified access not allowed in access_core", isself, self.cert_hash
             if "insecure" in getattr(getattr(self, action), "classify", set()):
                 return False, "method call not allowed this way (insecure)", isself, self.cert_hash
-            if experimental == False:
-                if "experimental" in getattr(getattr(self, action), "classify", set()):
-                    return False, "experimental method (is not enabled, use on own risk)", isself, self.cert_hash
+            if "experimental" in getattr(getattr(self, action), "classify", set()):
+                logging.warn("action: \"{}\" is experimental".format(action))
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
                 return getattr(self, action)(obdict)

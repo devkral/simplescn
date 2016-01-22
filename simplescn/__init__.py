@@ -57,9 +57,6 @@ max_namelength = 64
 auth_request_expire_time = 60*3
 ping_interval = 50
 
-## activate experimental functions (maybe insecure) ##
-experimental = False
-
 ## file positions ##
 default_configdir = '~/.simplescn/'
 confdb_ending = ".confdb"
