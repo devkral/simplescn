@@ -199,8 +199,16 @@ class TestAuth(unittest.TestCase):
 
 
 class Test_safe_mdecode(unittest.TestCase):
-    pass
-#TODO safe_mdecode, 
+    _testseq_json1 = json.dumps({"action": "show", "auth": {"server":"pwforserver", "client":"pwforclient"}})
+    _testseq_qs1 = parse.urlencode({"action": "show", "auth": ["server:pwforserver", "client:pwforclient"]})
+    # use jauth (json auth)
+    _testseq_qs2 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":"pwforserver_real", "client":"pwforclient_real"})})
+    # use jauth (json auth) and overwrite default pw encoding
+    _testseq_qs3 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":"pwforserver_real", "client":"pwforclient_real"}), "auth": ["server:nopwforserver", "client:nopwforclient"]})
+    
+    def test_valid(self):
+        pass
+#TODO safe_mdecode,
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
