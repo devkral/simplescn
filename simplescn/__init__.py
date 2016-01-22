@@ -971,11 +971,11 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
         elif enctype == "application/x-www-form-urlencoded":
             obdict = parse.parse_qs(string)
             # json object encoded as string is parsed
-            if obdict.get("jauth"):
+            if obdict.get("jauth") is not None:
                 obdict["auth"] = json.loads(obdict.get("jauth")[0])
             # fix limitation of parse_qs, "realm:pw" are splitted into dict format needed
-            elif obdict.get("auth"):
-                oldauth = obdict.get("auth").copy()
+            elif obdict.get("auth") is not None:
+                oldauth = obdict["auth"].copy()
                 obdict["auth"] = {}
                 for elem in oldauth:
                     # splitted = realm, pw

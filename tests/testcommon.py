@@ -9,6 +9,8 @@ import unittest
 import logging
 import shutil
 import base64
+import json
+from urllib import parse
 
 import simplescn
 import simplescn.common
@@ -143,9 +145,9 @@ class TestAuth(unittest.TestCase):
         self.hashserver = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
         self.hashserver_wrong = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
         
-        self.pwserver = base64.urlsafe_b64encode(os.urandom(10))
-        self.pwadmin = base64.urlsafe_b64encode(os.urandom(10))
-        self.pwinvalid = base64.urlsafe_b64encode(os.urandom(10))
+        self.pwserver = str(base64.urlsafe_b64encode(os.urandom(10)))
+        self.pwadmin = str(base64.urlsafe_b64encode(os.urandom(10)))
+        self.pwinvalid = str(base64.urlsafe_b64encode(os.urandom(10)))
         self.authserver = simplescn.scnauth_server(self.hashserver)
         self.authclient = simplescn.scnauth_client()
         self.authserver.init_realm("server", simplescn.dhash(self.pwserver))
@@ -199,16 +201,68 @@ class TestAuth(unittest.TestCase):
 
 
 class Test_safe_mdecode(unittest.TestCase):
-    _testseq_json1 = json.dumps({"action": "show", "auth": {"server":"pwforserver", "client":"pwforclient"}})
-    _testseq_qs1 = parse.urlencode({"action": "show", "auth": ["server:pwforserver", "client:pwforclient"]})
-    # use jauth (json auth)
-    _testseq_qs2 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":"pwforserver_real", "client":"pwforclient_real"})})
-    # use jauth (json auth) and overwrite default pw encoding
-    _testseq_qs3 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":"pwforserver_real", "client":"pwforclient_real"}), "auth": ["server:nopwforserver", "client:nopwforclient"]})
     
-    def test_valid(self):
-        pass
-#TODO safe_mdecode,
+    def setUp(self):
+        self.pwserver = str(base64.urlsafe_b64encode(os.urandom(10)))
+        self.pwclient = str(base64.urlsafe_b64encode(os.urandom(10)))
+        self.pwinvalid = str(base64.urlsafe_b64encode(os.urandom(10)))
+        
+        self._testseq_json1 = json.dumps({"action": "show", "auth": {"server":self.pwserver, "client":self.pwclient}})
+        # default
+        self._testseq_qs1 = parse.urlencode({"action": "show", "auth": ["server:{}".format(self.pwserver), "client:{}".format(self.pwclient)]}, doseq=True)
+        # use jauth (json auth)
+        self._testseq_qs2 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":self.pwserver, "client":self.pwclient})}, doseq=True)
+        # use jauth (json auth) and overwrite default pw encoding
+        self._testseq_qs3 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":self.pwserver, "client":self.pwclient}), "auth": ["server:{}".format(self.pwinvalid), "client:{}".format(self.pwinvalid)]}, doseq=True)
+    
+    def test_valid_json(self):
+        result = simplescn.safe_mdecode(self._testseq_json1, "application/json")
+        self.assertEqual(result["action"], "show")
+        self.assertEqual(result["auth"]["server"], self.pwserver)
+        self.assertEqual(result["auth"]["client"], self.pwclient)
+    
+    def test_valid_convert(self):
+        result = simplescn.safe_mdecode(bytes(self._testseq_json1, "utf-8"), "application/json")
+        self.assertEqual(result["action"], "show")
+        self.assertEqual(result["auth"]["server"], self.pwserver)
+        self.assertEqual(result["auth"]["client"], self.pwclient)
+        
+        result = simplescn.safe_mdecode(bytes(self._testseq_json1, "iso8859_8"), "application/json", "iso8859_8")
+        self.assertEqual(result["action"], "show")
+        self.assertEqual(result["auth"]["server"], self.pwserver)
+        self.assertEqual(result["auth"]["client"], self.pwclient)
+        
+        
+        result = simplescn.safe_mdecode(bytes(self._testseq_json1, "iso8859_8"), "application/json; charset=iso8859_8")
+        self.assertEqual(result["action"], "show")
+        self.assertEqual(result["auth"]["server"], self.pwserver)
+        self.assertEqual(result["auth"]["client"], self.pwclient)
+    
+    def test_valid_qs_1(self):
+        result = simplescn.safe_mdecode(self._testseq_qs1, "application/x-www-form-urlencoded")
+        self.assertEqual(result["action"][0], "show")
+        self.assertEqual(result["auth"].get("server"), self.pwserver)
+        self.assertEqual(result["auth"].get("client"), self.pwclient)
+    
+    def test_valid_qs_2(self):
+        result = simplescn.safe_mdecode(self._testseq_qs2, "application/x-www-form-urlencoded")
+        self.assertEqual(result["action"][0], "show")
+        self.assertEqual(result["auth"]["server"], self.pwserver)
+        self.assertEqual(result["auth"]["client"], self.pwclient)
+    
+    def test_valid_qs_3(self):
+        result = simplescn.safe_mdecode(self._testseq_qs3, "application/x-www-form-urlencoded")
+        self.assertEqual(result["action"][0], "show")
+        self.assertEqual(result["auth"]["server"], self.pwserver)
+        self.assertEqual(result["auth"]["client"], self.pwclient)
+
+    def test_errors(self):
+        with self.assertLogs(level=logging.ERROR):
+            self.assertIsNone(simplescn.safe_mdecode(self._testseq_json1, "image/png"))
+        with self.assertLogs(level=logging.ERROR):
+            self.assertIsNone(simplescn.safe_mdecode(self._testseq_json1, "text/plain"))
+        with self.assertLogs(level=logging.ERROR):
+            self.assertIsNone(simplescn.safe_mdecode(bytes(self._testseq_json1, "utf-8"), "application/json", "ksksls"))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
