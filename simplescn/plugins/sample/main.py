@@ -3,7 +3,7 @@
 ###### used by pluginmanager ######
 
 # defaults for config (needed)
-config_defaults = {}
+config_defaults = {"test": ["testvar", str, "testvar description"]}
 
 # interfaces, config, accessable resources (communication with main program), pluginpath, logger
 # return None deactivates plugin
