@@ -1078,10 +1078,10 @@ overwrite_client_args={"config": [default_configdir, str, "<dir>: path to config
 def client_paramhelp():
     t = "# parameters (permanent)\n"
     for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
-        t += "* {}: {}: {}\n".format(_key, elem[0], elem[2])
+        t += "  * {}: {}: {}\n".format(_key, elem[0], elem[2])
     t += "# parameters (non-permanent)\n"
-    for _key, elem in sorted(client_args.items(), key=lambda x: x[0]):
-        t += "* {}: {}: {}\n".format(_key, elem[0], elem[2])
+    for _key, elem in sorted(overwrite_client_args.items(), key=lambda x: x[0]):
+        t += "  * {}: {}: {}\n".format(_key, elem[0], elem[2])
     return t
 
 def cmdloop(clientinitm):

@@ -899,5 +899,5 @@ overwrite_plugin_config_args={"config": [default_configdir, str, "<dir>: path to
 def plugin_config_paramhelp():
     t += "# parameters (non-permanent)\n"
     for _key, elem in sorted(overwrite_plugin_args.items(), key=lambda x: x[0]):
-        t += "* {}: {}: {}\n".format(_key, elem[0], elem[2])
+        t += "  * {}: {}: {}\n".format(_key, elem[0], elem[2])
     return t
