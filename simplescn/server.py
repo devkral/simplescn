@@ -409,6 +409,7 @@ class server_handler(BaseHTTPRequestHandler):
             
         else:
             self.client_cert = None
+            self.client_cert_hash = None
         return True
     def handle_server(self, action):
         if action not in self.links["server_server"].validactions:
