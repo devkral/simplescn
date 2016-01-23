@@ -338,11 +338,12 @@ class pluginmanager(object):
     
     def load_pluginconfig(self, plugin):
         if plugin in self.plugins:
-            return self.plugins[1]
+            return self.plugins[plugin].config
         plugins = self.list_plugins()
-        plugin = plugins.get(plugin)
-        if plugin is None:
+        pluginpath = plugins.get(plugin)
+        if pluginpath is None:
             return None
+        plugin = (plugin, pluginpath)
         pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
         
             
@@ -421,7 +422,8 @@ class pluginmanager(object):
 
                 finobj = None
             if finobj:
-                self.plugins[plugin[0]] = finobj, pconf
+                # config is found in finobj.config
+                self.plugins[plugin[0]] = finobj
             else:
                 # delete namespace stub
                 del sys.modules[module.__name__]

@@ -522,7 +522,7 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
                 return
             plugin, action = split2
-            if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin][0], "sreceive"):
+            if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
             self.send_response(200)
@@ -532,7 +532,7 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
             self.end_headers()
             try:
-                pluginm.plugins[plugin][0].sreceive(action, self.connection, self.client_cert, self.client_cert_hash)
+                pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert, self.client_cert_hash)
             except Exception as e:
                 logging.error(e)
                 #self.send_error(500, "plugin error", str(e))

@@ -292,7 +292,6 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
             noteb.set_tab_detachable(_tmp, False)
         self.connect_signals(self)
         for pname, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
-            plugin = plugin[0]
             if hasattr(plugin, cat) == True:
                 try:
                     if cat == "gui_server_iface":
@@ -337,7 +336,6 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
         issensitiveset = False
         actionmenub.set_sensitive(False)
         for plugin in self.links["client_server"].pluginmanager.plugins.values():
-            plugin = plugin[0]
             if hasattr(plugin, cat):
                 try:
                     for action in getattr(plugin, cat):

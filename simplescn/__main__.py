@@ -160,7 +160,7 @@ def client_gtk():
 
 
 def config_plugin():
-    from simplescn.common import overwrite_plugin_config_args, plugin_config_paramhelp
+    from simplescn.common import overwrite_plugin_config_args, plugin_config_paramhelp, pluginmanager
     pluginpathes = [os.path.join(sharedir, "plugins")]
     pluginpathes += scnparse_args(plugin_config_paramhelp, overwrite_args=overwrite_plugin_config_args)
     configpath = overwrite_plugin_config_args["config"][0]
@@ -177,13 +177,12 @@ def config_plugin():
     os.makedirs(configpath_plugins, 0o750, True)
     
     pluginm = pluginmanager(pluginpathes, configpath_plugins, "config_direct")
-    pluginm.init_plugins()
-    if overwrite_plugin_config_args["plugin"][0] not in pluginm.plugins:
-        config = pluginm.load_pluginconfig(overwrite_plugin_config_args["plugin"][0])
-        
-    else:
-        config = pluginm.plugins[overwrite_plugin_config_args["plugin"][0]][1]
-    config.set("defaul")
+    #pluginm.init_plugins()
+    config = pluginm.load_pluginconfig(overwrite_plugin_config_args["plugin"][0])
+    if config is None:
+        logging.error("No such plugin: {}".format(overwrite_plugin_config_args["plugin"][0]))
+        return
+    config.set(overwrite_plugin_config_args["key"][0], overwrite_plugin_config_args["value"][0])
 
 def _init_method():
     import logging
@@ -201,7 +200,7 @@ def _init_method():
             toexe()
         else:
             print("Not available")
-            print("Available: client, rawclient, server")
+            print("Available: client, rawclient, server, config_plugin")
     else:
         client()
 

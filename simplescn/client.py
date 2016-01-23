@@ -848,14 +848,14 @@ class client_handler(BaseHTTPRequestHandler):
             #    self.scn_send_answer(401, ob)
             #    return
             # gui receive
-            if hasattr(pluginm.plugins[plugin][0], "receive") == True:
+            if hasattr(pluginm.plugins[plugin], "receive") == True:
                 # not supported yet
                 # don't forget redirect_hash
                 if self.links["client"].redirect_addr != "":
                     # needs to implement http handshake and stop or don't analyze content
-                    if hasattr(pluginm.plugins[plugin][0], "rreceive") == True:
+                    if hasattr(pluginm.plugins[plugin], "rreceive") == True:
                         try:
-                            ret = pluginm.plugins[plugin][0].rreceive(action, self.connection, self.client_cert, self.client_cert_hash)
+                            ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert, self.client_cert_hash)
                         except Exception as e:
                             logging.error(e)
                             self.send_error(500, "plugin error", str(e))
@@ -888,7 +888,7 @@ class client_handler(BaseHTTPRequestHandler):
                     # send if not sent already
                     self.wfile.flush()
                     try:
-                        pluginm.plugins[plugin][0].receive(action, self.connection, self.client_cert, self.client_cert_hash)
+                        pluginm.plugins[plugin].receive(action, self.connection, self.client_cert, self.client_cert_hash)
                         #if self.connection.closed == False:
                         #    self.connection.close()
                     except Exception as e:
