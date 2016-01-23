@@ -670,8 +670,8 @@ overwrite_server_args={"config": [default_configdir, str, "<dir>: path to config
 
 
 def server_paramhelp():
-    t = "### parameters (non-permanent) ###\n"
+    t = "# parameters (non-permanent)\n"
     for _key, elem in sorted(overwrite_server_args.items(), key=lambda x: x[0]):
-        t += _key+":"+elem[0]+": "+elem[2]+"\n"
+        t += "* {}: {}: {}\n".format(_key, elem[0], elem[2])
     return t
 

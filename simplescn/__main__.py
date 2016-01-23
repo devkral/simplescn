@@ -182,7 +182,23 @@ def config_plugin():
     if config is None:
         logging.error("No such plugin: {}".format(overwrite_plugin_config_args["plugin"][0]))
         return
-    config.set(overwrite_plugin_config_args["key"][0], overwrite_plugin_config_args["value"][0])
+    if overwrite_plugin_config_args["key"][0] == "":
+        lres = config.list()
+        if isinstance(lres, (tuple, list)) == False:
+            return
+        for key, val, cls, default, doc, perm in lres:
+            print("# key: {}\n* type: {}\n* perm: {}\n* val: {}\n* default: {}\n* doc: {}".format(key, type(cls).__name__, perm, val, default, doc))
+    elif overwrite_plugin_config_args["value"][0] == "":
+        key = overwrite_plugin_config_args["key"][0]
+        res1 = config.get_meta(key)
+        if isinstance(res1, (tuple, list)) == False:
+            return
+        val = config.get(key)
+        default = config.get_default(key)
+        cls, doc, perm = res1
+        print("# key: {}\n* type: {}\n* perm: {}\n* val: {}\n* default: {}\n* doc: {}".format(key, type(cls).__name__, perm, val, default, doc))
+    else:
+        print(config.set(overwrite_plugin_config_args["key"][0], overwrite_plugin_config_args["value"][0]))
 
 def _init_method():
     import logging
