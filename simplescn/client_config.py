@@ -76,11 +76,11 @@ class client_config(object):
             #config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
             config = pluginm.load_pluginconfig(obdict["plugin"])
         else:
-            config = pluginm.plugins[obdict["plugin"]][1]
+            config = pluginm.plugins[obdict["plugin"]].config
         return config.set(obdict["key"], obdict["value"])
 
     
-    @check_argsdeco({"key": str, "plugin": str})
+    @check_argsdeco({"key": str, "plugin": str}, optional={"safe": bool})
     @classify_admin
     @classify_noplugin
     @classify_local
@@ -88,16 +88,19 @@ class client_config(object):
         """ func: reset key in plugin configuration
             return: success or error
             key: config key
+            safe: when plugin not loaded and state!=True, don't load (default: True)
             plugin: plugin name """
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
             return False, "plugin does not exist"
         if obdict["plugin"] not in pluginm.plugins:
-            #config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
-            config = pluginm.load_pluginconfig(obdict["plugin"])
+            if obdict.get("safe", True):
+                _config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
+            if _config.getb("state") == False:
+                config = _config
         else:
-            config = pluginm.plugins[obdict["plugin"]][1]
+            config = pluginm.plugins[obdict["plugin"]].config
         return config.set_default(str(obdict["key"]))
     
     
@@ -109,7 +112,7 @@ class client_config(object):
         """ func: get key in plugin configuration
             return: key value
             key: config key
-            safe: when plugin not loaded, don't load (default: True)
+            safe: when plugin not loaded and state!=True, don't load (default: True)
             plugin: plugin name """
         pluginm=self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
@@ -117,11 +120,13 @@ class client_config(object):
             return False, "plugin does not exist"
         if obdict["plugin"] not in pluginm.plugins:
             if obdict.get("safe", True):
-                config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
+                _config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
+            if _config.getb("state") == False:
+                config = _config
             else:
                 config = pluginm.load_pluginconfig(obdict["plugin"])
         else:
-            config = pluginm.plugins[obdict["plugin"]][1]
+            config = pluginm.plugins[obdict["plugin"]].config
         return True, {"value": config.get(obdict["key"])}
     
     
@@ -133,7 +138,7 @@ class client_config(object):
         """ func: list plugin configuration
             return: key, value, ...
             onlypermanent: list only permanent settings (default: False)
-            safe: when plugin not loaded, don't load (default: True)
+            safe: when plugin not loaded and state!=True, don't load (default: True)
             plugin: plugin name """
         pluginm = self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
@@ -141,11 +146,13 @@ class client_config(object):
             return False, "plugin does not exist"
         if obdict["plugin"] not in pluginm.plugins:
             if obdict.get("safe", True):
-                config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
+                _config = configmanager(os.path.join(self.links["config_root"],"config","plugins","{}{}".format(obdict["plugin"], confdb_ending)))
+            if _config.getb("state") == False:
+                config = _config
             else:
                 config = pluginm.load_pluginconfig(obdict["plugin"])
         else:
-            config = pluginm.plugins[obdict["plugin"]][1]
+            config = pluginm.plugins[obdict["plugin"]].config
         return True, {"items": config.list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
 
     
