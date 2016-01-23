@@ -173,7 +173,7 @@ class server(commonscn):
         if obdict["clientcert"] is None:
             return False, "no_cert"
         
-        clientcerthash = dhash(obdict["clientcert"])
+        clientcerthash = obdict["clientcerthash"]
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
         if ret[0] == False:
             ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1] ), "destaddr": "{}-{}".format(obdict["clientaddress"][0], obdict["port"])})
@@ -399,9 +399,8 @@ class server_handler(BaseHTTPRequestHandler):
                 self.connection = cont.wrap_socket(self.connection, server_side=False)
                 self.alreadyrewrapped = True
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
-            #self.connection = self.connection.unwrap()
-            #cont.wrap_socket(self.connection, server_side=True)
-            if _rewrapcert.split(";")[0] != dhash(self.client_cert):
+            self.client_cert_hash = dhash(self.client_cert)
+            if _rewrapcert.split(";")[0] != self.client_cert_hash:
                 return False
             #self.rfile.close()
             #self.wfile.close()
@@ -449,6 +448,7 @@ class server_handler(BaseHTTPRequestHandler):
             return
         obdict["clientaddress"] = self.client_address2
         obdict["clientcert"] = self.client_cert
+        obdict["clientcerthash"] = self.client_cert_hash
         obdict["headers"] = self.headers
         obdict["socket"] = self.connection
         try:
@@ -522,7 +522,7 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
                 return
             plugin, action = split2
-            if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
+            if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin][0], "sreceive"):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
             self.send_response(200)
@@ -532,7 +532,7 @@ class server_handler(BaseHTTPRequestHandler):
                 self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
             self.end_headers()
             try:
-                pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
+                pluginm.plugins[plugin][0].sreceive(action, self.connection, self.client_cert, self.client_cert_hash)
             except Exception as e:
                 logging.error(e)
                 #self.send_error(500, "plugin error", str(e))
@@ -588,7 +588,7 @@ class server_init(object):
         self.links = {}
         self.links["config_root"]=_configpath
         _spath=os.path.join(self.links["config_root"],"server")
-        port = kwargs["port"]
+        port = kwargs["port"][0]
         init_config_folder(self.links["config_root"],"server")
         
         if check_certs(_spath+"_cert")==False:
@@ -602,10 +602,10 @@ class server_init(object):
         self.links["auth"] = scnauth_server(dhash(pub_cert))
         
         #server_handler.salt = os.urandom(8)
-        if kwargs["spwhash"] is not None:
-            self.links["auth"].init_realm("server", kwargs["spwhash"])
-        elif kwargs["spwfile"] is not None:
-            with open(kwargs["spwfile"], "r") as op:
+        if bool(kwargs["spwhash"][0]):
+            self.links["auth"].init_realm("server", kwargs["spwhash"][0])
+        elif bool(kwargs["spwfile"][0]):
+            with open(kwargs["spwfile"][0], "r") as op:
                 pw = op.readline()
                 if pw[-1] == "\n":
                     pw = pw[:-1]
@@ -632,16 +632,16 @@ class server_init(object):
             _port = server_port
         
         serverd = {"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": kwargs["priority"], "message":_message, "links": self.links} #, "traversesrcaddr": kwargs.get("notraversal")
+                "priority": kwargs["priority"][0], "message":_message, "links": self.links} #, "traversesrcaddr": kwargs.get("notraversal")
         # use direct way instead of traversesrcaddr
         server_handler.links = self.links
         
         
         self.links["server_server"] = server(serverd)
         
-        http_server.timeout = int(kwargs["timeout"])
+        http_server.timeout = int(kwargs["timeout"][0])
         self.links["hserver"] = http_server(("", _port), _spath+"_cert", server_handler, "Enter server certificate pw")
-        if kwargs.get("notraversal", False) == False:
+        if kwargs.get("notraversal", "False") != "True":
             srcaddr = self.links["hserver"].socket.getsockname()
             self.links["server_server"].traverse = traverser_dropper(srcaddr)
             
@@ -653,30 +653,24 @@ class server_init(object):
         sthread = threading.Thread(target=self.serve_forever_block, daemon=True)
         sthread.start()
 
-def server_paramhelp():
-    print("""
-### parameters ###
-config=<dir>: path to config dir
-port=<number>: Port
-spwhash=<hash>: hash of pw, higher preference than pwfile
-spwfile=<file>: file with password (cleartext)
-priority=<number>: set priority
-timeout: socket timeout
-webgui: enables webgui
-notraversal: disables traversal
-""")
 
 #### don't base on sqlite, configmanager as it increases complexity and needed libs
 #### but optionally support plugins (some risk)
 
-server_args={"config":default_configdir,
-             "port": None,
-             "spwhash": None,
-             "spwfile": None,
-             "webgui": None,
-             "useplugins": None,
-             "priority": str(default_priority),
-             "timeout": str(default_timeout),
-             "notraversal": str(False)}
+overwrite_server_args={"config": [default_configdir, str, "<dir>: path to config dir"],
+             "port": [str(server_port), int, "<number>: Port"],
+             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
+             "spwfile": ["", str, "<file>: file with password (cleartext)"],
+             "webgui": ["False", bool, "<True/False>: activate webgui"],
+             "useplugins": ["False", bool, "<True/False>: activate plugins"],
+             "priority": [str(default_priority), int, "<number>: set priority"],
+             "timeout": [str(default_timeout), int, "<number>: set timeout"],
+             "notraversal": ["False", bool, "<True/False>: disable traversal"]}
 
+
+def server_paramhelp():
+    t = "### parameters (non-permanent) ###\n"
+    for _key, elem in sorted(overwrite_server_args.items(), key=lambda x: x[0]):
+        t += _key+":"+elem[0]+": "+elem[2]+"\n"
+    return t
 

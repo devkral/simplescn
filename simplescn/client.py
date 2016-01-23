@@ -815,7 +815,7 @@ class client_handler(BaseHTTPRequestHandler):
             self.wfile = self.connection.makefile(mode='wb')
         else:
             self.client_cert = None
-            self.self.client_cert_hash = None
+            self.client_cert_hash = None
         return True
 
     def do_POST(self):
@@ -848,14 +848,14 @@ class client_handler(BaseHTTPRequestHandler):
             #    self.scn_send_answer(401, ob)
             #    return
             # gui receive
-            if hasattr(pluginm.plugins[plugin], "receive") == True:
+            if hasattr(pluginm.plugins[plugin][0], "receive") == True:
                 # not supported yet
                 # don't forget redirect_hash
                 if self.links["client"].redirect_addr != "":
                     # needs to implement http handshake and stop or don't analyze content
-                    if hasattr(pluginm.plugins[plugin], "rreceive") == True:
+                    if hasattr(pluginm.plugins[plugin][0], "rreceive") == True:
                         try:
-                            ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert, dhash(self.client_cert))
+                            ret = pluginm.plugins[plugin][0].rreceive(action, self.connection, self.client_cert, self.client_cert_hash)
                         except Exception as e:
                             logging.error(e)
                             self.send_error(500, "plugin error", str(e))
@@ -888,7 +888,7 @@ class client_handler(BaseHTTPRequestHandler):
                     # send if not sent already
                     self.wfile.flush()
                     try:
-                        pluginm.plugins[plugin].receive(action, self.connection, self.client_cert, self.client_cert_hash)
+                        pluginm.plugins[plugin][0].receive(action, self.connection, self.client_cert, self.client_cert_hash)
                         #if self.connection.closed == False:
                         #    self.connection.close()
                     except Exception as e:
@@ -1052,17 +1052,6 @@ class client_init(object):
     def serve_forever_nonblock(self):
         sthread = threading.Thread(target=self.serve_forever_block, daemon=True)
         sthread.start()
-        
-
-def client_paramhelp():
-    t = "### parameters (permanent) ###\n"
-    for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
-        t += _key+":"+elem[0]+":"+elem[2]+"\n"
-    t += "### parameters (non-permanent) ###\n"
-    for _key, elem in sorted(client_args.items(), key=lambda x: x[0]):
-        t += _key+":"+elem[0]+":"+elem[2]+"\n"
-    return t
-
 
 
 #specified seperately because of chicken egg problem
@@ -1074,17 +1063,27 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "apwfile": ["", str, "<file>: file with password (cleartext)"],
              "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
              "spwfile": ["", str, "<file>: file with password (cleartext)"],
-             "noserver": ["False", bool, "deactivate server component (lacks also pw and notify support)"],
+             "noserver": ["False", bool, "deactivate server component (deactivate also remote pw, notify support)"],
              "local" : ["False", bool, "reachable from localhost (overwrites remote)"],
              "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
              "priority": [str(default_priority), int, "<number>: set priority"],
-             "timeout": [str(default_timeout), int, "<number>: set priority"],
+             "timeout": [str(default_timeout), int, "<number>: set timeout"],
              "webgui": ["False", bool, "enables webgui"],
              "nocmd": ["False", bool, "use no cmd"]}
              
-client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
+overwrite_client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
              "port": [str(client_port), int, "<number>: Port"]}
-             
+
+
+def client_paramhelp():
+    t = "### parameters (permanent) ###\n"
+    for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
+        t += _key+":"+elem[0]+":"+elem[2]+"\n"
+    t += "### parameters (non-permanent) ###\n"
+    for _key, elem in sorted(client_args.items(), key=lambda x: x[0]):
+        t += _key+":"+elem[0]+":"+elem[2]+"\n"
+    return t
+
 def cmdloop(clientinitm):
     while True:
         inp = input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')

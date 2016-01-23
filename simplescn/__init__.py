@@ -235,7 +235,7 @@ def notify(msg, requester=None):
 ##### init ######
 
 def generate_certs(_path):
-    _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key:")
+    _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key")
     if _passphrase is not None and isinstance(_passphrase, str) == False:
         logging.error("passphrase not str, None")
         return False

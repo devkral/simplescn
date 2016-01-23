@@ -7,7 +7,7 @@ import traceback
 import threading
 import logging
 from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
-from simplescn import confdb_ending, isself
+from simplescn import confdb_ending, isself, default_configdir
 
 if hasattr(importlib.util, "module_from_spec") == False:
     import types
@@ -336,6 +336,49 @@ class pluginmanager(object):
             if dbconf[:-len(confdb_ending)] not in lplugins:
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
     
+    def load_pluginconfig(self, plugin):
+        if plugin in self.plugins:
+            return self.plugins[1]
+        plugins = self.list_plugins()
+        plugin = plugins.get(plugin)
+        if plugin is None:
+            return None
+        pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
+        
+            
+        if hasattr(importlib.util, "module_from_spec"):
+            module = importlib.machinery.ModuleSpec("_plugins.{}".format(plugin[0]), None, origin=plugin[1])
+            module.submodule_search_locations = [os.path.join(plugin[1],plugin[0]), plugin[1]]
+            module = importlib.util.module_from_spec(module)
+        else:
+            module = types.ModuleType("_plugins.{}".format(plugin[0]), None)
+            module.__path__ = [os.path.join(plugin[1],plugin[0]), plugin[1]]
+            
+            
+        sys.modules[module.__name__] = module
+        #print(sys.modules.get("plugins"),sys.modules.get("plugins.{}".format(plugin[0])))
+        globalret = self.pluginenv.copy()
+        globalret["__name__"] = "_plugins.{}.{}".format(plugin[0], pluginstartfile.rsplit(".",1)[0])
+        globalret["__package__"] = "_plugins.{}".format(plugin[0])
+        globalret["__file__"] = os.path.join(plugin[1], plugin[0], pluginstartfile)
+        try:
+            with open(os.path.join(plugin[1], plugin[0], pluginstartfile), "r") as readob:
+                exec(readob.read(), globalret)
+                # unchangeable default, check that config_defaults is really a dict
+            if isinstance(globalret.get("config_defaults", None), dict) == False or issubclass(dict, type(globalret["config_defaults"])) == False:
+                    logging.error("global value: config_defaults is no dict/not specified")
+                    return None
+            globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
+            pconf.update(globalret["config_defaults"])
+        except Exception as e:
+            st = "Plugin failed to load, reason:\n{}".format(e)
+            if hasattr(e,"tb_frame"):
+                st += "\n\n{}".format(traceback.format_tb(e))
+            logging.error(st)
+        # delete namespace stub
+        del sys.modules[module.__name__]
+        return pconf
+    
     def init_plugins(self):
         lplugins = self.list_plugins()
         for plugin in lplugins.items():
@@ -378,7 +421,7 @@ class pluginmanager(object):
 
                 finobj = None
             if finobj:
-                self.plugins[plugin[0]] = finobj
+                self.plugins[plugin[0]] = finobj, pconf
             else:
                 # delete namespace stub
                 del sys.modules[module.__name__]
@@ -804,7 +847,6 @@ class certhash_db(object):
     #    cur.execute('''SELECT DISTINCT name,type FROM certreferences WHERE type ORDER BY name ASC;''',(_reftype, ))
     #    return cur.fetchall()
     
-    #untested
     @connecttodb
     def findbyref(self, dbcon, _reference):
         if check_reference(_reference) == False:
@@ -817,8 +859,43 @@ class certhash_db(object):
             return []
         else:
             return out
-        
-        #if out is None:
-        #    return []
-        #else:
-        #    return out
+
+# default_args, overwrite_args are modified
+def scnparse_args(_funchelp, default_args={}, overwrite_args={}):
+    pluginpathes = []
+    if len(sys.argv) > 1:
+        tparam = ()
+        for elem in sys.argv[1:]: #strip filename from arg list
+            elem = elem.strip("-")
+            if elem in ["help","h"]:
+                print(_funchelp())
+                sys.exit(0)
+            else:
+                tparam = elem.split("=")
+                if len(tparam) == 1:
+                    tparam = elem.split(":")
+                if len(tparam) == 1:
+                    tparam = [tparam[0], "True"]
+                if tparam[0] in ["pluginpath", "pp"]:
+                    pluginpathes += [tparam[1], ]
+                    continue
+                if tparam[0] in overwrite_args:
+                    overwrite_args[tparam[0]][0] = tparam[1]
+                else:
+                    default_args[tparam[0]][0] = tparam[1]
+    return pluginpathes
+    
+    
+    
+
+overwrite_plugin_config_args={"config": [default_configdir, str, "<dir>: path to config dir"],
+             "plugin": ["", str, "<name>: Plugin name"],
+             "key": ["", str, "<name>: config key"],
+             "value": ["", str, "<name>: config value"]}
+
+
+def plugin_config_paramhelp():
+    t += "### parameters (non-permanent) ###\n"
+    for _key, elem in sorted(overwrite_plugin_args.items(), key=lambda x: x[0]):
+        t += _key+":"+elem[0]+":"+elem[2]+"\n"
+    return t

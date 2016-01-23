@@ -13,6 +13,7 @@ import signal
 
 import simplescn
 from simplescn import sharedir, confdb_ending,logformat
+from simplescn.common import scnparse_args
 import simplescn.client
 import simplescn.server
 
@@ -24,28 +25,21 @@ def signal_handler(_signal, frame):
 
 def server():
     from simplescn.common import pluginmanager
-    from simplescn.server import server_paramhelp, server_args, server_handler, server_init
-    if len(sys.argv) > 1:
-        tparam=()
-        for elem in sys.argv[1:]: #strip filename from arg list
-            elem= elem.strip("-")
-            if elem in ["help","h"]:
-                server_paramhelp()
-                sys.exit(0)
-            else:
-                tparam = elem.split("=")
-                if len(tparam) == 1:
-                    tparam=elem.split(":")
-                if len(tparam) == 1:
-                    server_args[tparam[0]] = "True"
-                    continue
-                server_args[tparam[0]] = tparam[1]
-    
-    configpath = os.path.expanduser(server_args["config"])
+    from simplescn.server import server_paramhelp, overwrite_server_args, server_handler, server_init
+    pluginpathes = [os.path.join(sharedir, "plugins")]
+    pluginpathes += scnparse_args(server_paramhelp, overwrite_args=overwrite_server_args)
+    configpath = overwrite_server_args["config"][0]
+    configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
         configpath = configpath[:-1]
+    overwrite_server_args["config"][0] = configpath
+    # path  to plugins in config folder
+    pluginpathes.insert(1, os.path.join(configpath, "plugins"))
+    # path to config folder of plugins
+    configpath_plugins = os.path.join(configpath, "config", "plugins")
+    
     #should be gui agnostic so specify here
-    if server_args["webgui"] is not None:
+    if overwrite_server_args["webgui"][0] != "False":
         server_handler.webgui = True
         #load static files  
         for elem in os.listdir(os.path.join(sharedir, "static")):
@@ -57,16 +51,12 @@ def server():
     else:
         server_handler.webgui = False
 
-    cm = server_init(configpath ,**server_args)
-    if server_args["useplugins"] is not None:
-        pluginpathes = [os.path.join(sharedir, "plugins")]
-        pluginpathes.insert(1, os.path.join(configpath, "plugins"))
-        configpath_plugins = os.path.join(configpath, "config", "plugins")
-
+    cm = server_init(configpath ,**overwrite_server_args)
+    if overwrite_server_args["useplugins"][0] != "False":
         os.makedirs(configpath_plugins, 0o750, True)
     
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "server")
-        if server_args["webgui"] is not None:
+        if overwrite_server_args["webgui"] != "False":
             pluginm.interfaces+=["web",]
         cm.links["server_server"].pluginmanager = pluginm
         pluginm.resources["access"] = cm.links["server_server"].access_server
@@ -83,51 +73,24 @@ def server():
 
 def rawclient():
     from simplescn.common import pluginmanager, configmanager
-    from simplescn.client import client_paramhelp, client_args, default_client_args, cmdloop, client_init
+    from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args, cmdloop, client_init
     pluginpathes = [os.path.join(sharedir, "plugins")]
-    if len(sys.argv) > 1:
-        tparam = ()
-        for elem in sys.argv[1:]: #strip filename from arg list
-            elem = elem.strip("-")
-            if elem in ["help","h"]:
-                print(client_paramhelp())
-                sys.exit(0)
-            else:
-                tparam = elem.split("=")
-                if len(tparam) == 1:
-                    tparam = elem.split(":")
-                if len(tparam) == 1:
-                    if tparam[0] not in client_args:
-                        client_args[tparam[0]] = ["True"]
-                    else:
-                        client_args[tparam[0]][0] = "True"
-                    continue
-                if tparam[0] in ["pluginpath", "pp"]:
-                    pluginpathes += [tparam[1], ]
-                    continue
-                if tparam[0] not in client_args:
-                    client_args[tparam[0]] = [tparam[1], None]
-                else:
-                    client_args[tparam[0]][0] = tparam[1]
-    
-    configpath = client_args["config"][0]
+    pluginpathes += scnparse_args(client_paramhelp, default_client_args, overwrite_client_args)
+    configpath = overwrite_client_args["config"][0]
     configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
         configpath = configpath[:-1]
-    client_args["config"][0] = configpath
+    overwrite_client_args["config"][0] = configpath
     # path  to plugins in config folder
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
-    
     # path to config folder of plugins
     configpath_plugins = os.path.join(configpath, "config", "plugins")
-    #if configpath[:-1]==os.sep:
-    #    configpath=configpath[:-1]
     
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
     
     confm = configmanager(os.path.join(configpath, "config", "clientmain{}".format(confdb_ending)))
-    confm.update(default_client_args, client_args)
+    confm.update(default_client_args, overwrite_client_args)
     if confm.getb("noplugins") == False:
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
         if confm.getb("webgui") != False:
@@ -168,47 +131,23 @@ def client():
 def client_gtk():
     from simplescn.guigtk.clientmain import _gtkclient_init_method
     from simplescn.common import pluginmanager, configmanager
-    from simplescn.client import client_paramhelp, client_args, default_client_args
-    dclargs = default_client_args.copy()
-    del dclargs["nocmd"]
+    from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args
+    
+    del default_client_args["nocmd"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
-    if len(sys.argv) > 1:
-        tparam = ()
-        for elem in sys.argv[1:]: #strip filename from arg list
-            elem = elem.strip("-")
-            if elem in ["help", "h"]:
-                client_paramhelp()
-                sys.exit(0)
-            else:
-                tparam = elem.split("=")
-                if len(tparam) == 1:
-                    tparam = elem.split(":")
-                if len(tparam) == 1:
-                    if tparam[0] not in client_args:
-                        client_args[tparam[0]] = ["True"]
-                    else:
-                        client_args[tparam[0]][0] = "True"
-                    continue
-                if tparam[0] in ["pluginpath", "pp"]:
-                    pluginpathes += [tparam[1], ]
-                    continue
-                if tparam[0] not in client_args:
-                    client_args[tparam[0]] = [tparam[1], None]
-                else:
-                    client_args[tparam[0]][0] = tparam[1]
-
-    configpath = client_args["config"][0]
+    pluginpathes += scnparse_args(client_paramhelp, default_client_args, overwrite_client_args)
+    configpath = overwrite_client_args["config"][0]
     configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
         configpath = configpath[:-1]
-    client_args["config"][0] = configpath
+    overwrite_client_args["config"][0] = configpath
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     configpath_plugins = os.path.join(configpath, "config", "plugins")
 
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
     confm = configmanager(os.path.join(configpath, "config", "clientgtkgui{}".format(confdb_ending)))
-    confm.update(dclargs, client_args)
+    confm.update(default_client_args, overwrite_client_args)
 
     if confm.getb("noplugins") == False:
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
@@ -218,8 +157,33 @@ def client_gtk():
     else:
         pluginm = None
     _gtkclient_init_method(confm, pluginm)
-    
 
+
+def config_plugin():
+    from simplescn.common import overwrite_plugin_config_args, plugin_config_paramhelp
+    pluginpathes = [os.path.join(sharedir, "plugins")]
+    pluginpathes += scnparse_args(plugin_config_paramhelp, overwrite_args=overwrite_plugin_config_args)
+    configpath = overwrite_plugin_config_args["config"][0]
+    configpath = os.path.expanduser(configpath)
+    if configpath[-1] == os.sep:
+        configpath = configpath[:-1]
+    overwrite_plugin_config_args["config"][0] = configpath
+    # path  to plugins in config folder
+    pluginpathes.insert(1, os.path.join(configpath, "plugins"))
+    # path to config folder of plugins
+    configpath_plugins = os.path.join(configpath, "config", "plugins")
+
+    os.makedirs(os.path.join(configpath, "config"), 0o750, True)
+    os.makedirs(configpath_plugins, 0o750, True)
+    
+    pluginm = pluginmanager(pluginpathes, configpath_plugins, "config_direct")
+    pluginm.init_plugins()
+    if overwrite_plugin_config_args["plugin"][0] not in pluginm.plugins:
+        config = pluginm.load_pluginconfig(overwrite_plugin_config_args["plugin"][0])
+        
+    else:
+        config = pluginm.plugins[overwrite_plugin_config_args["plugin"][0]][1]
+    config.set("defaul")
 
 def _init_method():
     import logging
