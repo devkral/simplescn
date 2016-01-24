@@ -449,9 +449,10 @@ class client_client(client_admin, client_safe, client_config):
 
     # help section
     def cmdhelp(self):
-        out="""### cmd-commands ###
-hash <pw>: calculate hash for pw
-plugin <plugin>:<...>: communicate with plugin
+        out="""# cmd (only) commands
+* hash <pw>: calculate hash for pw
+* plugin <plugin>:<...>: communicate with plugin
+# commands
 """
         for funcname in sorted(self.validactions):
             func = getattr(self, funcname)

@@ -883,7 +883,7 @@ def scnparse_args(_funchelp, default_args={}, overwrite_args={}):
                     continue
                 if tparam[0] in overwrite_args:
                     overwrite_args[tparam[0]][0] = tparam[1]
-                else:
+                elif tparam[0] in default_args:
                     default_args[tparam[0]][0] = tparam[1]
     return pluginpathes
     

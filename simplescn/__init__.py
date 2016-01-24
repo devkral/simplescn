@@ -855,7 +855,7 @@ def gen_doc_deco(func):
         classify = " ({})".format(", ".join(sorted(func.classify)))
     else:
         classify = ""
-    newdoc = "# {}{classify}: {}\n  *{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify)
+    newdoc = "* {}{classify}: {}\n  *{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify)
     if len(requires) == 0:
         newdoc = "{}  *{spaces}requires: n.a.{sep}".format(newdoc, spaces=spacing, sep=sep)
     else:
