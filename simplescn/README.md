@@ -24,9 +24,6 @@ Its nature lies in the decentral structure.
 This means the user has to verify (server) hashes. This is not hard and is assisted by a friendlist and scn servers, which both use is strongly recommended.
 In contrast to similar solutions it is up to the user putting certificates into the friendlist.
 
-Configuration:
-configure plugins is currently only possible via (raw-)client (also for server plugins).
-
 
 This is a rewrite of scn.
 It got too complex because of unnecessary features (channels and nodes), too much lowlevel work (an own protocol), focus on gui and a client and serverside account management.

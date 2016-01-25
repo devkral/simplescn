@@ -192,7 +192,9 @@ class server(commonscn):
         if obdict["name"] not in self.nhipmap:
             self.nhipmap[obdict["name"]] = {}
         if clientcerthash not in self.nhipmap[obdict["name"]]:
+            # set security=valid for next step
             self.nhipmap[obdict["name"]][clientcerthash] = {"security": "valid"}
+        # when certificate has a compromised flag (!=valid) stop register process
         if self.nhipmap[obdict["name"]][clientcerthash].get("security", "valid") == "valid":
             self.nhipmap[obdict["name"]][clientcerthash]["address"] = obdict["clientaddress"][0]
             self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
