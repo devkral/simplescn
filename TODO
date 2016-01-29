@@ -2,6 +2,7 @@
 ## Alpha 1
 
 ## Alpha 2
+* finish redirects (for pw and notify dialog, forgotten)
 * make gtk gui running on windows
 * more tests
 

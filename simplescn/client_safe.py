@@ -52,7 +52,7 @@ class client_safe(object):
             return: client stats """
         if "hserver" in self.links:
             addr = self.links["hserver"].socket.getsockname()
-            return True,{"name": self.name, "hash": self.cert_hash, "address": addr[0], "port":addr[1]}
+            return True,{"name": self.name, "hash": self.cert_hash, "listen": addr[0], "port":addr[1]}
         else:
             return True, {"name": self.name, "hash": self.cert_hash}
     
@@ -437,3 +437,33 @@ class client_safe(object):
         temp = notify(obdict.get("message"), obdict.get("requester"))
         return True, {"result": temp}
         
+    # internal method
+    def use_pwrequest(self, message, requester=None):
+        if self.redirect_addr == "" or self.redirect_hash == "":
+            return pwcallmethod(obdict.get("message"), obdict.get("requester"))
+        else:
+            try:#redirect_hash
+                resp = self.do_request(self.redirect_addr, "/client/open_pwrequest",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, forceport=True)
+            except Exception as e:
+                logging.error(e)
+                return None
+            if resp[0] == False:
+                logging.error(resp[1])
+                return None
+            return resp[1].get("pw")
+        
+    # internal method
+    def use_notify(self, message, requester):
+        if self.redirect_addr == "" or self.redirect_hash == "":
+            return pwcallmethod(obdict.get("message"), obdict.get("requester"))
+        else:
+            try:#redirect_hash
+                resp = self.do_request(self.redirect_addr, "/client/open_notify",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, forceport=True)
+            except Exception as e:
+                logging.error(e)
+                return False
+            if resp[0] == False:
+                logging.error(resp[1])
+                return False
+            return resp[1].get("result")
+            

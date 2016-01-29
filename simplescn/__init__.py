@@ -412,19 +412,24 @@ class scnauth_server(object):
     def verify(self, realm, authdict):
         if realm not in self.realms or self.realms[realm] is None:
             return True
+        if isinstance(authdict, dict) == False:
+            logging.warning("authdict is no dict")
+            return False
         if realm not in authdict:
-            logging.debug("realm not in authdict")
+            #always the case if getting pwrequest
+            if len(authdict) > 0:
+                logging.debug("realm not in transmitted authdict")
             return False
         if isinstance(authdict[realm], dict) == False:
-            logging.debug("realm is no dict")
+            logging.warning("authdicts realm is no dict")
             return False
         
         if isinstance(authdict[realm].get("timestamp", None),str) == False:
-            logging.error("no timestamp")
+            logging.warning("no timestamp")
             return False
         
         if authdict[realm].get("timestamp","").isdecimal() == False:
-            logging.error("Timestamp not a number")
+            logging.warning("Timestamp not a number")
             return False
         timestamp = int(authdict[realm].get("timestamp"))
         if timestamp < int(time.time())-self.request_expire_time:

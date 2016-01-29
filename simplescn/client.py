@@ -199,7 +199,7 @@ class client_client(client_admin, client_safe, client_config):
             if callable(pwcallm) == True:
                 authob = pwcallm(hashpcert, reqob, _reauthcount)
             else:
-                authob = None
+                return False, "no way to input passphrase for authorization", _certtupel[0], _certtupel[1]
             
 
             if authob is None:
@@ -563,7 +563,8 @@ class client_handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "{}; charset=utf-8".format(_type))
         if docache == False:
             self.send_header("Cache-Control", "no-cache")
-            self.send_header('Connection', 'keep-alive')
+            if status == 200:
+                self.send_header('Connection', 'keep-alive')
         if self.headers.get("X-certrewrap") is not None:
             self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
         self.end_headers()
@@ -593,11 +594,11 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - client")
             return
         if self.handle_remote == False and (self.handle_local == False \
-                or not self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]):
+                or self.client_address2[0] not in ["localhost", "127.0.0.1", "::1"]):
             self.send_error(403, "no permission - client")
             return
         
-        if "admin" in getattr(getattr(self, action), "classify", set()):
+        if "admin" in getattr(getattr(self.links["client"], action), "classify", set()):
             #if self.client_cert is None:
             #    self.send_error(403, "no permission (no certrewrap) - admin")
             #    return
@@ -626,6 +627,8 @@ class client_handler(BaseHTTPRequestHandler):
         obdict["clientcert"] = self.client_cert
         obdict["clientcerthash"] = self.client_cert_hash
         obdict["headers"] = self.headers
+        #TODO: send pw request
+        obdict["pwcall_method"] = None#self.headers
         response = self.links["client"].access_core(action, obdict)
 
         if response[0] == False:
@@ -974,16 +977,15 @@ class client_init(object):
                     client_handler.statics[elem]=_staticr.read()
         else:
             client_handler.webgui=False
-        
-        if confm.getb("local"):
-            client_handler.handle_local = True
         if confm.getb("cpwhash") == True:
-            # ensure that password is set when allowing remote access (and local is disabled)
-            if confm.getb("remote") == True and confm.getb("local") == False:
+            client_handler.handle_local = True
+            # ensure that password is set when allowing remote access
+            if confm.getb("remote") == True:
                 client_handler.handle_remote = True
             self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
         elif confm.getb("cpwfile") == True:
-            # ensure that password is set when allowing remote access (and local is disabled)
+            client_handler.handle_local = True
+            # ensure that password is set when allowing remote access
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
             op=open(confm.get("cpwfile"), "r")
@@ -1065,7 +1067,6 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
              "spwfile": ["", str, "<file>: file with password (cleartext)"],
              "noserver": ["False", bool, "deactivate server component (deactivate also remote pw, notify support)"],
-             "local" : ["False", bool, "reachable from localhost (overwrites remote)"],
              "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
              "priority": [str(default_priority), int, "<number>: set priority"],
              "timeout": [str(default_timeout), int, "<number>: set timeout"],

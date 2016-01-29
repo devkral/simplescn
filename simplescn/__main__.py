@@ -158,7 +158,17 @@ def client_gtk():
         pluginm = None
     _gtkclient_init_method(confm, pluginm)
 
-
+def hashpw():
+    from simplescn import dhash
+    import base64
+    if len(sys.argv)<2 or sys.argv[1] in ["--help", "help"]:
+        print("Usage: {} hashpw <pw>/\"random\"".format(sys.argv[0]))
+        return
+    pw = sys.argv[1]
+    if pw == "random":
+        pw = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
+    print("pw: {}, hash: {}".format(pw, dhash(pw)))
+    
 def config_plugin():
     from simplescn.common import overwrite_plugin_config_args, plugin_config_paramhelp, pluginmanager
     pluginpathes = [os.path.join(sharedir, "plugins")]
@@ -216,7 +226,7 @@ def _init_method():
             toexe()
         else:
             print("Not available")
-            print("Available: client, rawclient, server, config_plugin")
+            print("Available: client, rawclient, server, config_plugin", "hashpw")
     else:
         client()
 

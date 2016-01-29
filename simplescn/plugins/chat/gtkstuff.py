@@ -11,6 +11,7 @@ import threading
 import os
 import hashlib
 import shutil
+import logging
 
 def myListBoxCreateWidgetFunc(item, **userdata):
     return item

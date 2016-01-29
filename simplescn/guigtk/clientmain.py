@@ -226,9 +226,10 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                     self.update_serverlist_refid(_hash[4])
 
     def do_requestdo(self, action, **obdict):
-        """ func: update local storage """
-        uselocal = self.builder.get_object("uselocal")
-        if uselocal.get_active() == True:
+        """ func: execute requests """
+        # use_localclient is True if client was set successfully
+        # can force remote or local
+        if (self.use_localclient == True or obdict.get("forcelocal", False) == True) and obdict.get("forceremote", False) == False:
             resp = self.links["client"].access_main(action, **obdict)
         else:
             clienturl = self.builder.get_object("clienturl").get_text().strip().rstrip()
@@ -554,7 +555,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             self.close_clientdia()
             return
         if _hash == "":
-            ret = self.do_requestdo("gethash", address=clurl.get_text())
+            ret = self.do_requestdo("gethash", forcelocal=True, address=clurl.get_text())
             if logcheck(ret,logging.INFO)==False:
                 return
             clhash.set_text(ret[1]["hash"])
@@ -566,7 +567,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                 return
         # deactivate old
         if self.use_localclient == False and self.remoteclient_url != clurl.get_text():
-            self.do_requestdo("requestredirect", activate=False)
+            self.do_requestdo("requestredirect", forceremote=True, activate=False)
         self.remoteclient_url = clurl.get_text()
         self.remoteclient_hash = _hash
         
@@ -575,7 +576,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             ret = self.do_requestdo("requestredirect", activate=True)
         if ret[0] == True or ulocal.get_active() == True: # deactivated if successful or local (always success)
             self.use_localclient = ulocal.get_active()
-        self.close_clientdia()
+            self.close_clientdia()
         
     def client_localtoggle(self,*args):
         toggle=self.builder.get_object("uselocal")
