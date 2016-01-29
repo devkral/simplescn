@@ -502,7 +502,7 @@ class client_server(commonscn):
             port: port number """
         if obdict.get("clientaddress") is None:
             False, "bug: clientaddress is None"
-        if obdict.get("clientaddress")[0] in ["localhost", "127.0.0.1", "::1"]:
+        if obdict.get("clientaddress")[0] in ["127.0.0.1", "::1"]:
             self.wlock.acquire()
             self.spmap[obdict.get("name")] = obdict.get("port")
             self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
@@ -521,7 +521,7 @@ class client_server(commonscn):
             name: service name """
         if obdict.get("clientaddress") is None:
             False, "bug: clientaddress is None"
-        if obdict.get("clientaddress")[0] in ["localhost", "127.0.0.1", "::1"]:
+        if obdict.get("clientaddress")[0] in ["127.0.0.1", "::1"]:
             self.wlock.acquire()
             if obdict["name"] in self.spmap:
                 del self.spmap[obdict["name"]]
@@ -594,7 +594,8 @@ class client_handler(BaseHTTPRequestHandler):
             self.send_error(400, "invalid action - client")
             return
         if self.handle_remote == False and (self.handle_local == False \
-                or self.client_address2[0] not in ["localhost", "127.0.0.1", "::1"]):
+                or self.client_address2[0] not in ["127.0.0.1", "::1"]):
+            print(self.client_address2, self.handle_local)
             self.send_error(403, "no permission - client")
             return
         
@@ -627,7 +628,7 @@ class client_handler(BaseHTTPRequestHandler):
         obdict["clientcert"] = self.client_cert
         obdict["clientcerthash"] = self.client_cert_hash
         obdict["headers"] = self.headers
-        response = self.links["client"].access_main(action, obdict)
+        response = self.links["client"].access_main(action, **obdict)
 
         if response[0] == False:
             error = response[1]
@@ -638,7 +639,7 @@ class client_handler(BaseHTTPRequestHandler):
                     del generror["stacktrace"]
                 jsonnized = json.dumps(gen_result(generror, False))
             else:
-                if self.client_address2[0] not in ["localhost", "127.0.0.1", "::1"]:
+                if self.client_address2[0] not in ["127.0.0.1", "::1"]:
                     generror = generate_error("unknown")
                 ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
                 self.scn_send_answer(500, ob)
@@ -706,7 +707,7 @@ class client_handler(BaseHTTPRequestHandler):
             jsonnized = json.dumps(gen_result(response[1],response[0]))
         except Exception as e:
             error = generate_error("unknown")
-            if self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]:
+            if self.client_address2[0] in ["127.0.0.1", "::1"]:
                 error = generate_error(e)
             ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
             self.scn_send_answer(500, ob)

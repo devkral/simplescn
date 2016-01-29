@@ -224,21 +224,19 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             for _hash in _serverhashes[1]["items"]:
                 if _hash[0]!="default":
                     self.update_serverlist_refid(_hash[4])
-
-    def do_requestdo(self, action, **obdict):
+    def do_requestdo(self, action, forcelocal=False, forceremote=False, **obdict):
         """ func: execute requests """
         # use_localclient is True if client was set successfully
         # can force remote or local
-        if (self.use_localclient == True or obdict.get("forcelocal", False) == True) and obdict.get("forceremote", False) == False:
+        if (self.use_localclient == True or forcelocal == True) and forceremote == False:
             resp = self.links["client"].access_main(action, **obdict)
         else:
-            print(action)
             clienturl = self.builder.get_object("clienturl").get_text().strip().rstrip()
             clienthash = self.builder.get_object("clienthash").get_text().strip().rstrip()
             if clienthash == "":
                 clienthash = None
             try:
-                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action),body=obdict, forcehash=clienthash, forceport=True)
+                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action),body=obdict, forcehash=clienthash, sendclientcert=True, forceport=True)
             except Exception as e:
                 logging.error(e)
                 return False, generate_error(e), isself, self.links["client"].cert_hash
