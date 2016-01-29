@@ -1,9 +1,6 @@
 
-## Alpha 1
-
-## Alpha 2
-* finish redirects (for pw and notify dialog, forgotten)
-* make gtk gui running on windows
+## Alpha 3
+* gtk gui for windows
 * more tests
 
 ## Beta

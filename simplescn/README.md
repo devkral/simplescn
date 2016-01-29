@@ -24,6 +24,9 @@ Its nature lies in the decentral structure.
 This means the user has to verify (server) hashes. This is not hard and is assisted by a friendlist and scn servers, which both use is strongly recommended.
 In contrast to similar solutions it is up to the user putting certificates into the friendlist.
 
+Note:
+rawclient and gtkclient use different config files
+the plugins will use the same config among the different clients except an other configdirectory is given
 
 This is a rewrite of scn.
 It got too complex because of unnecessary features (channels and nodes), too much lowlevel work (an own protocol), focus on gui and a client and serverside account management.
