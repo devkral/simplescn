@@ -440,10 +440,10 @@ class client_safe(object):
     # internal method automatically redirecting
     def use_pwrequest(self, message, requester=None):
         if self.redirect_addr == "" or self.redirect_hash == "":
-            return pwcallmethod(obdict.get("message"), obdict.get("requester"))
+            return pwcallmethod(message, requester)
         else:
             try:#redirect_hash
-                resp = self.do_request(self.redirect_addr, "/client/open_pwrequest",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, forceport=True)
+                resp = self.do_request(self.redirect_addr, "/client/open_pwrequest",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
             except Exception as e:
                 logging.error(e)
                 return None
@@ -455,10 +455,10 @@ class client_safe(object):
     # internal method automatically redirecting
     def use_notify(self, message, requester):
         if self.redirect_addr == "" or self.redirect_hash == "":
-            return pwcallmethod(obdict.get("message"), obdict.get("requester"))
+            return pwcallmethod(message, requester)
         else:
             try:#redirect_hash
-                resp = self.do_request(self.redirect_addr, "/client/open_notify",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, forceport=True)
+                resp = self.do_request(self.redirect_addr, "/client/open_notify",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
             except Exception as e:
                 logging.error(e)
                 return False

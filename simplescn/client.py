@@ -81,7 +81,7 @@ class client_client(client_admin, client_safe, client_config):
         self.validactions.update(client_config.validactions_config)
         self._cache_help = self.cmdhelp()
     
-    # remove, implement in open_pwrequest
+    # remove and implement in open_pwrequest???
     def pw_auth(self, hashpcert, reqob, reauthcount):
         authob = None
         if reauthcount == 0:
@@ -208,7 +208,7 @@ class client_client(client_admin, client_safe, client_config):
             _reauthcount += 1
             auth_parsed[realm] = authob
             sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n",  ""))
-            return self.do_request(con, _path, body=body, forcehash=forcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, _reauthcount=_reauthcount)
+            return self.do_request(con, _path, body=body, forcehash=forcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, sendclientcert=sendclientcert, _reauthcount=_reauthcount)
         else:
             if response.getheader("Content-Length", "").strip().rstrip().isdigit() == False:
                 con.close()
@@ -595,7 +595,6 @@ class client_handler(BaseHTTPRequestHandler):
             return
         if self.handle_remote == False and (self.handle_local == False \
                 or self.client_address2[0] not in ["127.0.0.1", "::1"]):
-            print(self.client_address2, self.handle_local)
             self.send_error(403, "no permission - client")
             return
         

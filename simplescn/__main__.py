@@ -146,6 +146,7 @@ def client_gtk():
 
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
+    # uses different configuration file than rawclient
     confm = configmanager(os.path.join(configpath, "config", "clientgtkgui{}".format(confdb_ending)))
     confm.update(default_client_args, overwrite_client_args)
 

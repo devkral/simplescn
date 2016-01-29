@@ -235,6 +235,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             clienthash = self.builder.get_object("clienthash").get_text().strip().rstrip()
             if clienthash == "":
                 clienthash = None
+            obdict["pwcall_method"] = self.links["client"].pw_auth
             try:
                 resp = self.links["client"].do_request(clienturl, "/client/{}".format(action),body=obdict, forcehash=clienthash, sendclientcert=True, forceport=True)
             except Exception as e:
@@ -546,27 +547,30 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         self.clientwin.grab_focus()
     
     def client_confirm(self,*args):
-        clurl=self.builder.get_object("clienturl")
-        clhash=self.builder.get_object("clienthash")
-        ulocal=self.builder.get_object("uselocal")
-        _hash=clhash.get_text().strip(" ").rstrip(" ")
-        if clurl.get_text().strip() == "":
+        clurl = self.builder.get_object("clienturl")
+        clhash = self.builder.get_object("clienthash")
+        ulocal = self.builder.get_object("uselocal")
+        _hash = clhash.get_text().strip(" ").rstrip(" ")
+        _url = clurl.get_text().strip().rstrip()
+        if _url == "":
             self.close_clientdia()
             return
         if _hash == "":
-            ret = self.do_requestdo("gethash", forcelocal=True, address=clurl.get_text())
-            if logcheck(ret,logging.INFO)==False:
+            ret = self.do_requestdo("gethash", forcelocal=True, address=_url)
+            if logcheck(ret, logging.INFO) == False:
                 return
             clhash.set_text(ret[1]["hash"])
             return
         if ulocal.get_active() == False:
-            if clurl.get_text() == "":
+            if _url == "":
                 return
-            if check_hash(clhash.get_text()) == False:
+            if check_hash(_hash) == False:
                 return
         # deactivate old
-        if self.use_localclient == False and self.remoteclient_url != clurl.get_text():
-            self.do_requestdo("requestredirect", forceremote=True, activate=False)
+        if self.use_localclient == False and self.remoteclient_url != _url:
+            ret = self.do_requestdo("requestredirect", forceremote=True, activate=False)
+            if ret[0] == False:
+                logging.debug("first requestredirect failed")
         self.remoteclient_url = clurl.get_text()
         self.remoteclient_hash = _hash
         
