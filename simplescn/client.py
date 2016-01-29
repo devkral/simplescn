@@ -89,7 +89,7 @@ class client_client(client_admin, client_safe, client_config):
         if authob is None and reauthcount <= 3:
             if reqob.get("realm") is not None:
                 self.links["auth_client"].delauth(hashpcert, reqob["realm"])
-            authob = self.links["auth_client"].auth(pwcallmethod("Please enter password for {}".format(reqob["realm"])), reqob, hashpcert, hashpcert)
+            authob = self.links["auth_client"].auth(self.use_pwrequest("Please enter password for {}".format(reqob["realm"])), reqob, hashpcert, hashpcert)
         return authob
 
     def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
@@ -427,7 +427,7 @@ class client_client(client_admin, client_safe, client_config):
             if "noplugin" in getattr(getattr(self, action), "classify", set()):
                 return False, "{} tried to use noplugin protected methods".format(requester)
             if "admin" in getattr(getattr(self, action), "classify", set()):
-                if requester is None or notify('"{}" wants admin permissions\nAllow?'.format(requester)):
+                if requester is None or self.use_notify('"{}" wants admin permissions\nAllow?'.format(requester)):
                     return False, "no permission"
             return self.access_core(action, obdict)
         else:
@@ -627,9 +627,7 @@ class client_handler(BaseHTTPRequestHandler):
         obdict["clientcert"] = self.client_cert
         obdict["clientcerthash"] = self.client_cert_hash
         obdict["headers"] = self.headers
-        #TODO: send pw request
-        obdict["pwcall_method"] = None#self.headers
-        response = self.links["client"].access_core(action, obdict)
+        response = self.links["client"].access_main(action, obdict)
 
         if response[0] == False:
             error = response[1]
@@ -983,31 +981,22 @@ class client_init(object):
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
             self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
-        elif confm.getb("cpwfile") == True:
+        elif confm.getb("cpw") == True:
             client_handler.handle_local = True
             # ensure that password is set when allowing remote access
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
-            op=open(confm.get("cpwfile"), "r")
-            pw = op.readline().strip().rstrip()
-            self.links["auth_server"].init_realm("client", dhash(pw))
-            op.close()
+            self.links["auth_server"].init_realm("client", dhash(confm.get("cpw")))
         
         if confm.getb("apwhash") == True:
             self.links["auth_server"].init_realm("admin", confm.get("apwhash"))
-        elif confm.getb("apwfile") == True:
-            op = open(confm.get("apwfile"), "r")
-            pw = op.readline().strip().rstrip()
-            self.links["auth_server"].init_realm("admin", dhash(pw))
-            op.close()
+        elif confm.getb("apw") == True:
+            self.links["auth_server"].init_realm("admin", dhash(confm.get("apw")))
             
         if confm.getb("spwhash") == True:
             self.links["auth_server"].init_realm("server", confm.get("spwhash"))
-        elif confm.getb("spwfile") == True:
-            op = open(confm.get("spwfile"), "r")
-            pw = op.readline().strip().rstrip()
-            self.links["auth_server"].init_realm("server", dhash(pw))
-            op.close()
+        elif confm.getb("spw") == True:
+            self.links["auth_server"].init_realm("server", dhash(confm.get("spw")))
         
 
         with open(_cpath+"_name.txt", 'r') as readclient:
@@ -1060,12 +1049,12 @@ class client_init(object):
 #specified seperately because of chicken egg problem
 #"config":default_configdir
 default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
-             "cpwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
-             "cpwfile": ["", str, "<file>: file with password (cleartext)"],
-             "apwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
-             "apwfile": ["", str, "<file>: file with password (cleartext)"],
-             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
-             "spwfile": ["", str, "<file>: file with password (cleartext)"],
+             "cpwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than cpw (needed for remote control)"],
+             "cpw": ["", str, "<pw>: password (cleartext) (needed for remote control)"],
+             "apwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than apw"],
+             "apw": ["", str, "<pw>: password (cleartext)"],
+             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than spw"],
+             "spw": ["", str, "<pw>: password (cleartext)"],
              "noserver": ["False", bool, "deactivate server component (deactivate also remote pw, notify support)"],
              "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
              "priority": [str(default_priority), int, "<number>: set priority"],

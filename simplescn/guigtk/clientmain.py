@@ -232,6 +232,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         if (self.use_localclient == True or obdict.get("forcelocal", False) == True) and obdict.get("forceremote", False) == False:
             resp = self.links["client"].access_main(action, **obdict)
         else:
+            print(action)
             clienturl = self.builder.get_object("clienturl").get_text().strip().rstrip()
             clienthash = self.builder.get_object("clienthash").get_text().strip().rstrip()
             if clienthash == "":
@@ -573,9 +574,14 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         
         # activate new if it is remote
         if ulocal.get_active() == False:
-            ret = self.do_requestdo("requestredirect", activate=True)
-        if ret[0] == True or ulocal.get_active() == True: # deactivated if successful or local (always success)
-            self.use_localclient = ulocal.get_active()
+            ret = self.do_requestdo("requestredirect", forceremote=True, activate=True)
+            if ret[0] == False:
+                logging.error(ret[1])
+                return
+            self.use_localclient = False
+            self.close_clientdia()
+        else:
+            self.use_localclient = True
             self.close_clientdia()
         
     def client_localtoggle(self,*args):

@@ -437,7 +437,7 @@ class client_safe(object):
         temp = notify(obdict.get("message"), obdict.get("requester"))
         return True, {"result": temp}
         
-    # internal method
+    # internal method automatically redirecting
     def use_pwrequest(self, message, requester=None):
         if self.redirect_addr == "" or self.redirect_hash == "":
             return pwcallmethod(obdict.get("message"), obdict.get("requester"))
@@ -452,7 +452,7 @@ class client_safe(object):
                 return None
             return resp[1].get("pw")
         
-    # internal method
+    # internal method automatically redirecting
     def use_notify(self, message, requester):
         if self.redirect_addr == "" or self.redirect_hash == "":
             return pwcallmethod(obdict.get("message"), obdict.get("requester"))
