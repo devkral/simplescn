@@ -257,6 +257,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         """ func: intern pushint """
         self.statusbar.pop(messageid)
         self.hashstatusbar.pop(messageid)
+        return False
 
     def pushmanage(self,*args):
         threading.Thread(target=self.pushint, daemon=True).start()
@@ -284,6 +285,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         scrollmark = self.debugbuffer.get_mark("scroll")
         self.debugview.scroll_to_mark(scrollmark,0.4,True,0,1)
         self.pushmanage()
+        return False
     
     def _verifyserver(self,serverurl):
         """ func: update verifystateserver widget

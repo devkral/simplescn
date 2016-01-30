@@ -15,7 +15,6 @@ class client_dialogs(object):
             message: message for the password dialog
             requester: plugin calling the password dialog (default: None=main application) """
         if obdict.get("clientcerthash") is None or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash"):
-            print(obdict.get("clientcerthash") is None, self.receive_redirect_hash == "", self.receive_redirect_hash != obdict.get("clientcerthash"))
             return False, "auth failed"
         temp = pwcallmethod(obdict.get("message"), obdict.get("requester"))
         return True, {"pw": temp}
@@ -35,7 +34,6 @@ class client_dialogs(object):
         
     # internal method automatically redirecting
     def use_pwrequest(self, message, requester=None):
-        print("mee", self.redirect_addr, self.redirect_hash)
         if self.redirect_addr == "" or self.redirect_hash == "":
             return pwcallmethod(message, requester)
         else:
@@ -47,7 +45,6 @@ class client_dialogs(object):
             except Exception as e:
                 logging.error(e)
                 return None
-            print("result", resp)
             if resp[0] == False:
                 logging.error(resp[1])
                 return None

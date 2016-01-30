@@ -626,7 +626,6 @@ class client_handler(BaseHTTPRequestHandler):
 
         if response[0] == False:
             error = response[1]
-            print(error)
             generror = generate_error(error)
             
             if isinstance(error, (str, AddressFail, VALError)):

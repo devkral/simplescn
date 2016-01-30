@@ -1,13 +1,13 @@
-
+#! /usr/bin/env python3
 # bsd3, see LICENSE.txt
 
 import os
 import gi
+from threading import RLock, Lock
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GdkPixbuf, GLib
+from gi.repository import Gtk, GdkPixbuf, GLib, Gdk
 
 basedir = os.path.dirname(__file__)
-
 parentlist = []
 
 def get_parent():
@@ -17,12 +17,10 @@ def get_parent():
         return None
     return parentlist[-1]
 
-def gtkclient_notify(msg, requester=None):
+def _gtkclient_notify(ret, msg, requester=None):
     """ func: gtk notification dialog
         return: True or False
         requester: plugin which requests the dialog (None: for main) """
-    #mut = GLib.MainContext.default()
-    #mut.acquire()
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.svg"))
     if icon:
         dia = Gtk.Dialog(parent=get_parent(), title="Notify", icon=icon)
@@ -38,21 +36,23 @@ def gtkclient_notify(msg, requester=None):
     box.pack_end(Gtk.Label(msg), True, True, 0)
     box.show_all()
     dia.present()
-    #mut.release()
-    ret = dia.run() > 0
-    #mut.acquire()
+    ret[0] = dia.run() > 0
     dia.destroy()
-    #mut.release()
-    return ret
+    #ret[1].release()
+    return False
     
+def gtkclient_notify(msg, requester=None):
+    ret = [None]
+    #TODO: find a threadsafe way to open dialog
+    #Gdk.threads_add_idle(GLib.PRIORITY_HIGH, _gtkclient_notify, ret, msg, requester)
+    _gtkclient_notify(ret, msg, requester)
+    return ret[0]
 
-def gtkclient_pw(msg, requester=None):
+def _gtkclient_pw(ret, msg, requester=None):
     """ func: gtk password dialog
         return: None or pw
         requester: plugin which requests the dialog (None: for main)
     """
-    #mut = GLib.MainContext.default()
-    #mut.acquire()
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.svg"))
     if icon:
         dia = Gtk.Dialog(title="Password", parent=get_parent(), icon=icon, destroy_with_parent=False)
@@ -71,14 +71,24 @@ def gtkclient_pw(msg, requester=None):
     box.show_all()
     dia.present()
     
-    #mut.release()
-    ret = dia.run()
-    #mut.acquire()
+    retval = dia.run()
     pw = pwentry.get_text()
     dia.destroy()
-    #mut.release()
     
-    if ret == 1:
-        return pw
+    if retval == 1:
+        ret[0] = pw
     else:
-        return ""
+        ret[0] = ""
+    #ret[1].release()
+    return False
+
+
+def gtkclient_pw(msg, requester=None):
+    ret = [None]
+    #TODO: find a threadsafe way to open dialog
+    #Gdk.threads_add_idle(GLib.PRIORITY_HIGH, _gtkclient_pw, ret, msg, requester)
+    _gtkclient_pw(ret, msg, requester)
+    return ret[0]
+    
+
+
