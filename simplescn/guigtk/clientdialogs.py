@@ -4,7 +4,7 @@
 import os
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GdkPixbuf
+from gi.repository import Gtk, GdkPixbuf, GLib
 
 basedir = os.path.dirname(__file__)
 
@@ -21,6 +21,8 @@ def gtkclient_notify(msg, requester=None):
     """ func: gtk notification dialog
         return: True or False
         requester: plugin which requests the dialog (None: for main) """
+    #mut = GLib.MainContext.default()
+    #mut.acquire()
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.svg"))
     if icon:
         dia = Gtk.Dialog(parent=get_parent(), title="Notify", icon=icon)
@@ -36,8 +38,11 @@ def gtkclient_notify(msg, requester=None):
     box.pack_end(Gtk.Label(msg), True, True, 0)
     box.show_all()
     dia.present()
+    #mut.release()
     ret = dia.run() > 0
+    #mut.acquire()
     dia.destroy()
+    #mut.release()
     return ret
     
 
@@ -46,6 +51,8 @@ def gtkclient_pw(msg, requester=None):
         return: None or pw
         requester: plugin which requests the dialog (None: for main)
     """
+    #mut = GLib.MainContext.default()
+    #mut.acquire()
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.svg"))
     if icon:
         dia = Gtk.Dialog(title="Password", parent=get_parent(), icon=icon, destroy_with_parent=False)
@@ -63,9 +70,14 @@ def gtkclient_pw(msg, requester=None):
     box.pack_end(pwentry, True, True, 0)
     box.show_all()
     dia.present()
+    
+    #mut.release()
     ret = dia.run()
+    #mut.acquire()
     pw = pwentry.get_text()
     dia.destroy()
+    #mut.release()
+    
     if ret == 1:
         return pw
     else:

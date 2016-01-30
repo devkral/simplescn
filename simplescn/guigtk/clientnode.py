@@ -16,7 +16,7 @@ from simplescn import sharedir, isself, check_name, security_states, scnparse_ur
 
 
 
-class _gtkclient_node(Gtk.Builder,set_parent_template):
+class _gtkclient_node(Gtk.Builder, set_parent_template):
     isregistered = False
     sfilter = None
     page_names = None
@@ -36,11 +36,6 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
         self.add_from_file(os.path.join(sharedir, "guigtk", "clientnode.ui"))
 
     def init(self, page="info"):
-        if self.resdict.get("forcehash") in open_hashes:
-            if self.get_address() is not None:
-                open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddresse").set_text(self.get_address())
-            else:
-                open_hashes[self.resdict.get("forcehash")][0].get_object("chooseaddresse").set_text("")
 
         self.win = self.get_object("nodewin")
         
@@ -67,7 +62,11 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
     def update_info(self, *args):
         _address = self.get_address()
         if _address is not None:
-            infoob = self.do_requestdo("info", address=_address)
+            if self.info is not None:
+                infoob = self.info
+                self.info = None
+            else:
+                infoob = self.do_requestdo("info", address=_address)
             if infoob[0] == False:
                 if self.resdict.get("forcehash") is None:
                     logging.error("no hash found")
@@ -78,21 +77,18 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
                     return
                 for _tsaddr, _type in travret[1]["items"]:
                     try:
-                        soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        soc.connect(scnparse_url(_tsaddr))
-                        soc.close()
+                        # update info for local do_requestdo
                         self.resdict["traverseserveraddr"] = _tsaddr
                         infoob = self.do_requestdo("info", address=_address)
                         break
                     except Exception:
                         pass
-                infoob = self.do_requestdo("info", address=_address)
                 if infoob[0] == False:
                     return
             self.info = infoob
             
             if "forcehash" not in self.resdict:
-                self.resdict["forcehash"] = self.info[3]
+                self.resdict["forcehash"] = infoob[3]
             
         else:
             infoob = self.do_requestdo("getlocal", hash=self.resdict.get("forcehash"))
@@ -571,18 +567,20 @@ class _gtkclient_node(Gtk.Builder,set_parent_template):
 
 
 def gtkclient_node(links, _address, page="info", **obdict):
+    infoob = None
     if obdict.get("forcehash") is None and _address is None:
         return None
     elif obdict.get("forcehash") is None:
-        ret = links["gtkclient"].do_requestdo("info", address=_address)
-        if ret[0] == False:
+        if infoob is None:
+            infoob = links["gtkclient"].do_requestdo("info", address=_address)
+        if infoob[0] == False:
             return None
-        self.info = ret
-        obdict["forcehash"] = ret[3]
+        obdict["forcehash"] = infoob[3]
     
     ret = None
     if obdict.get("forcehash") not in open_hashes:
         ret = _gtkclient_node(links, obdict)
+        ret.info = infoob
         open_hashes[obdict.get("forcehash")] = [ret, set()]
         if _address is not None:
             open_hashes[obdict.get("forcehash")][1].add(_address)

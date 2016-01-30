@@ -38,7 +38,6 @@ from http.client import HTTPSConnection
 from http.server import HTTPServer
 import socketserver
 
-
 logformat = '%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'
 
 ## sizes ##
@@ -200,6 +199,7 @@ def logcheck(ret, level = logging.DEBUG):
             logging.root._log(level, ret[1], [])
         return False
 
+
 def inp_passw_cmd(msg, requester=None):
     if requester:
         inp = getpass(msg+" (from {}):\n".format(requester))
@@ -229,8 +229,6 @@ notifyinst = notify_cmd
 # returns True, False, None
 def notify(msg, requester=None):
     return notifyinst(msg, requester)
-
-
 
 ##### init ######
 
@@ -455,7 +453,7 @@ class scnauth_client(object):
     def auth(self, pw, authreq_ob, serverpubcert_hash, saveid=None):
         realm = authreq_ob.get("realm")
         algo = authreq_ob.get("algo")
-        if None in [realm, algo, pw]:
+        if None in [realm, algo, pw] or pw == "":
             return None
         pre = dhash((dhash(pw, algo), realm), algo)
         if saveid is not None:
@@ -786,38 +784,46 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
         ret = tmp.hexdigest()
     return ret
 
-# signals that method not be accessed by plugins
+# signals that method not be accessed by plugins (access_safe)
 def classify_noplugin(func):
     if hasattr(func, "classify") == False:
-        func.classify=set()
+        func.classify = set()
     func.classify.add("noplugin")
     return func
-
 
 # signals that method needs admin permission
 def classify_admin(func):
     if hasattr(func, "classify") == False:
-        func.classify=set()
+        func.classify = set()
     func.classify.add("admin")
     return func
 # signals that method only access internal methods and send no requests (e.g. do_request)
 def classify_local(func):
     if hasattr(func, "classify") == False:
-        func.classify=set()
+        func.classify = set()
     func.classify.add("local")
     return func
-    
+
+
+# signals that method should have no pwcheck
+# redirect overrides handle_local, handle_remote
+def classify_redirect(func):
+    if hasattr(func, "classify") == False:
+        func.classify = set()
+    func.classify.add("redirect")
+    return func
+
 # signals that method is experimental
 def classify_experimental(func):
     if hasattr(func, "classify") == False:
-        func.classify=set()
+        func.classify = set()
     func.classify.add("experimental")
     return func
 
 # signals that method is insecure
 def classify_insecure(func):
     if hasattr(func, "classify") == False:
-        func.classify=set()
+        func.classify = set()
     func.classify.add("insecure")
     return func
 
@@ -825,7 +831,7 @@ def classify_insecure(func):
 #access = accessing client/server
 def classify_access(func):
     if hasattr(func, "classify") == False:
-        func.classify=set()
+        func.classify = set()
     func.classify.add("access")
     return func
 

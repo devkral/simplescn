@@ -224,6 +224,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             for _hash in _serverhashes[1]["items"]:
                 if _hash[0]!="default":
                     self.update_serverlist_refid(_hash[4])
+
     def do_requestdo(self, action, forcelocal=False, forceremote=False, **obdict):
         """ func: execute requests """
         # use_localclient is True if client was set successfully
@@ -288,7 +289,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         """ func: update verifystateserver widget
             return: ask information
             serverurl: server url """ 
-        _veri=self.builder.get_object("veristateserver")
+        _veri = self.builder.get_object("veristateserver")
         if serverurl == "":
             _veri.set_text("")
             return None
@@ -456,19 +457,19 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         _address=self.builder.get_object("enternodeurl").get_text().strip(" ").rstrip(" ")
         _hasho=self.builder.get_object("enternodehash")
         _hash=_hasho.get_text().strip(" ").rstrip(" ")
-        if _hash=="":
+        if _hash == "":
             ret = self.do_requestdo("gethash", address=_address)
             if logcheck(ret,logging.INFO)==False:
                 return
             _hasho.set_text(ret[1]["hash"])
             return
-        if check_hash(_hash)==False:
+        if check_hash(_hash) == False:
             logging.info("hash wrong")
             return
-        if _address=="":
+        if _address == "":
             logging.info("address wrong")
             return
-        ret=self.do_requestdo("info",hash=_hash)
+        ret = self.do_requestdo("info",hash=_hash)
         if logcheck(ret, logging.ERROR)==False:
             return
         self.set_curnode(_address, ret[1]["name"], _hash, None)
@@ -568,21 +569,29 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                 return
         # deactivate old
         if self.use_localclient == False and self.remoteclient_url != _url:
-            ret = self.do_requestdo("requestredirect", forceremote=True, activate=False)
+            ret = self.do_requestdo("delredirect", forceremote=True)
             if ret[0] == False:
-                logging.debug("first requestredirect failed")
+                logging.debug("delredirect failed")
+            self.links["client"].receive_redirect_hash = ""
         self.remoteclient_url = clurl.get_text()
         self.remoteclient_hash = _hash
-        
+        # get local port
+        _showret = self.do_requestdo("show", forcelocal=True)
+        if _showret[0] == False:
+            logging.error("Error: redirect not possible; servercomponent of client not active")
+            self.close_clientdia()
+            return
         # activate new if it is remote
         if ulocal.get_active() == False:
-            ret = self.do_requestdo("requestredirect", forceremote=True, activate=True)
+            ret = self.do_requestdo("addredirect", forceremote=True, port=_showret[1].get("port"))
             if ret[0] == False:
                 logging.error(ret[1])
                 return
+            self.links["client"].receive_redirect_hash = _hash
             self.use_localclient = False
             self.close_clientdia()
         else:
+            self.links["client"].receive_redirect_hash = ""
             self.use_localclient = True
             self.close_clientdia()
         

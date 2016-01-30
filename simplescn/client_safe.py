@@ -1,11 +1,12 @@
 
 #license: bsd3, see LICENSE.txt
 import ssl
-from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_experimental, classify_local, pwcallmethod, notify
+import logging
+from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_experimental, classify_local
 
 class client_safe(object):
     
-    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice", "open_pwrequest","open_notify"}
+    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
 
     hashdb = None
     links = None
@@ -207,8 +208,8 @@ class client_safe(object):
         else:
             _forcehash = self.cert_hash
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
-    
+        ret= self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
+        return ret
     
     @check_argsdeco(optional={"address": str})
     def cap(self, obdict):
@@ -413,57 +414,3 @@ class client_safe(object):
             return False, "reference does not exist: {}".format(obdict["reference"])
         return True, {"items":temp, "map": ["name","hash","type","priority","security","certreferenceid"]}
     
-    @check_argsdeco({"message": str}, optional={"requester": str})
-    @classify_local
-    def open_pwrequest(self, obdict):
-        """ func: open password dialog
-            return: pw or None, or error when not allowed
-            message: message for the password dialog
-            requester: plugin calling the password dialog (default: None=main application) """
-        if obdict.get("clientcerthash","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash",""):
-            return False, "auth failed"
-        temp = pwcallmethod(obdict.get("message"), obdict.get("requester"))
-        return True, {"pw": temp}
-
-    @check_argsdeco({"message": str}, optional={"requester": str})
-    @classify_local
-    def open_notify(self, obdict):
-        """ func: open notification dialog
-            return: True or False, or error when not allowed
-            message: message for the notification dialog
-            requester: plugin calling the notification dialog (default: None=main application) """
-        if obdict.get("clientcerthash","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash",""):
-            return False, "auth failed"
-        temp = notify(obdict.get("message"), obdict.get("requester"))
-        return True, {"result": temp}
-        
-    # internal method automatically redirecting
-    def use_pwrequest(self, message, requester=None):
-        if self.redirect_addr == "" or self.redirect_hash == "":
-            return pwcallmethod(message, requester)
-        else:
-            try:#redirect_hash
-                resp = self.do_request(self.redirect_addr, "/client/open_pwrequest",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
-            except Exception as e:
-                logging.error(e)
-                return None
-            if resp[0] == False:
-                logging.error(resp[1])
-                return None
-            return resp[1].get("pw")
-        
-    # internal method automatically redirecting
-    def use_notify(self, message, requester):
-        if self.redirect_addr == "" or self.redirect_hash == "":
-            return pwcallmethod(message, requester)
-        else:
-            try:#redirect_hash
-                resp = self.do_request(self.redirect_addr, "/client/open_notify",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
-            except Exception as e:
-                logging.error(e)
-                return False
-            if resp[0] == False:
-                logging.error(resp[1])
-                return False
-            return resp[1].get("result")
-            

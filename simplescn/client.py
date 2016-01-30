@@ -18,6 +18,7 @@ from urllib import parse
 from simplescn.client_admin import client_admin
 from simplescn.client_safe import client_safe
 from simplescn.client_config import client_config
+from simplescn.dialogs import client_dialogs
 
 
 from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pwcallmethod, rw_socket, notify, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access
@@ -33,7 +34,7 @@ reference_header = \
 "Authorization": 'scn {}',
 "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
-class client_client(client_admin, client_safe, client_config):
+class client_client(client_admin, client_safe, client_config, client_dialogs):
     name = None
     cert_hash = None
     sslcont = None
@@ -49,6 +50,7 @@ class client_client(client_admin, client_safe, client_config):
     validactions = {"cmd_plugin", "remember_auth" }
     
     def __init__(self, _name, _pub_cert_hash, _certdbpath, certfpath, _links):
+        client_dialogs.__init__(self)
         client_admin.__init__(self)
         client_safe.__init__(self)
         client_config.__init__(self)
@@ -76,21 +78,12 @@ class client_client(client_admin, client_safe, client_config):
                 
         #self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
         # update self.validactions
+        self.validactions.update(client_dialogs.validactions_dialogs)
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
         self.validactions.update(client_config.validactions_config)
         self._cache_help = self.cmdhelp()
     
-    # remove and implement in open_pwrequest???
-    def pw_auth(self, hashpcert, reqob, reauthcount):
-        authob = None
-        if reauthcount == 0:
-            authob = self.links["auth_client"].reauth(hashpcert, reqob, hashpcert)
-        if authob is None and reauthcount <= 3:
-            if reqob.get("realm") is not None:
-                self.links["auth_client"].delauth(hashpcert, reqob["realm"])
-            authob = self.links["auth_client"].auth(self.use_pwrequest("Please enter password for {}".format(reqob["realm"])), reqob, hashpcert, hashpcert)
-        return authob
 
     def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
         """ func: use this method to communicate with clients/servers """
@@ -593,11 +586,12 @@ class client_handler(BaseHTTPRequestHandler):
         if action not in self.links["client"].validactions:
             self.send_error(400, "invalid action - client")
             return
-        if self.handle_remote == False and (self.handle_local == False \
-                or self.client_address2[0] not in ["127.0.0.1", "::1"]):
+        # redirect overrides handle_local, handle_remote
+        if self.handle_remote == False and \
+        "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and \
+        (self.handle_local == False or self.client_address2[0] not in ["127.0.0.1", "::1"]):
             self.send_error(403, "no permission - client")
             return
-        
         if "admin" in getattr(getattr(self.links["client"], action), "classify", set()):
             #if self.client_cert is None:
             #    self.send_error(403, "no permission (no certrewrap) - admin")
@@ -608,7 +602,8 @@ class client_handler(BaseHTTPRequestHandler):
                 realm = "client"
         else:
             realm = "client"
-        if self.links["auth_server"].verify(realm, self.auth_info) == False:
+        # if redirect bypass
+        if "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and self.links["auth_server"].verify(realm, self.auth_info) == False:
             authreq = self.links["auth_server"].request_auth(realm)
             ob = bytes(json.dumps(authreq), "utf-8")
             self.scn_send_answer(401, ob)
@@ -631,8 +626,9 @@ class client_handler(BaseHTTPRequestHandler):
 
         if response[0] == False:
             error = response[1]
+            print(error)
             generror = generate_error(error)
-                
+            
             if isinstance(error, (str, AddressFail, VALError)):
                 if isinstance(error, str) == False:
                     del generror["stacktrace"]

@@ -1,5 +1,6 @@
 
 ## Alpha 3
+* work around broken gtk multithreading
 * gtk gui for windows
 * more tests
 
