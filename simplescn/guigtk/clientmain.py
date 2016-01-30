@@ -932,7 +932,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         gtkclient_init.run=False
         self.win.destroy()
 
-def open_gtk_node(_address, forcehash=None, page=0, requester=None):
+def open_gtk_node(_address, forcehash=None, page=0, requester=""):
     """ plugin: open a node window
         forcehash: shall a certification hash be enforced
         page: name or number of page
@@ -943,16 +943,16 @@ def open_gtk_pwcall_plugin(msg, requester):
     """ plugin: open a password dialog
         return: pw or None
         requester: requesting plugin """
-    if requester:
+    if requester not in ["", None]:
         return gtkclient_pw(msg, requester)
     else:
         return None
     
-def open_gtk_notify_plugin(msg, requester=None):
+def open_gtk_notify_plugin(msg, requester):
     """ plugin: open a notification dialog
         return: True or False
         requester: requesting plugin """
-    if requester:
+    if requester not in ["", None]:
         return gtkclient_notify(msg, requester)
     else:
         return None

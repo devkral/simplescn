@@ -1,6 +1,7 @@
 
+
 ## Alpha 3
-* work around broken gtk multithreading
+*requester should be "" instead of None
 * gtk gui for windows
 * more tests
 

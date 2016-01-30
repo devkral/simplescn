@@ -272,6 +272,8 @@ class configmanager(object):
         return ret
 
 def pluginresources_creater(_dict, requester):
+    if requester in ["", None]:
+        return None #crash instead
     def wrap(res):
         ob = _dict.get(res)
         if ob is None:

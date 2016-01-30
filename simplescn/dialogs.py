@@ -16,7 +16,7 @@ class client_dialogs(object):
             requester: plugin calling the password dialog (default: None=main application) """
         if obdict.get("clientcerthash") is None or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash"):
             return False, "auth failed"
-        temp = pwcallmethod(obdict.get("message"), obdict.get("requester"))
+        temp = pwcallmethod(obdict.get("message"), obdict.get("requester", ""))
         return True, {"pw": temp}
 
     @check_argsdeco({"message": str}, optional={"requester": str})
@@ -29,19 +29,16 @@ class client_dialogs(object):
             requester: plugin calling the notification dialog (default: None=main application) """
         if obdict.get("clientcerthash","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash",""):
             return False, "auth failed"
-        temp = notify(obdict.get("message"), obdict.get("requester"))
+        temp = notify(obdict.get("message"), obdict.get("requester", ""))
         return True, {"result": temp}
         
     # internal method automatically redirecting
-    def use_pwrequest(self, message, requester=None):
+    def use_pwrequest(self, message, requester=""):
         if self.redirect_addr == "" or self.redirect_hash == "":
             return pwcallmethod(message, requester)
         else:
             try:
-                if requester:
-                    resp = self.do_request(self.redirect_addr, "/client/open_pwrequest",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
-                else:
-                    resp = self.do_request(self.redirect_addr, "/client/open_pwrequest",body={"message": message}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
+                resp = self.do_request(self.redirect_addr, "/client/open_pwrequest",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
             except Exception as e:
                 logging.error(e)
                 return None
@@ -51,15 +48,12 @@ class client_dialogs(object):
             return resp[1].get("pw")
         
     # internal method automatically redirecting
-    def use_notify(self, message, requester):
+    def use_notify(self, message, requester=""):
         if self.redirect_addr == "" or self.redirect_hash == "":
             return pwcallmethod(message, requester)
         else:
             try:
-                if requester:
-                    resp = self.do_request(self.redirect_addr, "/client/open_notify",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
-                else:
-                    resp = self.do_request(self.redirect_addr, "/client/open_notify",body={"message": message}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
+                resp = self.do_request(self.redirect_addr, "/client/open_notify",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
             except Exception as e:
                 logging.error(e)
                 return None

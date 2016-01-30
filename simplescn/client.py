@@ -233,7 +233,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
 
 
 
-    def use_plugin(self, address, plugin, paction, forcehash=None, originalcert=None, forceport=False, requester=None, traverseserveraddr=None):
+    def use_plugin(self, address, plugin, paction, forcehash=None, originalcert=None, forceport=False, requester="", traverseserveraddr=None):
         """ use this method to communicate with plugins """
         _addr = scnparse_url(address, force_port=forceport)
         con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("timeout"))
@@ -408,7 +408,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
     # client_address=client_address
     @generate_error_deco
     @classify_access
-    def access_safe(self, action, requester=None, **obdict):
+    def access_safe(self, action, requester="", **obdict):
         if "access" in getattr(getattr(self, action), "classify", set()):
             return False, "actions: 'access methods not allowed in access_safe"
         def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
@@ -420,7 +420,8 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             if "noplugin" in getattr(getattr(self, action), "classify", set()):
                 return False, "{} tried to use noplugin protected methods".format(requester)
             if "admin" in getattr(getattr(self, action), "classify", set()):
-                if requester is None or self.use_notify('"{}" wants admin permissions\nAllow?'.format(requester)):
+                # use_notify returns in error case None or False both evaluated as False (when not checking with ==)
+                if requester in ["", None] or self.use_notify('"{}" wants admin permissions\nAllow?'.format(requester)):
                     return False, "no permission"
             return self.access_core(action, obdict)
         else:
