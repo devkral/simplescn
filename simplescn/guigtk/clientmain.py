@@ -983,7 +983,7 @@ class gtkclient_init(client.client_init):
         while gtkclient_init.run == True:
             Gtk.main_iteration_do(True)
 
-def _gtkclient_init_method(confm, pluginm):
+def _init_method_gtkclient(confm, pluginm):
     global cm
     cm = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:

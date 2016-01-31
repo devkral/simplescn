@@ -2,17 +2,17 @@
 #license: bsd3, see LICENSE.txt
 
 import sys, os
+import logging
+import signal
 
 if __name__ == "__main__":
     _tpath = os.path.realpath(os.path.dirname(sys.modules[__name__].__file__))
     _tpath = os.path.dirname(_tpath)
     sys.path.insert(0, _tpath)
 
-import logging
-import signal
 
 import simplescn
-from simplescn import sharedir, confdb_ending,logformat
+from simplescn import sharedir, confdb_ending, logformat
 from simplescn.common import scnparse_args
 import simplescn.client
 import simplescn.server
@@ -37,27 +37,26 @@ def server():
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     # path to config folder of plugins
     configpath_plugins = os.path.join(configpath, "config", "plugins")
-    
+
     #should be gui agnostic so specify here
     if overwrite_server_args["webgui"][0] != "False":
         server_handler.webgui = True
-        #load static files  
+        #load static files
         for elem in os.listdir(os.path.join(sharedir, "static")):
             with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
-                server_handler.statics[elem]=_staticr.read()
+                server_handler.statics[elem] = _staticr.read()
                 #against ssl failures
                 if len(server_handler.statics[elem]) == 0:
                     server_handler.statics[elem] = b" "
     else:
         server_handler.webgui = False
 
-    cm = server_init(configpath ,**overwrite_server_args)
+    cm = server_init(configpath, **overwrite_server_args)
     if overwrite_server_args["useplugins"][0] != "False":
         os.makedirs(configpath_plugins, 0o750, True)
-    
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "server")
         if overwrite_server_args["webgui"] != "False":
-            pluginm.interfaces+=["web",]
+            pluginm.interfaces += ["web",]
         cm.links["server_server"].pluginmanager = pluginm
         pluginm.resources["access"] = cm.links["server_server"].access_server
         pluginm.init_plugins()
@@ -66,7 +65,6 @@ def server():
             if hasattr(plugin, "allowed_plugin_broadcasts"):
                 for _broadfuncname in getattr(plugin, "allowed_plugin_broadcasts"):
                     _broadc.insert((_name, _broadfuncname))
-        
     logging.debug("server initialized. Enter serveloop")
     cm.serve_forever_block()
 
@@ -85,21 +83,21 @@ def rawclient():
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     # path to config folder of plugins
     configpath_plugins = os.path.join(configpath, "config", "plugins")
-    
+
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
-    
+
     confm = configmanager(os.path.join(configpath, "config", "clientmain{}".format(confdb_ending)))
     confm.update(default_client_args, overwrite_client_args)
     if confm.getb("noplugins") == False:
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
-        if confm.getb("webgui") != False:
+        if confm.getb("webgui") == True:
             pluginm.interfaces += ["web",]
         if confm.getb("nocmd") == False:
             pluginm.interfaces += ["cmd",]
     else:
         pluginm = None
-    cm = client_init(confm,pluginm)
+    cm = client_init(confm, pluginm)
 
     if confm.getb("noplugins") == False:
         pluginm.resources["plugin"] = cm.links["client"].use_plugin
@@ -116,7 +114,6 @@ def rawclient():
         for name, value in cm.links["client"].show({})[1].items():
             print(name, value, sep=":")
         cmdloop(cm)
-    
     else:
         cm.serve_forever_block()
 
@@ -124,15 +121,15 @@ def rawclient():
 def client():
     try:
         client_gtk()
-    except Exception as e:
-        logging.error(e)
+    except Exception as exc:
+        logging.error(exc)
         rawclient()
         return
 def client_gtk():
-    from simplescn.guigtk.clientmain import _gtkclient_init_method
+    from simplescn.guigtk.clientmain import _init_method_gtkclient
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args
-    
+
     del default_client_args["nocmd"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
     pluginpathes += scnparse_args(client_paramhelp, default_client_args, overwrite_client_args)
@@ -154,22 +151,22 @@ def client_gtk():
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
         if confm.getb("webgui") != False:
             pluginm.interfaces += ["web",]
-        pluginm.interfaces += ["cmd","gtk"]
+        pluginm.interfaces += ["cmd", "gtk"]
     else:
         pluginm = None
-    _gtkclient_init_method(confm, pluginm)
+    _init_method_gtkclient(confm, pluginm)
 
 def hashpw():
     from simplescn import dhash
     import base64
-    if len(sys.argv)<2 or sys.argv[1] in ["--help", "help"]:
+    if len(sys.argv) < 2 or sys.argv[1] in ["--help", "help"]:
         print("Usage: {} hashpw <pw>/\"random\"".format(sys.argv[0]))
         return
     pw = sys.argv[1]
     if pw == "random":
         pw = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
     print("pw: {}, hash: {}".format(pw, dhash(pw)))
-    
+
 def config_plugin():
     from simplescn.common import overwrite_plugin_config_args, plugin_config_paramhelp, pluginmanager
     pluginpathes = [os.path.join(sharedir, "plugins")]
@@ -186,7 +183,7 @@ def config_plugin():
 
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
-    
+
     pluginm = pluginmanager(pluginpathes, configpath_plugins, "config_direct")
     #pluginm.init_plugins()
     config = pluginm.load_pluginconfig(overwrite_plugin_config_args["plugin"][0])
@@ -211,15 +208,14 @@ def config_plugin():
     else:
         print(config.set(overwrite_plugin_config_args["key"][0], overwrite_plugin_config_args["value"][0]))
 
-def _init_method():
-    import logging
+def init_method_main():
+    """ starter method """
     logging.basicConfig(level=logging.DEBUG, format=logformat)
-    
     signal.signal(signal.SIGINT, signal_handler)
-    
+
     #pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     #plugins_config = os.path.join(configpath, "config", "plugins")
-    if len(sys.argv)>1:
+    if len(sys.argv) > 1:
         toexe = sys.argv[1]
         toexe = globals().get(toexe)
         if toexe:
@@ -232,4 +228,4 @@ def _init_method():
         client()
 
 if __name__ == "__main__":
-    _init_method()
+    init_method_main()
