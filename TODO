@@ -1,7 +1,8 @@
 
 
 ## Alpha 3
-*requester should be "" instead of None
+* add meta offline reftype (for accessing unavailable nodes), maybe url=""
+* requester should be "" instead of None
 * gtk gui for windows
 * more tests
 
