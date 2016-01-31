@@ -221,7 +221,7 @@ class client_admin(object):
         if ret == False:
             logging.critical("Fatal error: certs could not be regenerated")
             # in case logger is catched and handler doesn't output
-            print("Fatal error: certs could not be regenerated")
+            print("Fatal error: certs could not be regenerated", file=sys.stderr)
             sys.exit(1)
         with open(_cpath+".pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip()
