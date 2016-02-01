@@ -1,7 +1,8 @@
 
 
 ## Alpha 3
-* add meta offline reftype (for accessing unavailable nodes), maybe url=""
+* debug should have filter, search
+* add meta offline reftype
 * requester should be "" instead of None
 * gtk gui for windows
 * more tests

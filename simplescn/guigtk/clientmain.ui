@@ -113,7 +113,7 @@
             <property name="row_spacing">3</property>
             <property name="column_spacing">3</property>
             <child>
-              <object class="GtkScrolledWindow" id="scrolledwindow1">
+              <object class="GtkScrolledWindow" id="scrollentities">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="vexpand">True</property>
@@ -513,25 +513,25 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_About</property>
                         <property name="use_underline">True</property>
-                        <signal name="activate" handler="aboutme" swapped="no"/>
+                        <signal name="activate" handler="about_show" swapped="no"/>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkCheckMenuItem" id="debugme">
+                      <object class="GtkMenuItem" id="debugme">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Debug</property>
                         <property name="use_underline">True</property>
-                        <signal name="toggled" handler="debugme" swapped="no"/>
+                        <signal name="activate" handler="debug_show" swapped="no"/>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkCheckMenuItem" id="cmdme">
+                      <object class="GtkMenuItem" id="cmdme">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Command</property>
                         <property name="use_underline">True</property>
-                        <signal name="toggled" handler="cmdme" swapped="no"/>
+                        <signal name="activate" handler="cmd_show" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -540,7 +540,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Help</property>
                         <property name="use_underline">True</property>
-                        <signal name="activate" handler="client_help" swapped="no"/>
+                        <signal name="activate" handler="help_show" swapped="no"/>
                       </object>
                     </child>
                   </object>
@@ -851,7 +851,6 @@
     <property name="icon">icon.svg</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
-    <property name="attached_to">mainwin</property>
     <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid1">
@@ -1001,7 +1000,6 @@
     <property name="type_hint">dialog</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
-    <property name="attached_to">mainwin</property>
     <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid5">
@@ -1107,7 +1105,6 @@
     <property name="type_hint">dialog</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
-    <property name="attached_to">mainwin</property>
     <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid7">
@@ -1240,12 +1237,12 @@
     <property name="border_width">3</property>
     <property name="title" translatable="yes">Delete name</property>
     <property name="modal">True</property>
+    <property name="window_position">center-on-parent</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.svg</property>
     <property name="type_hint">dialog</property>
     <property name="urgency_hint">True</property>
     <property name="transient_for">mainwin</property>
-    <property name="attached_to">mainwin</property>
     <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid13">
@@ -1510,7 +1507,7 @@
     <property name="type_hint">dialog</property>
     <property name="gravity">east</property>
     <property name="transient_for">mainwin</property>
-    <property name="attached_to">scrolledwindow1</property>
+    <property name="attached_to">scrollentities</property>
     <property name="show_menubar">False</property>
     <child>
       <object class="GtkGrid" id="grid9">

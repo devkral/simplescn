@@ -1,11 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.18.3 -->
+<!-- Generated with glade 3.19.0 -->
 <interface>
   <requires lib="gtk+" version="3.16"/>
+  <object class="GtkAboutDialog" id="aboutwin">
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">About Simplescn</property>
+    <property name="window_position">center</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.svg</property>
+    <property name="type_hint">normal</property>
+    <property name="program_name">simplescn</property>
+    <property name="version">0.1</property>
+    <property name="copyright" translatable="yes">Alexander K.</property>
+    <property name="comments" translatable="yes">Simple secure communication node:
+</property>
+    <property name="website">https://github.com/devkral/simplescn</property>
+    <property name="license" translatable="yes">Copyright (c) 2016, Alexander K.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE</property>
+    <property name="logo">icon.svg</property>
+    <property name="wrap_license">True</property>
+    <property name="license_type">custom</property>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="aboutdialog-vbox1">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="aboutdialog-action_area1">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <placeholder/>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkTextBuffer" id="cmdbuffer"/>
   <object class="GtkApplicationWindow" id="cmdwin">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">cmd:</property>
+    <property name="title" translatable="yes">Commands</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.svg</property>
     <property name="show_menubar">False</property>
@@ -80,30 +136,103 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
       </object>
     </child>
   </object>
-  <object class="GtkTextBuffer" id="debugbuffer"/>
   <object class="GtkApplicationWindow" id="debugwin">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">Debug:</property>
+    <property name="title" translatable="yes">Debug</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.svg</property>
     <property name="show_menubar">False</property>
     <child>
-      <object class="GtkScrolledWindow" id="scrolledwindow2">
+      <object class="GtkGrid" id="grid7">
         <property name="visible">True</property>
-        <property name="can_focus">True</property>
-        <property name="shadow_type">in</property>
-        <property name="min_content_width">250</property>
-        <property name="min_content_height">300</property>
+        <property name="can_focus">False</property>
         <child>
-          <object class="GtkTextView" id="debugview">
+          <object class="GtkScrolledWindow" id="scrolledwindow2">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
-            <property name="editable">False</property>
-            <property name="wrap_mode">word</property>
-            <property name="buffer">debugbuffer</property>
+            <property name="shadow_type">in</property>
+            <property name="min_content_width">250</property>
+            <property name="min_content_height">300</property>
+            <child>
+              <object class="GtkViewport" id="viewport1">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkListBox" id="debuglist">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="activate_on_single_click">False</property>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkGrid" id="grid8">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="column_spacing">3</property>
+            <child>
+              <object class="GtkSearchEntry" id="filterdebug">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="primary_icon_name">edit-find-symbolic</property>
+                <property name="primary_icon_activatable">False</property>
+                <property name="primary_icon_sensitive">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">2</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkComboBoxText" id="filterlevel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="has_entry">True</property>
+                <child internal-child="entry">
+                  <object class="GtkEntry" id="filterlevel-entry">
+                    <property name="can_focus">False</property>
+                    <property name="editable">False</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="debugfilterl">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Filter:</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
         </child>
       </object>
+    </child>
+  </object>
+  <object class="GtkApplicationWindow" id="helpwin">
+    <property name="can_focus">False</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.svg</property>
+    <child>
+      <placeholder/>
     </child>
   </object>
   <object class="GtkListStore" id="pluginlist">
@@ -127,6 +256,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
   <object class="GtkApplicationWindow" id="configurationwin">
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">Configuration</property>
+    <property name="destroy_with_parent">True</property>
     <property name="icon">icon.svg</property>
     <child>
       <object class="GtkGrid" id="grid1">
@@ -167,6 +297,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
+                    <property name="xalign">0.5</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <signal name="toggled" handler="toggle_configuration" swapped="no"/>
@@ -182,6 +313,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">False</property>
+                    <property name="xalign">0.5</property>
                     <property name="active">True</property>
                     <property name="draw_indicator">True</property>
                     <property name="group">usemainconf</property>

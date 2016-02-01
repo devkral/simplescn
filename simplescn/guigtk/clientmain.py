@@ -14,7 +14,7 @@ from gi.repository import Gtk,Gdk, GLib
 import simplescn
 from simplescn import client, logcheck
 
-from simplescn.guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff
+from simplescn.guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff, help_stuff
 from simplescn.guigtk.clientmain_managehash import hashmanagement
 
 from simplescn.guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
@@ -31,12 +31,13 @@ implementedrefs = ["surl", "url", "name"]
 # for open_gtk_node
 cm = None
 
-class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuff, hashmanagement, set_parent_template):
+class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuff, help_stuff, hashmanagement, set_parent_template):
     links = None
 
     curnode = None
     curlocal = None
     app = None
+    win = None
     
     builder = None
     clip = None
@@ -53,7 +54,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     
 
     clientwin = None
-    client_wintoggle = None
     
     
     remoteclient_url = ""
@@ -90,6 +90,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         recentview = self.builder.get_object("recentview")
         localview = self.builder.get_object("localview")
         
+        help_stuff.__init__(self)
         debug_stuff.__init__(self)
         configuration_stuff.__init__(self)
         cmd_stuff.__init__(self)
@@ -110,7 +111,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         self.enternodedia = self.builder.get_object("enternodedia")
         self.renameentitydia = self.builder.get_object("renameentitydia")
         
-        self.client_wintoggle = self.builder.get_object("useremoteclient")
         
         
         addnodecombo = self.builder.get_object("addnodecombo")
@@ -269,21 +269,16 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         
     def _emit(self, record):
         """ func: intern emit """
-        self.backlog+=[record,]
-        if len(self.backlog)>200:
-            self.backlog=self.backlog[200:]
+        self.backlog.append(record)
+        if len(self.backlog) > 200:
+            self.backlog = self.backlog[200:]
+            removeold = True
+        else:
+            removeold = False
+        
+        self.render_debug_append(record, removeold)
         self.statusbar.push(messageid, str(record.msg))
         self.hashstatusbar.push(messageid, str(record.msg))
-        
-        if self.debugbuffer.get_end_iter().is_start()==False:
-            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"-----------------------\n")
-        if record.levelno <= logging.INFO or sys.exc_info()[2] is None:
-            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n".format(self.format(record).replace("\\n", "\n")))
-        else:
-            self.debugbuffer.insert(self.debugbuffer.get_end_iter(),"{}\n--- stacktrace:\n{}".format(self.format(record).replace("\\n", "\n"), "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", ""))) #[3])
-        self.debugbuffer.move_mark_by_name("scroll", self.debugbuffer.get_end_iter())
-        scrollmark = self.debugbuffer.get_mark("scroll")
-        self.debugview.scroll_to_mark(scrollmark,0.4,True,0,1)
         self.pushmanage()
         return False
     
@@ -612,9 +607,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     #### misc actions ####
 
         
-    def aboutme(self, args):
-        pass
-        
     def checkserver(self,*args):
         serverurl=self.builder.get_object("servercomboentry").get_text()
         try:
@@ -626,13 +618,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             logging.debug("Server address invalid")
             return
         self.update_storage()
-        
-    
-        
-    def client_help(self, args):
-        pass
-    
-        
     
     ##### etc
     
@@ -894,7 +879,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             logging.info(ret[1])
     ### close
     
-        
+    
     def close_clientdia(self,*args):
         self.clientwin.hide()
         return True

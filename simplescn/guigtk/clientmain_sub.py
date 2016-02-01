@@ -10,6 +10,7 @@ from gi.repository import Gtk
 from simplescn import isself
 
 class configuration_stuff(object):
+    win = None
     configurationwin = None
     configuration_wintoggle = None
     builder = None
@@ -24,7 +25,8 @@ class configuration_stuff(object):
     _changed_mainconf = None
     
     def __init__(self):
-        self.configurationwin=self.builder.get_object("configurationwin")
+        self.configurationwin = self.builder.get_object("configurationwin")
+        self.configurationwin.set_transient_for(self.win)
         self.configurationwin.connect('delete-event',self.close_configurationwin)
         self._changed_pluginconf = {}
         self._changed_mainconf = {}
@@ -215,23 +217,23 @@ class configuration_stuff(object):
         return True
 
 class cmd_stuff(object):
+    win = None
     cmdwin = None
-    cmd_wintoggle = None
     builder = None
     links = None
     
     def __init__(self):
-        self.cmdwin=self.builder.get_object("cmdwin")
+        self.cmdwin = self.builder.get_object("cmdwin")
+        self.cmdwin.set_transient_for(self.win)
         cmdbuffer = self.builder.get_object("cmdbuffer")
         cmdbuffer.create_mark("scroll",cmdbuffer.get_end_iter(),True)
-        self.cmd_wintoggle = self.builder.get_object("cmdme")
         self.cmdwin.connect('delete-event',self.close_cmd)
     
     def cmd_do(self,*args):
-        cmdveri=self.builder.get_object("cmdveri")
-        inp=self.builder.get_object("cmdenter")
-        out=self.builder.get_object("cmdbuffer")
-        cmdview=self.builder.get_object("cmdview")
+        cmdveri = self.builder.get_object("cmdveri")
+        inp = self.builder.get_object("cmdenter")
+        out = self.builder.get_object("cmdbuffer")
+        cmdview = self.builder.get_object("cmdview")
         resp = self.links["client"].command(inp.get_text().strip(" ").rstrip(" "))
         if resp[0] == True:
             if resp[2] is None:
@@ -246,46 +248,98 @@ class cmd_stuff(object):
         out.insert(out.get_end_iter(), str(resp[1])+"\n")
         out.move_mark_by_name("scroll", out.get_end_iter())
         cmdview.scroll_to_mark(out.get_mark("scroll"),0.4,True,0,1)
-    def cmdme(self,*args):
-        if self.cmd_wintoggle.get_active()==True:
+    
+    def cmd_show(self,*args):
+        if self.cmdwin.is_visible() == True:
             self.cmdwin.present()
             self.cmdwin.set_accept_focus(True)
             
         else:
-            self.cmdwin.hide()
+            self.cmdwin.show()
             
     def close_cmd(self,*args):
-        self.cmd_wintoggle.set_active(False)
         self.cmdwin.hide()
         return True
 
 
 class debug_stuff(object):
+    win = None
     debugwin = None
-    debugbuffer = None
-    debugview = None
-    debug_wintoggle = None
+    debuglist = None
     builder = None
     
     def __init__(self):
-        self.debugwin=self.builder.get_object("debugwin")
-        self.debugbuffer = self.builder.get_object("debugbuffer")
+        self.debugwin = self.builder.get_object("debugwin")
+        self.debugwin.set_transient_for(self.win)
+        self.debuglist = self.builder.get_object("debuglist")
+        self.debugwin.connect('delete-event', self.close_debug)
+    
+    def render_debug_append(self, record, removeold=False):
+        # make sure that removeold is only True when bigger than 0
+        #TODO find a way to remove old entries
+        if removeold:
+            destroywidget = self.debuglist.get_row_at_index(0)
+            self.debuglist.remove(destroywidget)
+            destroywidget.destroy()
+            
+        #record.level
         
-        self.debugbuffer.create_mark("scroll",self.debugbuffer.get_end_iter(),True)
-        self.debugview = self.builder.get_object("debugview")
-        self.debug_wintoggle = self.builder.get_object("debugme")
+        lmsg = Gtk.Label(record.msg)
+        lmsg.show()
+        lsinfo = Gtk.Label("")
+        if hasattr(record, "sinfo"):
+            lsinfo.set_text("".join(traceback.format_tb(record.sinfo)).replace("\\n", ""))
         
-        self.debugwin.connect('delete-event',self.close_debug)
+        lsinfo.show()
+        gr = Gtk.Grid()
+        gr.show()
+        gr.attach(lmsg,0,0,1,1)
+        gr.attach(lsinfo,1,0,1,1)
+        #gr.show_all()
+        self.debuglist.insert(gr, len(self.debuglist.get_children()))
+        self.debuglist.show_all()
         
-    def debugme(self,*args):
-        if self.debug_wintoggle.get_active()==True:
-            self.debugwin.present()
-            self.debugwin.set_accept_focus(True)
-        else:
-            self.debugwin.hide()
+    def debug_show(self,*args):
+        self.debugwin.show()
+        self.debugwin.present()
+        self.debugwin.set_accept_focus(True)
+        #self.render_debug()
             
     def close_debug(self,*args):
-        self.debug_wintoggle.set_active(False)
         self.debugwin.hide()
         return True
+
+class help_stuff(object):
+    aboutwin = None
+    helpwin = None
+    
+    builder = None
+    
+    def __init__(self):
+        self.aboutwin = self.builder.get_object("aboutwin")
+        self.aboutwin.set_transient_for(self.win)
+        self.aboutwin.connect('delete-event',self.close_about)
+        self.helpwin = self.builder.get_object("helpwin")
+        self.helpwin.set_transient_for(self.win)
+        self.helpwin.connect('delete-event',self.close_help)
         
+    def about_show(self,*args):
+        self.aboutwin.show()
+        self.aboutwin.present()
+        self.aboutwin.set_accept_focus(True)
+
+            
+    def close_about(self,*args):
+        self.aboutwin.hide()
+        return True
+    
+    
+    def help_show(self, *args):
+        self.helpwin.show()
+        self.helpwin.present()
+        self.helpwin.set_accept_focus(True)
+        
+    def close_help(self,*args):
+        self.helpwin.hide()
+        return True
+

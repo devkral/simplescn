@@ -124,6 +124,7 @@ def client():
     try:
         client_gtk()
     except Exception as exc:
+        raise(exc)
         logging.error(exc)
         rawclient()
         return

@@ -19,9 +19,8 @@ class hashmanagement(object):
     links = None
     
     def __init__(self):
-        
-        hview=self.builder.get_object("hashview")
-        rview=self.builder.get_object("refview")
+        hview = self.builder.get_object("hashview")
+        rview = self.builder.get_object("refview")
         
         hcol1= Gtk.TreeViewColumn("Node", Gtk.CellRendererText(),text=0)
         
@@ -32,6 +31,7 @@ class hashmanagement(object):
         rview.append_column(rcol1)
         rview.append_column(rcol2)
         self.managehashdia = self.builder.get_object("managehashdia")
+        #self.managehashdia.set_transient_for(self.win)
         self.managehashdia.connect('delete-event',self.close_managehashdia)
 
     def activate_local(self,*args):
