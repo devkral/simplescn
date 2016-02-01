@@ -70,6 +70,7 @@ def server():
 
 
 def rawclient():
+    """ cmd client """
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args, cmdloop, client_init
     pluginpathes = [os.path.join(sharedir, "plugins")]
@@ -119,6 +120,7 @@ def rawclient():
 
 
 def client():
+    """ gui client """
     try:
         client_gtk()
     except Exception as exc:
@@ -126,6 +128,7 @@ def client():
         rawclient()
         return
 def client_gtk():
+    """ gtk gui """
     from simplescn.guigtk.clientmain import _init_method_gtkclient
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args
@@ -157,6 +160,7 @@ def client_gtk():
     _init_method_gtkclient(confm, pluginm)
 
 def hashpw():
+    """ create pw hash for ?pwhash """
     from simplescn import dhash
     import base64
     if len(sys.argv) < 2 or sys.argv[1] in ["--help", "help"]:
@@ -168,6 +172,10 @@ def hashpw():
     print("pw: {}, hash: {}".format(pw, dhash(pw)))
 
 def config_plugin():
+    """ func: configure plugin without starting gui (useful for server plugins)
+        plugin: plugin name
+        key: unspecified: list keys
+        value: unspecified: get value, else: set value """
     from simplescn.common import overwrite_plugin_config_args, plugin_config_paramhelp, pluginmanager
     pluginpathes = [os.path.join(sharedir, "plugins")]
     pluginpathes += scnparse_args(plugin_config_paramhelp, overwrite_args=overwrite_plugin_config_args)
