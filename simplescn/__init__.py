@@ -35,7 +35,7 @@ import json
 import base64
 from urllib import parse
 from http.client import HTTPSConnection 
-from http.server import HTTPServer
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import socketserver
 
 # load parameters in simplescn namespace
@@ -149,11 +149,11 @@ def check_result(obdict, status):
 
 ### logging ###
 def logcheck(ret, level = logging.DEBUG):
-    if ret[0]==True:
+    if ret[0]:
         return True
     else:
         if level != 0:
-            logging.root._log(level, ret[1], [])
+            logging.root._log(level, str(ret[1]), [])
         return False
 
 
@@ -715,6 +715,171 @@ class commonscn(object):
             self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
             self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
 
+class commonscnhandler(BaseHTTPRequestHandler):
+    links = None
+    sys_version = "" # would say python xy, no need and maybe security hole
+    auth_info = None
+    statics = {}
+    client_cert = None
+    client_cert_hash = None
+    alreadyrewrapped = False
+    
+    
+    def scn_send_answer(self, status, obj=None, mime_type="application/json", docache=False, dokeepalive=False):
+        if status != 200 and obj:
+            self.send_response(status, obj)
+        else:
+            self.send_response(status)
+        
+        if status == 200:
+            #if not obj:
+            #   logging.error("invalid obj")
+            self.send_header("Content-Length", len(obj))
+        if mime_type and obj:
+            self.send_header("Content-Type", "{}; charset=utf-8".format(mime_type))
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
+        if docache == False:
+            self.send_header("Cache-Control", "no-cache")
+            if status == 200 or dokeepalive:
+                self.send_header('Connection', 'keep-alive')
+        self.end_headers()
+        if status == 200 and obj:
+            self.wfile.write(obj)
+    
+    # use cache?
+    #htmlcache = {}
+    def html(self, page, lang="en"):
+        if self.webgui == False:
+            self.send_error(404, "no webgui")
+            return
+        _ppath = os.path.join(sharedir, "html", lang, page)
+        try:
+            with open(_ppath, "r") as rob:
+                fullob = rob.read()
+                try:
+                    _temp = self.links["client"].show({})[1]
+                    _temp.update(self.links["client"].info({})[1])
+                    fullob = fullob.format(**_temp)
+                except KeyError:
+                    pass
+                self.scn_send_answer(200, bytes(fullob, "utf-8"), "text/html", docache=True)
+        except FileNotFoundError:
+            self.send_error(404, "file not found")
+            
+    def init_scn_stuff(self):
+        useragent = self.headers.get("User-Agent", "")
+        logging.debug("Useragent: {}".format(useragent))
+        if "simplescn" in useragent:
+            self.error_message_format = "%(code)d: %(message)s – %(explain)s"
+        _auth = self.headers.get("Authorization", 'scn {}')
+        method, _auth = _auth.split(" ", 1)
+        _auth= _auth.strip().rstrip()
+        if method == "scn":
+            # is different from the body, so don't use header information
+            self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8") 
+        else:
+            self.auth_info = None
+        
+        if self.client_address[0][:7] == "::ffff:":
+            self.client_address2 = (self.client_address[0][7:], self.client_address[1])
+        else:
+            self.client_address2 = (self.client_address[0], self.client_address[1])
+        
+        # hack around not transmitted client cert
+        _rewrapcert = self.headers.get("X-certrewrap")
+        _origcert = self.headers.get("X-original_cert")
+        if _rewrapcert is not None:
+            cont = self.connection.context
+            # send out of band hash
+            #self.connection.send(bytes(self.links["server_server"].client+";", "utf-8"))
+            if self.alreadyrewrapped == False:
+                # wrap tcp socket, not ssl socket
+                self.connection = self.connection.unwrap()
+                self.connection = cont.wrap_socket(self.connection, server_side=False)
+                self.alreadyrewrapped = True
+            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
+            self.client_cert_hash = dhash(self.client_cert)
+            if _rewrapcert.split(";")[0] != self.client_cert_hash:
+                return False
+            if _origcert:
+                if _rewrapcert == self.links.get("trusted_certhash"):
+                    self.client_cert = _origcert
+                    self.client_cert_hash = dhash(_origcert)
+                else:
+                    logging.debug("rewrapcert incorrect")
+                    return False
+            #self.rfile.close()
+            #self.wfile.close()
+            self.rfile = self.connection.makefile(mode='rb')
+            self.wfile = self.connection.makefile(mode='wb')
+        else:
+            self.client_cert = None
+            self.client_cert_hash = None
+        return True
+    
+    # =2 because: {}
+    def cleanup_stale_data(self, maxchars=2):
+        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
+            # protect against big transmissions
+            self.rfile.read(min(maxchars, int(self.headers.get("Content-Length"))))
+    
+    def parse_body(self, maxlength=None):
+        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
+            self.send_error(411,"POST data+data length needed")
+            return None
+        
+        contsize = int(self.headers.get("Content-Length"))
+        if maxlength and contsize > maxlength:
+            self.send_error(431, "request too large")
+        readob = self.rfile.read(contsize)
+        # str: charset (like utf-8), safe_mdecode: transform arguments to dict
+        obdict = safe_mdecode(readob, self.headers.get("Content-Type"))
+        if obdict is None:
+            self.send_error(400, "bad arguments")
+            return None
+        obdict["clientaddress"] = self.client_address2
+        obdict["clientcert"] = self.client_cert
+        obdict["clientcerthash"] = self.client_cert_hash
+        obdict["headers"] = self.headers
+        obdict["socket"] = self.connection
+        return obdict
+    
+    def handle_usebroken(self, sub):
+        # invalidate as attacker can connect when switching context
+        self.alreadyrewrapped = False
+        self.client_cert = None
+        self.client_cert_hash = None
+        certfpath = os.path.join(self.links["config_root"], "broken", sub)
+        if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
+            cont = default_sslcont()
+            cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+            oldsslcont = self.connection.context
+
+            self.connection = self.connection.unwrap()
+            self.connection = cont.wrap_socket(self.connection, server_side=True)
+            self.connection = self.connection.unwrap()
+            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+            self.rfile = self.connection.makefile(mode='rb')
+            self.wfile = self.connection.makefile(mode='wb')
+            
+            self.send_response(200, "broken cert test")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header('Connection', 'keep-alive')
+            if self.headers.get("X-certrewrap") is not None:
+                self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
+            self.end_headers()
+        else:
+            oldsslcont = self.connection.context
+
+            self.connection = self.connection.unwrap()
+            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+            self.connection = self.connection.unwrap()
+            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+            self.rfile = self.connection.makefile(mode='rb')
+            self.wfile = self.connection.makefile(mode='wb')
+            self.send_error(404, "broken cert not found")
+
 def create_certhashheader(certhash):
     _random = str(base64.urlsafe_b64encode(os.urandom(token_size)), "utf-8")
     return "{};{}".format(certhash, _random), _random
@@ -915,6 +1080,17 @@ def check_argsdeco(requires={}, optional={}):
         get_args.classify = getattr(func, "classify", set())
         return gen_doc_deco(get_args)
     return func_to_check
+
+
+def loglevel_converter(loglevel):
+    if isinstance(loglevel, int):
+        return loglevel
+    elif not loglevel.isdigit():
+        if hasattr(logging, loglevel) and isinstance(getattr(logging, loglevel), int):
+            return getattr(logging, loglevel)
+        raise(TypeError("invalid loglevel"))
+    else:
+        return int(loglevel)
 
 def safe_mdecode(inp, encoding, charset="utf-8"):
     try:

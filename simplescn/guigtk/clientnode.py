@@ -153,8 +153,7 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         
         namestore.clear()
         _names = self.do_requestdo("listnames",server=self.get_address())
-        if _names[0] == False:
-            logging.error(_names[1])
+        if logcheck(_names, logging.ERROR) == False:
             return
         
         for name, _hash, _security, _localname in _names[1]["items"]:
@@ -488,13 +487,11 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         registerb = self.get_object("registerbutton")
         namestore = self.get_object("servernodelist")
         res = self.do_requestdo("register", server=self.get_address())
-        if res[0] == False:
-            logging.error(res[1])
+        if logcheck(res, logging.ERROR) == False:
             return
         if self.isregistered==False:
             res_show = self.do_requestdo("show")
-            if res_show == False:
-                logging.error(res[1])
+            if logcheck(res_show, logging.ERROR) == False:
                 return
             self.isregistered=True
             namestore.prepend(("This Client", "valid", res_show[1]["name"], res_show[1]["hash"], res_show[1]["name"]))

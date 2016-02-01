@@ -6,7 +6,6 @@ import sys, os
 from simplescn import sharedir
 
 import socket
-from http.server import BaseHTTPRequestHandler
 from http import client
 import ssl
 import threading
@@ -20,7 +19,7 @@ from simplescn.client_config import client_config
 from simplescn.dialogs import client_dialogs
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -534,52 +533,14 @@ class client_server(commonscn):
         return True, self.spmap[obdict["name"]]
     
     
-class client_handler(BaseHTTPRequestHandler):
+class client_handler(commonscnhandler):
     server_version = 'simplescn/0.5 (client)'
-    sys_version = "" # would say python xy, no need and maybe security hole
-    auth_info = None
     
-    client_cert = None
-    client_cert_hash = None
-    links = None
     handle_local = False
     handle_remote = False
-    statics = {}
     webgui = False
-    alreadyrewrapped = False
     
-    def scn_send_answer(self, status, ob, _type="application/json", docache=False):
-        self.send_response(status)
-        self.send_header("Content-Length", len(ob))
-        self.send_header("Content-Type", "{}; charset=utf-8".format(_type))
-        if docache == False:
-            self.send_header("Cache-Control", "no-cache")
-            if status == 200:
-                self.send_header('Connection', 'keep-alive')
-        if self.headers.get("X-certrewrap") is not None:
-            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        self.end_headers()
-        self.wfile.write(ob)
     
-    def html(self, page, lang = "en"):
-        if self.webgui == False:
-            self.send_error(404, "no webgui")
-            return
-        _ppath = os.path.join(sharedir, "html", lang, page)
-        fullob = None
-        with open(_ppath, "r") as rob:
-            fullob = rob.read()
-        if fullob is None:
-            self.send_error(404, "file not found")
-        else:
-            try:
-                _temp = self.links["client"].show({})[1]
-                _temp.update(self.links["client"].info({})[1])
-                fullob = fullob.format(**_temp)
-            except KeyError:
-                pass
-            self.scn_send_answer(200, bytes(fullob, "utf-8"), "text/html", True)
-
     def handle_client(self, action):
         if action not in self.links["client"].validactions:
             self.send_error(400, "invalid action - client")
@@ -603,23 +564,15 @@ class client_handler(BaseHTTPRequestHandler):
         # if redirect bypass
         if "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and self.links["auth_server"].verify(realm, self.auth_info) == False:
             authreq = self.links["auth_server"].request_auth(realm)
+            #self.cleanup_stale_data(max_serverrequest_size)
             ob = bytes(json.dumps(authreq), "utf-8")
             self.scn_send_answer(401, ob)
             return
         
-        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
-            self.send_error(411,"POST data+data length needed")
-            return
-        readob = self.rfile.read(int(self.headers.get("Content-Length")))
-        # str: charset (like utf-8), safe_mdecode: transform arguments to dict
-        obdict = safe_mdecode(readob, self.headers.get("Content-Type"))
+        
+        obdict = self.parse_body()
         if obdict is None:
-            self.send_error(400, "bad arguments")
             return
-        obdict["clientaddress"] = self.client_address2
-        obdict["clientcert"] = self.client_cert
-        obdict["clientcerthash"] = self.client_cert_hash
-        obdict["headers"] = self.headers
         response = self.links["client"].access_main(action, **obdict)
 
         if response[0] == False:
@@ -639,20 +592,11 @@ class client_handler(BaseHTTPRequestHandler):
         else:
             jsonnized = json.dumps(gen_result(response[1],response[0]))
         
+        ob = bytes(jsonnized, "utf-8")
         if response[0] == False:
-            self.send_response(400)
+            self.scn_send_answer(400, ob, docache=False)
         else:
-            self.send_response(200)
-        
-        ob=bytes(jsonnized, "utf-8")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header('Content-Type', "application/json; charset=utf-8")
-        self.send_header('Content-Length', str(len(ob)))
-        self.send_header('Connection', 'keep-alive')
-        if self.headers.get("X-certrewrap") is not None:
-            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        self.end_headers()
-        self.wfile.write(ob)
+            self.scn_send_answer(200, ob, docache=False)
 
     def handle_server(self, action):
         if action not in self.links["client_server"].validactions:
@@ -662,37 +606,21 @@ class client_handler(BaseHTTPRequestHandler):
         if self.links["auth_server"].verify("server", self.auth_info) == False:
             authreq = self.links["auth_server"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
+            self.cleanup_stale_data(max_serverrequest_size)
             self.scn_send_answer(401, ob)
             return
         
         if action in self.links["client_server"].cache:
-            # cleanup stale data
-            if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
-                # protect against big transmissions
-                self.rfile.read(min(2, int(self.headers.get("Content-Length"))))
+            # cleanup {} or smaller, protect against big transmissions
+            self.cleanup_stale_data(2)
             
             ob = bytes(self.links["client_server"].cache[action], "utf-8")
             self.scn_send_answer(200, ob)
             return
         
-        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
-            self.send_error(411,"POST data+data length needed")
-            return
-            
-        contsize = int(self.headers.get("Content-Length"))
-        if contsize>max_serverrequest_size:
-            self.send_error(431, "request too large")
-        
-        readob = self.rfile.read(contsize)
-        # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
-        obdict = safe_mdecode(readob,self.headers.get("Content-Type", "application/json; charset=utf-8"))
+        obdict = self.parse_body(max_serverrequest_size)
         if obdict is None:
-            self.send_error(400, "bad arguments")
-            return
-        obdict["clientaddress"] = self.client_address2
-        obdict["clientcert"] = self.client_cert
-        obdict["clientcerthash"] = self.client_cert_hash
-        obdict["headers"] = self.headers
+            return None
         try:
             func = getattr(self.links["client_server"], action)
             response = func(obdict)
@@ -709,34 +637,24 @@ class client_handler(BaseHTTPRequestHandler):
         if jsonnized is None:
             jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
             response[0] = False
+        ob = bytes(jsonnized, "utf-8")
         if response[0] == False:
-            self.send_response(400)
+            self.scn_send_answer(400, ob, docache=False)
         else:
-            self.send_response(200)
-        ob=bytes(jsonnized, "utf-8")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header('Content-Type', "application/json; charset=utf-8")
-        self.send_header('Content-Length', len(ob))
-        self.send_header('Connection', 'keep-alive')
-        if self.headers.get("X-certrewrap") is not None:
-            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        self.end_headers()
-        self.wfile.write(ob)
-    
+            self.scn_send_answer(200, ob, docache=False)
+        
     def do_GET(self):
         if self.init_scn_stuff() == False:
             return
         if self.path == "/favicon.ico":
             if "favicon.ico" in self.statics:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(self.statics["favicon.ico"])
+                self.scn_send_answer(200, self.statics["favicon.ico"], docache=True)
             else:
-                self.send_error(404)
+                self.scn_send_answer(404)
             return
         
         if self.webgui == False:
-            self.send_error(404, "no webgui enabled")
+            self.scn_send_answer(404, "no webgui enabled")
         
         _path=self.path[1:].split("/")
         if _path[0] in ("","client","html","index"):
@@ -744,9 +662,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         elif  _path[0]=="static" and len(_path)>=2:
             if _path[1] in self.statics:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(self.statics[_path[1]])
+                self.scn_send_answer(200, self.statics[_path[1]], docache=True)
                 return
         # for e.g. GET stuck jabber server
         #elif  _path[0]=="service" and len(_path)==2:
@@ -762,57 +678,7 @@ class client_handler(BaseHTTPRequestHandler):
             return
         self.send_error(404, "not -found")
     
-    def init_scn_stuff(self):
-        useragent = self.headers.get("User-Agent", "")
-        logging.debug("Useragent: {}".format(useragent))
-        if "simplescn" in useragent:
-            self.error_message_format = "%(code)d: %(message)s – %(explain)s"
-        _auth = self.headers.get("Authorization", 'scn {}')
-        method, _auth = _auth.split(" ", 1)
-        _auth= _auth.strip().rstrip()
-        if method == "scn":
-            # is different from the body, so don't use header information
-            self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8") 
-        else:
-            self.auth_info = None
-        
-        if self.client_address[0][:7] == "::ffff:":
-            self.client_address2 = (self.client_address[0][7:], self.client_address[1])
-        else:
-            self.client_address2 = (self.client_address[0], self.client_address[1])
-        
-        # hack around not transmitted client cert
-        _rewrapcert = self.headers.get("X-certrewrap")
-        _origcert = self.headers.get("X-original_cert")
-        if _rewrapcert is not None:
-            cont = self.connection.context
-            # send out of band hash
-            #self.connection.send(bytes(self.links["server_server"].client+";", "utf-8"))
-            if self.alreadyrewrapped == False:
-                # wrap tcp socket, not ssl socket
-                self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=False)
-                self.alreadyrewrapped = True
-            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
-            self.client_cert_hash = dhash(self.client_cert)
-            if _rewrapcert.split(";")[0] != self.client_cert_hash:
-                return False
-            if _origcert:
-                if _rewrapcert == self.links.get("trusted_certhash"):
-                    self.client_cert = _origcert
-                    self.client_cert_hash = dhash(_origcert)
-                else:
-                    logging.debug("rewrapcert incorrect")
-                    return False
-            #self.rfile.close()
-            #self.wfile.close()
-            self.rfile = self.connection.makefile(mode='rb')
-            self.wfile = self.connection.makefile(mode='wb')
-        else:
-            self.client_cert = None
-            self.client_cert_hash = None
-        return True
-
+    
     def do_POST(self):
         if self.init_scn_stuff() == False:
             return
@@ -891,35 +757,7 @@ class client_handler(BaseHTTPRequestHandler):
                         return
         # for invalidating and updating, don't use connection afterwards 
         elif resource == "usebroken":
-            cont = default_sslcont()
-            certfpath = os.path.join(self.links["config_root"], "broken", sub)
-            if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
-                cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
-                oldsslcont = self.connection.context
-                
-                self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=True)
-                self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                self.rfile = self.connection.makefile(mode='rb')
-                self.wfile = self.connection.makefile(mode='wb')
-                
-                self.send_response(200, "broken cert test")
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header('Connection', 'keep-alive')
-                if self.headers.get("X-certrewrap") is not None:
-                    self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-                self.end_headers()
-            else:
-                oldsslcont = self.connection.context
-                
-                self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                self.rfile = self.connection.makefile(mode='rb')
-                self.wfile = self.connection.makefile(mode='wb')
-                self.send_error(404, "broken cert not found")
+            self.handle_usebroken(sub)
         elif resource == "server":
             self.handle_server(sub)
         elif resource == "client":
@@ -935,6 +773,7 @@ class client_init(object):
     run = True # necessary for some runmethods
     
     def __init__(self, confm, pluginm):
+        logging.root.setLevel(confm.get("loglevel"))
         self.links = {}
         self.links["config"] = confm
         self.links["config_root"] = confm.get("config")
@@ -1047,6 +886,7 @@ default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
              "priority": [str(default_priority), int, "<number>: set priority"],
              "timeout": [str(default_timeout), int, "<number>: set timeout"],
              "webgui": ["False", bool, "enables webgui"],
+             "loglevel": [str(default_loglevel), loglevel_converter, "loglevel"],
              "nocmd": ["False", bool, "use no cmd"]}
              
 overwrite_client_args={"config": [default_configdir, str, "<dir>: path to config dir"],

@@ -267,11 +267,22 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         """ func: handle logging records """
         Gdk.threads_add_idle(GLib.PRIORITY_HIGH, self._emit, record)
     
-    blcounter = 1
+    blcounter = 0
     def _emit(self, record):
         """ func: intern emit """
-        if self.blcounter >= 200:
+        backlogret = self.do_requestdo("get_config", key="backlog")
+        if not backlogret[0]:
+            print(backlogret[1], file=sys.stderr)
+            bllength = 1
+        else:
+            bllength = max(0, backlogret[1].get("value"))
+        
+        if self.blcounter == bllength and self.blcounter>0:
             self.backlogdebug.remove(self.backlogdebug.get_iter_first())
+        elif self.blcounter > bllength:
+            while self.blcounter > bllength:
+                self.backlogdebug.remove(self.backlogdebug.get_iter_first())
+                self.blcounter -= 1
         else:
             self.blcounter += 1
         if record.exc_info:
@@ -281,7 +292,8 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         else:
             backtr = ""
         #"".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
-        self.backlogdebug.append((record.msg, backtr, record.levelno))
+        if self.blcounter > 0:
+            self.backlogdebug.append((record.msg, backtr, record.levelno))
         self.statusbar.push(messageid, str(record.msg))
         self.hashstatusbar.push(messageid, str(record.msg))
         self.pushmanage()
@@ -436,7 +448,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             
             self.close_addnodedia()
         else:
-            logging.error(res[1])
+            logging.error(str(res[1]))
     
     def delnodehash(self,*args):
         view=self.builder.get_object("recentview")
@@ -949,6 +961,7 @@ def open_gtk_notify_plugin(msg, requester):
 
 class gtkclient_init(client.client_init):
     def __init__(self, confm, pluginm):
+        logging.root.setLevel(confm.get("loglevel"))
         logging.debug("start gtkclient")
         simplescn.pwcallmethodinst = gtkclient_pw
         simplescn.notifyinst = gtkclient_notify

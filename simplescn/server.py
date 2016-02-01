@@ -5,7 +5,6 @@ import os
 from simplescn import sharedir
 
 from http.client import HTTPSConnection 
-from http.server import BaseHTTPRequestHandler
 import time
 import  threading
 import json
@@ -14,7 +13,7 @@ import logging
 import ssl
 import socket
 
-from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
+from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter
 
 server_broadcast_header = \
 {
@@ -321,90 +320,11 @@ class server(commonscn):
     
     
     
-class server_handler(BaseHTTPRequestHandler):
+class server_handler(commonscnhandler):
     server_version = 'simplescn/0.5 (server)'
-    sys_version = "" # would say python xy, no need and maybe security hole
     
-    links = None
     webgui = False
     
-    auth_info = None
-    statics = {}
-    alreadyrewrapped = False
-    
-    
-    def scn_send_answer(self, status, ob, _type="application/json", docache=False):
-        self.send_response(status)
-        self.send_header("Content-Length", len(ob))
-        self.send_header("Content-Type", "{}; charset=utf-8".format(_type))
-        if docache == False:
-            self.send_header("Cache-Control", "no-cache")
-            if status == 200:
-                self.send_header('Connection', 'keep-alive')
-        
-        if self.headers.get("X-certrewrap") is not None:
-            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        self.end_headers()
-        self.wfile.write(ob)
-        
-    def html(self,page,lang="en"):
-        if self.webgui == False:
-            self.send_error(404,"no webgui")
-            return
-        _ppath = os.path.join(sharedir, "html",lang, page)
-        
-        fullob = None
-        with open(_ppath, "rb") as rob:
-            fullob = rob.read()
-        if fullob is None:
-            self.send_error(404, "file not found")
-        else:
-            self.scn_send_answer(200, fullob, "text/html", True)
-    
-    
-    def init_scn_stuff(self):
-        useragent = self.headers.get("User-Agent", "")
-        if "simplescn" in useragent:
-            self.error_message_format = "%(code)d: %(message)s – %(explain)s"
-        _auth = self.headers.get("Authorization", 'scn {}')
-        method, _auth = _auth.split(" ", 1)
-        _auth= _auth.strip().rstrip()
-        if method == "scn":
-            # is different from the body, so don't use header information
-            self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8") 
-        else:
-            self.auth_info = None
-        
-        if self.client_address[0][:7] == "::ffff:":
-            self.client_address2 = (self.client_address[0][7:], self.client_address[1])
-        else:
-            self.client_address2 = (self.client_address[0], self.client_address[1])
-            
-        # hack around not transmitted client cert
-        _rewrapcert = self.headers.get("X-certrewrap")
-        if _rewrapcert is not None:
-            cont = self.connection.context
-            ## send out of band hash
-            ##self.connection.send(bytes(self.links["server_server"].cert_hash+";", "utf-8"))
-            # wrap tcp socket, not ssl socket
-            if self.alreadyrewrapped == False:
-                # wrap tcp socket, not ssl socket
-                self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=False)
-                self.alreadyrewrapped = True
-            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
-            self.client_cert_hash = dhash(self.client_cert)
-            if _rewrapcert.split(";")[0] != self.client_cert_hash:
-                return False
-            #self.rfile.close()
-            #self.wfile.close()
-            self.rfile = self.connection.makefile(mode='rb')
-            self.wfile = self.connection.makefile(mode='wb')
-            
-        else:
-            self.client_cert = None
-            self.client_cert_hash = None
-        return True
     def handle_server(self, action):
         if action not in self.links["server_server"].validactions:
             self.send_error(400, "invalid action - server")
@@ -417,10 +337,8 @@ class server_handler(BaseHTTPRequestHandler):
             return
         
         if action in self.links["server_server"].cache:
-            # cleanup stale data
-            if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
-                # cleanup {} or smaller, protect against big transmissions
-                self.rfile.read(min(2, int(self.headers.get("Content-Length"))))
+            # cleanup {} or smaller, protect against big transmissions
+            self.cleanup_stale_data(2)
             
             ob = bytes(self.links["server_server"].cache[action], "utf-8")
             self.scn_send_answer(200, ob)
@@ -457,23 +375,16 @@ class server_handler(BaseHTTPRequestHandler):
             ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
             self.scn_send_answer(500, ob)
             return
+        ob = bytes(jsonnized, "utf-8")
         if success == False:
-            self.send_response(400)
+            self.scn_send_answer(400, ob, docache=False)
         else:
-            self.send_response(200)
-        ob=bytes(jsonnized, "utf-8")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header('Content-Type', "application/json; charset=utf-8")
-        self.send_header('Content-Length', len(ob))
-        if self.headers.get("X-certrewrap") is not None:
-            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        self.end_headers()
-        self.wfile.write(ob)
+            self.scn_send_answer(200, ob, docache=False)
         
     def do_GET(self):
         if self.init_scn_stuff() == False:
             return
-        if self.path=="/favicon.ico":
+        if self.path == "/favicon.ico":
             if "favicon.ico" in self.statics:
                 self.send_response(200)
                 self.end_headers()
@@ -485,11 +396,11 @@ class server_handler(BaseHTTPRequestHandler):
         if self.webgui == False:
             self.send_error(404, "no webgui enabled")
         
-        _path=self.path[1:].split("/")
+        _path = self.path[1:].split("/")
         if _path[0] in ("","server","html","index"):
             self.html("server.html")
             return
-        elif  _path[0]=="static" and len(_path)>=2:
+        elif  _path[0] == "static" and len(_path)>=2:
             if _path[1] in self.statics:
                 self.send_response(200)
                 self.end_headers()
@@ -534,38 +445,7 @@ class server_handler(BaseHTTPRequestHandler):
                 return
         # for invalidating and updating, don't use connection afterwards
         elif resource == "usebroken":
-            cont = default_sslcont()
-            certfpath = os.path.join(self.links["config_root"], "broken", sub)
-            if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
-                cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
-                oldsslcont = self.connection.context
-                
-                self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=True)
-                #time.sleep(1) # better solution needed
-                self.connection = self.connection.unwrap()
-                # without next line the connection would be unencrypted now
-                #self.connection.context(oldsslcont)
-                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                self.rfile = self.connection.makefile(mode='rb')
-                self.wfile = self.connection.makefile(mode='wb')
-                
-                self.send_response(200, "broken cert test")
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header('Connection', 'keep-alive')
-                if self.headers.get("X-certrewrap") is not None:
-                    self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-                self.end_headers()
-                
-            else:
-                oldsslcont = self.connection.context
-                self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                self.connection = self.connection.unwrap()
-                self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                self.rfile = self.connection.makefile(mode='rb')
-                self.wfile = self.connection.makefile(mode='wb')
-                self.send_error(404, "broken cert not found")
+            self.handle_usebroken(sub)
         elif resource == "server":
             self.handle_server(sub)
         else:
@@ -657,6 +537,7 @@ overwrite_server_args={"config": [default_configdir, str, "<dir>: path to config
              "useplugins": ["False", bool, "<True/False>: activate plugins"],
              "priority": [str(default_priority), int, "<number>: set priority"],
              "timeout": [str(default_timeout), int, "<number>: set timeout"],
+             "loglevel": [str(default_loglevel), loglevel_converter, "loglevel"],
              "notraversal": ["False", bool, "<True/False>: disable traversal"]}
 
 

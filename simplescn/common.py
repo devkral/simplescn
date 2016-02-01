@@ -6,7 +6,7 @@ import importlib
 import traceback
 import threading
 import logging
-from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
+from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type, default_loglevel
 from simplescn import confdb_ending, isself, default_configdir
 
 if hasattr(importlib.util, "module_from_spec") == False:
@@ -864,6 +864,8 @@ class certhash_db(object):
         else:
             return out
 
+
+
 # default_args, overwrite_args are modified
 def scnparse_args(_funchelp, default_args={}, overwrite_args={}):
     pluginpathes = []
@@ -883,6 +885,10 @@ def scnparse_args(_funchelp, default_args={}, overwrite_args={}):
                 if tparam[0] in ["pluginpath", "pp"]:
                     pluginpathes += [tparam[1], ]
                     continue
+                # autoconvert name to loglevel
+                if tparam[0] == "loglevel":
+                    tparam[1] = str(loglevel_converter(tparam[1]))
+                    logging.root.setLevel(int(tparam[1]))
                 if tparam[0] in overwrite_args:
                     overwrite_args[tparam[0]][0] = tparam[1]
                 elif tparam[0] in default_args: # are overwritten without changing default
@@ -897,7 +903,6 @@ overwrite_plugin_config_args={"config": [default_configdir, str, "<dir>: path to
              "plugin": ["", str, "<name>: Plugin name"],
              "key": ["", str, "<name>: config key"],
              "value": ["", str, "<name>: config value"]}
-
 
 def plugin_config_paramhelp():
     t = "# parameters (non-permanent)\n"

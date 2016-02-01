@@ -34,6 +34,7 @@ server_port = 4040 # fixed server port
 ## defaults ##
 default_priority = 20
 default_timeout = 60
+default_loglevel = "DEBUG"
 
 ## hash algorithms ##
 algorithms_strong = ['sha512', 'sha384', 'sha256', 'whirlpool']

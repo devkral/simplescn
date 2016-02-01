@@ -284,7 +284,7 @@ class debug_stuff(object):
         filterlevelcombo = self.builder.get_object("filterlevel")
         for name in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
             filterlevelcombo.append_text(name)
-        self.builder.get_object("filterlevel-entry").set_text("DEBUG")
+        self.builder.get_object("filterlevel-entry").set_text(logging.getLevelName(self.links["config"].get("loglevel")))
         self.debugwin.connect('delete-event', self.close_debug)
     
     
@@ -308,7 +308,10 @@ class debug_stuff(object):
     def render_debug_bt(self, *args):
         _sel = self.debugview.get_selection().get_selected()
         if _sel[1] is None:
-            _bt = self.backlogdebug[self.backlogdebug.get_iter_first ()]
+            if self.backlogdebug.get_iter_first ():
+                _bt = self.backlogdebug[self.backlogdebug.get_iter_first ()][1]
+            else:
+                _bt = ""
         else:
             _bt=_sel[0][_sel[1]][1]
         self.builder.get_object("showbt").get_buffer().set_text(_bt, len(_bt))

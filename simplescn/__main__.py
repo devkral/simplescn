@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
 
 import simplescn
-from simplescn import sharedir, confdb_ending, logformat
+from simplescn import sharedir, confdb_ending, logformat, default_loglevel, loglevel_converter
 from simplescn.common import scnparse_args
 import simplescn.client
 import simplescn.server
@@ -135,6 +135,7 @@ def client_gtk():
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args
 
     del default_client_args["nocmd"]
+    default_client_args["backlog"] = [str(200), int, "length of backlog"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
     pluginpathes += scnparse_args(client_paramhelp, default_client_args, overwrite_client_args)
     configpath = overwrite_client_args["config"][0]
@@ -219,7 +220,7 @@ def config_plugin():
 
 def init_method_main():
     """ starter method """
-    logging.basicConfig(level=logging.DEBUG, format=logformat)
+    logging.basicConfig(level=loglevel_converter(default_loglevel), format=logformat)
     signal.signal(signal.SIGINT, signal_handler)
 
     #pluginpathes.insert(1, os.path.join(configpath, "plugins"))
