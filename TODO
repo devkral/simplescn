@@ -1,9 +1,6 @@
 
 
-## Alpha 3
-* debug should have filter, search
-* add meta offline reftype
-* requester should be "" instead of None
+## Alpha 4
 * gtk gui for windows
 * more tests
 
