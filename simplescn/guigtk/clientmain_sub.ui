@@ -58,6 +58,128 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
       </object>
     </child>
   </object>
+  <object class="GtkListStore" id="backlogdebug">
+    <columns>
+      <!-- column-name msg -->
+      <column type="gchararray"/>
+      <!-- column-name backtrace -->
+      <column type="gchararray"/>
+      <!-- column-name loglevel -->
+      <column type="gint"/>
+    </columns>
+  </object>
+  <object class="GtkApplicationWindow" id="debugwin">
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Debug</property>
+    <property name="destroy_with_parent">True</property>
+    <property name="icon">icon.svg</property>
+    <property name="show_menubar">False</property>
+    <child>
+      <object class="GtkGrid" id="grid7">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="hexpand">True</property>
+        <child>
+          <object class="GtkScrolledWindow" id="scrolledwindow2">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="shadow_type">in</property>
+            <property name="min_content_width">150</property>
+            <property name="min_content_height">300</property>
+            <child>
+              <object class="GtkTreeView" id="debugview">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="model">backlogdebug</property>
+                <signal name="cursor-changed" handler="render_debug_bt" swapped="no"/>
+                <signal name="move-cursor" handler="render_debug_bt" swapped="no"/>
+                <signal name="select-cursor-row" handler="render_debug_bt" swapped="no"/>
+                <child internal-child="selection">
+                  <object class="GtkTreeSelection" id="treeview-selection3"/>
+                </child>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkGrid" id="grid8">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="hexpand">True</property>
+            <property name="column_spacing">3</property>
+            <child>
+              <object class="GtkSearchEntry" id="filterdebug">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="primary_icon_name">edit-find-symbolic</property>
+                <property name="primary_icon_activatable">False</property>
+                <property name="primary_icon_sensitive">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">2</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkComboBoxText" id="filterlevel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="has_entry">True</property>
+                <child internal-child="entry">
+                  <object class="GtkEntry" id="filterlevel-entry">
+                    <property name="can_focus">False</property>
+                    <property name="editable">False</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="debugfilterl">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Filter:</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+            <property name="width">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="showbt">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="halign">start</property>
+            <property name="valign">start</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <property name="wrap">True</property>
+            <property name="selectable">True</property>
+            <property name="ellipsize">start</property>
+            <property name="track_visited_links">False</property>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkTextBuffer" id="cmdbuffer"/>
   <object class="GtkApplicationWindow" id="cmdwin">
     <property name="can_focus">False</property>
@@ -131,97 +253,6 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
           <packing>
             <property name="left_attach">0</property>
             <property name="top_attach">0</property>
-          </packing>
-        </child>
-      </object>
-    </child>
-  </object>
-  <object class="GtkApplicationWindow" id="debugwin">
-    <property name="can_focus">False</property>
-    <property name="title" translatable="yes">Debug</property>
-    <property name="destroy_with_parent">True</property>
-    <property name="icon">icon.svg</property>
-    <property name="show_menubar">False</property>
-    <child>
-      <object class="GtkGrid" id="grid7">
-        <property name="visible">True</property>
-        <property name="can_focus">False</property>
-        <child>
-          <object class="GtkScrolledWindow" id="scrolledwindow2">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="shadow_type">in</property>
-            <property name="min_content_width">250</property>
-            <property name="min_content_height">300</property>
-            <child>
-              <object class="GtkViewport" id="viewport1">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <child>
-                  <object class="GtkListBox" id="debuglist">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="activate_on_single_click">False</property>
-                  </object>
-                </child>
-              </object>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkGrid" id="grid8">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-            <property name="column_spacing">3</property>
-            <child>
-              <object class="GtkSearchEntry" id="filterdebug">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="primary_icon_name">edit-find-symbolic</property>
-                <property name="primary_icon_activatable">False</property>
-                <property name="primary_icon_sensitive">False</property>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkComboBoxText" id="filterlevel">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="has_entry">True</property>
-                <child internal-child="entry">
-                  <object class="GtkEntry" id="filterlevel-entry">
-                    <property name="can_focus">False</property>
-                    <property name="editable">False</property>
-                  </object>
-                </child>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkLabel" id="debugfilterl">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Filter:</property>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-          </object>
-          <packing>
-            <property name="left_attach">0</property>
-            <property name="top_attach">1</property>
           </packing>
         </child>
       </object>

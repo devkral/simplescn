@@ -266,17 +266,22 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def emit(self, record):
         """ func: handle logging records """
         Gdk.threads_add_idle(GLib.PRIORITY_HIGH, self._emit, record)
-        
+    
+    blcounter = 1
     def _emit(self, record):
         """ func: intern emit """
-        self.backlog.append(record)
-        if len(self.backlog) > 200:
-            self.backlog = self.backlog[200:]
-            removeold = True
+        if self.blcounter >= 200:
+            self.backlogdebug.remove(self.backlogdebug.get_iter_first())
         else:
-            removeold = False
-        
-        self.render_debug_append(record, removeold)
+            self.blcounter += 1
+        if record.exc_info:
+            backtr = "".join(traceback.format_tb(record.stack_info)).replace("\\n", "") #record.stack_info
+        elif sys.exc_info()[0]:
+            backtr = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
+        else:
+            backtr = ""
+        #"".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
+        self.backlogdebug.append((record.msg, backtr, record.levelno))
         self.statusbar.push(messageid, str(record.msg))
         self.hashstatusbar.push(messageid, str(record.msg))
         self.pushmanage()

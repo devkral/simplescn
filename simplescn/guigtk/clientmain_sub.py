@@ -265,39 +265,27 @@ class cmd_stuff(object):
 class debug_stuff(object):
     win = None
     debugwin = None
-    debuglist = None
+    debugview = None
+    backlogdebug = None
     builder = None
     
     def __init__(self):
         self.debugwin = self.builder.get_object("debugwin")
         self.debugwin.set_transient_for(self.win)
-        self.debuglist = self.builder.get_object("debuglist")
+        
+        self.debugview = self.builder.get_object("debugview")
+        col10 = Gtk.TreeViewColumn("Message", Gtk.CellRendererText(), text=0)
+        self.debugview.append_column(col10)
+        self.backlogdebug = self.builder.get_object("backlogdebug")
         self.debugwin.connect('delete-event', self.close_debug)
     
-    def render_debug_append(self, record, removeold=False):
-        # make sure that removeold is only True when bigger than 0
-        #TODO find a way to remove old entries
-        if removeold:
-            destroywidget = self.debuglist.get_row_at_index(0)
-            self.debuglist.remove(destroywidget)
-            destroywidget.destroy()
-            
-        #record.level
-        
-        lmsg = Gtk.Label(record.msg)
-        lmsg.show()
-        lsinfo = Gtk.Label("")
-        if hasattr(record, "sinfo"):
-            lsinfo.set_text("".join(traceback.format_tb(record.sinfo)).replace("\\n", ""))
-        
-        lsinfo.show()
-        gr = Gtk.Grid()
-        gr.show()
-        gr.attach(lmsg,0,0,1,1)
-        gr.attach(lsinfo,1,0,1,1)
-        #gr.show_all()
-        self.debuglist.insert(gr, len(self.debuglist.get_children()))
-        self.debuglist.show_all()
+    def render_debug_bt(self, *args):
+        _sel = self.debugview.get_selection().get_selected()
+        if _sel[1] is None:
+            _bt = self.backlogdebug[self.backlogdebug.get_iter_first ()]
+        else:
+            _bt=_sel[0][_sel[1]][1]
+        self.builder.get_object("showbt").set_text(_bt)
         
     def debug_show(self,*args):
         self.debugwin.show()
