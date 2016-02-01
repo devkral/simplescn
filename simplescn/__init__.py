@@ -200,8 +200,8 @@ def logcheck(ret, level = logging.DEBUG):
         return False
 
 
-def inp_passw_cmd(msg, requester=None):
-    if requester:
+def inp_passw_cmd(msg, requester=""):
+    if requester != "":
         inp = getpass(msg+" (from {}):\n".format(requester))
     else:
         inp = getpass(msg+":\n")
@@ -209,14 +209,14 @@ def inp_passw_cmd(msg, requester=None):
 pwcallmethodinst=inp_passw_cmd
 
 # returns pw or ""
-def pwcallmethod(msg, requester=None):
+def pwcallmethod(msg, requester=""):
     return pwcallmethodinst(msg, requester)
 
 def notify_cmd(msg, requester):
-    if requester:
+    if requester != "":
         inp = input(msg+" (from {}): ".format(requester))
     else:
-        inp = getpass(msg+": ")
+        inp = input(msg+": ")
     if inp.lower() in ["y", "j"]:
         return True
     elif inp.lower() in ["n"]:
@@ -227,7 +227,7 @@ def notify_cmd(msg, requester):
 notifyinst = notify_cmd
 
 # returns True, False, None
-def notify(msg, requester=None):
+def notify(msg, requester=""):
     return notifyinst(msg, requester)
 
 ##### init ######

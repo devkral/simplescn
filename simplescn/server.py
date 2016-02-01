@@ -15,8 +15,6 @@ import ssl
 import socket
 
 from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server
-#confdb_ending
-#configmanager,, rw_socket
 
 server_broadcast_header = \
 {
@@ -149,6 +147,7 @@ class server(commonscn):
         return [True, "registered_ip"]
     
     def check_brokencerts(self, _address, _port, _name, certhashlist, newhash, timeout=None):
+        """ func: connect to check if requester has broken certs """
         update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash)
         if update_list in [None, []]:
             return
@@ -213,9 +212,6 @@ class server(commonscn):
             destaddr: destination address """
         if self.traverse is None:
             return False, "no traversal possible"
-        #travport = obdict["clientaddress"][1]
-        #if travport <= 0:
-        #    return False, "port <1: {}".format(travport)
         
         try:
             destaddr = scnparse_url(obdict.get("destaddr"), True)
@@ -224,10 +220,7 @@ class server(commonscn):
         travaddr = obdict.get("clientaddress") #(obdict["clientaddress"][0], travport)
         ret = threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr),daemon=True)
         ret.start()
-        #if ret:
         return True, {"traverse_address": travaddr}
-        #else:
-        #    return False, "traverse request failed"
     
     @check_argsdeco()
     @classify_local
@@ -303,7 +296,7 @@ class server(commonscn):
             return False, "not in allowed_plugin_broadcasts"
         for elem in obdict.get("receivers"):
             if len(elem)!=2:
-                logger.debug("invalid element: {}".format(elem))
+                logging.debug("invalid element: {}".format(elem))
                 continue
             _name, _hash = elem
             if _name not in self.nhipmap:
@@ -312,13 +305,11 @@ class server(commonscn):
                 continue
             _telem2 = self.nhipmap[_name][_hash]
             self.broadcast_helper("{}-{}".format(_telem2.get("address", ""), _telem2.get("port", -1)), "/plugin/{}/{}".format(_plugin, obdict.get("paction")), bytes(obdict.get("payload"), "utf-8"))
-        #requester=None):
 
 
-    
     @generate_error_deco
     @classify_access
-    def access_server(self, action, requester=None, **obdict):
+    def access_server(self, action, requester="", **obdict):
         if action in self.cache:
             return self.cache[action]
         if action not in ["get", "broadcast_plugin"]:
@@ -428,7 +419,7 @@ class server_handler(BaseHTTPRequestHandler):
         if action in self.links["server_server"].cache:
             # cleanup stale data
             if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
-                # protect against big transmissions
+                # cleanup {} or smaller, protect against big transmissions
                 self.rfile.read(min(2, int(self.headers.get("Content-Length"))))
             
             ob = bytes(self.links["server_server"].cache[action], "utf-8")
@@ -570,10 +561,7 @@ class server_handler(BaseHTTPRequestHandler):
                 oldsslcont = self.connection.context
                 self.connection = self.connection.unwrap()
                 self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                #time.sleep(1) # better solution needed
                 self.connection = self.connection.unwrap()
-                # without next line the connection would be unencrypted now
-                #self.connection.context(oldsslcont)
                 self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')

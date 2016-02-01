@@ -2,6 +2,7 @@
 #license: bsd3, see LICENSE.txt
 import os, sys
 import threading
+import logging
 
 from simplescn import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, classify_admin, classify_experimental, classify_noplugin, classify_local
 

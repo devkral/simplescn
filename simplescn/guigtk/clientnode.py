@@ -4,15 +4,14 @@
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib #, Pango
-import socket
+from gi.repository import Gtk, Gdk, GLib
 import logging
 
 import os, locale
 
 from simplescn.guigtk import set_parent_template, activate_shielded, toggle_shielded, open_hashes
 #, open_hashes
-from simplescn import sharedir, isself, check_name, security_states, scnparse_url, logcheck
+from simplescn import sharedir, isself, check_name, security_states, logcheck
 
 
 
@@ -20,14 +19,17 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
     isregistered = False
     sfilter = None
     page_names = None
+    page_count = None
     messagebuf = None
     links = None
     resdict = None
     info = None
     newaddress = None
-    info_had_run = False
+    added_actions = None
     def __init__(self, links, obdict):
         self.page_names = {}
+        self.added_actions = set()
+        self.page_count = 0
         self.links = links
         self.resdict = obdict
         set_parent_template.__init__(self)
@@ -35,16 +37,17 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         self.set_application(self.links["gtkclient"].app)
         self.add_from_file(os.path.join(sharedir, "guigtk", "clientnode.ui"))
 
-    def init(self, page="info"):
-
+    def init(self, page):
         self.win = self.get_object("nodewin")
         
         self.win.connect('delete-event', self.close)
         self.clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         
         self.init_connects()
-        self.init_nodebook(page)
-        return True
+        if self.info is None:
+            self.update_info()
+        self.update_nodebook(page)
+        return self.info is not None
     
     def visible_func (self,_model,_iter,_data):
         _entry = self.get_object("servernodeentry")
@@ -60,19 +63,13 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
             return False
 
     def update_info(self, *args):
+        self.info = None
         _address = self.get_address()
         if _address is not None:
-            if self.info is not None:
-                infoob = self.info
-                self.info = None
-            else:
-                infoob = self.do_requestdo("info", address=_address)
-            if infoob[0] == False:
-                if self.resdict.get("forcehash") is None:
-                    logging.error("no hash found")
-                    return
+            infoob = self.do_requestdo("info", address=_address)
+            if not infoob[0]:
                 travret = self.do_requestdo("getreferences", hash=self.resdict.get("forcehash"), filter="surl")
-                if travret[0] == False:
+                if not travret[0]:
                     logging.error("fetching references failed")
                     return
                 for _tsaddr, _type in travret[1]["items"]:
@@ -83,54 +80,56 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
                         break
                     except Exception:
                         pass
-                if infoob[0] == False:
-                    return
-            self.info = infoob
+            if infoob[0]:
+                self.info = infoob
             
-            if "forcehash" not in self.resdict:
-                self.resdict["forcehash"] = infoob[3]
-            
-        else:
+        if not self.info:
             infoob = self.do_requestdo("getlocal", hash=self.resdict.get("forcehash"))
-            if infoob[0] == False:
+            if not infoob[0]:
                 return
             name = (infoob[1]["name"], infoob[1]["security"])
             self.info = (True, {"type": infoob[1]["type"], "message": "", "name": name[0]}, name, self.resdict.get("forcehash"))
-        self.update_info_slate()
+    
+    
+    def init_info_slate(self, *args):
+        sombie = self.get_object("securitycombo")
+        secwhat = self.get_object("secwhat")
+        securtypes = security_states.copy()
+        if self.info[2] is isself:
+            self.get_object("securityshow").set_label("self/destruct keys")
+            self.get_object("destroykeysb").show()
+            securtypes.remove("valid") #not valid
+            secwhat.set_text("Destroy broken/old key with reason:")
+        elif isinstance(self.info[2], tuple):
+            self.get_object("securityshow").set_label(self.info[2][1])
+            self.get_object("confirmsecb").show()
+            sombie.append_text(self.info[2][1])
+            securtypes.remove(self.info[2][1])
+            secwhat.set_text("Set key state:")
+        else:
+            self.get_object("securityshow").set_label("invisible")
+            self.get_object("securityshow").hide()
+    
+        for entry in securtypes:
+            sombie.append_text(entry)
+        sombie.set_active(0)
+        
+        if self.info[2] is isself:
+            self.get_object("messageview").set_editable(True)
+            self.get_object("updatemessageb").show()
+            self.get_object("changemsgpermanent").show()
+            self.get_object("updatenameg").show()
+            self.get_object("rnamee").set_editable(True)
+            self.get_object("rnamee").set_has_frame(True)
+    
     
     def update_info_slate(self, *args):
-        if self.info_had_run == False:
-            sombie = self.get_object("securitycombo")
-            secwhat = self.get_object("secwhat")
-            securtypes = security_states.copy()
-            if self.info[2] is isself:
-                self.get_object("securityshow").set_label("self/destruct keys")
-                self.get_object("destroykeysb").show()
-                securtypes.remove("valid") #not valid
-                secwhat.set_text("Destroy broken/old key with reason:")
-            elif isinstance(self.info[2], tuple):
-                self.get_object("securityshow").set_label(self.info[2][1])
-                self.get_object("confirmsecb").show()
-                sombie.append_text(self.info[2][1])
-                securtypes.remove(self.info[2][1])
-                secwhat.set_text("Set key state:")
-            else:
-                self.get_object("securityshow").set_label("invisible")
-                self.get_object("securityshow").hide()
-        
-            for entry in securtypes:
-                sombie.append_text(entry)
-            sombie.set_active(0)
-        
-        
-            
         addresslist = self.get_object("addresslist")
         addresslist.clear()
         for elem in self.get_address_list():
             addresslist.append((elem,))
         if self.get_object("chooseaddresse").get_text() != "":
             self.get_object("chooseaddress").set_active_id(self.get_object("chooseaddresse").get_text())
-        
         
         self.get_object("hashexpandl").set_text(self.info[3])
         self.get_object("typeshowl").set_text(self.info[1]["type"])
@@ -145,25 +144,16 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         #    self.get_object("addressshowl").set_text("None")
         #    self.get_object("portshowl").set_text(str("?"))
         
-        if self.info[2] is isself:
-            self.get_object("messageview").set_editable(True)
-            self.get_object("updatemessageb").show()
-            self.get_object("changemsgpermanent").show()
-            self.get_object("updatenameg").show()
-            self.get_object("rnamee").set_editable(True)
-            self.get_object("rnamee").set_has_frame(True)
-        self.info_had_run = True
-    
     def update_server(self,*args):
-        namestore=self.get_object("servernodelist")
-        registerb=self.get_object("registerbutton")
+        if self.get_address() is None:
+            return
+        namestore = self.get_object("servernodelist")
+        registerb = self.get_object("registerbutton")
         self.isregistered = False
         
         namestore.clear()
-        if self.get_address() is None:
-            return
-        _names=self.do_requestdo("listnames",server=self.get_address())
-        if _names[0]==False:
+        _names = self.do_requestdo("listnames",server=self.get_address())
+        if _names[0] == False:
             logging.error(_names[1])
             return
         
@@ -205,9 +195,9 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
     
     
     def update_services(self,*args):
-        servicel = self.get_object("servicelist")
         if self.get_address() is None:
             return
+        servicel = self.get_object("servicelist")
         ret = self.do_requestdo("listservices", address=self.get_address())
         servicel.clear()
         if logcheck(ret,logging.INFO) == False:
@@ -227,18 +217,16 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         Gdk.threads_add_idle(GLib.PRIORITY_LOW, self.update_services)
         return sgrid
         
-    #def init_traverse(self):
-    #    
     
-    def init_nodebook(self, page):
-        self.update_info()
+    def update_nodebook(self, page="info"):
+        noteb = self.get_object("nodebook")
         if self.info is None:
             return
-        counter = 0
-        noteb = self.get_object("nodebook")
-        self.page_names["info"] = counter
-        counter += 1
-        
+        if "info" not in self.page_names:
+            self.init_info_slate()
+            self.page_names["info"] = self.page_count
+            self.page_count += 1
+        self.update_info_slate()
         
         veristate = self.get_object("veristate")
         if self.info[2] == isself:
@@ -254,41 +242,36 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
             veristate.set_text("Node: {} ({})".format(self.info[2][0], self.info[2][1]))
             self.get_object("servicegetgrid").show()
         
-        #self.update_info_slate()
-        #noteb.set_tab_detachable(_tmp, False) #info
-        
         
         category = self.info[1]["type"]
-        self.init_actions(category)
-        
-        
+        if category not in self.added_actions:
+            self.init_actions(category)
+            self.added_actions.add(category)
         
         if category == "server":
             cat = "gui_server_iface"
-            if self.get_address() is not None:
+            if self.get_address() is not None and "server" not in self.page_names:
                 _tmp = self.create_server_slate()
-                self.page_names["server"] = counter
-                counter += 1
+                self.page_names["server"] = self.page_count
+                self.page_count += 1
                 _tmplabel = Gtk.Label("Serverlist")
+                noteb.append_page(_tmp, _tmplabel)
+                noteb.set_tab_detachable(_tmp, False)
         elif category == "client":
             cat = "gui_node_iface"
-            if self.get_address() is not None:
+            if self.get_address() is not None and "services" not in self.page_names:
                 _tmp = self.create_service_slate()
-                self.page_names["services"] = counter
-                counter += 1
+                self.page_names["services"] = self.page_count
+                self.page_count += 1
                 _tmplabel = Gtk.Label("Servicelist")
+                noteb.append_page(_tmp, _tmplabel)
+                noteb.set_tab_detachable(_tmp, False)
         else:
             logging.warning("Category not exist")
-            noteb.show_all()
-            self.connect_signals(self)
-            return
         
-        if self.get_address() is not None:
-            noteb.append_page(_tmp, _tmplabel)
-            noteb.set_tab_detachable(_tmp, False)
         self.connect_signals(self)
         for pname, plugin in sorted(self.links["client_server"].pluginmanager.plugins.items(), key=lambda x: x[0]):
-            if hasattr(plugin, cat) == True:
+            if hasattr(plugin, cat) and plugin not in self.page_names:
                 try:
                     if cat == "gui_server_iface":
                         _tmp = getattr(plugin, cat)("gtk", self.info[2], self.info[3], self.get_address, self.win)
@@ -306,11 +289,12 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
                             lname = pname
                         noteb.append_page(_tmp, Gtk.Label(lname, tooltip_text="{} ({})".format(lname, pname)))
                         noteb.set_tab_detachable(_tmp, False)
-                        self.page_names[pname] = counter
-                        counter += 1
+                        self.page_names[pname] = self.page_count
+                        self.page_count += 1
                 except Exception as e:
                     logging.error(e)
         
+        self.connect_signals(self)
         noteb.show_all()
         # don't connect signals, should be done by plugins itself
         #self.connect_signals(self)
@@ -393,6 +377,8 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         
 # service extras
     def copy_service(self,*args):
+        if self.get_address() is None:
+            return
         view = self.get_object("nodeserviceview")
         _sel = view.get_selection().get_selected()
         if _sel[1] is None:
@@ -447,11 +433,10 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         self.update_services()
 
 
-
-        
-        
 # server extras
     def action_snode(self, justselect):
+        if self.get_address() is None:
+            return
         view = self.get_object("servernodeview")
         
         _sel = view.get_selection().get_selected()
@@ -498,6 +483,8 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         self.sfilter.refilter()
     
     def register_ownnode(self,*args):
+        if self.get_address() is None:
+            return
         registerb = self.get_object("registerbutton")
         namestore = self.get_object("servernodelist")
         res = self.do_requestdo("register", server=self.get_address())
@@ -529,12 +516,12 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
     
     def confirm_keydestruction(self, *args):
         sectype = self.get_object("securityentry").get_text()
-        
         ret = self.do_requestdo("invalidatecert", reason=sectype)
         self.get_object("setsecuritywin").hide()
         if ret[0] == True:
             #self.get_object("securityshow").set_label(sectype)
             self.resdict["forcehash"] = self.links["client"].cert_hash
+
     def cancel_security(self, *args):
         self.get_object("setsecuritywin").hide()
 ## gtk template
@@ -545,7 +532,7 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         return self.links["gtkclient"].do_requestdo(action, **od)
     
     def get_address_list(self):
-        ret = []
+        ret = ["offline"]
         for elem in open_hashes[self.resdict.get("forcehash")][1]:
             ret.append(elem)
         return sorted(ret)
@@ -554,8 +541,9 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         return self.resdict.get("traverseserveraddr")
 
     def get_address(self):
-        if len(open_hashes[self.resdict.get("forcehash")][1])==0:
+        if len(open_hashes[self.resdict.get("forcehash")][1]) == 0 or self.get_object("chooseaddresse").get_text() == "offline":
             return None
+        
         return self.get_object("chooseaddresse").get_text()
     
     def close(self,*args):
@@ -568,15 +556,14 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
 
 def gtkclient_node(links, _address, page="info", **obdict):
     infoob = None
-    if obdict.get("forcehash") is None and _address is None:
+    if obdict.get("forcehash") is None and _address in [None, "offline"]:
         return None
+    # with hash exist more sophisticated methods to connect so use only as backup
     elif obdict.get("forcehash") is None:
-        if infoob is None:
-            infoob = links["gtkclient"].do_requestdo("info", address=_address)
-        if infoob[0] == False:
+        infoob = links["gtkclient"].do_requestdo("info", address=_address)
+        if not infoob[0]:
             return None
         obdict["forcehash"] = infoob[3]
-    
     ret = None
     if obdict.get("forcehash") not in open_hashes:
         ret = _gtkclient_node(links, obdict)
@@ -585,13 +572,21 @@ def gtkclient_node(links, _address, page="info", **obdict):
         if _address is not None:
             open_hashes[obdict.get("forcehash")][1].add(_address)
             open_hashes[obdict.get("forcehash")][0].get_object("chooseaddresse").set_text(_address)
-        ret.init(page)
+        else:
+            open_hashes[obdict.get("forcehash")][0].get_object("chooseaddresse").set_text("offline")
+            open_hashes[obdict.get("forcehash")][0].get_object("chooseaddress").set_active_id("offline")
+        if ret.init(page) == False:
+            open_hashes[obdict.get("forcehash")][0].get_object("chooseaddresse").set_text("offline")
+            open_hashes[obdict.get("forcehash")][0].get_object("chooseaddress").set_active_id("offline")
     else:
         if _address is not None:
             open_hashes[obdict.get("forcehash")][1].add(_address)
             open_hashes[obdict.get("forcehash")][0].get_object("chooseaddresse").set_text(_address)
-            open_hashes[obdict.get("forcehash")][0].update_info()
             open_hashes[obdict.get("forcehash")][0].get_object("chooseaddress").set_active_id(_address)
+            open_hashes[obdict.get("forcehash")][0].update_info()
+            open_hashes[obdict.get("forcehash")][0].update_nodebook(page)
+            
+            
         open_hashes[obdict.get("forcehash")][0].win.present()
         open_hashes[obdict.get("forcehash")][0].win.set_accept_focus(True)
         ret = open_hashes[obdict.get("forcehash")][0]

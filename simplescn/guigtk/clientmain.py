@@ -9,7 +9,7 @@ import traceback
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk,Gdk, GLib #,Pango
+from gi.repository import Gtk,Gdk, GLib
 
 import simplescn
 from simplescn import client, logcheck
@@ -943,7 +943,7 @@ def open_gtk_pwcall_plugin(msg, requester):
     """ plugin: open a password dialog
         return: pw or None
         requester: requesting plugin """
-    if requester not in ["", None]:
+    if requester != "":
         return gtkclient_pw(msg, requester)
     else:
         return None
@@ -952,7 +952,7 @@ def open_gtk_notify_plugin(msg, requester):
     """ plugin: open a notification dialog
         return: True or False
         requester: requesting plugin """
-    if requester not in ["", None]:
+    if requester  != "":
         return gtkclient_notify(msg, requester)
     else:
         return None

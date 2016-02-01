@@ -4,7 +4,7 @@ from simplescn import classify_local, classify_redirect, pwcallmethod, notify, c
 
 
 class client_dialogs(object):
-    validactions_dialogs={"open_pwrequest","open_notify"}
+    validactions_dialogs={"open_pwrequest", "open_notify"}
     
     @check_argsdeco({"message": str}, optional={"requester": str})
     @classify_local
@@ -13,7 +13,7 @@ class client_dialogs(object):
         """ func: open password dialog
             return: pw or None, or error when not allowed
             message: message for the password dialog
-            requester: plugin calling the password dialog (default: None=main application) """
+            requester: plugin calling the password dialog (default: ""=main application) """
         if obdict.get("clientcerthash") is None or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash"):
             return False, "auth failed"
         temp = pwcallmethod(obdict.get("message"), obdict.get("requester", ""))
@@ -26,7 +26,7 @@ class client_dialogs(object):
         """ func: open notification dialog
             return: True or False, or error when not allowed
             message: message for the notification dialog
-            requester: plugin calling the notification dialog (default: None=main application) """
+            requester: plugin calling the notification dialog (default: ""=main application) """
         if obdict.get("clientcerthash","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash",""):
             return False, "auth failed"
         temp = notify(obdict.get("message"), obdict.get("requester", ""))

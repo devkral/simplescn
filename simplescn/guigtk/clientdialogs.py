@@ -6,7 +6,7 @@ import subprocess
 import gi
 import logging
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GdkPixbuf, GLib, Gdk
+from gi.repository import Gtk, GdkPixbuf
 
 basedir = os.path.dirname(__file__)
 parentlist = []
@@ -21,7 +21,7 @@ def get_parent():
 def _gtkclient_notify(msg, requester=""):
     """ func: gtk notification dialog
         return: True or False
-        requester: plugin which requests the dialog (None: for main) """
+        requester: plugin which requests the dialog ("": for main) """
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.svg"))
     if icon:
         dia = Gtk.Dialog(parent=None, title="Notify", icon=icon)
@@ -30,7 +30,7 @@ def _gtkclient_notify(msg, requester=""):
     dia.add_button("Confirm", 1)
     dia.add_button("Cancel", 0)
     box = dia.get_content_area()
-    if requester not in ["", None]:
+    if requester != "":
         labelreq = Gtk.Label("{} asks:".format(requester))
         #dia.set_title(requester)
         box.pack_start(labelreq, False, False, 0)
@@ -46,15 +46,13 @@ def gtkclient_notify(msg, requester=""):
     if sys.executable in ["", None]:
         logging.error("Cannot open interpreter for subprocess")
         return ""
-    if requester is None:
-        requester = ""
     with subprocess.Popen([sys.executable, __file__, "notify", msg, requester], stdin=subprocess.PIPE, stdout=subprocess.PIPE) as proc:
         return str(proc.communicate()[0][:-1], "utf-8")
 
 def _gtkclient_pw(msg, requester=""):
     """ func: gtk password dialog
         return: None or pw
-        requester: plugin which requests the dialog (None: for main)
+        requester: plugin which requests the dialog ("": for main)
     """
     icon = GdkPixbuf.Pixbuf.new_from_file(os.path.join(basedir, "icon.svg"))
     if icon:
@@ -64,7 +62,7 @@ def _gtkclient_pw(msg, requester=""):
     dia.add_button("Confirm", 1)
     dia.add_button("Cancel", 0)
     box = dia.get_content_area()
-    if requester not in ["", None]:
+    if requester != "":
         labelreq = Gtk.Label("{} requests pw for:\n{}".format(requester, msg))
         box.pack_start(labelreq, False, False, 0)
     box.pack_end(Gtk.Label(msg), True, True, 0)
@@ -88,8 +86,6 @@ def gtkclient_pw(msg, requester=""):
     if sys.executable in ["", None]:
         logging.error("Cannot open interpreter for subprocess")
         return ""
-    if requester is None:
-        requester = ""
     with subprocess.Popen([sys.executable, __file__, "pw", msg, requester], stdin=subprocess.PIPE, stdout=subprocess.PIPE) as proc:
         return str(proc.communicate()[0][:-1], "utf-8")
     

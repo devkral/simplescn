@@ -471,6 +471,7 @@ name</property>
                     <property name="margin_bottom">5</property>
                     <property name="image">reloadinfobimg</property>
                     <signal name="clicked" handler="update_info" swapped="no"/>
+                    <signal name="clicked" handler="update_info_slate" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>

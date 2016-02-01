@@ -12,7 +12,6 @@ import ssl
 import threading
 import json
 import logging
-from urllib import parse
 
 
 from simplescn.client_admin import client_admin
@@ -21,7 +20,7 @@ from simplescn.client_config import client_config
 from simplescn.dialogs import client_dialogs
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, pwcallmethod, rw_socket, notify, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -44,9 +43,8 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
     redirect_hash = ""
     receive_redirect_hash = ""
     scntraverse_helper = None
+    brokencerts = []
     
-    #brokencerts = []
-    # client_lock = None
     validactions = {"cmd_plugin", "remember_auth" }
     
     def __init__(self, _name, _pub_cert_hash, _certdbpath, certfpath, _links):
@@ -54,12 +52,11 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         client_admin.__init__(self)
         client_safe.__init__(self)
         client_config.__init__(self)
-        # self.client_lock = threading.RLock()
         self.links = _links
         self.name = _name
         self.cert_hash = _pub_cert_hash
         self.hashdb = certhash_db(_certdbpath)
-        self.sslcont = self.links["hserver"].sslcont #default_sslcont()
+        self.sslcont = self.links["hserver"].sslcont
         
         if "hserver" in self.links:
             self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
@@ -403,7 +400,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         
     # NEVER include in validactions
     # for plugins, e.g. untrusted
-    # requester = None, don't allow asking
+    # requester = "", invalid requester don't allow asking
     # headers=headers
     # client_address=client_address
     @generate_error_deco
@@ -421,7 +418,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 return False, "{} tried to use noplugin protected methods".format(requester)
             if "admin" in getattr(getattr(self, action), "classify", set()):
                 # use_notify returns in error case None or False both evaluated as False (when not checking with ==)
-                if requester in ["", None] or self.use_notify('"{}" wants admin permissions\nAllow?'.format(requester)):
+                if requester == "" or self.use_notify('"{}" wants admin permissions\nAllow?'.format(requester)):
                     return False, "no permission"
             return self.access_core(action, obdict)
         else:
@@ -903,8 +900,6 @@ class client_handler(BaseHTTPRequestHandler):
                 self.connection = self.connection.unwrap()
                 self.connection = cont.wrap_socket(self.connection, server_side=True)
                 self.connection = self.connection.unwrap()
-                # without next line the connection would be unencrypted now
-                #self.connection.context(oldsslcont)
                 self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
@@ -915,16 +910,12 @@ class client_handler(BaseHTTPRequestHandler):
                 if self.headers.get("X-certrewrap") is not None:
                     self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
                 self.end_headers()
-                
             else:
                 oldsslcont = self.connection.context
                 
                 self.connection = self.connection.unwrap()
                 self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-                #time.sleep(1) # better solution needed
                 self.connection = self.connection.unwrap()
-                # without next line the connection would be unencrypted now
-                #self.connection.context(oldsslcont)
                 self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
                 self.rfile = self.connection.makefile(mode='rb')
                 self.wfile = self.connection.makefile(mode='wb')
