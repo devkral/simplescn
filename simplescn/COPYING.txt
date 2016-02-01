@@ -1,5 +1,6 @@
 
 code (exclude plugins except no seperate license is available): see LICENSE.txt
+config (=parameters.py): public domain (only options)
 
 gobject, gtk, ...: GPL; code: git.gnome.org
 python: www.python.org

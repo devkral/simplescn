@@ -17,7 +17,7 @@ from getpass import getpass
 import logging
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
 import datetime
@@ -38,59 +38,16 @@ from http.client import HTTPSConnection
 from http.server import HTTPServer
 import socketserver
 
-logformat = '%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'
-
-## sizes ##
-salt_size = 10
-token_size = 10
-key_size = 4096
-# size of chunks (only in use by rw_socket?)
-default_buffer_size = 1400
-max_serverrequest_size = 4000
-# maybe a bad idea to change
-max_typelength = 15
-max_namelength = 64
-
-## timeouts ##
-# time out for auth requests
-auth_request_expire_time = 60*3
-ping_interval = 50
-
-## file positions ##
-default_configdir = '~/.simplescn/'
-confdb_ending = ".confdb"
-# don't change
-isself = 'isself'
-pluginstartfile = "main.py"
-
-## ports ##
-client_port = 0
-server_port = 4040
-
-## hash algorithms ##
-algorithms_strong = ['sha512', 'sha384', 'sha256', 'whirlpool']
-cert_sign_hash = hashes.SHA512()
-# don't change
-DEFAULT_HASHALGORITHM = "sha256"
-DEFAULT_HASHALGORITHM_len = 64
-
-## server only ##
-
-# loads: min_items, refresh, expire
-high_load = (100000, 10*60, 2*60*60)
-medium_load = (1000, 60, 4*60*60)
-low_load = (500, 10, 4*60*60)
-# special load just: refresh, expire
-very_low_load = (1, 24*60*60)
-
-## defaults (most probably no change needed) ##
-default_priority = 20
-default_timeout = 60
-
+# load parameters in simplescn namespace
+# don't load directly from parameters
+# because parameters can be overwritten by parameters_overwrite
+try:
+    from simplescn.parameters_overwrite import *
+except ImportError:
+    from simplescn.parameters import *
 
 
 ###### signaling ######
-security_states = ["compromised", "old", "valid", "insecure"]
 
 class AddressFail(Exception):
     msg = '"<address>[:<port>]": '
