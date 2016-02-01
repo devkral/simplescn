@@ -24,6 +24,27 @@ Its nature lies in the decentral structure.
 This means the user has to verify (server) hashes. This is not hard and is assisted by a friendlist and scn servers, which both use is strongly recommended.
 In contrast to similar solutions it is up to the user putting certificates into the friendlist.
 
+Usage:
+gui-client (falls back to cmd client when no gui is found):
+simplescn.py client parameters...
+
+cmd-client:
+simplescn.py rawclient parameters...
+
+client without a command line interface:
+simplescn.py rawclient nocmd=True parameters...
+or
+simplescn.py rawclient nocmd parameters...
+
+server:
+simplescn.py server.py
+
+
+Overwrite parameters:
+copy parameters.py and save it as parameters_overwrite.py in the same folder
+
+
+
 Note:
 rawclient and gtkclient use different config files
 the plugins will use the same config among the different clients except an other configdirectory is given
