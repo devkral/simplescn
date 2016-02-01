@@ -7,7 +7,7 @@ import logging
 from simplescn import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, classify_admin, classify_experimental, classify_noplugin, classify_local
 
 class client_admin(object): 
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changename", "invalidatecert", "changesecurity", "addredirect", "delredirect", "massimporter"}
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changeloglevel", "changename", "invalidatecert", "changesecurity", "addredirect", "delredirect", "massimporter"}
     
     #, "connect"
     hashdb = None
@@ -253,6 +253,16 @@ class client_admin(object):
                     wm.write(obdict.get("message"))
         return True
     
+    @check_argsdeco({"loglevel": int})
+    @classify_admin
+    @classify_local
+    #@classify_noplugin
+    def changeloglevel(self, obdict):
+        """ func: change loglevel
+            return: success or error
+            loglevel: name of loglevel """
+        logging.root.setLevel(obdict["loglevel"])
+        return True
     
     @check_argsdeco({"name": str},optional={"permanent": bool})
     @classify_admin

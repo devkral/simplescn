@@ -68,6 +68,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
       <column type="gint"/>
     </columns>
   </object>
+  <object class="GtkTreeModelFilter" id="debugfilter">
+    <property name="child_model">backlogdebug</property>
+  </object>
   <object class="GtkApplicationWindow" id="debugwin">
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">Debug</property>
@@ -79,6 +82,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <property name="hexpand">True</property>
+        <property name="border_width">3</property>
+        <property name="column_spacing">3</property>
         <child>
           <object class="GtkScrolledWindow" id="scrolledwindow2">
             <property name="visible">True</property>
@@ -90,7 +95,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               <object class="GtkTreeView" id="debugview">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="model">backlogdebug</property>
+                <property name="model">debugfilter</property>
                 <signal name="cursor-changed" handler="render_debug_bt" swapped="no"/>
                 <signal name="move-cursor" handler="render_debug_bt" swapped="no"/>
                 <signal name="select-cursor-row" handler="render_debug_bt" swapped="no"/>
@@ -112,12 +117,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
             <property name="hexpand">True</property>
             <property name="column_spacing">3</property>
             <child>
-              <object class="GtkSearchEntry" id="filterdebug">
+              <object class="GtkSearchEntry" id="searchdebug">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="primary_icon_name">edit-find-symbolic</property>
                 <property name="primary_icon_activatable">False</property>
                 <property name="primary_icon_sensitive">False</property>
+                <signal name="changed" handler="debugfilter_refilter" swapped="no"/>
               </object>
               <packing>
                 <property name="left_attach">2</property>
@@ -133,6 +139,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                   <object class="GtkEntry" id="filterlevel-entry">
                     <property name="can_focus">False</property>
                     <property name="editable">False</property>
+                    <signal name="changed" handler="debugfilter_refilter" swapped="no"/>
+                    <signal name="changed" handler="set_loglevel" swapped="no"/>
                   </object>
                 </child>
               </object>
@@ -160,17 +168,35 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
           </packing>
         </child>
         <child>
-          <object class="GtkLabel" id="showbt">
+          <object class="GtkGrid" id="grid9">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="halign">start</property>
-            <property name="valign">start</property>
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <property name="wrap">True</property>
-            <property name="selectable">True</property>
-            <property name="ellipsize">start</property>
-            <property name="track_visited_links">False</property>
+            <child>
+              <object class="GtkLabel" id="label1">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="halign">start</property>
+                <property name="label" translatable="yes">Stacktrace:</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkTextView" id="showbt">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
+                <property name="editable">False</property>
+                <property name="wrap_mode">word-char</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="left_attach">1</property>

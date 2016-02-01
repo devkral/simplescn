@@ -7,7 +7,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 
-from simplescn import isself
+from simplescn import isself, logcheck
 
 class configuration_stuff(object):
     win = None
@@ -267,6 +267,7 @@ class debug_stuff(object):
     debugwin = None
     debugview = None
     backlogdebug = None
+    debugfilter = None
     builder = None
     
     def __init__(self):
@@ -277,15 +278,45 @@ class debug_stuff(object):
         col10 = Gtk.TreeViewColumn("Message", Gtk.CellRendererText(), text=0)
         self.debugview.append_column(col10)
         self.backlogdebug = self.builder.get_object("backlogdebug")
+        
+        self.debugfilter = self.builder.get_object("debugfilter")
+        self.debugfilter.set_visible_func(self.debug_visible_func)
+        filterlevelcombo = self.builder.get_object("filterlevel")
+        for name in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            filterlevelcombo.append_text(name)
+        self.builder.get_object("filterlevel-entry").set_text("DEBUG")
         self.debugwin.connect('delete-event', self.close_debug)
     
+    
+    
+    def debugfilter_refilter(self,*args):
+        self.debugfilter.refilter()
+    
+    def debug_visible_func(self,_model,_iter,_data):
+        _levelname = self.builder.get_object("filterlevel-entry").get_text()
+        _levelno = logging._nameToLevel.get(_levelname, 0)
+        _search = self.builder.get_object("searchdebug").get_text()
+        if _model[_iter] is None:
+            return False
+        if _search not in _model[_iter][0]:
+            return False
+        # is debuglevel too low
+        if _levelno > _model[_iter][2]:
+            return False
+        return True
+
     def render_debug_bt(self, *args):
         _sel = self.debugview.get_selection().get_selected()
         if _sel[1] is None:
             _bt = self.backlogdebug[self.backlogdebug.get_iter_first ()]
         else:
             _bt=_sel[0][_sel[1]][1]
-        self.builder.get_object("showbt").set_text(_bt)
+        self.builder.get_object("showbt").get_buffer().set_text(_bt, len(_bt))
+    
+    def set_loglevel(self, *args):
+        _levelname = self.builder.get_object("filterlevel-entry").get_text()
+        _levelno = logging._nameToLevel[_levelname]
+        logcheck(self.do_requestdo("changeloglevel", loglevel=_levelno))
         
     def debug_show(self,*args):
         self.debugwin.show()
