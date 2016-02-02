@@ -8,6 +8,4 @@ tests/temp_*
 build
 dist
 simplescn.build
-simplescn_nuitkadist
-simplescn_nuitkadist.zip
 parameters_overwrite.py

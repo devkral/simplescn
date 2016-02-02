@@ -6,17 +6,6 @@ startscript for simplescn
 """
 import sys
 
-# load for nuitkabuild also a good test if available
-try:
-    import markdown
-except ImportError:
-    print("No markdown support", file=sys.stderr)
-
-try:
-    import gi
-except ImportError:
-    print("No gtk gui support", file=sys.stderr)
-
 # required:
 try:
     import cryptography
