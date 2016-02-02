@@ -1,13 +1,11 @@
 
 
-## Alpha 4
-* logcheck should use stacktrace information in ret[1]
-* gtk gui for windows
-* more tests
 
 ## Beta
 * stabilize
-* doc
+* more tests
+* gtk gui for windows (done with pip?)
+
 
 ## 0.2
 * rewrite pluginmanager
