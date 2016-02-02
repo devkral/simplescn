@@ -338,7 +338,6 @@ class debug_stuff(object):
 class help_stuff(object):
     aboutwin = None
     helpwin = None
-    
     builder = None
     
     def __init__(self):

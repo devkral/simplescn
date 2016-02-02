@@ -584,7 +584,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             ret = self.do_requestdo("delredirect", forceremote=True)
             if ret[0] == False:
                 logging.debug("delredirect failed")
-            self.links["client"].receive_redirect_hash = ""
+            self.links["trusted_certhash"] = ""
         self.remoteclient_url = clurl.get_text()
         self.remoteclient_hash = _hash
         # get local port
@@ -598,11 +598,11 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             ret = self.do_requestdo("addredirect", forceremote=True, port=_showret[1].get("port"))
             if logcheck(ret, logging.ERROR) == False:
                 return
-            self.links["client"].receive_redirect_hash = _hash
+            self.links["trusted_certhash"] = _hash
             self.use_localclient = False
             self.close_clientdia()
         else:
-            self.links["client"].receive_redirect_hash = ""
+            self.links["trusted_certhash"] = ""
             self.use_localclient = True
             self.close_clientdia()
         

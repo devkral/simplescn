@@ -220,6 +220,9 @@ def config_plugin():
 
 def init_method_main():
     """ starter method """
+    #import multiprocessing
+    #multiprocessing.freeze_support()
+    #multiprocessing.set_start_method('spawn')
     logging.basicConfig(level=loglevel_converter(default_loglevel), format=logformat)
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -238,6 +241,4 @@ def init_method_main():
         client()
 
 if __name__ == "__main__":
-    import multiprocessing
-    multiprocessing.freeze_support()
     init_method_main()

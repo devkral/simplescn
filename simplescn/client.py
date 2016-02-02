@@ -40,7 +40,6 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
     links = None
     redirect_addr = ""
     redirect_hash = ""
-    receive_redirect_hash = ""
     scntraverse_helper = None
     brokencerts = []
     
@@ -563,7 +562,7 @@ class client_handler(commonscnhandler):
             authreq = self.links["auth_server"].request_auth(realm)
             #self.cleanup_stale_data(max_serverrequest_size)
             ob = bytes(json.dumps(authreq), "utf-8")
-            self.scn_send_answer(401, ob)
+            self.scn_send_answer(401, body=ob, docache=False)
             return
         
         
@@ -584,27 +583,27 @@ class client_handler(commonscnhandler):
                 if self.client_address2[0] not in ["127.0.0.1", "::1"]:
                     generror = generate_error("unknown")
                 ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
-                self.scn_send_answer(500, ob)
+                self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
                 return
         else:
             jsonnized = json.dumps(gen_result(response[1],response[0]))
         
         ob = bytes(jsonnized, "utf-8")
         if response[0] == False:
-            self.scn_send_answer(400, ob, docache=False)
+            self.scn_send_answer(400, body=ob, docache=False)
         else:
-            self.scn_send_answer(200, ob, docache=False)
+            self.scn_send_answer(200, body=ob, docache=False)
 
     def handle_server(self, action):
         if action not in self.links["client_server"].validactions:
-            self.send_error(400, "invalid action - server")
+            self.scn_send_answer(400, message="invalid action - server", docache=False)
             return
         
         if self.links["auth_server"].verify("server", self.auth_info) == False:
             authreq = self.links["auth_server"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
             self.cleanup_stale_data(max_serverrequest_size)
-            self.scn_send_answer(401, ob)
+            self.scn_send_answer(401, body=ob, docache=False)
             return
         
         if action in self.links["client_server"].cache:
@@ -612,7 +611,7 @@ class client_handler(commonscnhandler):
             self.cleanup_stale_data(2)
             
             ob = bytes(self.links["client_server"].cache[action], "utf-8")
-            self.scn_send_answer(200, ob)
+            self.scn_send_answer(200, body=ob, docache=False)
             return
         
         obdict = self.parse_body(max_serverrequest_size)
@@ -627,7 +626,7 @@ class client_handler(commonscnhandler):
             if self.client_address2[0] in ["127.0.0.1", "::1"]:
                 error = generate_error(e)
             ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
-            self.scn_send_answer(500, ob)
+            self.scn_send_answer(500, body=ob, mime="application/json")
             return
         
         
@@ -636,9 +635,9 @@ class client_handler(commonscnhandler):
             response[0] = False
         ob = bytes(jsonnized, "utf-8")
         if response[0] == False:
-            self.scn_send_answer(400, ob, docache=False)
+            self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
         else:
-            self.scn_send_answer(200, ob, docache=False)
+            self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
         
     def do_GET(self):
         if self.init_scn_stuff() == False:
@@ -647,11 +646,11 @@ class client_handler(commonscnhandler):
             if "favicon.ico" in self.statics:
                 self.scn_send_answer(200, self.statics["favicon.ico"], docache=True)
             else:
-                self.scn_send_answer(404)
+                self.scn_send_answer(404, docache=True)
             return
         
         if self.webgui == False:
-            self.scn_send_answer(404, "no webgui enabled")
+            self.scn_send_answer(404, message="no webgui enabled", docache=True)
         
         _path=self.path[1:].split("/")
         if _path[0] in ("","client","html","index"):
@@ -659,21 +658,12 @@ class client_handler(commonscnhandler):
             return
         elif  _path[0]=="static" and len(_path)>=2:
             if _path[1] in self.statics:
-                self.scn_send_answer(200, self.statics[_path[1]], docache=True)
+                self.scn_send_answer(200, body=self.statics[_path[1]], docache=True)
                 return
-        # for e.g. GET stuck jabber server
-        #elif  _path[0]=="service" and len(_path)==2:
-        #    ret = self.links["client_server"].get(_path[1])
-        #    if ret[0]:
-        #        self.send_response(307)
-        #        self.end_headers()
-                #self.wfile.write(self.statics[_path[1]])
-        #        return
-        
         elif len(_path)==2:
             self.handle_server(_path[0])
             return
-        self.send_error(404, "not -found")
+        self.scn_send_answer(404, message="resource not found (GET)", docache=True)
     
     
     def do_POST(self):
@@ -691,12 +681,14 @@ class client_handler(commonscnhandler):
             pluginm = self.links["client_server"].pluginmanager
             split2 = sub.split("/", 1)
             if len(split2) != 2:
-                self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
+                #self.cleanup_stale_data()
+                self.scn_send_answer(400, message="no plugin/action specified")
                 return
             plugin, action = split2
             
             if plugin not in pluginm.plugins:
-                self.send_error(404, "plugin not available", "Plugin with name {} does not exist".format(sub))
+                #self.cleanup_stale_data()
+                self.scn_send_answer(404, message="plugin not available")
                 return
             
             #pluginpw = "plugin:{}".format(plugin)
@@ -712,12 +704,7 @@ class client_handler(commonscnhandler):
                 if self.links["client"].redirect_addr != "":
                     # needs to implement http handshake and stop or don't analyze content
                     if hasattr(pluginm.plugins[plugin], "rreceive") == True:
-                        try:
-                            ret = pluginm.plugins[plugin].rreceive(action, self.connection, self.client_cert, self.client_cert_hash)
-                        except Exception as e:
-                            logging.error(e)
-                            self.send_error(500, "plugin error", str(e))
-                            ret = False
+                        ret = self.handle_plugin(pluginm.plugins[plugin].rreceive, action)
                     else:
                         ret = True
                     if ret == False:
@@ -737,21 +724,7 @@ class client_handler(commonscnhandler):
                     rw_socket(sockd, self.connection)
                     return
                 else:
-                    self.send_response(200)
-                    self.send_header("Connection", "keep-alive")
-                    self.send_header("Cache-Control", "no-cache")
-                    if self.headers.get("X-certrewrap") is not None:
-                        self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-                    self.end_headers()
-                    # send if not sent already
-                    self.wfile.flush()
-                    try:
-                        pluginm.plugins[plugin].receive(action, self.connection, self.client_cert, self.client_cert_hash)
-                        #if self.connection.closed == False:
-                        #    self.connection.close()
-                    except Exception as e:
-                        logging.error(e)
-                        return
+                    self.handle_plugin(pluginm.plugins[plugin].receive, action)
         # for invalidating and updating, don't use connection afterwards 
         elif resource == "usebroken":
             self.handle_usebroken(sub)
@@ -760,7 +733,7 @@ class client_handler(commonscnhandler):
         elif resource == "client":
             self.handle_client(sub)
         else:
-            self.send_error(404, "resource not found", "could not find {}".format(resource))
+            self.scn_send_answer(404, message="resource not found (POST)", docache=True)
 
 
 class client_init(object):
@@ -771,7 +744,7 @@ class client_init(object):
     
     def __init__(self, confm, pluginm):
         logging.root.setLevel(confm.get("loglevel"))
-        self.links = {}
+        self.links = {"trusted_certhash": ""}
         self.links["config"] = confm
         self.links["config_root"] = confm.get("config")
         
@@ -836,12 +809,12 @@ class client_init(object):
             logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_cpath+"_name"))
             sys.exit(1)
 
-        if confm.getb("port") == True:
+        if confm.get("port") > -1:
             pass
         elif len(_name) >= 2:
             confm.set("port", _name[1])
-        else: # fallback
-            confm.set("port", str(client_port))
+        else: # fallback, configmanager autoconverts into string
+            confm.set("port", client_port)
         port = confm.get("port")
         
         clientserverdict={"name": _name[0], "certhash": dhash(pub_cert),
@@ -871,23 +844,25 @@ class client_init(object):
 
 #specified seperately because of chicken egg problem
 #"config":default_configdir
-default_client_args={"noplugins": ["False", bool, "deactivate plugins"],
-             "cpwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than cpw (needed for remote control)"],
-             "cpw": ["", str, "<pw>: password (cleartext) (needed for remote control)"],
-             "apwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than apw"],
-             "apw": ["", str, "<pw>: password (cleartext)"],
-             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than spw"],
-             "spw": ["", str, "<pw>: password (cleartext)"],
-             "noserver": ["False", bool, "deactivate server component (deactivate also remote pw, notify support)"],
-             "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
-             "priority": [str(default_priority), int, "<number>: set priority"],
-             "timeout": [str(default_timeout), int, "<number>: set timeout"],
-             "webgui": ["False", bool, "enables webgui"],
-             "loglevel": [str(default_loglevel), loglevel_converter, "loglevel"],
-             "nocmd": ["False", bool, "use no cmd"]}
+default_client_args = {
+            "noplugins": ["False", bool, "deactivate plugins"],
+            "cpwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than cpw (needed for remote control)"],
+            "cpw": ["", str, "<pw>: password (cleartext) (needed for remote control)"],
+            "apwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than apw"],
+            "apw": ["", str, "<pw>: password (cleartext)"],
+            "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than spw"],
+            "spw": ["", str, "<pw>: password (cleartext)"],
+            "noserver": ["False", bool, "deactivate server component (deactivate also remote pw, notify support)"],
+            "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
+            "priority": [str(default_priority), int, "<number>: set priority"],
+            "timeout": [str(default_timeout), int, "<number>: set timeout"],
+            "webgui": ["False", bool, "enables webgui"],
+            "loglevel": [str(default_loglevel), loglevel_converter, "loglevel"],
+            "nocmd": ["False", bool, "use no cmd"],
+            "port": [str(-1), int, "<number>: port of server component, -1: use port in \"client_name.txt\""]}
              
-overwrite_client_args={"config": [default_configdir, str, "<dir>: path to config dir"],
-             "port": [str(client_port), int, "<number>: Port"]}
+overwrite_client_args={
+            "config": [default_configdir, str, "<dir>: path to config dir"]}
 
 
 def client_paramhelp():

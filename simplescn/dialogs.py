@@ -14,7 +14,7 @@ class client_dialogs(object):
             return: pw or None, or error when not allowed
             message: message for the password dialog
             requester: plugin calling the password dialog (default: ""=main application) """
-        if obdict.get("clientcerthash") is None or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash"):
+        if obdict.get("clientcerthash") is None or self.links.get("trusted_certhash", "") == "" or self.links.get("trusted_certhash", "") != obdict.get("clientcerthash"):
             return False, "auth failed"
         temp = pwcallmethod(obdict.get("message"), obdict.get("requester", ""))
         return True, {"pw": temp}
@@ -27,7 +27,7 @@ class client_dialogs(object):
             return: True or False, or error when not allowed
             message: message for the notification dialog
             requester: plugin calling the notification dialog (default: ""=main application) """
-        if obdict.get("clientcerthash","") == "" or self.receive_redirect_hash == "" or self.receive_redirect_hash != obdict.get("clientcerthash",""):
+        if obdict.get("clientcerthash","") == "" or self.links.get("trusted_certhash", "") == "" or self.links.get("trusted_certhash", "") != obdict.get("clientcerthash",""):
             return False, "auth failed"
         temp = notify(obdict.get("message"), obdict.get("requester", ""))
         return True, {"result": temp}

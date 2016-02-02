@@ -327,13 +327,13 @@ class server_handler(commonscnhandler):
     
     def handle_server(self, action):
         if action not in self.links["server_server"].validactions:
-            self.send_error(400, "invalid action - server")
+            self.scn_send_answer(400, message="invalid action - server")
             return
         
         if self.links["auth"].verify("server", self.auth_info) == False:
             authreq = self.links["auth"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
-            self.scn_send_answer(401, ob)
+            self.scn_send_answer(401, body=ob, docache=False)
             return
         
         if action in self.links["server_server"].cache:
@@ -341,29 +341,12 @@ class server_handler(commonscnhandler):
             self.cleanup_stale_data(2)
             
             ob = bytes(self.links["server_server"].cache[action], "utf-8")
-            self.scn_send_answer(200, ob)
+            self.scn_send_answer(200, body=ob, docache=False)
             return
         
-        
-        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
-            self.send_error(411,"POST data+data length needed")
-            return
-            
-        contsize=int(self.headers.get("Content-Length"))
-        if contsize>max_serverrequest_size:
-            self.send_error(431, "request too large")
-        
-        readob = self.rfile.read(int(self.headers.get("Content-Length")))
-        # str: charset (like utf-8), safe_mdecode: transform arguments to dict 
-        obdict = safe_mdecode(readob, self.headers.get("Content-Type", "application/json; charset=utf-8"))
+        obdict = self.parse_body(max_serverrequest_size)
         if obdict is None:
-            self.send_error(400, "bad arguments")
-            return
-        obdict["clientaddress"] = self.client_address2
-        obdict["clientcert"] = self.client_cert
-        obdict["clientcerthash"] = self.client_cert_hash
-        obdict["headers"] = self.headers
-        obdict["socket"] = self.connection
+            return None
         try:
             func = getattr(self.links["server_server"], action)
             success, result = func(obdict)[:2]
@@ -373,28 +356,26 @@ class server_handler(commonscnhandler):
             if self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]:
                 error = generate_error(e)
             ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
-            self.scn_send_answer(500, ob)
+            self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
             return
         ob = bytes(jsonnized, "utf-8")
         if success == False:
-            self.scn_send_answer(400, ob, docache=False)
+            self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
         else:
-            self.scn_send_answer(200, ob, docache=False)
+            self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
         
     def do_GET(self):
         if self.init_scn_stuff() == False:
             return
         if self.path == "/favicon.ico":
             if "favicon.ico" in self.statics:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(self.statics["favicon.ico"])
+                self.scn_send_answer(200, body=self.statics["favicon.ico"], docache=True)
             else:
-                self.send_error(404)
+                self.scn_send_answer(404, docache=True)
             return
         
         if self.webgui == False:
-            self.send_error(404, "no webgui enabled")
+            self.scn_send_answer(404, message="no webgui enabled", docache=True)
         
         _path = self.path[1:].split("/")
         if _path[0] in ("","server","html","index"):
@@ -402,20 +383,17 @@ class server_handler(commonscnhandler):
             return
         elif  _path[0] == "static" and len(_path)>=2:
             if _path[1] in self.statics:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(self.statics[_path[1]])
+                self.scn_send_answer(200, body=self.statics[_path[1]])
             return
         elif len(_path)==2:
             self.handle_server(_path[0])
             return
-        self.send_error(404, "not -found")
+        self.scn_send_answer(404, message="resource not found (GET)", docache=True)
 
     def do_POST(self):
         if self.init_scn_stuff() == False:
             return
         splitted = self.path[1:].split("/",1)
-        pluginm = self.links["server_server"].pluginmanager
         if len(splitted) == 1:
             resource = splitted[0]
             sub = ""
@@ -423,6 +401,7 @@ class server_handler(commonscnhandler):
             resource = splitted[0]
             sub = splitted[1]
         if resource == "plugin":
+            pluginm = self.links["server_server"].pluginmanager
             split2 = sub.split("/", 1)
             if len(split2) != 2:
                 self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
@@ -431,25 +410,14 @@ class server_handler(commonscnhandler):
             if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
                 self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                 return
-            self.send_response(200)
-            self.send_header("Connection", "keep-alive")
-            self.send_header("Cache-Control", "no-cache")
-            if self.headers.get("X-certrewrap") is not None:
-                self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-            self.end_headers()
-            try:
-                pluginm.plugins[plugin].sreceive(action, self.connection, self.client_cert, self.client_cert_hash)
-            except Exception as e:
-                logging.error(e)
-                #self.send_error(500, "plugin error", str(e))
-                return
+            self.handle_plugin(pluginm.plugins[plugin].sreceive, action)
         # for invalidating and updating, don't use connection afterwards
         elif resource == "usebroken":
             self.handle_usebroken(sub)
         elif resource == "server":
             self.handle_server(sub)
         else:
-            self.send_error(404, "resource not found", "could not find {}".format(resource))
+            self.scn_send_answer(404, message="resource not found (POST)", docache=True)
 
 
 class server_init(object):
@@ -458,12 +426,12 @@ class server_init(object):
     
     def __init__(self,_configpath, **kwargs):
         self.links = {}
-        self.links["config_root"]=_configpath
-        _spath=os.path.join(self.links["config_root"],"server")
-        port = kwargs["port"][0]
+        self.links["config_root"] = _configpath
+        _spath = os.path.join(self.links["config_root"],"server")
+        port = int(kwargs["port"][0])
         init_config_folder(self.links["config_root"],"server")
         
-        if check_certs(_spath+"_cert")==False:
+        if check_certs(_spath+"_cert") == False:
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(_spath+"_cert")
             logging.debug("Certificate generation complete")
@@ -492,20 +460,19 @@ class server_init(object):
             raise(Exception("missing"))
 
         
-        _name=_name.split("/")
+        _name = _name.split("/")
         if len(_name)>2 or check_name(_name[0])==False:
             logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_spath+"_name"))
         
-        if port is not None:
-            _port = int(port)
+        if port > -1:
+            _port = port
         elif len(_name) >= 2:
             _port = int(_name[1])
         else:
             _port = server_port
         
         serverd = {"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": kwargs["priority"][0], "message":_message, "links": self.links} #, "traversesrcaddr": kwargs.get("notraversal")
-        # use direct way instead of traversesrcaddr
+                "priority": kwargs["priority"][0], "message":_message, "links": self.links}
         server_handler.links = self.links
         
         
@@ -529,16 +496,17 @@ class server_init(object):
 #### don't base on sqlite, configmanager as it increases complexity and needed libs
 #### but optionally support plugins (some risk)
 
-overwrite_server_args={"config": [default_configdir, str, "<dir>: path to config dir"],
-             "port": [str(server_port), int, "<number>: Port"],
-             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
-             "spwfile": ["", str, "<file>: file with password (cleartext)"],
-             "webgui": ["False", bool, "<True/False>: activate webgui"],
-             "useplugins": ["False", bool, "<True/False>: activate plugins"],
-             "priority": [str(default_priority), int, "<number>: set priority"],
-             "timeout": [str(default_timeout), int, "<number>: set timeout"],
-             "loglevel": [str(default_loglevel), loglevel_converter, "loglevel"],
-             "notraversal": ["False", bool, "<True/False>: disable traversal"]}
+overwrite_server_args = {
+            "config": [default_configdir, str, "<dir>: path to config dir"],
+            "port": [str(-1), int, "<number>: port of server, -1: use port in \"server_name.txt\""],
+            "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
+            "spwfile": ["", str, "<file>: file with password (cleartext)"],
+            "webgui": ["False", bool, "<True/False>: activate webgui"],
+            "useplugins": ["False", bool, "<True/False>: activate plugins"],
+            "priority": [str(default_priority), int, "<number>: set priority"],
+            "timeout": [str(default_timeout), int, "<number>: set timeout"],
+            "loglevel": [str(default_loglevel), loglevel_converter, "loglevel"],
+            "notraversal": ["False", bool, "<True/False>: disable traversal"]}
 
 
 def server_paramhelp():

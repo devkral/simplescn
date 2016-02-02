@@ -24,28 +24,27 @@ class configmanager(object):
         self.reload()
 
         
-    def __getitem__(self, _name):
-        self.get(_name)
+    def __getitem__(self, key):
+        self.get(key)
     
     def dbaccess(func):
         def funcwrap(self, *args, **kwargs):
-            self.lock.acquire()
-            if self.db_path is not None:
-                import sqlite3
-                dbcon = sqlite3.connect(self.db_path)
-            else:
-                dbcon = None
-            temp = None
-            try:
-                temp = func(self, dbcon, *args, **kwargs)
-            except Exception as e:
-                if hasattr(e, "__traceback__"):
-                    st = "{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
+            with self.lock:
+                if self.db_path is not None:
+                    import sqlite3
+                    dbcon = sqlite3.connect(self.db_path)
                 else:
-                    st = "{}".format(e)
-                logging.error(st)
-            dbcon.close()
-            self.lock.release()
+                    dbcon = None
+                temp = None
+                try:
+                    temp = func(self, dbcon, *args, **kwargs)
+                except Exception as e:
+                    if hasattr(e, "__traceback__"):
+                        st = "{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
+                    else:
+                        st = "{}".format(e)
+                    logging.error(st)
+                dbcon.close()
             return temp
         return funcwrap
 
@@ -122,40 +121,38 @@ class configmanager(object):
         return True
         
     @dbaccess
-    def set(self, dbcon, name, value):
-        if isinstance(name, str) == False:
-            logging.error("name not string")
+    def set(self, dbcon, key, value):
+        if isinstance(key, str) == False:
+            logging.error("key not a string")
             return False
-        if name in self.overlays and check_conftype(value, self.overlays[name][1]) == False:
+        if key in self.overlays and check_conftype(value, self.overlays[key][1]) == False:
             #logging.error("overlays value type missmatch")
             return False
-        elif name in self.defaults and check_conftype(value, self.defaults[name][1]) == False:
+        elif key in self.defaults and check_conftype(value, self.defaults[key][1]) == False:
             #logging.error("invalid defaults value type")
             return False
-        elif name not in self.defaults and name not in self.overlays:
+        elif key not in self.defaults and key not in self.overlays:
             logging.error("not in defaults/overlays")
             return False
         
         if value is None:
             value = ""
-            
-        """if isinstance(value, bool)==True:
-            if value==True:
-                value="true"
-            else:
-                value="false" """
-        if name in self.overlays or dbcon is None:
-            self.overlays[name][0] = str(value)
+        elif isinstance(value, bytes):
+            value = str(value, "utf-8")
+        else:
+            value = str(value)
+        if key in self.overlays or dbcon is None:
+            self.overlays[key][0] = value
         elif dbcon is not None:
             cur = dbcon.cursor()
-            cur.execute('''UPDATE main SET val=? WHERE name=?;''', (str(value), name))
+            cur.execute('''UPDATE main SET val=? WHERE name=?;''', (value, key))
             dbcon.commit()
         return True
     
-    def set_default(self, name):
-        if name not in self.defaults:
+    def set_default(self, key):
+        if key not in self.defaults:
             return False
-        return self.set(name, self.defaults[name][0])
+        return self.set(name, self.defaults[key][0])
     
     # get converted value
     @dbaccess
@@ -899,10 +896,11 @@ def scnparse_args(_funchelp, default_args={}, overwrite_args={}):
     
     
 
-overwrite_plugin_config_args={"config": [default_configdir, str, "<dir>: path to config dir"],
-             "plugin": ["", str, "<name>: Plugin name"],
-             "key": ["", str, "<name>: config key"],
-             "value": ["", str, "<name>: config value"]}
+overwrite_plugin_config_args = {
+            "config": [default_configdir, str, "<dir>: path to config dir"],
+            "plugin": ["", str, "<name>: Plugin name"],
+            "key": ["", str, "<name>: config key"],
+            "value": ["", str, "<name>: config value"]}
 
 def plugin_config_paramhelp():
     t = "# parameters (non-permanent)\n"

@@ -647,7 +647,7 @@ class traverser_helper(object):
 
 cert_update_header = \
 {
-"User-Agent": "simplescn/0.5 (update-cert)",
+"User-Agent": "simplescn/1.0 (update-cert)",
 "Authorization": 'scn {}', 
 "Connection": 'keep-alive'
 }
@@ -725,27 +725,27 @@ class commonscnhandler(BaseHTTPRequestHandler):
     alreadyrewrapped = False
     
     
-    def scn_send_answer(self, status, obj=None, mime_type="application/json", docache=False, dokeepalive=False):
-        if status != 200 and obj:
-            self.send_response(status, obj)
+    def scn_send_answer(self, status, body=None, mime="application/json", message=None, docache=False, dokeepalive=None):
+        if message:
+            self.send_response(status, message)
         else:
             self.send_response(status)
         
-        if status == 200:
-            #if not obj:
-            #   logging.error("invalid obj")
-            self.send_header("Content-Length", len(obj))
-        if mime_type and obj:
-            self.send_header("Content-Type", "{}; charset=utf-8".format(mime_type))
+        if body:
+            self.send_header("Content-Length", len(body))
+        if mime and body:
+            self.send_header("Content-Type", "{}; charset=utf-8".format(mime))
         if self.headers.get("X-certrewrap") is not None:
             self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
         if docache == False:
             self.send_header("Cache-Control", "no-cache")
-            if status == 200 or dokeepalive:
-                self.send_header('Connection', 'keep-alive')
+            if dokeepalive is None and status == 200:
+                dokeepalive = True
+        if dokeepalive:
+            self.send_header('Connection', 'keep-alive')
         self.end_headers()
-        if status == 200 and obj:
-            self.wfile.write(obj)
+        if body:
+            self.wfile.write(body)
     
     # use cache?
     #htmlcache = {}
@@ -763,7 +763,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
                     fullob = fullob.format(**_temp)
                 except KeyError:
                     pass
-                self.scn_send_answer(200, bytes(fullob, "utf-8"), "text/html", docache=True)
+                self.scn_send_answer(200, body=bytes(fullob, "utf-8"), mime="text/html", docache=True)
         except FileNotFoundError:
             self.send_error(404, "file not found")
             
@@ -802,7 +802,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.client_cert_hash = dhash(self.client_cert)
             if _rewrapcert.split(";")[0] != self.client_cert_hash:
                 return False
-            if _origcert:
+            if _origcert and self.links.get("trusted_certhash", "") != "":
                 if _rewrapcert == self.links.get("trusted_certhash"):
                     self.client_cert = _origcert
                     self.client_cert_hash = dhash(_origcert)
@@ -819,24 +819,24 @@ class commonscnhandler(BaseHTTPRequestHandler):
         return True
     
     # =2 because: {}
-    def cleanup_stale_data(self, maxchars=2):
+    def cleanup_stale_data(self, maxchars=max_serverrequest_size):
         if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
             # protect against big transmissions
             self.rfile.read(min(maxchars, int(self.headers.get("Content-Length"))))
     
     def parse_body(self, maxlength=None):
         if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
-            self.send_error(411,"POST data+data length needed")
+            self.scn_send_answer(411, message="POST data+data length needed")
             return None
         
         contsize = int(self.headers.get("Content-Length"))
         if maxlength and contsize > maxlength:
-            self.send_error(431, "request too large")
+            self.scn_send_answer(431, message="request too large", docache=False)
         readob = self.rfile.read(contsize)
         # str: charset (like utf-8), safe_mdecode: transform arguments to dict
         obdict = safe_mdecode(readob, self.headers.get("Content-Type"))
         if obdict is None:
-            self.send_error(400, "bad arguments")
+            self.scn_send_answer(400, message="bad arguments")
             return None
         obdict["clientaddress"] = self.client_address2
         obdict["clientcert"] = self.client_cert
@@ -863,12 +863,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
             
-            self.send_response(200, "broken cert test")
-            self.send_header("Cache-Control", "no-cache")
-            self.send_header('Connection', 'keep-alive')
-            if self.headers.get("X-certrewrap") is not None:
-                self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-            self.end_headers()
+            self.scn_send_answer(200, message="brokencert successfull", docache=False, dokeepalive=True)
         else:
             oldsslcont = self.connection.context
 
@@ -878,7 +873,22 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
-            self.send_error(404, "broken cert not found")
+            self.scn_send_answer(404, message="brokencert not found", docache=False, dokeepalive=True)
+    
+    def handle_plugin(self, func, action):
+        self.send_response(200)
+        self.send_header("Connection", "keep-alive")
+        self.send_header("Cache-Control", "no-cache")
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
+        self.end_headers()
+        # send if not sent already
+        self.wfile.flush()
+        try:
+            return func(action, self.connection, self.client_cert, self.client_cert_hash)
+        except Exception as e:
+            logging.error(e)
+            return False
 
 def create_certhashheader(certhash):
     _random = str(base64.urlsafe_b64encode(os.urandom(token_size)), "utf-8")
@@ -988,6 +998,7 @@ def gen_doc_deco(func):
         classify = " ({})".format(", ".join(sorted(func.classify)))
     else:
         classify = ""
+    # double space == first layer
     newdoc = "  * {}{classify}: {}\n    *{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify)
     if len(requires) == 0:
         newdoc = "{}    *{spaces}requires: n.a.{sep}".format(newdoc, spaces=spacing, sep=sep)
