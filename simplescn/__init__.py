@@ -8,18 +8,9 @@ sharedir = os.path.dirname(os.path.realpath(__file__))
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-#if platform.python_implementation()=="PyPy":
-#    sys.path+=['', '/usr/lib/python34.zip', '/usr/lib/python3.4', '/usr/lib/python3.4/plat-linux', '/usr/lib/python3.4/lib-dynload', '/usr/lib/python3.4/site-packages', '/usr/lib/site-python']
-
+import logging
 import ipaddress
 from getpass import getpass
-
-import logging
-from cryptography import x509
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
 import datetime
 
 import ssl
@@ -37,6 +28,13 @@ from urllib import parse
 from http.client import HTTPSConnection 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import socketserver
+
+
+from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
 
 # load parameters in simplescn namespace
 # don't load directly from parameters
@@ -158,17 +156,14 @@ def logcheck(ret, level = logging.DEBUG):
                 fn, lno, func, sinfo = logging.root.findCaller(False)
             except ValueError: # fails on some interpreters
                 fn, lno, func, sinfo = "(unknown file)", 0, "(unknown function)", None
-            #extra = {"c_exc_info":ret[1].get("stacktrace","")}
-            #print(ret[1].get("stacktrace",""))
+
             sinfo = ret[1].get("stacktrace", None)
-            
             message = ret[1].get("msg", "")
             if message == "":
                 message = "{levelname}:{line}:{funcname}: crashed".format(levelname=logging.getLevelName(level), line=lno, funcname=func)
             record = logging.root.makeRecord(logging.root.name, level, fn, lno, message, [], None, func, None, sinfo)
             logging.root.handle(record)
         return False
-
 
 def inp_passw_cmd(msg, requester=""):
     if requester != "":
@@ -193,7 +188,7 @@ def notify_cmd(msg, requester):
         return False
     else:
         return None
-        
+
 notifyinst = notify_cmd
 
 # returns True, False, None
@@ -225,10 +220,7 @@ def generate_certs(_path):
     #_tname.append(x509.NameAttribute(NameOID.DOMAIN_COMPONENT, "simple.scn"))
     _tname = x509.Name(_tname)
     
-    #extendedext = x509.ExtendedKeyUsage((ExtendedKeyUsageOID.SERVER_AUTH, 
-    #ExtendedKeyUsageOID.CLIENT_AUTH))
-    
-    extensions = []#x509.Extension(extendedext.oid, True, extendedext)]
+    extensions = []
     
     builder = x509.CertificateBuilder(issuer_name=_tname, 
     subject_name = _tname, 
@@ -237,7 +229,6 @@ def generate_certs(_path):
     not_valid_before = datetime.date.today() - datetime.timedelta(days=2), 
     not_valid_after = datetime.date.today() + datetime.timedelta(days=200*365), 
     extensions = extensions)
-    # builder = builder.add_extension(extendedext, critical=True) # = extensions
     
     cert = builder.sign(_key, cert_sign_hash, default_backend())
     if _passphrase == "":
@@ -310,7 +301,7 @@ def default_sslcont():
 
 def gen_sslcont(path):
     sslcont = default_sslcont()
-    if os.path.isdir(path) == True: #if dir, then capath, if file then cafile
+    if os.path.isdir(path) == True:
         sslcont.load_verify_locations(capath=path)
     else:
         sslcont.load_verify_locations(cafile=path)
@@ -319,7 +310,6 @@ def gen_sslcont(path):
 
 re_parse_url_old = re.compile("\\[?(.*)\\]?:([0-9]+)")
 re_parse_url = re.compile("(.*)-([0-9]+)$")
-#re_parse_url_no_port = re.compile("([0-9:.]+[0-9]+)")
 def scnparse_url(url, force_port = False):
     if isinstance(url, str) ==False:
         raise(AddressFail)
@@ -328,14 +318,9 @@ def scnparse_url(url, force_port = False):
     _urlre = re.match(re_parse_url, url)
     if _urlre is not None:
         return _urlre.groups()[0], int(_urlre.groups()[1])
-    #_urlre = re.match(re_parse_url_no_port, url)
-    #if _urlre is None:
-    #    raise(AddressInvalidFail)
     if force_port == False:
         return (url, server_port)
     raise(EnforcedPortFail)
-
-
 
 
 authrequest_struct = {
@@ -345,13 +330,10 @@ authrequest_struct = {
 "realm": None
 }
 
-
 auth_struct = {
 "auth": None, 
 "timestamp": None
 }
-
-
 
 class scnauth_server(object):
     request_expire_time = None # in secs
@@ -804,8 +786,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
         _origcert = self.headers.get("X-original_cert")
         if _rewrapcert is not None:
             cont = self.connection.context
-            # send out of band hash
-            #self.connection.send(bytes(self.links["server_server"].client+";", "utf-8"))
             if self.alreadyrewrapped == False:
                 # wrap tcp socket, not ssl socket
                 self.connection = self.connection.unwrap()
@@ -831,7 +811,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.client_cert_hash = None
         return True
     
-    # =2 because: {}
     def cleanup_stale_data(self, maxchars=max_serverrequest_size):
         if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
             # protect against big transmissions
@@ -859,7 +838,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
         return obdict
     
     def handle_usebroken(self, sub):
-        # invalidate as attacker can connect when switching context
+        # invalidate as attacker can connect while switching
         self.alreadyrewrapped = False
         self.client_cert = None
         self.client_cert_hash = None
@@ -1045,7 +1024,7 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
             if argname in optional:
                 continue
             error.append(argname)
-            error.append("no found")
+            error.append("argname not found")
             return False
         if isinstance(_moddict[argname], _type):
             continue
@@ -1055,7 +1034,7 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
         if _type is list and isinstance(_moddict[argname], tuple):
             _moddict[argname] = list(_moddict[argname])
             continue
-        
+
         # strip array and try again (limitation of www-parser)
         if not _type in (tuple, list) and isinstance(_moddict[argname], (tuple, list)):
             _moddict[argname] = _moddict[argname][0]
@@ -1070,9 +1049,8 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
         return False
     return True
 
-
 # args is iterable with (argname, type)
-# _moddic is modified
+# obdict (=_moddict) is modified
 def check_argsdeco(requires={}, optional={}):
     def func_to_check(func):
         def get_args(*args):
@@ -1184,12 +1162,15 @@ def check_security(_security):
         return True
     return False
 
-def check_hash(_hashstr, _hashlen=None):
-    if _hashstr is None:
+# DEFAULT_HASHALGORITHM_len for default hash algo
+# but None by default for validating hashes of other length
+def check_hash(hashstr, length=None):
+    if hashstr is None:
         return False
-    if _hashlen and len(_hashstr) != _hashlen: #DEFAULT_HASHALGORITHM_len:
+    if length and len(hashstr) != length:
         return False
-    if all(c in "0123456789abcdefABCDEF" for c in _hashstr) == False:
+    # don't allow uppercase as it could confuse clients+servers and lowercase is default
+    if all(c in "0123456789abcdef" for c in hashstr) == False:
         return False
     return True
 
@@ -1270,7 +1251,6 @@ def rw_socket(sockr, sockw):
            bool(sockw.getsockopt(socket.SO_TCP_CLOSING)) == False:
             sockr.close()
             break
-        
         try:
             sockw.sendall(sockr.read(default_buffer_size))
         except socket.timeout:

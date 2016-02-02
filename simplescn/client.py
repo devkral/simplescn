@@ -784,11 +784,14 @@ class client_init(object):
         else:
             client_handler.webgui=False
         if confm.getb("cpwhash") == True:
-            client_handler.handle_local = True
-            # ensure that password is set when allowing remote access
-            if confm.getb("remote") == True:
-                client_handler.handle_remote = True
-            self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
+            if not check_hash(confm.get("cpwhash")):
+                logging.error("hashtest failed for cpwhash, cpwhash: {}".format(confm.get("cpwhash")))
+            else:
+                client_handler.handle_local = True
+                # ensure that password is set when allowing remote access
+                if confm.getb("remote") == True:
+                    client_handler.handle_remote = True
+                self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
         elif confm.getb("cpw") == True:
             client_handler.handle_local = True
             # ensure that password is set when allowing remote access
@@ -797,12 +800,18 @@ class client_init(object):
             self.links["auth_server"].init_realm("client", dhash(confm.get("cpw")))
         
         if confm.getb("apwhash") == True:
-            self.links["auth_server"].init_realm("admin", confm.get("apwhash"))
+            if not check_hash(confm.get("apwhash")):
+                logging.error("hashtest failed for apwhash, apwhash: {}".format(confm.get("apwhash")))
+            else:
+                self.links["auth_server"].init_realm("admin", confm.get("apwhash"))
         elif confm.getb("apw") == True:
             self.links["auth_server"].init_realm("admin", dhash(confm.get("apw")))
             
         if confm.getb("spwhash") == True:
-            self.links["auth_server"].init_realm("server", confm.get("spwhash"))
+            if not check_hash(confm.get("spwhash")):
+                logging.error("hashtest failed for spwhash, spwhash: {}".format(confm.get("spwhash")))
+            else:
+                self.links["auth_server"].init_realm("server", confm.get("spwhash"))
         elif confm.getb("spw") == True:
             self.links["auth_server"].init_realm("server", dhash(confm.get("spw")))
         
@@ -858,15 +867,15 @@ class client_init(object):
 #"config":default_configdir
 default_client_args = {
             "noplugins": ["False", bool, "<bool>: deactivate plugins"],
-            "cpwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than cpw (needed for remote control)"],
+            "cpwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than cpw (needed for remote control), lowercase"],
             "cpw": ["", str, "<pw>: password (cleartext) (needed for remote control)"],
-            "apwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than apw"],
+            "apwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than apw, lowercase"],
             "apw": ["", str, "<pw>: password (cleartext)"],
-            "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than spw"],
+            "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
             "spw": ["", str, "<pw>: password (cleartext)"],
             "noserver": ["False", bool, "<bool>: deactivate server component (deactivate also remote pw, notify support)"],
             "remote" : ["False", bool, "<bool>: remote reachable (not localhost) (needs cpwhash/file)"],
-            "priority": [str(default_priority), int, "<int>: set priority"],
+            "priority": [str(default_priority), int, "<int>: set client priority"],
             "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
             "timeout": [str(default_timeout), int, "<int>: set default timeout"],
             "webgui": ["False", bool, "<bool>: enables webgui"],

@@ -13,7 +13,7 @@ import logging
 import ssl
 import socket
 
-from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout
+from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_hash
 
 server_broadcast_header = \
 {
@@ -442,9 +442,11 @@ class server_init(object):
         
         self.links["auth"] = scnauth_server(dhash(pub_cert))
         
-        #server_handler.salt = os.urandom(8)
         if bool(kwargs["spwhash"][0]):
-            self.links["auth"].init_realm("server", kwargs["spwhash"][0])
+            if not check_hash(kwargs["spwhash"][0]):
+                logging.error("hashtest failed for spwhash, spwhash: {}".format(kwargs["spwhash"][0]))
+            else:
+                self.links["auth"].init_realm("server", kwargs["spwhash"][0])
         elif bool(kwargs["spwfile"][0]):
             with open(kwargs["spwfile"][0], "r") as op:
                 pw = op.readline()
@@ -500,11 +502,11 @@ class server_init(object):
 overwrite_server_args = {
             "config": [default_configdir, str, "<path>: path to config dir"],
             "port": [str(-1), int, "<int>: port of server, -1: use port in \"server_name.txt\""],
-            "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
+            "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than pwfile, lowercase"],
             "spwfile": ["", str, "<file>: file with password (cleartext)"],
             "webgui": ["False", bool, "<bool>: activate webgui"],
             "useplugins": ["False", bool, "<bool>: activate plugins"],
-            "priority": [str(default_priority), int, "<int>: set priority"],
+            "priority": [str(default_priority), int, "<int>: set server priority"],
             "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
             "timeout": [str(default_timeout), int, "<int>: set timeout"],
             "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],

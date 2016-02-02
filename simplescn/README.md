@@ -5,6 +5,8 @@ Nodes are not permanent, a restart deletes the entries on the server
 
 Features:
 * passwordprotection
+* semi-decentral + encrypted
+* portmapper integrated
 * entirely controllable by a webbrowser (frontend not finished)
 
 Dependencies:
@@ -14,7 +16,7 @@ Dependencies:
 * optional: gtk3 (gui)
 * optional: markdown (for more beautiful help)
 
-Security:
+# Security:
 
 Man in the middle attacks are possible if:
 * attacker knows the password or no password is set
@@ -25,7 +27,13 @@ Its nature lies in the decentral structure.
 This means the user has to verify (server) hashes. This is not hard and is assisted by a friendlist and scn servers, which both use is strongly recommended.
 In contrast to similar solutions it is up to the user putting certificates into the friendlist.
 
-Usage:
+Openssl:
+this program uses openssl for:
+* retrieving certificates
+* tls 1.2
+replacing openssl with libressl should work
+
+# Usage:
 gui-client (falls back to cmd client when no gui is found):
 simplescn.py client parameters...
 
@@ -41,14 +49,17 @@ server:
 simplescn.py server.py
 
 
+# Notes:
+
 Overwrite parameters:
 copy parameters.py and save it as parameters_overwrite.py in the same folder
 
-
-
-Note:
 rawclient and gtkclient use different config files
 the plugins will use the same config among the different clients except an other configdirectory is given
+
+urlsyntax is:
+url-port
+e.g. testfoo.test.com-4040
 
 This is a rewrite of scn.
 It got too complex because of unnecessary features (channels and nodes), too much lowlevel work (an own protocol), focus on gui and a client and serverside account management.
