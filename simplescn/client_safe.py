@@ -22,7 +22,7 @@ class client_safe(object):
     def help(self, obdict):
         """ func: return help
             return: help """
-        return True, self._cache_help
+        return True, {"help": self._cache_help}
     
     
     @check_argsdeco({"server": str})

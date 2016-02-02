@@ -439,10 +439,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
 
     # help section
     def cmdhelp(self):
-        out="""# cmd (only) commands
-* hash <pw>: calculate hash for pw
-* plugin <plugin>:<...>: communicate with plugin
-# commands
+        out="""# commands
 """
         for funcname in sorted(self.validactions):
             func = getattr(self, funcname)
@@ -534,7 +531,7 @@ class client_server(commonscn):
     
     
 class client_handler(commonscnhandler):
-    server_version = 'simplescn/0.5 (client)'
+    server_version = 'simplescn/1.0 (client)'
     
     handle_local = False
     handle_remote = False
@@ -929,6 +926,7 @@ def cmdloop(clientinitm):
                     else:
                         print("{}:{}".format(elem[0], elem[1]))
             else:
+                print("Print direct", ret[1])
                 print(ret[1])
 
 

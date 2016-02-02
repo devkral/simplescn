@@ -321,7 +321,7 @@ class server(commonscn):
     
     
 class server_handler(commonscnhandler):
-    server_version = 'simplescn/0.5 (server)'
+    server_version = 'simplescn/1.0 (server)'
     
     webgui = False
     

@@ -2,7 +2,7 @@
 #license: bsd3, see LICENSE.txt
 
 import os
-from simplescn import confdb_ending, check_argsdeco, classify_local, classify_noplugin, classify_admin
+from simplescn import confdb_ending, check_argsdeco, classify_local, classify_noplugin, classify_admin, classify_experimental
 from simplescn.common import configmanager
 
 class client_config(object): 
@@ -68,7 +68,7 @@ class client_config(object):
             key: config key
             value: config value
             plugin: plugin name """
-        pluginm=self.links["client_server"].pluginmanager
+        pluginm = self.links["client_server"].pluginmanager
         listplugin = pluginm.list_plugins()
         if obdict["plugin"] not in listplugin:
             return False, "plugin does not exist"
@@ -154,7 +154,22 @@ class client_config(object):
         else:
             config = pluginm.plugins[obdict["plugin"]].config
         return True, {"items": config.list(obdict.get("onlypermanent", False)), "map": ["key", "value", "converter", "default", "doc", "ispermanent"]}
-
+    
+    # essentially the only way for plugins requesting own config via remotestuff
+    @check_argsdeco({"requester": str, "method": str})
+    @classify_local
+    @classify_experimental
+    def access_ownconfig(self, obdict):
+        """ func: for plugins accessing their own config
+            return: depends on method
+            method: one of get, set, reset, list """
+        if obdict.get("requester", "") == "":
+            return False, "Invalid requester"
+        obdict["plugin"] = obdict["requester"]
+        
+        if obdict.get("method") not in ["get", "set", "reset", "list"]:
+            return False, "Invalid method"
+        return getattr(self, "{}_pluginconfig".format(obdict["requester"]))(obdict)
     
     @check_argsdeco()
     @classify_admin

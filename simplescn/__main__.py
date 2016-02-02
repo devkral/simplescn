@@ -238,4 +238,6 @@ def init_method_main():
         client()
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     init_method_main()

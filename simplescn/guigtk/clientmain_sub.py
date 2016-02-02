@@ -340,7 +340,7 @@ class help_stuff(object):
     def __init__(self):
         self.aboutwin = self.builder.get_object("aboutwin")
         self.aboutwin.set_transient_for(self.win)
-        self.aboutwin.connect('delete-event',self.close_about)
+        self.aboutwin.connect('delete-event', self.close_about)
         self.helpwin = self.builder.get_object("helpwin")
         self.helpwin.set_transient_for(self.win)
         self.helpwin.connect('delete-event',self.close_help)
@@ -357,6 +357,9 @@ class help_stuff(object):
     
     
     def help_show(self, *args):
+        _help = self.do_requestdo("help")
+        if _help[0]:
+            self.builder.get_object("helpview").get_buffer().set_text(_help[1]["help"])
         self.helpwin.show()
         self.helpwin.present()
         self.helpwin.set_accept_focus(True)

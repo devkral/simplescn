@@ -983,20 +983,20 @@ def gen_doc_deco(func):
             _docoptional[_key] = parsed[1].strip().rstrip()
 
     spacing = " "
-    sep = "\n    * "
+    sep = "\n        * "
     if len(getattr(func, "classify", set())) > 0:
         classify = " ({})".format(", ".join(sorted(func.classify)))
     else:
         classify = ""
-    newdoc = "* {}{classify}: {}\n  *{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify)
+    newdoc = "  * {}{classify}: {}\n    *{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify)
     if len(requires) == 0:
-        newdoc = "{}  *{spaces}requires: n.a.{sep}".format(newdoc, spaces=spacing, sep=sep)
+        newdoc = "{}    *{spaces}requires: n.a.{sep}".format(newdoc, spaces=spacing, sep=sep)
     else:
-        newdoc = "{}  *{spaces}requires:\n    *{spaces}".format(newdoc, spaces=spacing)
+        newdoc = "{}    *{spaces}requires:\n        *{spaces}".format(newdoc, spaces=spacing)
     for key in requires.keys():
         newdoc = "{}{}({}): {}{sep}".format(newdoc, key, requires[key].__name__, _docrequires.get(key, "n.a."), sep=sep)
     if len(optional) != 0:
-        newdoc = "{}\n  *{spaces}optional:\n    *{spaces}".format(newdoc[:-len(sep)], spaces=spacing)
+        newdoc = "{}\n    *{spaces}optional:\n        *{spaces}".format(newdoc[:-len(sep)], spaces=spacing)
     for key in optional.keys():
         newdoc = "{}{}({}): {}{sep}".format(newdoc, key, optional[key].__name__, _docoptional.get(key, "n.a."), sep=sep)
     func.__origdoc__ = func.__doc__
