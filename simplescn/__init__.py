@@ -1237,7 +1237,7 @@ def check_conftype(_value, _converter):
         else:
             _converter(str(_value))
     except Exception as e:
-        logging.error("invalid value converter:{} value:{} error:{}".format(_converter, _value, e))
+        logging.error("invalid value converter: {} value: {} error: {}".format(_converter, _value, e))
         return False
     return True
 
