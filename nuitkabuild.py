@@ -3,7 +3,17 @@ import sys
 import subprocess
 
 if __name__ == "__main__":
-    execute = ["/usr/bin/nuitka", "--recurse-all", "--recurse-stdlib"]
+    execute = ["/usr/bin/nuitka", "--recurse-all", "--recurse-stdlib", "--show-progress"]
+    if "--standalone" in sys.argv:
+        execute.append("--standalone")
+
+    if "--backend=clang" in sys.argv:
+        execute.append("--clang")
+    elif "--backend=mingw" in sys.argv:
+        execute.append("--mingw")
+
+    if "--standalone" in sys.argv:
+        execute.append("--standalone")
     if "--no-gui" not in sys.argv:
         try:
             import gi
