@@ -13,7 +13,7 @@ import logging
 import ssl
 import socket
 
-from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter
+from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout
 
 server_broadcast_header = \
 {
@@ -256,10 +256,11 @@ class server(commonscn):
         else:
             return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
     
-    def broadcast_helper(self, _addr, _path, payload, _certhash, timeout=None):
+    def broadcast_helper(self, _addr, _path, payload, _certhash, timeout=default_timeout, timeout_con=connect_timeout):
         try:
-            con = HTTPSConnection(_addr,  timeout=timeout)
+            con = HTTPSConnection(_addr,  timeout=connect_timeout)
             con.connect()
+            con.socket.settimeout(timeout_con)
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             hashpcert = dhash(pcert)
             if hashpcert != _certhash:
@@ -303,7 +304,7 @@ class server(commonscn):
             if _hash not in self.nhipmap[_name]:
                 continue
             _telem2 = self.nhipmap[_name][_hash]
-            self.broadcast_helper("{}-{}".format(_telem2.get("address", ""), _telem2.get("port", -1)), "/plugin/{}/{}".format(_plugin, obdict.get("paction")), bytes(obdict.get("payload"), "utf-8"))
+            self.broadcast_helper("{}-{}".format(_telem2.get("address", ""), _telem2.get("port", -1)), "/plugin/{}/{}".format(_plugin, obdict.get("paction")), bytes(obdict.get("payload"), "utf-8"), self.timeout, self.connect_timeout)
 
 
     @generate_error_deco
@@ -497,13 +498,14 @@ class server_init(object):
 #### but optionally support plugins (some risk)
 
 overwrite_server_args = {
-            "config": [default_configdir, str, "<dir>: path to config dir"],
-            "port": [str(-1), int, "<number>: port of server, -1: use port in \"server_name.txt\""],
+            "config": [default_configdir, str, "<path>: path to config dir"],
+            "port": [str(-1), int, "<int>: port of server, -1: use port in \"server_name.txt\""],
             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
             "spwfile": ["", str, "<file>: file with password (cleartext)"],
             "webgui": ["False", bool, "<bool>: activate webgui"],
             "useplugins": ["False", bool, "<bool>: activate plugins"],
             "priority": [str(default_priority), int, "<int>: set priority"],
+            "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
             "timeout": [str(default_timeout), int, "<int>: set timeout"],
             "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
             "notraversal": ["False", bool, "<bool>: disable traversal"]}

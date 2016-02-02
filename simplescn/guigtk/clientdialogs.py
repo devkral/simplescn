@@ -67,7 +67,7 @@ def _gtkclient_pw(msg, requester=""):
         box.pack_start(labelreq, False, False, 0)
     box.pack_end(Gtk.Label(msg), True, True, 0)
         
-    pwentry = Gtk.Entry(input_purpose=Gtk.InputPurpose.PASSWORD, invisible_char="*", hexpand=True)
+    pwentry = Gtk.Entry(input_purpose=Gtk.InputPurpose.PASSWORD, visibility=False, invisible_char="*", hexpand=True)
     box.pack_end(pwentry, True, True, 0)
     box.show_all()
     dia.present()

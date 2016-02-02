@@ -1,7 +1,8 @@
 
 #license: bsd3, see LICENSE.txt
 import ssl
-from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local
+import socket
+from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local, default_sslcont
 
 class client_safe(object):
     
@@ -147,9 +148,12 @@ class client_safe(object):
         if obdict["address"] in ["", " ", None]:
             return False, "address is empty"
         try:
+            cont = default_sslcont()
             _addr = scnparse_url(obdict["address"],force_port=False)
-            pcert = ssl.get_server_certificate(_addr, ssl_version=ssl.PROTOCOL_TLSv1_2).strip().rstrip()
-            return True, {"hash":dhash(pcert), "cert":pcert}
+            sock = socket.create_connection(_addr)
+            sock = cont.wrap_socket(sock, server_side=False)
+            pcert = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True)).strip().rstrip()
+            return True, {"hash":dhash(pcert), "cert": pcert}
         except ssl.SSLError:
             return False, "server speaks no tls 1.2"
         except ConnectionRefusedError:
@@ -157,7 +161,8 @@ class client_safe(object):
         except EnforcedPortFail as e:
             return False, e.msg
         except Exception as e:
-            return False, "Other error: {}:{}".format(obdict.get("address"), e)
+            logging.error(e)
+            return False, e
 
     
     @check_argsdeco({"address": str})

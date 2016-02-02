@@ -19,7 +19,7 @@ from simplescn.client_config import client_config
 from simplescn.dialogs import client_dialogs
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -58,6 +58,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         
         if "hserver" in self.links:
             self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            self.udpsrcsock.settimeout(None)
             self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
             self.scntraverse_helper = traverser_helper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
         
@@ -98,7 +99,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         
         if isinstance(_addr_or_con, client.HTTPSConnection) == False:
             _addr = scnparse_url(_addr_or_con,force_port=forceport)
-            con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont)
+            con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("connect_timeout"))
             try:
                 con.connect()
             except ConnectionRefusedError:
@@ -108,7 +109,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 if "traverseserveraddr" not in body:
                     return False, "connection refused and no traversalserver specified", isself, self.cert_hash
                 _tsaddr = scnparse_url(body.get("traverseserveraddr"))
-                contrav = client.HTTPSConnection(_tsaddr[0], _tsaddr[1], context=self.sslcont)
+                contrav = client.HTTPSConnection(_tsaddr[0], _tsaddr[1], context=self.sslcont, timeout=self.links["config"].get("connect_timeout"))
                 contrav.connect()
                 _sport = contrav.sock.getsockname()[1]
                 retserv = self.do_request(contrav, "/server/open_traversal")
@@ -123,8 +124,18 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                         except Exception:
                             pass
                     con.sock = self.sslcont.wrap_socket(con.sock)
+                    con.timeout = self.links["config"].get("timeout")
+                    con.sock.settimeout(self.links["config"].get("timeout"))
         else:
             con = _addr_or_con
+            if con.sock is None:
+                con.timeout = self.links["config"].get("connect_timeout")
+                try:
+                    con.connect()
+                except ConnectionRefusedError:
+                    pass
+            con.timeout = self.links["config"].get("timeout")
+            con.sock.settimeout(self.links["config"].get("timeout"))
             #if headers.get("Connection", "") != "keep-alive":
             #    con.connect()
         
@@ -142,7 +153,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             else:
                 hashob = self.hashdb.get(hashpcert)
                 if hashob:
-                    validated_name = (hashob[0],hashob[3]) #name, security
+                    validated_name = (hashob[0], hashob[3]) #name, security
                     if validated_name[0] == isself:
                         raise(VALNameError)
                 else:
@@ -231,7 +242,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
     def use_plugin(self, address, plugin, paction, forcehash=None, originalcert=None, forceport=False, requester="", traverseserveraddr=None):
         """ use this method to communicate with plugins """
         _addr = scnparse_url(address, force_port=forceport)
-        con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("timeout"))
+        con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("connect_timeout"))
         
         try:
             con.connect()
@@ -246,6 +257,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 if retserv[0]:
                     con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
                     con.sock.bind(('', _sport))#retserv.get("traverse_address"))
+                    con.sock.settimeout(self.links["config"].get("connect_timeout"))
                     for count in range(0,3):
                         try:
                             con.sock.connect((_addr[0], _addr[1]))
@@ -854,12 +866,13 @@ default_client_args = {
             "spw": ["", str, "<pw>: password (cleartext)"],
             "noserver": ["False", bool, "<bool>: deactivate server component (deactivate also remote pw, notify support)"],
             "remote" : ["False", bool, "<bool>: remote reachable (not localhost) (needs cpwhash/file)"],
-            "priority": [str(default_priority), int, "<number>: set priority"],
-            "timeout": [str(default_timeout), int, "<number>: set timeout"],
+            "priority": [str(default_priority), int, "<int>: set priority"],
+            "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
+            "timeout": [str(default_timeout), int, "<int>: set default timeout"],
             "webgui": ["False", bool, "<bool>: enables webgui"],
             "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
             "nocmd": ["False", bool, "<bool>: use no cmd"],
-            "port": [str(-1), int, "<number>: port of server component, -1: use port in \"client_name.txt\""]}
+            "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""]}
              
 overwrite_client_args={
             "config": [default_configdir, str, "<dir>: path to config dir"]}

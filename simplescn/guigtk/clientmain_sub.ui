@@ -95,9 +95,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="model">debugfilter</property>
-                <signal name="cursor-changed" handler="render_debug_bt" swapped="no"/>
-                <signal name="move-cursor" handler="render_debug_bt" swapped="no"/>
-                <signal name="select-cursor-row" handler="render_debug_bt" swapped="no"/>
+                <signal name="cursor-changed" handler="present_debug_bt" swapped="no"/>
+                <signal name="move-cursor" handler="present_debug_bt" swapped="no"/>
+                <signal name="select-cursor-row" handler="present_debug_bt" swapped="no"/>
                 <child internal-child="selection">
                   <object class="GtkTreeSelection" id="treeview-selection3"/>
                 </child>

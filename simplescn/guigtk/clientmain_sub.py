@@ -309,7 +309,7 @@ class debug_stuff(object):
             return False
         return True
 
-    def render_debug_bt(self, *args):
+    def present_debug_bt(self, *args):
         _sel = self.debugview.get_selection().get_selected()
         if _sel[1] is None:
             if self.backlogdebug.get_iter_first ():

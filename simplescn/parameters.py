@@ -19,6 +19,9 @@ max_namelength = 64
 # time out for auth requests
 auth_request_expire_time = 60*3
 ping_interval = 50
+# timeouts for connecting and else
+default_timeout = 60
+connect_timeout = 5
 
 ## file positions ##
 default_configdir = '~/.simplescn/'
@@ -33,7 +36,6 @@ server_port = 4040 # fixed server port
 
 ## defaults ##
 default_priority = 20
-default_timeout = 60
 default_loglevel = "DEBUG"
 
 ## hash algorithms ##

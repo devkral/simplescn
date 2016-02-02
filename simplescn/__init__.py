@@ -45,6 +45,7 @@ try:
     from simplescn.parameters_overwrite import *
 except ImportError:
     from simplescn.parameters import *
+socket.setdefaulttimeout(default_timeout)
 
 
 ###### signaling ######
@@ -152,8 +153,20 @@ def logcheck(ret, level = logging.DEBUG):
     if ret[0]:
         return True
     else:
-        if level != 0:
-            logging.root._log(level, str(ret[1]), [])
+        if level != 0: # = logging.DEBUG
+            try:
+                fn, lno, func, sinfo = logging.root.findCaller(False)
+            except ValueError: # fails on some interpreters
+                fn, lno, func, sinfo = "(unknown file)", 0, "(unknown function)", None
+            #extra = {"c_exc_info":ret[1].get("stacktrace","")}
+            #print(ret[1].get("stacktrace",""))
+            sinfo = ret[1].get("stacktrace", None)
+            
+            message = ret[1].get("msg", "")
+            if message == "":
+                message = "{levelname}:{line}:{funcname}: crashed".format(levelname=logging.getLevelName(level), line=lno, funcname=func)
+            record = logging.root.makeRecord(logging.root.name, level, fn, lno, message, [], None, func, None, sinfo)
+            logging.root.handle(record)
         return False
 
 
@@ -478,7 +491,6 @@ class http_server(socketserver.ThreadingMixIn,HTTPServer):
             raise
         self.sslcont = default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda:bytes(pwcallmethod(pwmsg), "utf-8"))
-        self.rawsock = self.socket
         self.socket = self.sslcont.wrap_socket(self.socket)
     #def get_request(self):
     #    if self.socket is None:
@@ -522,6 +534,7 @@ class traverser_dropper(object):
         #    _socktype = socket.AF_INET
         self._sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self._sock.bind(_srcaddrtupel)
+        self._sock.settimeout(None)
         t = threading.Thread(target=self._dropper, daemon=True)
         t.start()
         

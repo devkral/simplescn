@@ -238,11 +238,10 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                 clienthash = None
             obdict["pwcall_method"] = self.links["client"].pw_auth
             try:
-                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action),body=obdict, forcehash=clienthash, sendclientcert=True, forceport=True)
+                resp = self.links["client"].do_request(clienturl, "/client/{}".format(action), body=obdict, forcehash=clienthash, sendclientcert=True, forceport=True)
             except Exception as e:
                 logging.error(e)
                 return False, generate_error(e), isself, self.links["client"].cert_hash
-        
         return resp
 
     def pushint(self):
@@ -283,17 +282,19 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                 self.blcounter -= 1
         else:
             self.blcounter += 1
+        
         if record.exc_info:
             backtr = "".join(traceback.format_tb(record.stack_info)).replace("\\n", "") #record.stack_info
-        elif sys.exc_info()[0]:
-            backtr = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
+        elif record.stack_info:
+            backtr = record.stack_info #"".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
         else:
-            backtr = ""
+            backtr = "<n.a.>" #record.getMessage()
+        shortmsg = record.getMessage()
         #"".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
         if self.blcounter > 0:
-            self.backlogdebug.append((record.msg, backtr, record.levelno))
-        self.statusbar.push(messageid, str(record.msg))
-        self.hashstatusbar.push(messageid, str(record.msg))
+            self.backlogdebug.append((shortmsg, backtr, record.levelno))
+        self.statusbar.push(messageid, shortmsg)
+        self.hashstatusbar.push(messageid, shortmsg)
         self.pushmanage()
         return False
     
@@ -481,7 +482,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         if _address == "":
             logging.info("address wrong")
             return
-        ret = self.do_requestdo("info",hash=_hash)
+        ret = self.do_requestdo("info", hash=_hash)
         if logcheck(ret, logging.ERROR) == False:
             return
         self.set_curnode(_address, ret[1]["name"], _hash, None)
@@ -642,9 +643,9 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     
     
     def addentity_confirm(self,*args):
-        addentity=self.builder.get_object("addentityentry")
-        localnames=self.builder.get_object("localnames")
-        _entity=addentity.get_text()
+        addentity = self.builder.get_object("addentityentry")
+        localnames = self.builder.get_object("localnames")
+        _entity = addentity.get_text()
         res = self.do_requestdo("addentity",name=_entity)
         if logcheck(res):
             self.addentitydia.hide()
