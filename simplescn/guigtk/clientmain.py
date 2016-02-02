@@ -268,7 +268,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     blcounter = 0
     def _emit(self, record):
         """ func: intern emit """
-        backlogret = self.do_requestdo("get_config", key="backlog")
+        backlogret = self.do_requestdo("get_config", forcelocal=True, key="backlog")
         if not backlogret[0]:
             print(backlogret[1], file=sys.stderr)
             bllength = 1
