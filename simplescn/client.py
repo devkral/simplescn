@@ -845,20 +845,20 @@ class client_init(object):
 #specified seperately because of chicken egg problem
 #"config":default_configdir
 default_client_args = {
-            "noplugins": ["False", bool, "deactivate plugins"],
+            "noplugins": ["False", bool, "<bool>: deactivate plugins"],
             "cpwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than cpw (needed for remote control)"],
             "cpw": ["", str, "<pw>: password (cleartext) (needed for remote control)"],
             "apwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than apw"],
             "apw": ["", str, "<pw>: password (cleartext)"],
             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than spw"],
             "spw": ["", str, "<pw>: password (cleartext)"],
-            "noserver": ["False", bool, "deactivate server component (deactivate also remote pw, notify support)"],
-            "remote" : ["False", bool, "remote reachable (not localhost) (needs cpwhash/file)"],
+            "noserver": ["False", bool, "<bool>: deactivate server component (deactivate also remote pw, notify support)"],
+            "remote" : ["False", bool, "<bool>: remote reachable (not localhost) (needs cpwhash/file)"],
             "priority": [str(default_priority), int, "<number>: set priority"],
             "timeout": [str(default_timeout), int, "<number>: set timeout"],
-            "webgui": ["False", bool, "enables webgui"],
-            "loglevel": [str(default_loglevel), loglevel_converter, "loglevel"],
-            "nocmd": ["False", bool, "use no cmd"],
+            "webgui": ["False", bool, "<bool>: enables webgui"],
+            "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
+            "nocmd": ["False", bool, "<bool>: use no cmd"],
             "port": [str(-1), int, "<number>: port of server component, -1: use port in \"client_name.txt\""]}
              
 overwrite_client_args={
@@ -866,12 +866,12 @@ overwrite_client_args={
 
 
 def client_paramhelp():
-    t = "# parameters (permanent)\n  (key, default, documentation)\n"
+    t = "# parameters (permanent)\n"
     for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
-        t += "  * {}: {}: {}\n".format(_key, elem[0], elem[2])
+        t += "  * key: {}, default: {}, doc: {}\n".format(_key, elem[0], elem[2])
     t += "# parameters (non-permanent)\n"
     for _key, elem in sorted(overwrite_client_args.items(), key=lambda x: x[0]):
-        t += "  * {}: {}: {}\n".format(_key, elem[0], elem[2])
+        t += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return t
 
 def cmdloop(clientinitm):

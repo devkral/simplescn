@@ -501,17 +501,17 @@ overwrite_server_args = {
             "port": [str(-1), int, "<number>: port of server, -1: use port in \"server_name.txt\""],
             "spwhash": ["", str, "<hash>: sha256 hash of pw, higher preference than pwfile"],
             "spwfile": ["", str, "<file>: file with password (cleartext)"],
-            "webgui": ["False", bool, "<True/False>: activate webgui"],
-            "useplugins": ["False", bool, "<True/False>: activate plugins"],
-            "priority": [str(default_priority), int, "<number>: set priority"],
-            "timeout": [str(default_timeout), int, "<number>: set timeout"],
-            "loglevel": [str(default_loglevel), loglevel_converter, "loglevel"],
-            "notraversal": ["False", bool, "<True/False>: disable traversal"]}
+            "webgui": ["False", bool, "<bool>: activate webgui"],
+            "useplugins": ["False", bool, "<bool>: activate plugins"],
+            "priority": [str(default_priority), int, "<int>: set priority"],
+            "timeout": [str(default_timeout), int, "<int>: set timeout"],
+            "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
+            "notraversal": ["False", bool, "<bool>: disable traversal"]}
 
 
 def server_paramhelp():
     t = "# parameters (non-permanent)\n"
     for _key, elem in sorted(overwrite_server_args.items(), key=lambda x: x[0]):
-        t += "  * {}: {}: {}\n".format(_key, elem[0], elem[2])
+        t += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return t
 

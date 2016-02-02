@@ -9,6 +9,11 @@ import logging
 from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type, default_loglevel
 from simplescn import confdb_ending, isself, default_configdir
 
+try:
+    import markdown
+except ImportError:
+    pass
+
 if hasattr(importlib.util, "module_from_spec") == False:
     import types
 
@@ -873,6 +878,9 @@ def scnparse_args(_funchelp, default_args={}, overwrite_args={}):
             if elem in ["help","h"]:
                 print(_funchelp())
                 sys.exit(0)
+            elif elem in ["help-md", "help-markdown"] and "markdown" in globals():
+                print(markdown.markdown(_funchelp().replace("<","&lt;").replace(">","&gt;").replace("[", "&#91;").replace("]", "&#93;")))
+                sys.exit(0)
             else:
                 tparam = elem.split("=")
                 if len(tparam) == 1:
@@ -905,5 +913,5 @@ overwrite_plugin_config_args = {
 def plugin_config_paramhelp():
     t = "# parameters (non-permanent)\n"
     for _key, elem in sorted(overwrite_plugin_config_args.items(), key=lambda x: x[0]):
-        t += "  * {}: {}: {}\n".format(_key, elem[0], elem[2])
+        t += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return t
