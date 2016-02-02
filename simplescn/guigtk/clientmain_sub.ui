@@ -291,7 +291,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
     <property name="destroy_with_parent">True</property>
     <property name="icon">icon.svg</property>
     <child>
-      <object class="GtkScrolledWindow" id="scrolledwindow1">
+      <object class="GtkScrolledWindow" id="helpscrollwin">
         <property name="visible">True</property>
         <property name="can_focus">True</property>
         <property name="hexpand">True</property>
@@ -300,11 +300,7 @@ adding key1=value1&amp;key2=value2 key/value pairs:</property>
         <property name="min_content_width">30</property>
         <property name="min_content_height">10</property>
         <child>
-          <object class="GtkTextView" id="helpview">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="editable">False</property>
-          </object>
+          <placeholder/>
         </child>
       </object>
     </child>

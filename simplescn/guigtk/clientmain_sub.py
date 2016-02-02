@@ -5,7 +5,12 @@ import logging
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
-
+try:
+    import markdown
+    gi.require_version('WebKit', '3.0')
+    from gi.repository import WebKit 
+except ImportError:
+    pass
 
 from simplescn import isself, logcheck
 
@@ -343,6 +348,20 @@ class help_stuff(object):
         self.aboutwin.connect('delete-event', self.close_about)
         self.helpwin = self.builder.get_object("helpwin")
         self.helpwin.set_transient_for(self.win)
+        _help = self.do_requestdo("help", forcelocal=True)
+        if "markdown" in globals():
+            view = WebKit.WebView(editable=False, hexpand=True, vexpand=True)
+            wksettings = view.get_settings()
+            wksettings.set_property('enable-plugins', False)
+            
+            view.load_string(markdown.markdown(_help[1]["help"]), "text/html", "utf-8", "file:///")
+            self.builder.get_object("helpscrollwin").add(view)
+            
+        else:
+            textview = Gtk.TextView(editable=False, hexpand=True, vexpand=True)
+            textview.get_buffer().set_text(_help[1]["help"])
+            self.builder.get_object("helpscrollwin").add(textview)
+        self.builder.get_object("helpscrollwin").show_all()
         self.helpwin.connect('delete-event',self.close_help)
         
     def about_show(self,*args):
@@ -357,9 +376,6 @@ class help_stuff(object):
     
     
     def help_show(self, *args):
-        _help = self.do_requestdo("help")
-        if _help[0]:
-            self.builder.get_object("helpview").get_buffer().set_text(_help[1]["help"])
         self.helpwin.show()
         self.helpwin.present()
         self.helpwin.set_accept_focus(True)

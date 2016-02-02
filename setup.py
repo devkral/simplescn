@@ -30,6 +30,7 @@ setup(name='simplescn',
       install_requires=["cryptography>=1.1"],
       extras_require={
           'gtkgui': ["pygobject"],
+          'webkithelp': ["pygobject", "markdown"],
       },
       packages=['simplescn'],
       #ext_modules=distributions,

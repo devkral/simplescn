@@ -10,8 +10,9 @@ Features:
 Dependencies:
 * python-cryptography (python3 version) (pip: cryptography)
 * python-gobject (python3 version) (pip: PyGObject???)
-* gtk3
 * python3
+* optional: gtk3 (gui)
+* optional: markdown (for more beautiful help)
 
 Security:
 
