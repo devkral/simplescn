@@ -401,8 +401,7 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
             logging.debug("port invalid")
             return
         ret = self.do_requestdo("registerservice", name=service, port=port)
-        if ret[0] == False:
-            logging.debug(ret[1])
+        if logcheck(ret, logging.DEBUG) == False:
             return
         servicee.set_text("")
         porte.set_text("")

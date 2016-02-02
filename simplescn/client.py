@@ -357,7 +357,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             if "insecure" in getattr(getattr(self, action), "classify", set()):
                 return False, "method call not allowed this way (insecure)", isself, self.cert_hash
             if "experimental" in getattr(getattr(self, action), "classify", set()):
-                logging.warn("action: \"{}\" is experimental".format(action))
+                logging.warning("action: \"{}\" is experimental".format(action))
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
                 return getattr(self, action)(obdict)

@@ -152,7 +152,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def update_storage(self):
         """ func: update local storage """
         _storage=self.do_requestdo("listnodenametypes")
-        if logcheck(_storage)==False:
+        if logcheck(_storage) == False:
             return
         
         self.localstore.clear()
@@ -197,7 +197,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         localnames.clear()
         localnames.append(("",))
         _names=self.do_requestdo("listnodenames")
-        if logcheck(_names)==False:
+        if logcheck(_names) == False:
             return
         
         for elem in _names[1]["items"]:
@@ -207,7 +207,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         serverlist=self.builder.get_object("serverlist")
         
         _serverrefs=self.do_requestdo("getreferences",certreferenceid=_refid)
-        if logcheck(_serverrefs)== False:
+        if logcheck(_serverrefs) == False:
             return
         for elem in _serverrefs[1]["items"]:
             if elem[0] not in self.serverlist_dic:
@@ -220,7 +220,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                     
     def update_serverlist(self, _localname):
         _serverhashes=self.do_requestdo("listhashes",name=_localname)
-        if logcheck(_serverhashes)==True:
+        if logcheck(_serverhashes):
             for _hash in _serverhashes[1]["items"]:
                 if _hash[0]!="default":
                     self.update_serverlist_refid(_hash[4])
@@ -243,8 +243,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                 logging.error(e)
                 return False, generate_error(e), isself, self.links["client"].cert_hash
         
-        #if resp[0] == False:
-        #    logging.error("{}: {}".format(action, resp))
         return resp
 
     def pushint(self):
@@ -309,7 +307,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             return None
         
         _hash = self.do_requestdo("ask", address=serverurl)
-        if _hash[0]==False:
+        if _hash[0] == False:
             _veri.set_text("")
             return None
             
@@ -436,7 +434,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             logging.debug("invalid hash")
             return
         res = self.do_requestdo("addhash", name=_name, hash=_hash, type=_type)
-        if logcheck(res) == True:
+        if logcheck(res):
             self.update_storage()
             if self.curlocal is not None and _type==self.curlocal[0]:
                 it=hashlist.prepend((_hash,))
@@ -473,7 +471,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         _hash=_hasho.get_text().strip(" ").rstrip(" ")
         if _hash == "":
             ret = self.do_requestdo("gethash", address=_address)
-            if logcheck(ret,logging.INFO)==False:
+            if logcheck(ret,logging.INFO) == False:
                 return
             _hasho.set_text(ret[1]["hash"])
             return
@@ -484,7 +482,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             logging.info("address wrong")
             return
         ret = self.do_requestdo("info",hash=_hash)
-        if logcheck(ret, logging.ERROR)==False:
+        if logcheck(ret, logging.ERROR) == False:
             return
         self.set_curnode(_address, ret[1]["name"], _hash, None)
         self.close_enternodedia()
@@ -598,8 +596,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         # activate new if it is remote
         if ulocal.get_active() == False:
             ret = self.do_requestdo("addredirect", forceremote=True, port=_showret[1].get("port"))
-            if ret[0] == False:
-                logging.error(ret[1])
+            if logcheck(ret, logging.ERROR) == False:
                 return
             self.links["client"].receive_redirect_hash = _hash
             self.use_localclient = False
@@ -631,7 +628,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         except AddressEmptyFail:
             logging.debug("Address Empty")
             return
-        if self.do_requestdo("prioty_direct",address=serverurl)==False:
+        if self.do_requestdo("prioty_direct",address=serverurl)[0] == False:
             logging.debug("Server address invalid")
             return
         self.update_storage()
@@ -648,8 +645,8 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         addentity=self.builder.get_object("addentityentry")
         localnames=self.builder.get_object("localnames")
         _entity=addentity.get_text()
-        res=self.do_requestdo("addentity",name=_entity)
-        if res[0]==True:
+        res = self.do_requestdo("addentity",name=_entity)
+        if logcheck(res):
             self.addentitydia.hide()
             self.empty_dic+=[_entity,]
             localnames.prepend((_entity,))
@@ -710,7 +707,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         reflist=self.builder.get_object("reflist")
         refview=self.builder.get_object("refview")
         
-        if addrefentry.is_visible()==False:
+        if addrefentry.is_visible() == False:
             updatereftb.hide()
             updatereftb.set_sensitive(False)
             addrefentry.set_text("")

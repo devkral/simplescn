@@ -122,12 +122,12 @@ class configuration_stuff(object):
     def apply_config(self, *args):
         haderror = False
         for key, val in self._changed_mainconf.items():
-            if self.do_requestdo("set_config", key=key, value=val)[0] == False:
+            if logcheck(self.do_requestdo("set_config", key=key, value=val), logging.ERROR) == False:
                 haderror = True
         
         for plugin, kv in self._changed_pluginconf.items():
             for key, val in kv.items():
-                if self.do_requestdo("set_pluginconfig", plugin=plugin,  key=key, value=val)[0] == False:
+                if logcheck(self.do_requestdo("set_pluginconfig", plugin=plugin,  key=key, value=val), logging.ERROR) == False:
                     haderror = True
         
         if haderror == False:
@@ -146,7 +146,7 @@ class configuration_stuff(object):
         
         self.preflist.clear()
         _preflist = self.do_requestdo("list_config")
-        if _preflist[0] == False:
+        if logcheck(_preflist, logging.ERROR) == False:
             return
         for _key, _val, _converter, _default, _doc, ispermanent in _preflist[1]["items"]:
             if _key != "state":
@@ -168,7 +168,7 @@ class configuration_stuff(object):
         _plugin = _sel[0][_sel[1]][0]
         
         _preflist = self.do_requestdo("list_pluginconfig", plugin=_plugin)
-        if _preflist[0] == False:
+        if logcheck(_preflist, logging.ERROR) == False:
             return
         
         for _key, _val, _converter, _default, _doc, ispermanent in _preflist[1]["items"]:
@@ -194,8 +194,7 @@ class configuration_stuff(object):
         pluginlist= self.builder.get_object("pluginlist")
         pluginlist.clear()
         _listplugins = self.do_requestdo("listplugins")
-        if _listplugins[0] == False:
-            logging.error(_listplugins[1])
+        if logcheck(_listplugins, logging.ERROR) == False:
             _listplugins = []
         else:
             _listplugins = _listplugins[1]["items"]
@@ -204,7 +203,7 @@ class configuration_stuff(object):
             pluginlist.append((plugin[0], ))
     
     def clean_plugins(self, *args):
-        self.do_requestdo("clean_pluginconfig") #plugin=_plugin needed?
+        logcheck(self.do_requestdo("clean_pluginconfig"), logging.ERROR) #plugin=_plugin needed?
     def toggle_configuration(self,*args):
         usemaint = self.builder.get_object("usemainconf")
         #useplugt = self.builder.get_object("usepluginconf")

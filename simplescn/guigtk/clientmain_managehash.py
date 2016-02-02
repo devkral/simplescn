@@ -70,7 +70,7 @@ class hashmanagement(object):
         temp = self.do_requestdo("listhashes", name=self.curlocal[1])
         hashlist = self.builder.get_object("hashlist")
         hashlist.clear()
-        if temp[0]==False:
+        if temp[0] == False:
             logging.debug("Exist?")
             return
         for elem in temp[1]["items"]:
@@ -170,7 +170,7 @@ class hashmanagement(object):
                 return
             
             turl = self.do_requestdo("get", server=serverurl, reference=_ref, hash=_hash)
-            if logging.check(turl, logging.INFO) == False:
+            if logcheck(turl, logging.INFO) == False:
                 return
             _url="{address}-{port}".format(**turl[1])
         elif _type == "surl":
@@ -187,7 +187,7 @@ class hashmanagement(object):
                     tempret = self.do_requestdo("get", server=serverurl, name=elem[0], hash=_hash)
                     if tempret[0] == True:
                         break
-            if tempret is None or logging.check(tempret, logging.INFO) == False:
+            if tempret is None or logcheck(tempret, logging.INFO) == False:
                 return
             _url = "{address}-{port}".format(**tempret[1])
         elif _type == "url":
@@ -208,7 +208,7 @@ class hashmanagement(object):
         else:
             ret = self.do_requestdo("check_direct", address=_url, name=self.curlocal[1], hash=_hash, forcehash=_hash)
             
-        if ret[0] == True:
+        if logcheck(ret, logging.ERROR):
             self.managehashdia.hide()
             if _url:
                 if self.curlocal[0] == "server":
@@ -223,8 +223,6 @@ class hashmanagement(object):
                 gtkclient_node(self.links, None, forcehash=_hash, page=1)
             else:
                 gtkclient_node(self.links,"{}-{}".format(*scnparse_url(_url)), forcehash=_hash, page=1)
-        else:
-            logging.error(ret[1])
     
     def select_node(self, action):
         self.action_node(True)

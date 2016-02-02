@@ -1,6 +1,6 @@
 
 import logging
-from simplescn import classify_local, classify_redirect, pwcallmethod, notify, check_argsdeco
+from simplescn import classify_local, classify_redirect, pwcallmethod, notify, check_argsdeco, logcheck
 
 
 class client_dialogs(object):
@@ -42,8 +42,7 @@ class client_dialogs(object):
             except Exception as e:
                 logging.error(e)
                 return None
-            if resp[0] == False:
-                logging.error(resp[1])
+            if logcheck(resp, logging.ERROR) == False:
                 return None
             return resp[1].get("pw")
         
@@ -57,8 +56,7 @@ class client_dialogs(object):
             except Exception as e:
                 logging.error(e)
                 return None
-            if resp[0] == False:
-                logging.error(resp[1])
+            if logcheck(resp, logging.ERROR) == False:
                 return None
             return resp[1].get("result")
     

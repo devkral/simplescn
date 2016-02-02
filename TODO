@@ -1,7 +1,6 @@
 
 
 ## Alpha 4
-* fix all cases where logging is fed with ret[1] (replace by logcheck)
 * logcheck should use stacktrace information in ret[1]
 * gtk gui for windows
 * more tests
@@ -10,13 +9,17 @@
 * stabilize
 * doc
 
+## 0.2
+* rewrite pluginmanager
+* better isolation of plugins
+* pwhandling for plugins
+
+
 ## Future
 * Webgui
 * announce client/server
 * filesockets
-* pwhandling for plugins
 * holepunching for services
 * localisation
-* better isolation of plugins
 * mass import
 * cmd configuration seperate from client
