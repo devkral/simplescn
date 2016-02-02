@@ -7,5 +7,7 @@ tests/temp_*
 *.egg-info
 build
 dist
-parameters_overwrite.py
 simplescn.build
+simplescn_nuitkadist
+simplescn_nuitkadist.zip
+parameters_overwrite.py
