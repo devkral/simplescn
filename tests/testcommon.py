@@ -51,7 +51,8 @@ class TestGenerateCerts(unittest.TestCase):
         self.assertTrue(simplescn.check_certs(os.path.join(self.temptestdir, "testnopw")))
     
     def test_WithPw(self):
-        simplescn.pwcallmethodinst = lambda msg, requester: "abfalldakc"
+        pw = str(os.urandom(10), "utf-8", "backslashreplace")
+        simplescn.pwcallmethodinst = lambda msg, requester: pw
         simplescn.generate_certs(os.path.join(self.temptestdir, "testwithpw"))
         self.assertTrue(simplescn.check_certs(os.path.join(self.temptestdir, "testwithpw")))
         
@@ -141,12 +142,12 @@ class TestConfigmanager(unittest.TestCase):
 class TestAuth(unittest.TestCase):
 
     def setUp(self):
-        self.hashserver = simplescn.dhash(os.urandom(20).hex())
-        self.hashserver_wrong = simplescn.dhash(os.urandom(20).hex())
+        self.hashserver = simplescn.dhash(os.urandom(10).hex())
+        self.hashserver_wrong = simplescn.dhash(os.urandom(10).hex())
         
-        self.pwserver = os.urandom(10).hex()
-        self.pwadmin = os.urandom(10).hex()
-        self.pwinvalid = os.urandom(10).hex()
+        self.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
+        self.pwadmin = str(os.urandom(10), "utf-8", "backslashreplace")
+        self.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
         self.authserver = simplescn.scnauth_server(self.hashserver)
         self.authclient = simplescn.scnauth_client()
         self.authserver.init_realm("server", simplescn.dhash(self.pwserver))
@@ -202,9 +203,9 @@ class TestAuth(unittest.TestCase):
 class Test_safe_mdecode(unittest.TestCase):
     
     def setUp(self):
-        self.pwserver = os.urandom(10).hex()
-        self.pwclient = os.urandom(10).hex()
-        self.pwinvalid = os.urandom(10).hex()
+        self.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
+        self.pwclient = str(os.urandom(10), "utf-8", "backslashreplace")
+        self.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
         
         self._testseq_json1 = json.dumps({"action": "show", "auth": {"server":self.pwserver, "client":self.pwclient}})
         # default
