@@ -245,7 +245,7 @@ class client_safe(object):
     @check_argsdeco({"address": str, "hash": str})
     def check_direct(self, obdict):
         """ func: check if a address is reachable; update local information when reachable
-            return: priority, type, certificate security; return [3] == new hash client
+            return: priority, type, certificate security; return [3] == new hash of client
             address: node url
             hash: node certificate hash
             security: set/verify security """
@@ -290,7 +290,7 @@ class client_safe(object):
     @check_argsdeco({"server": str,"name": str, "hash": str})
     def check(self, obdict):
         """ func: check if client is reachable; update local information when reachable
-            return: priority, type, certificate security; return [3] == new hash client
+            return: priority, type, certificate security, (new-)hash (client)
             server: server url
             name: client name
             hash: client certificate hash """
@@ -303,7 +303,11 @@ class client_safe(object):
         else:
             _forcehash = None
         newaddress = "{address}-{port}".format(**get_ret[1])
-        return self.check_direct({"address": newaddress, "hash": obdict["hash"], "forcehash":_forcehash, "security": get_ret[1].get("security", "valid")})
+        direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "forcehash":_forcehash, "security": get_ret[1].get("security", "valid")})
+        # return new hash in hash field
+        if direct_ret[0]:
+            direct_ret[1]["hash"] = direct_ret[3]
+        return direct_ret[0], direct_ret[1], get_ret[2], get_ret[3]
 
     ### local management ###
 
