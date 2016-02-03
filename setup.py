@@ -18,16 +18,15 @@ forcegui = True
 #print(distributions)
 
 
-entry_points = {}
+entry_points = {"console_scripts": [], "gui_scripts": []}
 install_requirements = ["cryptography>=1.1"]
 if forcegui:
-    entry_points["gui_scripts"] = ['simplescns = simplescn.__main__:init_method_main']
     install_requirements += ["simplescn[gtkgui]", "simplescn[mdhelp]"]
 elif not relaxed:
-    entry_points["console_scripts"] = ['simplescns = simplescn.__main__:init_method_main']
     install_requirements += ["simplescn[mdhelp]"]
-else:
-    entry_points["console_scripts"] = ['simplescns = simplescn.__main__:init_method_main']
+
+entry_points["console_scripts"] += ['simplescns = simplescn.__main__:init_method_main']
+#entry_points["gui_scripts"] += ['simplescngui = simplescn.__main__:client']
 
 # plugins imported by MANIFEST.in
 setup(name='simplescn',

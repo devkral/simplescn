@@ -24,6 +24,7 @@ def signal_handler(_signal, frame):
     sys.exit(0)
 
 def server():
+    init_scn()
     from simplescn.common import pluginmanager
     from simplescn.server import server_paramhelp, overwrite_server_args, server_handler, server_init
     pluginpathes = [os.path.join(sharedir, "plugins")]
@@ -71,6 +72,7 @@ def server():
 
 def rawclient():
     """ cmd client """
+    init_scn()
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args, cmdloop, client_init
     pluginpathes = [os.path.join(sharedir, "plugins")]
@@ -130,6 +132,7 @@ def client():
         return
 def client_gtk():
     """ gtk gui """
+    init_scn()
     from simplescn.guigtk.clientmain import _init_method_gtkclient
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args
@@ -163,6 +166,7 @@ def client_gtk():
 
 def hashpw():
     """ create pw hash for ?pwhash """
+    init_scn()
     from simplescn import dhash
     import base64
     if len(sys.argv) < 2 or sys.argv[1] in ["--help", "help"]:
@@ -178,6 +182,7 @@ def config_plugin():
         plugin: plugin name
         key: unspecified: list keys
         value: unspecified: get value, else: set value """
+    init_scn()
     from simplescn.common import overwrite_plugin_config_args, plugin_config_paramhelp, pluginmanager
     pluginpathes = [os.path.join(sharedir, "plugins")]
     pluginpathes += scnparse_args(plugin_config_paramhelp, overwrite_args=overwrite_plugin_config_args)
@@ -218,26 +223,42 @@ def config_plugin():
     else:
         print(config.set(overwrite_plugin_config_args["key"][0], overwrite_plugin_config_args["value"][0]))
 
-def init_method_main():
-    """ starter method """
+def check_dependencies():
+    try:
+        import markdown
+    except ImportError:
+        print("No markdown support", file=sys.stderr)
+    
+    try:
+        import gi
+    except ImportError:
+        print("No gtkgui (gobject) support", file=sys.stderr)
+
+def init_scn():
     #import multiprocessing
     #multiprocessing.freeze_support()
     #multiprocessing.set_start_method('spawn')
     logging.basicConfig(level=loglevel_converter(default_loglevel), format=logformat)
     signal.signal(signal.SIGINT, signal_handler)
 
+def init_method_main():
+    """ starter method """
+
     #pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     #plugins_config = os.path.join(configpath, "config", "plugins")
     if len(sys.argv) > 1:
         toexe = sys.argv[1]
+        if toexe in ["init_scn", "signal_handler"]:
+            return
         toexe = globals().get(toexe)
-        if toexe:
+        if callable(toexe):
             del sys.argv[1]
             toexe()
         else:
-            print("Not available")
-            print("Available: client, rawclient, server, config_plugin", "hashpw")
+            print("Not available", file=sys.stderr)
+            print("Available: client, rawclient, server, config_plugin, hashpw, check_dependencies", file=sys.stderr)
     else:
+        check_dependencies()
         client()
 
 if __name__ == "__main__":
