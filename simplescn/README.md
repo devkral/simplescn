@@ -34,11 +34,11 @@ this program uses openssl for:
 replacing openssl with libressl should work
 
 # Installation
-## Linux
+Requirements: working python and setuptools, pip
 
-### pip
-python3 -m pip
-
+python3 setup.py install
+or
+python3 setup.py install --user
 
 # Usage:
 gui-client (falls back to cmd client when no gui is found):

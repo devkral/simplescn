@@ -1,5 +1,5 @@
 
-code (exclude plugins except no seperate license is available): see LICENSE.txt
+code (exclude plugins except no seperate license is available): see LICENSE.txt, bsd3
 config (=parameters.py): public domain (only options)
 
 gobject, gtk, ...: GPL; code: git.gnome.org
