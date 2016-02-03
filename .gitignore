@@ -8,4 +8,5 @@ tests/temp_*
 build
 dist
 simplescn.build
+setup.cfg
 parameters_overwrite.py
