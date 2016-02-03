@@ -446,13 +446,16 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         _check = self.do_requestdo("check", server=self.get_address(), name=_name, hash=_hash)
         if logcheck(_check, logging.DEBUG) == False:
             return
+        # set new hash, when using a broken certhash otherwise everything stays the same
+        _hash = _check[1].get("hash")
         
+        # retrieve with the same/new hash
         _node = self.do_requestdo("get", server=self.get_address(), name=_name, hash=_hash)
         if logcheck(_node, logging.ERROR) == False:
             return
         # set new hash, when using a broken certhash
-        if _security != "valid":
-            _hash = _node[1].get("hash")
+        #if _security != "valid":
+        #    _hash = _node[1].get("hash")
         
         self.links["gtkclient"].set_curnode("{}-{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.get_address())
         if justselect == False:

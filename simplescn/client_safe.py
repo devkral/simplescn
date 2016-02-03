@@ -276,15 +276,16 @@ class client_safe(object):
                     newhashdbo = self.hashdb.get(prioty_ret[3])
                 # copy references
                 self.hashdb.copyreferences(hashdbo[4], newhashdbo[4])
+                # replace hashdbo by newhashdbo
+                hashdbo = newhashdbo
         # add security field, init as unverified
         prioty_ret[1]["security"] = "unverified"
-        # is in db
+        # is hashdbo/newhashdbo in db
         if hashdbo:
             self.hashdb.changepriority(prioty_ret[3], prioty_ret[1]["priority"])
             self.hashdb.changetype(prioty_ret[3], prioty_ret[1]["type"])
-            # 
-            if prioty_ret[3] == obdict["hash"]:
-                prioty_ret[1]["security"] = hashdbo[3]
+            # return security of current hash
+            prioty_ret[1]["security"] = hashdbo[3]
         return prioty_ret
 
     @check_argsdeco({"server": str,"name": str, "hash": str})
