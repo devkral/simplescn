@@ -2,6 +2,7 @@
 #license: bsd3, see LICENSE.txt
 import ssl
 import socket
+import logging
 from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local, default_sslcont, check_local
 
 class client_safe(object):
@@ -114,7 +115,7 @@ class client_safe(object):
     @check_argsdeco({"server": str, "name": str, "hash": str})
     def get(self, obdict):
         """ func: fetch client address from server
-            return: address, name, security, hash, traverse_needed, traverse_address 
+            return: address, port, name, security, hash, traverse_needed, traverse_address
             server: server url
             name: client name
             hash: client hash """
@@ -288,6 +289,7 @@ class client_safe(object):
             prioty_ret[1]["security"] = hashdbo[3]
         return prioty_ret
 
+    # reason for beeing seperate from get: to detect if a minor or a bigger error happened
     @check_argsdeco({"server": str,"name": str, "hash": str})
     def check(self, obdict):
         """ func: check if client is reachable; update local information when reachable
