@@ -23,7 +23,6 @@ import hashlib
 import re
 import threading
 import json
-import base64
 from urllib import parse
 from http.client import HTTPSConnection 
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -390,7 +389,7 @@ class scnauth_server(object):
 
     def init_realm(self,realm, pwhash):
         # internal salt for memory protection+nonce
-        nonce = str(base64.urlsafe_b64encode(os.urandom(salt_size)), "utf-8")
+        nonce = os.urandom(salt_size).hex()
         self.realms[realm] = (dhash((pwhash, realm, nonce, self.serverpubcert_hash), self.hash_algorithm), nonce)
 
 
@@ -883,7 +882,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             return False
 
 def create_certhashheader(certhash):
-    _random = str(base64.urlsafe_b64encode(os.urandom(token_size)), "utf-8")
+    _random = os.urandom(token_size).hex()
     return "{};{}".format(certhash, _random), _random
 
 

@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import unittest
 import logging
 import shutil
-import base64
 import json
 from urllib import parse
 
@@ -142,12 +141,12 @@ class TestConfigmanager(unittest.TestCase):
 class TestAuth(unittest.TestCase):
 
     def setUp(self):
-        self.hashserver = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
-        self.hashserver_wrong = simplescn.dhash(base64.urlsafe_b64encode(os.urandom(20)))
+        self.hashserver = simplescn.dhash(os.urandom(20).hex())
+        self.hashserver_wrong = simplescn.dhash(os.urandom(20).hex())
         
-        self.pwserver = str(base64.urlsafe_b64encode(os.urandom(10)))
-        self.pwadmin = str(base64.urlsafe_b64encode(os.urandom(10)))
-        self.pwinvalid = str(base64.urlsafe_b64encode(os.urandom(10)))
+        self.pwserver = os.urandom(10).hex()
+        self.pwadmin = os.urandom(10).hex()
+        self.pwinvalid = os.urandom(10).hex()
         self.authserver = simplescn.scnauth_server(self.hashserver)
         self.authclient = simplescn.scnauth_client()
         self.authserver.init_realm("server", simplescn.dhash(self.pwserver))
@@ -203,9 +202,9 @@ class TestAuth(unittest.TestCase):
 class Test_safe_mdecode(unittest.TestCase):
     
     def setUp(self):
-        self.pwserver = str(base64.urlsafe_b64encode(os.urandom(10)))
-        self.pwclient = str(base64.urlsafe_b64encode(os.urandom(10)))
-        self.pwinvalid = str(base64.urlsafe_b64encode(os.urandom(10)))
+        self.pwserver = os.urandom(10).hex()
+        self.pwclient = os.urandom(10).hex()
+        self.pwinvalid = os.urandom(10).hex()
         
         self._testseq_json1 = json.dumps({"action": "show", "auth": {"server":self.pwserver, "client":self.pwclient}})
         # default
