@@ -5,7 +5,6 @@ import socket
 from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local, default_sslcont
 
 class client_safe(object):
-    
     validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
 
     hashdb = None
@@ -17,15 +16,13 @@ class client_safe(object):
     sslcont = None
     brokencerts = []
     udpsrcsock = None
-    
-    
+
     @check_argsdeco()
     def help(self, obdict):
         """ func: return help
             return: help """
         return True, {"help": self._cache_help}
-    
-    
+
     @check_argsdeco({"server": str})
     def register(self, obdict):
         """ func: register client
@@ -44,8 +41,7 @@ class client_safe(object):
         if _srvaddr and (ret[0] != True or ret[1].get("traverse", False) == True):
              self.scntraverse_helper.del_desttupel(_srvaddr)
         return ret
-    
-    
+
     @check_argsdeco()
     @classify_local
     def show(self, obdict):
@@ -56,8 +52,7 @@ class client_safe(object):
             return True,{"name": self.name, "hash": self.cert_hash, "listen": addr[0], "port":addr[1]}
         else:
             return True, {"name": self.name, "hash": self.cert_hash}
-    
-    
+
     @check_argsdeco({"name": str, "port": int}, optional={"client": str})
     #@classify_local
     def registerservice(self, obdict):
@@ -70,8 +65,7 @@ class client_safe(object):
             return self.do_request(obdict.get("client","localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/registerservice", obdict, forcehash=self.cert_hash)
         else:
             return False, "no servercomponent/client available"
-    
-    
+
     @check_argsdeco({"name": str}, optional={"client": str})
     #@classify_local
     def delservice(self, obdict):
@@ -83,8 +77,7 @@ class client_safe(object):
             return self.do_request(obdict.get("client","localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/delservice", obdict, forcehash=self.cert_hash)
         else:
             return False, "no servercomponent/client available"
-    
-    
+
     @check_argsdeco({"name": str}, optional={"client": str})
     def getservice(self, obdict):
         """ func: get port of a service
@@ -99,8 +92,7 @@ class client_safe(object):
             _forcehash = self.cert_hash
             client_addr = "localhost-{}".format(self.links["server"].socket.getsockname()[1])
         return self.do_request(client_addr, "/server/getservice", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=_forcehash)
-    
-    
+
     @check_argsdeco(optional={"client": str})
     def listservices(self, obdict):
         """ func: list services with ports
@@ -118,8 +110,7 @@ class client_safe(object):
             return _tservices
         out=sorted(_tservices[1].items(), key=lambda t: t[0])
         return _tservices[0], {"items": out, "map":["name", "port"]}, _tservices[2], _tservices[3]
-    
-    
+
     @check_argsdeco({"server": str, "name": str, "hash": str})
     def get(self, obdict):
         """ func: fetch client address from server
@@ -138,8 +129,7 @@ class client_safe(object):
             addr, port = scnparse_url(obdict["server"])
             _getret[1]["address"] = addr
         return _getret
-    
-    
+
     @check_argsdeco({"address": str})
     def gethash(self, obdict):
         """ func: fetch hash from address
@@ -164,7 +154,6 @@ class client_safe(object):
             logging.error(e)
             return False, e
 
-    
     @check_argsdeco({"address": str})
     def ask(self, obdict):
         """ func: retrieve localname of a address/None if not available
@@ -182,7 +171,6 @@ class client_safe(object):
         else:
             return True, {"hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
 
-    
     @check_argsdeco({"server": str})
     def listnames(self, obdict):
         """ func: sort and list names from server
@@ -198,8 +186,7 @@ class client_safe(object):
             else:
                 out.append((name, _hash, _security, self.hashdb.certhash_as_name(_hash)))
         return _tnames[0], {"items": out, "map":["name", "hash", "security", "localname"]}, _tnames[2], _tnames[3]
-    
-    
+
     @check_argsdeco(optional={"address": str})
     def info(self, obdict):
         """ func: retrieve info of node
@@ -214,7 +201,7 @@ class client_safe(object):
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
         ret= self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         return ret
-    
+
     @check_argsdeco(optional={"address": str})
     def cap(self, obdict):
         """ func: retrieve capabilities of node
@@ -228,8 +215,7 @@ class client_safe(object):
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
             _forcehash = self.cert_hash
         return self.do_request(_addr, "/server/cap", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
-    
-    
+
     @check_argsdeco(optional={"address": str})
     def prioty_direct(self, obdict):
         """ func: retrieve priority of node
@@ -244,7 +230,6 @@ class client_safe(object):
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
         return self.do_request(_addr, "/server/prioty", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=_forcehash, forceport=True)
 
-    
     @check_argsdeco({"server": str, "name": str, "hash": str})
     def prioty(self, obdict):
         """ func: retrieve priority and type of a client on a server
@@ -252,12 +237,11 @@ class client_safe(object):
             server: server url
             name: client name
             hash: client hash """
-        temp=self.get(obdict)
-        if temp[0]==False:
+        temp = self.get(obdict)
+        if temp[0] == False:
             return temp
         return self.prioty_direct({"address":"{address}-{port}".format(**temp[1])})
 
-    
     @check_argsdeco({"address": str, "hash": str})
     def check_direct(self, obdict):
         """ func: check if a address is reachable; update local information when reachable
@@ -284,8 +268,7 @@ class client_safe(object):
             else:
                 temp[1]["security"] = hashdbo[3]
         return temp
-    
-    
+
     @check_argsdeco({"server": str,"name": str, "hash": str})
     def check(self, obdict):
         """ func: check if client is reachable; update local information when reachable
@@ -309,10 +292,9 @@ class client_safe(object):
         obdict["address"] = "{address}-{port}".format(**temp[1])
         obdict["forcehash"] = obdict["hash"]
         return self.check_direct(obdict)
-    
+
     ### local management ###
 
-    
     @check_argsdeco({"hash": str})
     @classify_local
     def getlocal(self, obdict):
@@ -330,8 +312,7 @@ class client_safe(object):
         "certreferenceid": out[4]
         }
         return True, ret
-    
-    
+
     @check_argsdeco({"name": str}, optional={"filter": str})
     @classify_local
     def listhashes(self, obdict):
@@ -345,8 +326,7 @@ class client_safe(object):
             return False
         else:
             return True, {"items":temp, "map": ["hash","type","priority","security","certreferenceid"]}
-    
-    
+
     @check_argsdeco()
     @classify_local
     def listnodenametypes(self, obdict):
@@ -357,11 +337,10 @@ class client_safe(object):
             return False
         else:
             return True, {"items":temp, "map": ["name", "type"]}
-    
-    
+
     @check_argsdeco(optional={"filter": str})
     @classify_local
-    def listnodenames(self,obdict):
+    def listnodenames(self, obdict):
         """ func: list entity names
             return: list entity names
             filter: filter nodetype (server/client) (default: all) """
@@ -370,8 +349,7 @@ class client_safe(object):
             return False
         else:
             return True, {"items":temp, "map": ["name"]}
-    
-    
+
     @check_argsdeco(optional={"filter": str})
     @classify_local
     def listnodeall(self, obdict):
@@ -383,8 +361,7 @@ class client_safe(object):
             return False
         else:
             return True, {"items":temp, "map": ["name","hash","type","priority","security","certreferenceid"]}
-    
-    
+
     @check_argsdeco(optional={"filter": str, "hash": str, "certreferenceid": int})
     @classify_local
     def getreferences(self, obdict):
@@ -405,8 +382,7 @@ class client_safe(object):
         if temp is None:
             return False
         return True, {"items":temp, "map": ["reference","type"]}
-    
-    
+
     @check_argsdeco({"reference": str})
     @classify_local
     def findbyref(self, obdict):
@@ -417,4 +393,4 @@ class client_safe(object):
         if temp is None:
             return False, "reference does not exist: {}".format(obdict["reference"])
         return True, {"items":temp, "map": ["name","hash","type","priority","security","certreferenceid"]}
-    
+
