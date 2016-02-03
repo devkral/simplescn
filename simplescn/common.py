@@ -829,7 +829,7 @@ class certhash_db(object):
     
     
     @connecttodb
-    def movereferences(self,dbcon,_oldrefid,_newrefid):
+    def movereferences(self, dbcon, _oldrefid, _newrefid):
         cur = dbcon.cursor()
         
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_oldrefid,))
@@ -846,7 +846,32 @@ class certhash_db(object):
 
         dbcon.commit()
         return True
+    
+    
+    @connecttodb
+    def copyreferences(self, dbcon, oldrefid, newrefid):
+        cur = dbcon.cursor()
         
+        cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (oldrefid,))
+        if cur.fetchone() is None:
+            logging.info("src certrefid does not exist: {}".format(oldrefid))
+            return False
+            
+        cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (newrefid,))
+        if cur.fetchone() is None:
+            logging.info("dest certrefid does not exist: {}".format(newrefid))
+            return False
+            
+        cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''', (newrefid,))
+        srclist = cur.fetchall()
+        if srclist is None:
+            srclist = []
+        for _ref, _type in srclist:
+            cur.execute('''INSERT OR IGNORE INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (newrefid, _ref, _type))
+
+        dbcon.commit()
+        return True
+    
     #@connecttodb
     #def listreferences(self, dbcon, _reftype = None):
     #    cur = dbcon.cursor()

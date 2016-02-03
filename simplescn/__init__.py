@@ -310,7 +310,9 @@ def gen_sslcont(path):
 re_parse_url_old = re.compile("\\[?(.*)\\]?:([0-9]+)")
 re_parse_url = re.compile("(.*)-([0-9]+)$")
 def scnparse_url(url, force_port = False):
-    if isinstance(url, str) ==False:
+    # if isinstance(url, (tuple, list)) == True:
+    #     return url
+    if isinstance(url, str) == False:
         raise(AddressFail)
     if url == "":
         raise(AddressEmptyFail)
@@ -647,14 +649,21 @@ cert_update_header = \
 }
 
 # 
-def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=None):
+def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=default_timeout, connect_timeout=connect_timeout):
     update_list = []
     if None in [_address, _port]:
-        logging.info("address or port empty")
+        logging.error("address or port empty")
         return None
     cont = default_sslcont()
-    con = HTTPSConnection(_address, _port, timeout=timeout, context=cont)
-    con.connect()
+    con = HTTPSConnection(_address, _port, context=cont, timeout=connect_timeout)
+    try:
+        con.connect()
+    except socket.timeout:
+        logging.warning("Connection failed")
+        return None
+    con.timeout = timeout
+    con.sock.settimeout(timeout)
+    
     oldhash = dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip())
     if newhash and newhash != oldhash:
         return None
@@ -669,17 +678,16 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=Non
         con.sock = con.sock.unwrap()
         # without next line the connection would be unencrypted now
         con.sock = oldsslcont.wrap_socket(con.sock, server_side=False)
-        #con.sock.do_handshake()
+        # con.sock.do_handshake()
         ret = con.getresponse()
         if ret.status != 200:
             logging.info("checking cert failed, code: {}, reason: {}".format(ret.status, ret.reason))
             continue
         if con.sock and oldhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
-            logging.error("certificateexchange detected, stop checking ")
+            logging.error("certificate switch detected, stop checking ")
             break
         if dhash(brokensslcert) == _hash:
             update_list.append((_hash, _security))
-        
     con.close()
     return update_list
 

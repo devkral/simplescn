@@ -114,18 +114,18 @@ class client_safe(object):
     @check_argsdeco({"server": str, "name": str, "hash": str})
     def get(self, obdict):
         """ func: fetch client address from server
-            return: client address
+            return: address, name, security, hash, traverse_needed, traverse_address 
             server: server url
             name: client name
             hash: client hash """
-        #obdict["forcehash"] = obdict["hash"]
         _getret = self.do_request(obdict["server"],"/server/get", body={"pwcall_method":obdict.get("pwcall_method"), "hash":obdict.get("hash"), "name":obdict.get("name")},headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
         if _getret[0] == False or check_args(_getret[1], {"address": str, "port": int}) == False:
             return _getret
         if _getret[1].get("port", 0) < 1:
             return False,"port <1: {}".format(_getret[1]["port"])
-        # case client runs on server
-        if _getret[1]["address"] in ["::1", "127.0.0.1"]: # use serveraddress instead
+        # case: client runs on server
+        if _getret[1]["address"] in ["::1", "127.0.0.1"]:
+            # use serveraddress instead
             addr, port = scnparse_url(obdict["server"])
             _getret[1]["address"] = addr
         return _getret
@@ -164,7 +164,6 @@ class client_safe(object):
             return _ha
         if _ha[1]["hash"] == self.cert_hash:
             return True, {"localname":isself, "hash":self.cert_hash, "cert":_ha[1]["cert"]}
-        
         hasho = self.hashdb.get(_ha[1]["hash"])
         if hasho:
             return True, {"localname":hasho[0],"security":hasho[3], "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
@@ -240,6 +239,7 @@ class client_safe(object):
         temp = self.get(obdict)
         if temp[0] == False:
             return temp
+        temp[1]["forcehash"] = obdict.get("hash")
         return self.prioty_direct({"address":"{address}-{port}".format(**temp[1])})
 
     @check_argsdeco({"address": str, "hash": str})
@@ -247,27 +247,45 @@ class client_safe(object):
         """ func: check if a address is reachable; update local information when reachable
             return: priority, type, missing: certificate security
             address: node url
-            hash: node certificate hash """
-        temp = self.prioty_direct(obdict)
-        if temp[0] == False:
-            return temp
+            hash: node certificate hash
+            security: set/verify security """
+        # only use forcehash if requested elsewise handle hash missmatch later
+        prioty_ret = self.prioty_direct({"address": obdict["address"], "forcehash": obdict.get("forcehash")})
+        if prioty_ret[0] == False:
+            return prioty_ret
         hashdbo = self.hashdb.get(obdict["hash"])
-        if temp[3] != obdict["hash"]:
-            ret = check_updated_certs(temp[1].get("address"), temp[1].get("port"), [(obdict.get("hash"), "insecure"), ], newhash=temp[3])
-            if len(ret) == 0:
+        # handle hash missmatch
+        if prioty_ret[3] != obdict["hash"] or obdict.get("security", "valid") != "valid":
+            address, port = scnparse_url(obdict.get("address"), False)
+            check_ret = check_updated_certs(address, port, [(obdict.get("hash"), "insecure"), ], newhash=prioty_ret[3])
+            if check_ret in [None, []] and obdict.get("security", "valid") == "valid":
                 return False, "MITM attack?, Certmissmatch"
-            if hashdbo:
-                # TODO: validate that this is secure
-                self.hashdb.changesecurity(obdict["hash"], "insecure")
-                self.hashdb.addhash(hashdbo[0], temp[1].get("hash"), hashdbo[1], hashdbo[2], "unverified")
+            elif check_ret in [None, []]:
+                return False, "MITM?, Wrong Server information?, Certmissmatch and security!=valid"
+            
+            if obdict.get("security", "valid") == "valid":
+                obdict["security"] = "insecure"
+            # is in db and was valid before
+            if hashdbo and hashdbo[3] == "valid":
+                # invalidate old
+                self.hashdb.changesecurity(obdict["hash"], obdict.get("security", "insecure"))
+                # create unverified new, if former state was valid and is not in db
+                newhashdbo = self.hashdb.get(prioty_ret[3])
+                if not newhashdbo:
+                    self.hashdb.addhash(hashdbo[0], prioty_ret[3], hashdbo[1], hashdbo[2], "unverified")
+                    newhashdbo = self.hashdb.get(prioty_ret[3])
+                # copy references
+                self.hashdb.copyreferences(hashdbo[4], newhashdbo[4])
+        # add security field, init as unverified
+        prioty_ret[1]["security"] = "unverified"
+        # is in db
         if hashdbo:
-            self.hashdb.changepriority(obdict["hash"], temp[1]["priority"])
-            self.hashdb.changetype(obdict["hash"], temp[1]["type"])
-            if temp[3] != obdict["hash"]:
-                temp[1]["security"] = "unverified"
-            else:
-                temp[1]["security"] = hashdbo[3]
-        return temp
+            self.hashdb.changepriority(prioty_ret[3], prioty_ret[1]["priority"])
+            self.hashdb.changetype(prioty_ret[3], prioty_ret[1]["type"])
+            # 
+            if prioty_ret[3] == obdict["hash"]:
+                prioty_ret[1]["security"] = hashdbo[3]
+        return prioty_ret
 
     @check_argsdeco({"server": str,"name": str, "hash": str})
     def check(self, obdict):
@@ -276,22 +294,16 @@ class client_safe(object):
             server: server url
             name: client name
             hash: client certificate hash """
-        temp = self.get(obdict)
-        if temp[0] == False:
-            return temp
-        if temp[1].get("security", "valid") != "valid":
-            ret = check_updated_certs(temp[1].get("address"), temp[1].get("port"), [(obdict.get("hash"), temp[1].get("security")), ])
-            if len(ret) == 0:
-                return False, "MITM attack?, Certmissmatch"
-            hashdbo = self.hashdb.get(obdict["hash"])
-            if hashdbo:
-                self.hashdb.changesecurity(obdict["hash"], "insecure")
-                self.hashdb.addhash(hashdbo[0], temp[1].get("hash"), hashdbo[1], hashdbo[2], "unverified")
-            #return False, "Certificate updated, verify"
-            obdict["hash"] = temp[3]
-        obdict["address"] = "{address}-{port}".format(**temp[1])
-        obdict["forcehash"] = obdict["hash"]
-        return self.check_direct(obdict)
+        get_ret = self.get(obdict)
+        if get_ret[0] == False:
+            return get_ret
+        # request forcehash if not valid
+        if get_ret[1].get("security", "valid") != "valid":
+            _forcehash = get_ret[1].get("hash")
+        else:
+            _forcehash = None
+        newaddress = "{address}-{port}".format(**get_ret[1])
+        return self.check_direct({"address": newaddress, "hash": obdict["hash"], "forcehash":_forcehash, "security": get_ret[1].get("security", "valid")})
 
     ### local management ###
 

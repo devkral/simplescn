@@ -98,7 +98,7 @@ class server(commonscn):
             e_time = int(time.time())-self.expire_time
             count = 0
             dump=[]
-            for _name,hashob in self.nhipmap.items():
+            for _name, hashob in self.nhipmap.items():
                 for _hash, val in hashob.items():
                     if val["updatetime"] < e_time:
                         del self.nhipmap[_name][_hash]
@@ -145,7 +145,7 @@ class server(commonscn):
             return [False, "hash_mismatch"]
         return [True, "registered_ip"]
     
-    def check_brokencerts(self, _address, _port, _name, certhashlist, newhash, timeout=None):
+    def check_brokencerts(self, _address, _port, _name, certhashlist, newhash):
         """ func: connect to check if requester has broken certs """
         update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash)
         if update_list in [None, []]:
@@ -183,8 +183,6 @@ class server(commonscn):
             ret[1] = "registered_traversal"
         elif obdict["clientaddress"][0] in ["127.0.0.1", "::1"]:
             ret[1] = "registered_traversal"
-        t = threading.Thread(target=self.check_brokencerts, args=(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True)
-        t.start()
         self.changeip_lock.acquire(False)
         update_time = int(time.time())
         if obdict["name"] not in self.nhipmap:
@@ -200,6 +198,11 @@ class server(commonscn):
             self.nhipmap[obdict["name"]][clientcerthash]["security"] = "valid"
             self.nhipmap[obdict["name"]][clientcerthash]["traverse"] = ret[1] == "registered_traversal"
         self.changeip_lock.release()
+        
+        # update broken certs afterwards
+        t = threading.Thread(target=self.check_brokencerts, args=(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True)
+        t.start()
+        
         # notify that change happened
         self.nhipmap_cond.set()
         return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
@@ -231,7 +234,7 @@ class server(commonscn):
     @check_argsdeco({"hash": str, "name": str}, optional={"autotraverse": bool})
     def get(self, obdict):
         """ func: get address of a client 
-            return: client address
+            return: client address, client port, security, traverse_address, traverse_needed
             name: client name
             hash: client hash
             autotraverse: open traversal when necessary (default: False) """

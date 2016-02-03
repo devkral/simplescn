@@ -69,7 +69,7 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
             infoob = self.do_requestdo("info", address=_address)
             if not infoob[0]:
                 travret = self.do_requestdo("getreferences", hash=self.resdict.get("forcehash"), filter="surl")
-                if not travret[0]:
+                if not logcheck(travret, logging.ERROR):
                     logging.error("fetching references failed")
                     return
                 for _tsaddr, _type in travret[1]["items"]:
@@ -441,7 +441,7 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         if _sel[1] is None:
             return
         
-        _name, _hash = _sel[0][_sel[1]][2:4] #_entry.get_text().split("/",1)
+        _security, _name, _hash = _sel[0][_sel[1]][1:4] #_entry.get_text().split("/",1)
         
         _check = self.do_requestdo("check", server=self.get_address(), name=_name, hash=_hash)
         if logcheck(_check, logging.DEBUG) == False:
@@ -450,6 +450,9 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         _node = self.do_requestdo("get", server=self.get_address(), name=_name, hash=_hash)
         if logcheck(_node, logging.ERROR) == False:
             return
+        # set new hash, when using a broken certhash
+        if _security != "valid":
+            _hash = _node[1].get("hash")
         
         self.links["gtkclient"].set_curnode("{}-{}".format(_node[1]["address"], _node[1]["port"]), _name, _hash, self.get_address())
         if justselect == False:
