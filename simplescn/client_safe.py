@@ -2,7 +2,7 @@
 #license: bsd3, see LICENSE.txt
 import ssl
 import socket
-from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local, default_sslcont
+from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local, default_sslcont, check_local
 
 class client_safe(object):
     validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
@@ -124,7 +124,7 @@ class client_safe(object):
         if _getret[1].get("port", 0) < 1:
             return False,"port <1: {}".format(_getret[1]["port"])
         # case: client runs on server
-        if _getret[1]["address"] in ["::1", "127.0.0.1"]:
+        if check_local(_getret[1]["address"]):
             # use serveraddress instead
             addr, port = scnparse_url(obdict["server"])
             _getret[1]["address"] = addr

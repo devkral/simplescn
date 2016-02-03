@@ -48,35 +48,37 @@ socket.setdefaulttimeout(default_timeout)
 ###### signaling ######
 
 class AddressFail(Exception):
-    msg = '"<address>[:<port>]": '
+    msg = ''
+    basemsg = '<address>[-<port>]:\n'
+    def __str__(self):
+        return self.basemsg + self.msg
 class EnforcedPortFail(AddressFail):
-    msg = 'address is lacking "-<port>"'
+    msg = 'address is lacking -<port>'
 class AddressEmptyFail(AddressFail):
-    msg = '{} address is empty'.format(AddressFail.msg)
+    msg = 'address is empty'
 class AddressInvalidFail(AddressFail):
-    msg = '{} address is invalid'.format(AddressFail.msg)
+    msg = 'address is invalid'
 
 class InvalidLoadError(Exception):
-    pass
+    msg = ''
+    def __str__(self):
+        return self.msg
 class InvalidLoadSizeError(InvalidLoadError):
     msg = 'Load is invalid tuple/list (needs 3 items or 2 in case of very_low_load)'
-    args = (msg, )
 class InvalidLoadLevelError(InvalidLoadError):
     msg = 'Load levels invalid (not high_load>medium_load>low_load)'
-    args = (msg, )
 
 class VALError(Exception):
-    msg = 'validation failed'
-    args = (msg, )
+    msg = ''
+    basemsg = 'validation failed:\n'
+    def __str__(self):
+        return self.basemsg + self.msg
 class VALNameError(VALError):
     msg = 'Name spoofed/does not match'
-    args = (msg, )
 class VALHashError(VALError):
     msg = 'Hash does not match'
-    args = (msg, )
 class VALMITMError(VALError):
     msg = 'MITM-attack suspected: nonce missing or check failed'
-    args = (msg, )
 
 resp_st={
 "status":"", #ok, error
@@ -86,14 +88,11 @@ resp_st={
 
 
 def generate_error(err):
-    error={"msg": "unknown", "type":"unknown"}
+    error={"msg": "unknown", "type": "unknown"}
     if err is None:
         return error
-    if hasattr(err, "msg"):
-        error["msg"] = str(err.msg)
-    else:
-        error["msg"] = str(err)
-    if isinstance(err,str) == True:
+    error["msg"] = str(err)
+    if isinstance(err, str) == True:
         error["type"] = ""
     else:
         error["type"] = type(err).__name__
@@ -146,7 +145,7 @@ def check_result(obdict, status):
     return True
 
 ### logging ###
-def logcheck(ret, level = logging.DEBUG):
+def logcheck(ret, level=logging.DEBUG):
     if ret[0]:
         return True
     else:
@@ -1166,6 +1165,11 @@ def check_reference_type(_reference_type):
 
 def check_security(_security):
     if _security in security_states:
+        return True
+    return False
+
+def check_local(addr):
+    if addr in ["127.0.0.1", "::1"]:
         return True
     return False
 

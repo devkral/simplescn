@@ -2,7 +2,7 @@
 #license: bsd3, see LICENSE.txt
 
 import os
-from simplescn import sharedir
+#from simplescn import sharedir
 
 from http.client import HTTPSConnection 
 import time
@@ -13,7 +13,7 @@ import logging
 import ssl
 import socket
 
-from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, check_name, dhash, commonscn, safe_mdecode, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_hash
+from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, check_name, dhash, commonscn, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_hash, check_local, harden_mode, debug_mode
 
 server_broadcast_header = \
 {
@@ -181,7 +181,7 @@ class server(commonscn):
             if ret[0] == False:
                 return False, "unreachable client"
             ret[1] = "registered_traversal"
-        elif obdict["clientaddress"][0] in ["127.0.0.1", "::1"]:
+        elif check_local(obdict["clientaddress"][0]):
             ret[1] = "registered_traversal"
         self.changeip_lock.acquire(False)
         update_time = int(time.time())
@@ -355,11 +355,16 @@ class server_handler(commonscnhandler):
             func = getattr(self.links["server_server"], action)
             success, result = func(obdict)[:2]
             jsonnized = json.dumps(gen_result(result, success))
-        except Exception as e:
-            error = generate_error("unknown")
-            if self.client_address2[0] in ["localhost", "127.0.0.1", "::1"]:
-                error = generate_error(e)
-            ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
+        except Exception as exc:
+            generror = generate_error(exc)
+            if not debug_mode or not check_local(self.client_address2[0]):
+                # don't show stacktrace if not permitted and not in debug mode
+                if "stacktrace" in generror:
+                    del generror["stacktrace"]
+                # with harden mode do not show errormessage
+                if harden_mode:
+                    generror = generate_error("unknown")
+            ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
             self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
             return
         ob = bytes(jsonnized, "utf-8")

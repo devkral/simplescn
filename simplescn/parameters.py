@@ -4,6 +4,11 @@ from cryptography.hazmat.primitives import hashes
 
 logformat = '%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'
 
+# debug mode (activates server stacktraces)
+debug_mode = True
+# all transmitted error messages are unknown
+harden_mode = False
+
 ## sizes ##
 salt_size = 10
 token_size = 10

@@ -19,7 +19,7 @@ from simplescn.client_config import client_config
 from simplescn.dialogs import client_dialogs
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, default_sslcont, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -500,7 +500,7 @@ class client_server(commonscn):
             port: port number """
         if obdict.get("clientaddress") is None:
             False, "bug: clientaddress is None"
-        if obdict.get("clientaddress")[0] in ["127.0.0.1", "::1"]:
+        if check_local(obdict.get("clientaddress")[0]):
             self.wlock.acquire()
             self.spmap[obdict.get("name")] = obdict.get("port")
             self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
@@ -519,7 +519,7 @@ class client_server(commonscn):
             name: service name """
         if obdict.get("clientaddress") is None:
             False, "bug: clientaddress is None"
-        if obdict.get("clientaddress")[0] in ["127.0.0.1", "::1"]:
+        if check_local(obdict.get("clientaddress")[0]):
             self.wlock.acquire()
             if obdict["name"] in self.spmap:
                 del self.spmap[obdict["name"]]
@@ -556,7 +556,7 @@ class client_handler(commonscnhandler):
         # redirect overrides handle_local, handle_remote
         if self.handle_remote == False and \
         "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and \
-        (self.handle_local == False or self.client_address2[0] not in ["127.0.0.1", "::1"]):
+        (self.handle_local == False or not check_local(self.client_address2[0])):
             self.send_error(403, "no permission - client")
             return
         if "admin" in getattr(getattr(self.links["client"], action), "classify", set()):
@@ -587,24 +587,21 @@ class client_handler(commonscnhandler):
             error = response[1]
             generror = generate_error(error)
             
-            if isinstance(error, (str, AddressFail, VALError)):
-                if isinstance(error, str) == False:
+            if not debug_mode or not check_local(self.client_address2[0]):
+                # don't show stacktrace if not permitted and not in debug mode
+                if "stacktrace" in generror:
                     del generror["stacktrace"]
-                jsonnized = json.dumps(gen_result(generror, False))
-            else:
-                if self.client_address2[0] not in ["127.0.0.1", "::1"]:
+                # with harden mode do not show errormessage
+                if harden_mode and not isinstance(error, (AddressFail, VALError)):
                     generror = generate_error("unknown")
-                ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
-                self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
-                return
+            resultob = gen_result(generror, False)
+            status = 500
         else:
-            jsonnized = json.dumps(gen_result(response[1],response[0]))
+            resultob = gen_result(response[1], True)
+            status = 200
         
-        ob = bytes(jsonnized, "utf-8")
-        if response[0] == False:
-            self.scn_send_answer(400, body=ob, docache=False)
-        else:
-            self.scn_send_answer(200, body=ob, docache=False)
+        jsonnized = bytes(json.dumps(resultob), "utf-8")
+        self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
 
     def handle_server(self, action):
         if action not in self.links["client_server"].validactions:
@@ -633,15 +630,20 @@ class client_handler(commonscnhandler):
             func = getattr(self.links["client_server"], action)
             response = func(obdict)
             jsonnized = json.dumps(gen_result(response[1],response[0]))
-        except Exception as e:
-            error = generate_error("unknown")
-            if self.client_address2[0] in ["127.0.0.1", "::1"]:
-                error = generate_error(e)
-            ob = bytes(json.dumps(gen_result(error, False)), "utf-8")
+        except Exception as exc:
+            generror = generate_error(exc)
+            
+            if not debug_mode or not check_local(self.client_address2[0]):
+                # don't show stacktrace if not permitted and not in debug mode
+                if "stacktrace" in generror:
+                    del generror["stacktrace"]
+                # with harden mode do not show errormessage
+                if harden_mode and not isinstance(exc, (AddressFail, VALError)):
+                    generror = generate_error("unknown")
+            ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
             self.scn_send_answer(500, body=ob, mime="application/json")
             return
-        
-        
+
         if jsonnized is None:
             jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
             response[0] = False

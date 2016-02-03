@@ -22,6 +22,7 @@ from simplescn.guigtk.clientnode import gtkclient_node
 from simplescn.guigtk import set_parent_template
 
 from simplescn import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
+#debug_mode
 
 client.client_handler.webgui = False
 
@@ -239,9 +240,10 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             obdict["pwcall_method"] = self.links["client"].pw_auth
             try:
                 resp = self.links["client"].do_request(clienturl, "/client/{}".format(action), body=obdict, forcehash=clienthash, sendclientcert=True, forceport=True)
-            except Exception as e:
-                logging.error(e)
-                return False, generate_error(e), isself, self.links["client"].cert_hash
+            except Exception as exc:
+                #if debug_mode:
+                #    logging.error(exc)
+                return False, generate_error(exc), isself, self.links["client"].cert_hash
         return resp
 
     def pushint(self):
@@ -284,11 +286,11 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             self.blcounter += 1
         
         if record.exc_info:
-            backtr = "".join(traceback.format_tb(record.stack_info)).replace("\\n", "") #record.stack_info
+            backtr = "".join(traceback.format_tb(record.exc_info)).replace("\\n", "") #record.stack_info
         elif record.stack_info:
             backtr = record.stack_info #"".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
         else:
-            backtr = "<n.a.>" #record.getMessage()
+            backtr = "n.a." #record.getMessage()
         shortmsg = record.getMessage()
         #"".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
         if self.blcounter > 0:
