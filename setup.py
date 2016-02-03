@@ -18,10 +18,15 @@ from setuptools import setup
 setup(name='simplescn',
       version='0.1',
       description='Simple communication nodes',
-      author='Alex',
+      author='Alexander K.',
       author_email='devkral@web.de',
       url='https://github.com/devkral/simplescn',
       scripts=['simplescn.py'],
+      entry_points= {
+        'simplescn': [
+            'simplescn_main = simplescn.__main__:init_method_main'
+            ]
+        },
       #zip_safe=True,
       include_package_data=True,
       package_data={
@@ -30,7 +35,7 @@ setup(name='simplescn',
       install_requires=["cryptography>=1.1"],
       extras_require={
           'gtkgui': ["pygobject"],
-          'webkithelp': ["pygobject", "markdown"],
+          'mdhelp': ["markdown"],
       },
       packages=['simplescn'],
       #ext_modules=distributions,

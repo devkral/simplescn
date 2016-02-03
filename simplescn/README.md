@@ -33,6 +33,13 @@ this program uses openssl for:
 * tls 1.2
 replacing openssl with libressl should work
 
+# Installation
+## Linux
+
+### pip
+python3 -m pip
+
+
 # Usage:
 gui-client (falls back to cmd client when no gui is found):
 simplescn.py client parameters...

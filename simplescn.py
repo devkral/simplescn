@@ -4,14 +4,8 @@
 """
 startscript for simplescn
 """
-import sys
 
-# required:
-try:
-    import cryptography
-except ImportError:
-    print("Error: no cryptography", file=sys.stderr)
-    sys.exit(1)
 from simplescn import __main__
+
 if __name__ == "__main__":
     __main__.init_method_main()
