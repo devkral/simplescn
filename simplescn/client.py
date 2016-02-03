@@ -873,7 +873,6 @@ default_client_args = {
             "apw": ["", str, "<pw>: password (cleartext)"],
             "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
             "spw": ["", str, "<pw>: password (cleartext)"],
-            "noserver": ["False", bool, "<bool>: deactivate server component (deactivate also remote pw, notify support)"],
             "remote" : ["False", bool, "<bool>: remote reachable (not localhost) (needs cpwhash/file)"],
             "priority": [str(default_priority), int, "<int>: set client priority"],
             "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
@@ -884,7 +883,8 @@ default_client_args = {
             "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""]}
              
 overwrite_client_args={
-            "config": [default_configdir, str, "<dir>: path to config dir"]}
+            "config": [default_configdir, str, "<dir>: path to config dir"],
+            "noserver": ["False", bool, "<bool>: deactivate httpserver (= renders client useless (no register, no remote pw-, info-dialog))"]}
 
 
 def client_paramhelp():

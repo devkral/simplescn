@@ -66,9 +66,11 @@ def server():
             if hasattr(plugin, "allowed_plugin_broadcasts"):
                 for _broadfuncname in getattr(plugin, "allowed_plugin_broadcasts"):
                     _broadc.insert((_name, _broadfuncname))
-    logging.debug("server initialized. Enter serveloop")
-    cm.serve_forever_block()
-
+    if overwrite_server_args["noserver"][0] != "True":
+        logging.debug("server initialized. Enter serveloop")
+        cm.serve_forever_block()
+    else:
+        print("You really want a server without a server?", file=sys.stderr)
 
 def rawclient():
     """ cmd client """
@@ -110,14 +112,16 @@ def rawclient():
         #    if hasattr(elem, "pluginpw"):
         #        cm.links["auth_server"].init_realm("plugin:{}".format(name), dhash(elem.pluginpw))
 
-    logging.debug("start servercomponent (client)")
-    if confm.getb("nocmd") == False:
-        cm.serve_forever_nonblock()
+    if not confm.getb("noserver"):
+        logging.debug("start servercomponent (client)")
+    if not confm.getb("nocmd"):
+        if not confm.getb("noserver"):
+            cm.serve_forever_nonblock()
         logging.debug("start console")
         for name, value in cm.links["client"].show({})[1].items():
             print(name, value, sep=":")
         cmdloop(cm)
-    else:
+    elif not confm.getb("noserver"):
         cm.serve_forever_block()
 
 

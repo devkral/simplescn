@@ -484,11 +484,13 @@ class server_init(object):
         
         self.links["server_server"] = server(serverd)
         
-        http_server.timeout = int(kwargs["timeout"][0])
-        self.links["hserver"] = http_server(("", _port), _spath+"_cert", server_handler, "Enter server certificate pw")
-        if kwargs.get("notraversal", "False") != "True":
-            srcaddr = self.links["hserver"].socket.getsockname()
-            self.links["server_server"].traverse = traverser_dropper(srcaddr)
+        # server without server have fun if False
+        if kwargs["noserver"][0] != "True":
+            http_server.timeout = int(kwargs["timeout"][0])
+            self.links["hserver"] = http_server(("", _port), _spath+"_cert", server_handler, "Enter server certificate pw")
+            if kwargs["notraversal"][0] != "True":
+                srcaddr = self.links["hserver"].socket.getsockname()
+                self.links["server_server"].traverse = traverser_dropper(srcaddr)
             
         
     def serve_forever_block(self):
@@ -513,7 +515,8 @@ overwrite_server_args = {
             "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
             "timeout": [str(default_timeout), int, "<int>: set timeout"],
             "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
-            "notraversal": ["False", bool, "<bool>: disable traversal"]}
+            "notraversal": ["False", bool, "<bool>: disable traversal"],
+            "noserver": ["False", bool, "<bool>: deactivate httpserver (=a server without a server, have fun)"]}
 
 
 def server_paramhelp():
