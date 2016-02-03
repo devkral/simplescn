@@ -21,10 +21,10 @@ setup(name='simplescn',
       author='Alexander K.',
       author_email='devkral@web.de',
       url='https://github.com/devkral/simplescn',
-      scripts=['simplescn.py'],
-      entry_points= {
-        'simplescn': [
-            'simplescn_main = simplescn.__main__:init_method_main'
+      #scripts=['simplescns.py'],
+      entry_points={
+        'console_scripts': [
+            'simplescns = simplescn.__main__:init_method_main'
             ]
         },
       #zip_safe=True,
@@ -32,7 +32,7 @@ setup(name='simplescn',
       package_data={
           'simplescn': ['*.txt', '*.md', 'guigtk/*.ui', 'guigtk/*.svg', 'guigtk/*.py', 'static/*', 'html/*/*.html'],
       },
-      install_requires=["cryptography>=1.1"],
+      install_requires=["cryptography>=1.1", "simplescn"],
       extras_require={
           'gtkgui': ["pygobject"],
           'mdhelp': ["markdown"],
