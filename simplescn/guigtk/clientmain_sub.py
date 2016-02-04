@@ -7,8 +7,8 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 try:
     import markdown
-    gi.require_version('WebKit', '3.0')
-    from gi.repository import WebKit 
+    gi.require_version('WebKit2', '4.0')
+    from gi.repository import WebKit2 
 except ImportError:
     pass
 
@@ -347,12 +347,12 @@ class help_stuff(object):
         self.helpwin = self.builder.get_object("helpwin")
         self.helpwin.set_transient_for(self.win)
         _help = self.do_requestdo("help", forcelocal=True)
-        if "markdown" in globals():
-            view = WebKit.WebView(editable=False, hexpand=True, vexpand=True)
+        if "markdown" in globals() and "WebKit2" in globals():
+            view = WebKit2.WebView(editable=False, hexpand=True, vexpand=True)
             wksettings = view.get_settings()
             wksettings.set_property('enable-plugins', False)
             
-            view.load_string(markdown.markdown(_help[1]["help"]), "text/html", "utf-8", "file:///")
+            view.load_html((markdown.markdown(_help[1]["help"])))
             self.builder.get_object("helpscrollwin").add(view)
             
         else:
