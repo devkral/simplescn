@@ -37,17 +37,17 @@ class gtkstuff(object):
             ret.set_halign(Gtk.Align.END)
             ret.set_justify(Gtk.Justification.RIGHT)
             if isprivate:
-                ret.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.5, green=0.3, blue=0.0, alpha=1.))
+                ret.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.5, green=0.3, blue=0.0, alpha=1.))
             else:
-                ret.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.3, green=0.6, blue=0.3, alpha=1.))
+                ret.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.3, green=0.6, blue=0.3, alpha=1.))
             
         else:
             ret.set_halign(Gtk.Align.START)
             ret.set_justify(Gtk.Justification.LEFT)
             if isprivate:
-                ret.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=1.))
+                ret.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=1.))
             else:
-                ret.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.7, blue=0.6, alpha=1.))
+                ret.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.7, blue=0.6, alpha=1.))
         return ret
 
 
@@ -60,15 +60,15 @@ class gtkstuff(object):
         if isowner:
             newimg.set_halign(Gtk.Align.END)
             if isprivate:
-                newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.3, blue=0.0, alpha=0.9))
+                newimg.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.3, blue=0.0, alpha=0.9))
             else:
-                newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.3, green=1.0, blue=0.3, alpha=0.7))
+                newimg.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=0.3, green=1.0, blue=0.3, alpha=0.7))
         else:
             newimg.set_halign(Gtk.Align.START)
             if isprivate:
-                newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=0.9))
+                newimg.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=0.0, blue=0.0, alpha=0.9))
             else:
-                newimg.override_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=1.0, blue=1.0, alpha=0.7))
+                newimg.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=1.0, blue=1.0, alpha=0.7))
         
         return newimg
 

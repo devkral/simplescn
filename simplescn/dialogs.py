@@ -60,7 +60,6 @@ class client_dialogs(object):
                 return None
             return resp[1].get("result")
     
-    # remove and implement in open_pwrequest???
     def pw_auth(self, hashpcert, reqob, reauthcount):
         authob = None
         if reauthcount == 0:

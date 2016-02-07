@@ -56,8 +56,22 @@ simplescns rawclient nocmd parameters...
 server:
 simplescns server
 
+# Installation
 ## from repo
 python3 ./simplescn arameters...
+
+# windows
+install python
+download pygi-slimgtk... from http://sourceforge.net/projects/pygobjectwin32/files/ and extract
+
+use 3.x version
+
+python -m pip pygi-slimgtk.../pypi3.4-32
+python -m pip pygi-slimgtk.../pypi3.4-64
+
+python -m pip https://github.com/devkral/simplescn
+or
+python -m pip path-to-simplescn-repo
 
 # Notes:
 
