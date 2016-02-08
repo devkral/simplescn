@@ -70,7 +70,8 @@ download pygi-slimgtk... from http://sourceforge.net/projects/pygobjectwin32/fil
 use 3.4 version if slimgtk is not updated to python3.5
 # normal routine
 
-python -m pip https://github.com/devkral/simplescn&#91;features comma seperated&#93;
+
+python -m pip [https://github.com/devkral/simplescn](https://github.com/devkral/simplescn)&#91;features comma seperated&#93;
 or
 python -m pip path-to-local-simplescn-repo&#91;features comma seperated&#93;
 
