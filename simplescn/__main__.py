@@ -23,12 +23,12 @@ def signal_handler(_signal, frame):
     logging.shutdown()
     sys.exit(0)
 
-def server():
+def server(argv=sys.argv[1:]):
     init_scn()
     from simplescn.common import pluginmanager
     from simplescn.server import server_paramhelp, overwrite_server_args, server_handler, server_init
     pluginpathes = [os.path.join(sharedir, "plugins")]
-    pluginpathes += scnparse_args(server_paramhelp, overwrite_args=overwrite_server_args)
+    pluginpathes += scnparse_args(argv, server_paramhelp, overwrite_args=overwrite_server_args)
     configpath = overwrite_server_args["config"][0]
     configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
@@ -72,13 +72,13 @@ def server():
     else:
         print("You really want a server without a server?", file=sys.stderr)
 
-def rawclient():
+def rawclient(argv=sys.argv[1:]):
     """ cmd client """
     init_scn()
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args, cmdloop, client_init
     pluginpathes = [os.path.join(sharedir, "plugins")]
-    pluginpathes += scnparse_args(client_paramhelp, default_client_args, overwrite_client_args)
+    pluginpathes += scnparse_args(argv, client_paramhelp, default_client_args, overwrite_client_args)
     configpath = overwrite_client_args["config"][0]
     configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
@@ -125,16 +125,16 @@ def rawclient():
         cm.serve_forever_block()
 
 
-def client():
+def client(argv=sys.argv[1:]):
     """ gui client """
     try:
-        client_gtk()
+        client_gtk(argv)
     except Exception as exc:
         raise(exc)
         logging.error(exc)
-        rawclient()
+        rawclient(argv)
         return
-def client_gtk():
+def client_gtk(argv=sys.argv[1:]):
     """ gtk gui """
     init_scn()
     from simplescn.guigtk.clientmain import _init_method_gtkclient
@@ -144,7 +144,7 @@ def client_gtk():
     del default_client_args["nocmd"]
     default_client_args["backlog"] = [str(200), int, "length of backlog"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
-    pluginpathes += scnparse_args(client_paramhelp, default_client_args, overwrite_client_args)
+    pluginpathes += scnparse_args(argv, client_paramhelp, default_client_args, overwrite_client_args)
     configpath = overwrite_client_args["config"][0]
     configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
@@ -181,7 +181,7 @@ def hashpw():
         pw = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
     print("pw: {}, hash: {}".format(pw, dhash(pw)))
 
-def config_plugin():
+def config_plugin(argv=sys.argv[1:]):
     """ func: configure plugin without starting gui (useful for server plugins)
         plugin: plugin name
         key: unspecified: list keys
@@ -189,7 +189,7 @@ def config_plugin():
     init_scn()
     from simplescn.common import overwrite_plugin_config_args, plugin_config_paramhelp, pluginmanager
     pluginpathes = [os.path.join(sharedir, "plugins")]
-    pluginpathes += scnparse_args(plugin_config_paramhelp, overwrite_args=overwrite_plugin_config_args)
+    pluginpathes += scnparse_args(argv, plugin_config_paramhelp, overwrite_args=overwrite_plugin_config_args)
     configpath = overwrite_plugin_config_args["config"][0]
     configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
@@ -256,8 +256,8 @@ def init_method_main():
             return
         toexe = globals().get(toexe)
         if callable(toexe):
-            del sys.argv[1]
-            toexe()
+            #del sys.argv[1]
+            toexe(sys.argv[2:])
         else:
             print("Not available", file=sys.stderr)
             print("Available: client, rawclient, server, config_plugin, hashpw, check_dependencies", file=sys.stderr)

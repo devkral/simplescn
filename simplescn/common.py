@@ -894,11 +894,11 @@ class certhash_db(object):
 
 
 # default_args, overwrite_args are modified
-def scnparse_args(_funchelp, default_args={}, overwrite_args={}):
+def scnparse_args(arg_list, _funchelp, default_args={}, overwrite_args={}):
     pluginpathes = []
-    if len(sys.argv) > 1:
+    if len(arg_list) > 0:
         tparam = ()
-        for elem in sys.argv[1:]: #strip filename from arg list
+        for elem in arg_list: #strip filename from arg list
             elem = elem.strip("-")
             if elem in ["help","h"]:
                 print(_funchelp())
