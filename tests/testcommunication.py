@@ -4,8 +4,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath
 
 import unittest
 
-class TestCom(unittest.TestCase):
+import __main__
+
+
+class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
+    param_server = ["--config=".format(temptestdir)]
+    param_client = ["--config=".format(temptestdir), "--nocmd"]
+    client = None
+    server = None
     def setUp(self):
         if os.path.isdir(self.temptestdir):
             shutil.rmtree(self.temptestdir)
