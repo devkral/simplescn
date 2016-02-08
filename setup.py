@@ -4,7 +4,8 @@
 from setuptools import setup
 
 relaxed = False
-forcegui = True
+# using pygobject for windows is like shooting in your foot twice, so disable gui. next gui is tkinter or native
+forcegui = False
 #, Distribution
 #from pkg_resources import Environment, working_set
 
