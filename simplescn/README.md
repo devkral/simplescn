@@ -72,7 +72,9 @@ use 3.4 version if slimgtk is not updated to python3.5
 
 
 python -m pip [https://github.com/devkral/simplescn](https://github.com/devkral/simplescn)&#91;features comma seperated&#93;
+
 or
+
 python -m pip path-to-local-simplescn-repo&#91;features comma seperated&#93;
 
 &#91;features comma seperated&#93; = e.g. &#91;gtkgui, mdhelp&#93;
