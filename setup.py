@@ -3,9 +3,8 @@
 
 from setuptools import setup
 
-relaxed = False
-# using pygobject for windows is like shooting in your foot twice, so disable gui. next gui is tkinter or native
-forcegui = False
+# use: <path to repo>[gtkgui,mdhelp]
+
 #, Distribution
 #from pkg_resources import Environment, working_set
 
@@ -18,13 +17,8 @@ forcegui = False
 #    print("Error loading plugins: ", errors)
 #print(distributions)
 
-
 entry_points = {"console_scripts": [], "gui_scripts": []}
 install_requirements = ["cryptography>=1.1"]
-if forcegui:
-    install_requirements += ["simplescn[gtkgui]", "simplescn[mdhelp]"]
-elif not relaxed:
-    install_requirements += ["simplescn[mdhelp]"]
 
 entry_points["console_scripts"] += ['simplescns = simplescn.__main__:init_method_main']
 #entry_points["gui_scripts"] += ['simplescngui = simplescn.__main__:client']

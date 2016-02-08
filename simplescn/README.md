@@ -57,22 +57,24 @@ server:
 simplescns server
 
 # Installation
-## from repo
-python3 ./simplescn arameters...
+## without installation, execute from repo
+python3 ./simplescn parameters...
 
-# windows
-install python
+
+## pip
+
+# windows extra (for gui)
+install python3.4
 download pygi-slimgtk... from http://sourceforge.net/projects/pygobjectwin32/files/ and extract
 
-use 3.x version
+use 3.4 version if slimgtk is not updated to python3.5
+# normal routine
 
-python -m pip pygi-slimgtk.../pypi3.4-32
-python -m pip pygi-slimgtk.../pypi3.4-64
-
-python -m pip https://github.com/devkral/simplescn
+python -m pip https://github.com/devkral/simplescn&#91;features comma seperated&#93;
 or
-python -m pip path-to-simplescn-repo
+python -m pip path-to-local-simplescn-repo&#91;features comma seperated&#93;
 
+&#91;features comma seperated&#93; = e.g. &#91;gtkgui, mdhelp&#93;
 # Notes:
 
 Overwrite parameters:
