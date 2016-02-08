@@ -903,9 +903,13 @@ def scnparse_args(arg_list, _funchelp, default_args={}, overwrite_args={}):
             if elem in ["help","h"]:
                 print(_funchelp())
                 sys.exit(0)
-            elif elem in ["help-md", "help-markdown"] and "markdown" in globals():
-                print(markdown.markdown(_funchelp().replace("<","&lt;").replace(">","&gt;").replace("[", "&#91;").replace("]", "&#93;")))
-                sys.exit(0)
+            elif elem in ["help-md", "help-markdown"]:
+                if "markdown" in globals():
+                    print(markdown.markdown(_funchelp().replace("<","&lt;").replace(">","&gt;").replace("[", "&#91;").replace("]", "&#93;")))
+                    sys.exit(0)
+                else:
+                    print("markdown help not available", file=sys.stderr)
+                    sys.exit(1)
             else:
                 tparam = elem.split("=")
                 if len(tparam) == 1:

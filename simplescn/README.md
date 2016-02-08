@@ -6,15 +6,14 @@ Nodes are not permanent, a restart deletes the entries on the server
 Features:
 * passwordprotection
 * semi-decentral + encrypted
-* portmapper integrated
+* simple portmapper, easy to integrate in other applications
 * entirely controllable by a webbrowser (frontend not finished)
 
 Dependencies:
 * python-cryptography (python3 version) (pip: cryptography)
-* python-gobject (python3 version) (pip: PyGObject???)
 * python3
-* optional: gtk3 (gui)
-* optional: markdown (for more beautiful help)
+* optional: pygobject/python-gobject (python3 version) (pip impossible)(for gui)
+* optional: markdown (pip: markdown)(for more beautiful help)
 
 # Security:
 
@@ -64,12 +63,12 @@ python3 ./simplescn parameters...
 ## pip
 
 # windows extra (for gui)
-install python3.4
+install python3.4:
+
 download pygi-slimgtk... from http://sourceforge.net/projects/pygobjectwin32/files/ and extract
 
 use 3.4 version if slimgtk is not updated to python3.5
 # normal routine
-
 
 python -m pip [https://github.com/devkral/simplescn](https://github.com/devkral/simplescn)&#91;features comma seperated&#93;
 
@@ -78,19 +77,24 @@ or
 python -m pip path-to-local-simplescn-repo&#91;features comma seperated&#93;
 
 &#91;features comma seperated&#93; = e.g. &#91;gtkgui, mdhelp&#93;
-# Notes:
+## Notes:
 
-Overwrite parameters:
+# Overwrite parameters:
 copy parameters.py and save it as parameters_overwrite.py in the same folder
 
 rawclient and gtkclient use different config files
 the plugins will use the same config among the different clients except an other configdirectory is given
 
-urlsyntax is:
-url-port
-e.g. testfoo.test.com-4040
+# urlsyntax
+simplescn uses a different urlsyntax (for supporting ipv4/ipv6 without &#91;&#93;):
+url&#91;-port&#93;
+e.g. testfoo.test.com-4040, 127.0.0.1-4040, ::1-4040, ::1, testfoo-lla.com-4040
 
+if no port is given the default server-port is used, this is possible for some methods
+if the url contains a - , port must be specified with -
+
+# scn
 This is a rewrite of scn.
-It got too complex because of unnecessary features (channels and nodes), too much lowlevel work (an own protocol), focus on gui and a client and serverside account management.
+It got too complex because of unnecessary features (channels and specialized nodes), too much lowlevel work (an own protocol), focus on gui and a client and serverside account management.
 
 
