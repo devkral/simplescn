@@ -9,7 +9,7 @@ import traceback
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk,Gdk, GLib
+from gi.repository import Gtk, Gdk, GLib
 
 import simplescn
 from simplescn import client, logcheck
@@ -29,8 +29,6 @@ client.client_handler.webgui = False
 messageid = 0
 
 implementedrefs = ["surl", "url", "name"]
-# for open_gtk_node
-cm = None
 
 class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuff, help_stuff, hashmanagement, set_parent_template):
     links = None
@@ -939,7 +937,7 @@ def open_gtk_node(_address, forcehash=None, page=0, requester=""):
         forcehash: shall a certification hash be enforced
         page: name or number of page
         requester: requesting plugin """
-    gtkclient_node(cm.links, _address, forcehash=forcehash, page=page)
+    gtkclient_node(gtkclient_instance.links, _address, forcehash=forcehash, page=page)
     
 def open_gtk_pwcall_plugin(msg, requester):
     """ plugin: open a password dialog
@@ -986,16 +984,17 @@ class gtkclient_init(client.client_init):
         while gtkclient_init.run == True:
             Gtk.main_iteration_do(True)
 
+# for open_gtk_node and debug?
+gtkclient_instance = None
 def _init_method_gtkclient(confm, pluginm):
-    global cm
-    cm = gtkclient_init(confm, pluginm)
+    global gtkclient_instance
+    gtkclient_instance = gtkclient_init(confm, pluginm)
     if confm.getb("noplugins") == False:
-        pluginm.resources["access"] = cm.links["client"].access_safe
-        pluginm.resources["plugin"] = cm.links["client"].use_plugin
+        pluginm.resources["access"] = gtkclient_instance.links["client"].access_safe
+        pluginm.resources["plugin"] = gtkclient_instance.links["client"].use_plugin
         pluginm.resources["open_node"] = open_gtk_node
         pluginm.resources["open_pwrequest"] = open_gtk_pwcall_plugin
         pluginm.resources["open_notify"] = open_gtk_notify_plugin
         pluginm.init_plugins()
-    cm.enter_gtkmainloop()
-    
+    gtkclient_instance.enter_gtkmainloop()
     sys.exit(0)

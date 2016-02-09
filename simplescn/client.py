@@ -861,9 +861,7 @@ class client_init(object):
         self.links["hserver"].serve_forever()
         
     def serve_forever_nonblock(self):
-        sthread = threading.Thread(target=self.serve_forever_block, daemon=True)
-        sthread.start()
-
+        threading.Thread(target=self.serve_forever_block, daemon=True).start()
 
 #specified seperately because of chicken egg problem
 #"config":default_configdir

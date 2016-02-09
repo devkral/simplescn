@@ -23,7 +23,9 @@ def signal_handler(_signal, frame):
     logging.shutdown()
     sys.exit(0)
 
+server_instance = None
 def server(argv=sys.argv[1:]):
+    global server_instance
     init_scn()
     from simplescn.common import pluginmanager
     from simplescn.server import server_paramhelp, overwrite_server_args, server_handler, server_init
@@ -52,28 +54,30 @@ def server(argv=sys.argv[1:]):
     else:
         server_handler.webgui = False
 
-    cm = server_init(configpath, **overwrite_server_args)
+    server_instance = server_init(configpath, **overwrite_server_args)
     if overwrite_server_args["useplugins"][0] != "False":
         os.makedirs(configpath_plugins, 0o750, True)
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "server")
         if overwrite_server_args["webgui"] != "False":
             pluginm.interfaces += ["web",]
-        cm.links["server_server"].pluginmanager = pluginm
-        pluginm.resources["access"] = cm.links["server_server"].access_server
+        server_instance.links["server_server"].pluginmanager = pluginm
+        pluginm.resources["access"] = server_instance.links["server_server"].access_server
         pluginm.init_plugins()
-        _broadc = cm.links["server_server"].allowed_plugin_broadcasts
+        _broadc = server_instance.links["server_server"].allowed_plugin_broadcasts
         for _name, plugin in pluginm.plugins.items():
             if hasattr(plugin, "allowed_plugin_broadcasts"):
                 for _broadfuncname in getattr(plugin, "allowed_plugin_broadcasts"):
                     _broadc.insert((_name, _broadfuncname))
     if overwrite_server_args["noserver"][0] != "True":
         logging.debug("server initialized. Enter serveloop")
-        cm.serve_forever_block()
+        server_instance.serve_forever_block()
     else:
         print("You really want a server without a server?", file=sys.stderr)
 
+rawclient_instance = None
 def rawclient(argv=sys.argv[1:]):
     """ cmd client """
+    global rawclient_instance
     init_scn()
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args, cmdloop, client_init
@@ -102,27 +106,27 @@ def rawclient(argv=sys.argv[1:]):
             pluginm.interfaces += ["cmd",]
     else:
         pluginm = None
-    cm = client_init(confm, pluginm)
+    rawclient_instance = client_init(confm, pluginm)
 
     if confm.getb("noplugins") == False:
-        pluginm.resources["plugin"] = cm.links["client"].use_plugin
-        pluginm.resources["access"] = cm.links["client"].access_safe
+        pluginm.resources["plugin"] = rawclient_instance.links["client"].use_plugin
+        pluginm.resources["access"] = rawclient_instance.links["client"].access_safe
         pluginm.init_plugins()
         #for name, elem in pluginm.plugins.items():
         #    if hasattr(elem, "pluginpw"):
-        #        cm.links["auth_server"].init_realm("plugin:{}".format(name), dhash(elem.pluginpw))
+        #        rawclient_instance.links["auth_server"].init_realm("plugin:{}".format(name), dhash(elem.pluginpw))
 
     if not confm.getb("noserver"):
         logging.debug("start servercomponent (client)")
     if not confm.getb("nocmd"):
         if not confm.getb("noserver"):
-            cm.serve_forever_nonblock()
+            rawclient_instance.serve_forever_nonblock()
         logging.debug("start console")
-        for name, value in cm.links["client"].show({})[1].items():
+        for name, value in rawclient_instance.links["client"].show({})[1].items():
             print(name, value, sep=":")
-        cmdloop(cm)
+        cmdloop(rawclient_instance)
     elif not confm.getb("noserver"):
-        cm.serve_forever_block()
+        rawclient_instance.serve_forever_block()
 
 
 def client(argv=sys.argv[1:]):
