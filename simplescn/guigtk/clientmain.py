@@ -963,14 +963,12 @@ class gtkclient_init(client.client_init):
         logging.debug("start gtkclient")
         simplescn.pwcallmethodinst = gtkclient_pw
         simplescn.notifyinst = gtkclient_notify
-        
+
         client.client_init.__init__(self, confm, pluginm)
         self.links["gtkclient"] = gtkclient_main(self.links)
-        
+
         logging.getLogger().addHandler(self.links["gtkclient"])
         parentlist.insert(0, self.links["gtkclient"].win)
-        
-        
         
         if confm.getb("noserver") == False:
             logging.debug("start client server")

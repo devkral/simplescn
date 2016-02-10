@@ -17,7 +17,7 @@ def shimrun(cmd, *args, **kwargs):
 
 class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
-    param_server = ["--config={}".format(temptestdir), ""]
+    param_server = ["--config={}".format(temptestdir), "--port=4040"]
     param_client = ["--config={}".format(temptestdir), "--nocmd"]
     client = None
     server = None
@@ -35,9 +35,20 @@ class TestCommunication(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.temptestdir)
         simplescn.pwcallmethodinst = self.oldpwcallmethodinst
-        
-    
+
     def test_register(self):
+        ret = self.client.access_main("register", server="::1")
+        ret2 = self.client.access_main("register", server="127.0.0.1")
+        ret3 = self.client.access_main("register", server="127.0.0.1-4040")
+    
+    def test_caps(self):
+        pass
+    
+    
+    def test_check(self):
+        pass
+    
+    def test_check_direct(self):
         pass
     
 if __name__ == "main":

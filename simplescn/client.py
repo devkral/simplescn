@@ -450,12 +450,11 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
 
     # help section
     def cmdhelp(self):
-        out="""# commands
-"""
+        out = "# commands\n"
         for funcname in sorted(self.validactions):
             func = getattr(self, funcname)
             if getattr(func, "__doc__", None) is not None:
-                out+="{doc}\n".format(doc=func.__doc__)
+                out += "{doc}\n".format(doc=func.__doc__)
             else:
                 logging.info("Missing __doc__: {}".format(funcname))
         return out
