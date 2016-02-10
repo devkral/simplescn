@@ -4,52 +4,75 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath
 
 import unittest
 import logging
+import shutil
 from threading import Thread
 
-import __main__
+import simplescn
+import simplescn.__main__
 
-def shimrun(cmd, *args, **kwargs):
+def shimrun(cmd, *args):
     try:
-        cmd(*args, **kwargs)
+        cmd(args)
     except Exception:
         logging.exception("{} failed".format(type(cmd).__name__))
 
 
 class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
-    param_server = ["--config={}".format(temptestdir), "--port=4040"]
+    simplescn.server_port = 40040
+    param_server = ["--config={}".format(temptestdir), "--port={}".format(simplescn.server_port)]
     param_client = ["--config={}".format(temptestdir), "--nocmd"]
-    client = None
-    server = None
-    def setUp(self):
-        if os.path.isdir(self.temptestdir):
-            shutil.rmtree(self.temptestdir)
-        os.mkdir(self.temptestdir, 0o700)
-        simplescn.pwcallmethodinst = lambda msg, requester: ""
-        self.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        self.client = __main__.rawclient_instance
-        self.server = __main__.server_instance
-        Thread(target=shimrun, args=(__main__.server, *self.param_server), daemon=True).start()
-        Thread(target=shimrun, args=(__main__.client, *self.param_client), daemon=True).start()
-
-    def tearDown(self):
-        shutil.rmtree(self.temptestdir)
-        simplescn.pwcallmethodinst = self.oldpwcallmethodinst
-
-    def test_register(self):
-        ret = self.client.access_main("register", server="::1")
-        ret2 = self.client.access_main("register", server="127.0.0.1")
-        ret3 = self.client.access_main("register", server="127.0.0.1-4040")
+    #client = None
+    #server = None
     
+    # needed to run ONCE; setUpModule runs async
+    @classmethod
+    def setUpClass(cls):
+        if os.path.isdir(cls.temptestdir):
+            shutil.rmtree(cls.temptestdir)
+        os.mkdir(cls.temptestdir, 0o700)
+        simplescn.pwcallmethodinst = lambda msg, requester: ""
+        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
+        cls.client = simplescn.__main__.rawclient(cls.param_client, doreturn=True)
+        cls.client_hash = cls.client.links["client"].cert_hash
+        cls.name = cls.client.links["client"].name
+        cls.server = simplescn.__main__.server(cls.param_server, doreturn=True)
+
+    # needed to run ONCE; tearDownModule runs async
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.temptestdir)
+        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+
+    def test_register_get(self):
+        reqister1 = self.client.links["client"].access_main("register", server="::1")
+        self.assertEqual(reqister1[0], True)
+        self.assertDictEqual(reqister1[1], {'traverse': True, 'mode': 'registered_traversal'})
+        ret1 = self.client.links["client"].access_main("get", server="::1", name=self.name, hash=self.client_hash)
+        self.assertEqual(ret1[0], True)
+        
+        register2 = self.client.links["client"].access_main("register", server="127.0.0.1")
+        self.assertEqual(register2[0], True)
+        self.assertDictEqual(register2[1], {'traverse': True, 'mode': 'registered_traversal'})
+        ret2 = self.client.links["client"].access_main("get", server="127.0.0.1", name=self.name, hash=self.client_hash)
+        self.assertEqual(ret2[0], True)
+        
+        register3 = self.client.links["client"].access_main("register", server="127.0.0.1-{}".format(simplescn.server_port))
+        self.assertEqual(register3[0], True)
+        self.assertDictEqual(register3[1], {'traverse': True, 'mode': 'registered_traversal'})
+        
+        ret3 = self.client.links["client"].access_main("get", server="127.0.0.1-{}".format(simplescn.server_port), name=self.name, hash=self.client_hash)
+        self.assertEqual(ret3[0], True)
+        
     def test_caps(self):
         pass
     
     
-    def test_check(self):
-        pass
+    #def test_check(self):
+    #    pass
     
-    def test_check_direct(self):
-        pass
+    #def test_check_direct(self):
+    #    pass
     
 if __name__ == "main":
     unittest.main(verbosity=2)

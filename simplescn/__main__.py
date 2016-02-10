@@ -2,7 +2,7 @@
 #license: bsd3, see LICENSE.txt
 
 import sys, os
-import logging
+import logging, threading
 import signal
 
 if __name__ == "__main__":
@@ -18,14 +18,13 @@ import simplescn.client
 import simplescn.server
 
 
+
 def signal_handler(_signal, frame):
     simplescn.client.client_init.run = False
     logging.shutdown()
     sys.exit(0)
 
-server_instance = None
-def server(argv=sys.argv[1:]):
-    global server_instance
+def server(argv=sys.argv[1:], doreturn=False):
     init_scn()
     from simplescn.common import pluginmanager
     from simplescn.server import server_paramhelp, overwrite_server_args, server_handler, server_init
@@ -70,14 +69,16 @@ def server(argv=sys.argv[1:]):
                     _broadc.insert((_name, _broadfuncname))
     if overwrite_server_args["noserver"][0] != "True":
         logging.debug("server initialized. Enter serveloop")
-        server_instance.serve_forever_block()
+        if doreturn:
+            server_instance.serve_forever_nonblock()
+            return server_instance
+        else:
+            server_instance.serve_forever_block()
     else:
         print("You really want a server without a server?", file=sys.stderr)
 
-rawclient_instance = None
-def rawclient(argv=sys.argv[1:]):
+def rawclient(argv=sys.argv[1:], doreturn=False):
     """ cmd client """
-    global rawclient_instance
     init_scn()
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args, cmdloop, client_init
@@ -124,9 +125,17 @@ def rawclient(argv=sys.argv[1:]):
         logging.debug("start console")
         for name, value in rawclient_instance.links["client"].show({})[1].items():
             print(name, value, sep=":")
-        cmdloop(rawclient_instance)
+        if doreturn:
+            threading.Thread(target=cmdloop, args=(rawclient_instance,), daemon=True).start()
+            return rawclient_instance
+        else:
+            cmdloop(rawclient_instance)
     elif not confm.getb("noserver"):
-        rawclient_instance.serve_forever_block()
+        if doreturn:
+            rawclient_instance.serve_forever_nonblock()
+            return rawclient_instance
+        else:
+            rawclient_instance.serve_forever_block()
 
 
 def client(argv=sys.argv[1:]):
@@ -246,8 +255,9 @@ def init_scn():
     #import multiprocessing
     #multiprocessing.freeze_support()
     #multiprocessing.set_start_method('spawn')
-    logging.basicConfig(level=loglevel_converter(default_loglevel), format=logformat)
-    signal.signal(signal.SIGINT, signal_handler)
+    if threading.current_thread() == threading.main_thread():
+        logging.basicConfig(level=loglevel_converter(default_loglevel), format=logformat)
+        signal.signal(signal.SIGINT, signal_handler)
 
 def init_method_main():
     """ starter method """

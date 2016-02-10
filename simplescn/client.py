@@ -80,7 +80,9 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         self.validactions.update(client_config.validactions_config)
         self._cache_help = self.cmdhelp()
     
-
+    # return success, body, (name, security), hash
+    # return success, body, isself, hash
+    # return success, body, None, hash
     def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
         """ func: use this method to communicate with clients/servers """
         if headers is None:

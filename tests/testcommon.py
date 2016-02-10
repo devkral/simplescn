@@ -35,15 +35,20 @@ class TestGenerateError(unittest.TestCase):
 
 class TestGenerateCerts(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_certs")
-    def setUp(self):
-        if os.path.isdir(self.temptestdir):
-            shutil.rmtree(self.temptestdir)
-        os.mkdir(self.temptestdir, 0o700)
-        self.oldpwcallmethodinst = simplescn.pwcallmethodinst
+    
+    # needed to run ONCE; setUpModule runs async
+    @classmethod
+    def setUpClass(cls):
+        if os.path.isdir(cls.temptestdir):
+            shutil.rmtree(cls.temptestdir)
+        os.mkdir(cls.temptestdir, 0o700)
+        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
 
-    def tearDown(self):
-        shutil.rmtree(self.temptestdir)
-        simplescn.pwcallmethodinst = self.oldpwcallmethodinst
+    # needed to run ONCE; tearDownModule runs async
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.temptestdir)
+        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
     
     def test_NoPw(self):
         simplescn.pwcallmethodinst = lambda msg, requester: ""
@@ -65,13 +70,17 @@ class TestConfigmanager(unittest.TestCase):
     _testoverride={"b": ("bnewval", str, "doc")}
     _testoverridec={"c": ("cnewvalunavailable", str , "doc")}
     
-    def setUp(self):
-        if os.path.isdir(self.temptestdir):
-            shutil.rmtree(self.temptestdir)
-        os.mkdir(self.temptestdir, 0o700)
+    # needed to run ONCE; setUpModule runs async
+    @classmethod
+    def setUpClass(cls):
+        if os.path.isdir(cls.temptestdir):
+            shutil.rmtree(cls.temptestdir)
+        os.mkdir(cls.temptestdir, 0o700)
 
-    def tearDown(self):
-        shutil.rmtree(self.temptestdir)
+    # needed to run ONCE; tearDownModule runs async
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.temptestdir)
         
     def test_Config(self):
         config = simplescn.common.configmanager(os.path.join(self.temptestdir, "testdb"+simplescn.confdb_ending))
@@ -140,18 +149,19 @@ class TestConfigmanager(unittest.TestCase):
         
 
 class TestAuth(unittest.TestCase):
-
-    def setUp(self):
-        self.hashserver = simplescn.dhash(os.urandom(10).hex())
-        self.hashserver_wrong = simplescn.dhash(os.urandom(10).hex())
+    # needed to run ONCE; setUpModule runs async
+    @classmethod
+    def setUpClass(cls):
+        cls.hashserver = simplescn.dhash(os.urandom(10).hex())
+        cls.hashserver_wrong = simplescn.dhash(os.urandom(10).hex())
         
-        self.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
-        self.pwadmin = str(os.urandom(10), "utf-8", "backslashreplace")
-        self.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
-        self.authserver = simplescn.scnauth_server(self.hashserver)
-        self.authclient = simplescn.scnauth_client()
-        self.authserver.init_realm("server", simplescn.dhash(self.pwserver))
-        self.authserver.init_realm("admin", simplescn.dhash(self.pwadmin))
+        cls.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
+        cls.pwadmin = str(os.urandom(10), "utf-8", "backslashreplace")
+        cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
+        cls.authserver = simplescn.scnauth_server(cls.hashserver)
+        cls.authclient = simplescn.scnauth_client()
+        cls.authserver.init_realm("server", simplescn.dhash(cls.pwserver))
+        cls.authserver.init_realm("admin", simplescn.dhash(cls.pwadmin))
     
     def test_construct_correct(self):
         serverra=self.authserver.request_auth("server")
@@ -201,19 +211,20 @@ class TestAuth(unittest.TestCase):
 
 
 class Test_safe_mdecode(unittest.TestCase):
-    
-    def setUp(self):
-        self.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
-        self.pwclient = str(os.urandom(10), "utf-8", "backslashreplace")
-        self.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
+    # needed to run ONCE; setUpModule runs async
+    @classmethod
+    def setUpClass(cls):
+        cls.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
+        cls.pwclient = str(os.urandom(10), "utf-8", "backslashreplace")
+        cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
         
-        self._testseq_json1 = json.dumps({"action": "show", "auth": {"server":self.pwserver, "client":self.pwclient}})
+        cls._testseq_json1 = json.dumps({"action": "show", "auth": {"server":cls.pwserver, "client":cls.pwclient}})
         # default
-        self._testseq_qs1 = parse.urlencode({"action": "show", "auth": ["server:{}".format(self.pwserver), "client:{}".format(self.pwclient)]}, doseq=True)
+        cls._testseq_qs1 = parse.urlencode({"action": "show", "auth": ["server:{}".format(cls.pwserver), "client:{}".format(cls.pwclient)]}, doseq=True)
         # use jauth (json auth)
-        self._testseq_qs2 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":self.pwserver, "client":self.pwclient})}, doseq=True)
+        cls._testseq_qs2 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":cls.pwserver, "client":cls.pwclient})}, doseq=True)
         # use jauth (json auth) and overwrite default pw encoding
-        self._testseq_qs3 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":self.pwserver, "client":self.pwclient}), "auth": ["server:{}".format(self.pwinvalid), "client:{}".format(self.pwinvalid)]}, doseq=True)
+        cls._testseq_qs3 = parse.urlencode({"action": "show", "jauth": json.dumps({"server":cls.pwserver, "client":cls.pwclient}), "auth": ["server:{}".format(cls.pwinvalid), "client:{}".format(cls.pwinvalid)]}, doseq=True)
     
     def test_valid_json(self):
         result = simplescn.safe_mdecode(self._testseq_json1, "application/json")
