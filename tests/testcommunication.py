@@ -64,8 +64,14 @@ class TestCommunication(unittest.TestCase):
         ret3 = self.client.links["client"].access_main("get", server="127.0.0.1-{}".format(simplescn.server_port), name=self.name, hash=self.client_hash)
         self.assertEqual(ret3[0], True)
         
-    def test_caps(self):
-        pass
+    def test_cap(self):
+        cap_ret = self.client.links["client"].access_main("cap")
+        self.assertEqual(cap_ret[0], True, cap_ret[1])
+    
+    
+    def test_info(self):
+        info_ret = self.client.links["client"].access_main("info")
+        self.assertEqual(info_ret[0], True, info_ret[1])
     
     
     #def test_check(self):

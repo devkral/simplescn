@@ -2,16 +2,18 @@
 
 
 ## Beta 2
-* stabilize
-* more tests
 * gtk gui (for windows nearly impossible so give up)
 
+## rc 1
+* more tests
+* stabilize
 
 ## 0.2
 * rewrite pluginmanager
 * better isolation of plugins
 * pwhandling for plugins
-
+* ui_node_session
+* ui_main_session
 
 ## Future
 * Webgui
