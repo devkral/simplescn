@@ -201,7 +201,6 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 authob = pwcallm(hashpcert, reqob, _reauthcount)
             else:
                 return False, "no way to input passphrase for authorization", _certtupel[0], _certtupel[1]
-            
 
             if authob is None:
                 con.close()
@@ -223,29 +222,25 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 if sendclientcert:
                     if _random != response.getheader("X-certrewrap", ""):
                         return False, "rewrapped cert secret does not match", _certtupel[0], _certtupel[1]
-        
             else:
                 status = False
-            
+
             if response.getheader("Content-Type").split(";")[0].strip().rstrip() in ["text/plain","text/html"]:
                 obdict = gen_result(str(readob, "utf-8"), status)
             else:
                 obdict = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
             if check_result(obdict, status) == False:
                 return False, "error parsing request\n{}".format(readob), _certtupel[0], _certtupel[1]
-            
+
             if status == True:
                 return status, obdict["result"], _certtupel[0], _certtupel[1]
             else:
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
 
-
-
     def use_plugin(self, address, plugin, paction, forcehash=None, originalcert=None, forceport=False, requester="", traverseserveraddr=None):
         """ use this method to communicate with plugins """
         _addr = scnparse_url(address, force_port=forceport)
         con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("connect_timeout"))
-        
         try:
             con.connect()
         except ConnectionRefusedError:
@@ -281,7 +276,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         con.endheaders()
         con.sock = con.sock.unwrap()
         con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
-        
+
         sock = con.sock
         try:
             # terminates connection, even keep-alive is set
@@ -465,11 +460,10 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
 ### receiverpart of client ###
 
 class client_server(commonscn):
-    capabilities = ["basic",]
-    scn_type = "client"
     spmap = {}
+    scn_type = "client"
+    capabilities = ["basic",]
     validactions = {"info", "getservice", "dumpservices", "cap", "prioty", "registerservice", "delservice"}
-    local_client_service_control = False
     wlock = None
     def __init__(self, dcserver):
         commonscn.__init__(self)

@@ -703,9 +703,10 @@ class commonscn(object):
     isactive = True
     update_cache_lock = None
     
-    cache={"cap":"", "info":"", "prioty":""}
+    cache = None
     
     def __init__(self):
+        self.cache = {"cap":"", "info":"", "prioty":""}
         self.update_cache_lock = threading.Lock()
     def __del__(self):
         self.isactive = False
@@ -744,6 +745,8 @@ class commonscnhandler(BaseHTTPRequestHandler):
                 dokeepalive = True
         if dokeepalive:
             self.send_header('Connection', 'keep-alive')
+        else:
+            self.send_header('Connection', 'close')
         self.end_headers()
         if body:
             self.wfile.write(body)

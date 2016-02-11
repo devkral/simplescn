@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "simplescn"))
+# fix import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 import unittest
 import logging
@@ -36,7 +37,9 @@ class TestCommunication(unittest.TestCase):
         cls.client = simplescn.__main__.rawclient(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["client"].cert_hash
         cls.name = cls.client.links["client"].name
+        cls.client_port = cls.client.links["hserver"].socket.getsockname()[1]
         cls.server = simplescn.__main__.server(cls.param_server, doreturn=True)
+        cls.server_port = cls.server.links["hserver"].socket.getsockname()[1]
 
     # needed to run ONCE; tearDownModule runs async
     @classmethod
@@ -67,18 +70,41 @@ class TestCommunication(unittest.TestCase):
     def test_cap(self):
         cap_ret = self.client.links["client"].access_main("cap")
         self.assertEqual(cap_ret[0], True, cap_ret[1])
-    
+        #print(cap_ret)
     
     def test_info(self):
+        info_ret = self.client.links["client"].access_main("info", address="127.0.0.1-{}".format(simplescn.server_port))
+        self.assertEqual(info_ret[0], True, info_ret[1])
+        self.assertEqual(info_ret[1]["type"], "server")
+        
         info_ret = self.client.links["client"].access_main("info")
         self.assertEqual(info_ret[0], True, info_ret[1])
+        self.assertEqual(info_ret[1]["type"], "client")
+        info_ret = self.client.links["client"].access_main("info", address="localhost-{}".format(self.client_port))
+        self.assertEqual(info_ret[0], True, info_ret[1])
+        self.assertEqual(info_ret[1]["type"], "client")
     
+    def test_services(self):
+        services_reg = self.client.links["client"].access_main("registerservice", name="test", port="666")
+        self.assertEqual(services_reg[0], True, services_reg[1])
+        #print(services_reg)
+        services_ret = self.client.links["client"].access_main("getservice", name="test")
+        #print(services_ret)
+        #self.assertEqual(services_ret[0], True, services_ret[1])
+        services_del = self.client.links["client"].access_main("delservice", name="test")
+        self.assertEqual(services_del[0], True, services_del[1])
+        services_ret = self.client.links["client"].access_main("getservice", name="test")
+        self.assertEqual(services_ret[0], False)
+        
     
-    #def test_check(self):
-    #    pass
+    def test_show(self):
+        pass
     
-    #def test_check_direct(self):
-    #    pass
+    def test_check(self):
+        pass
     
-if __name__ == "main":
+    def test_check_direct(self):
+        pass
+    
+if __name__ == "__main__":
     unittest.main(verbosity=2)
