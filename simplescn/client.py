@@ -774,7 +774,9 @@ class client_init(object):
         if confm.getb("webgui")!=False:
             logging.debug("webgui enabled")
             client_handler.webgui=True
-            #load static files
+            # load static files
+            # replace placeholder
+            client_handler.statics = {}
             for elem in os.listdir(os.path.join(sharedir, "static")):
                 with open(os.path.join(sharedir,"static",elem), 'rb') as _staticr:
                     client_handler.statics[elem]=_staticr.read()

@@ -40,10 +40,12 @@ def server(argv=sys.argv[1:], doreturn=False):
     # path to config folder of plugins
     configpath_plugins = os.path.join(configpath, "config", "plugins")
 
-    #should be gui agnostic so specify here
+    # should be gui agnostic so specify here
     if overwrite_server_args["webgui"][0] != "False":
         server_handler.webgui = True
-        #load static files
+        # load static files
+        # replace placeholder
+        server_handler.statics = {}
         for elem in os.listdir(os.path.join(sharedir, "static")):
             with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
                 server_handler.statics[elem] = _staticr.read()

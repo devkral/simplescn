@@ -692,17 +692,20 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=def
 
 
 class commonscn(object):
+    # replace not add elsewise bugs in multithreading situation
     capabilities = []
     info = None
     priority = None
     name = None
     message = None
     cert_hash = None
+    # scn type
     scn_type = "unknown"
     pluginmanager = None
     isactive = True
     update_cache_lock = None
     
+    # set in __init__, elsewise bugs in multithreading situation (references)
     cache = None
     
     def __init__(self):
@@ -721,6 +724,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
     links = None
     sys_version = "" # would say python xy, no need and maybe security hole
     auth_info = None
+    # replace not add, just a placeholder
     statics = {}
     client_cert = None
     client_cert_hash = None
