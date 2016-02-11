@@ -468,7 +468,7 @@ class client_server(commonscn):
     wlock = None
     def __init__(self, dcserver):
         commonscn.__init__(self)
-        # init here for multi instance
+        # init here (multi instance situation)
         self.spmap = {}
         self.wlock = threading.Lock()
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
@@ -478,7 +478,6 @@ class client_server(commonscn):
         if dcserver["message"] is None or len(dcserver["message"]) == 0:
             logging.info("Message empty")
             dcserver["message"] = "<empty>"
-            
         self.name = dcserver["name"]
         self.message = dcserver["message"]
         self.priority = dcserver["priority"]
@@ -488,7 +487,7 @@ class client_server(commonscn):
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
-    
+
     @check_argsdeco({"name": str, "port": int})
     @classify_local
     def registerservice(self, obdict):
@@ -506,9 +505,8 @@ class client_server(commonscn):
             self.wlock.release()
             return True
         return False, "no permission"
-    
-    ### don't annote list with "map" dict structure on serverside (overhead)
-    
+
+    # don't annote list with "map" dict structure on serverside (overhead)
     @check_argsdeco({"name": str})
     @classify_local
     def delservice(self, obdict):
@@ -525,9 +523,9 @@ class client_server(commonscn):
             self.wlock.release()
             return  True
         return False, "no permission"
-        
+
     ### management section - end ###
-    
+
     @check_argsdeco({"name": str})
     @classify_local
     def getservice(self, obdict):
@@ -537,16 +535,13 @@ class client_server(commonscn):
         if obdict["name"] not in self.spmap:
             return False
         return True, self.spmap[obdict["name"]]
-    
-    
+
 class client_handler(commonscnhandler):
     server_version = 'simplescn/1.0 (client)'
-    
     handle_local = False
     handle_remote = False
     webgui = False
-    
-    
+
     def handle_client(self, action):
         if action not in self.links["client"].validactions:
             self.send_error(400, "invalid action - client")
@@ -574,8 +569,7 @@ class client_handler(commonscnhandler):
             ob = bytes(json.dumps(authreq), "utf-8")
             self.scn_send_answer(401, body=ob, docache=False)
             return
-        
-        
+
         obdict = self.parse_body()
         if obdict is None:
             return
@@ -584,7 +578,6 @@ class client_handler(commonscnhandler):
         if response[0] == False:
             error = response[1]
             generror = generate_error(error)
-            
             if not debug_mode or not check_local(self.client_address2[0]):
                 # don't show stacktrace if not permitted and not in debug mode
                 if "stacktrace" in generror:
@@ -597,7 +590,6 @@ class client_handler(commonscnhandler):
         else:
             resultob = gen_result(response[1], True)
             status = 200
-        
         jsonnized = bytes(json.dumps(resultob), "utf-8")
         self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
 
@@ -605,22 +597,19 @@ class client_handler(commonscnhandler):
         if action not in self.links["client_server"].validactions:
             self.scn_send_answer(400, message="invalid action - server", docache=False)
             return
-        
         if self.links["auth_server"].verify("server", self.auth_info) == False:
             authreq = self.links["auth_server"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
             self.cleanup_stale_data(max_serverrequest_size)
             self.scn_send_answer(401, body=ob, docache=False)
             return
-        
         if action in self.links["client_server"].cache:
             # cleanup {} or smaller, protect against big transmissions
             self.cleanup_stale_data(2)
-            
             ob = bytes(self.links["client_server"].cache[action], "utf-8")
             self.scn_send_answer(200, body=ob, docache=False)
             return
-        
+
         obdict = self.parse_body(max_serverrequest_size)
         if obdict is None:
             return None
@@ -630,7 +619,6 @@ class client_handler(commonscnhandler):
             jsonnized = json.dumps(gen_result(response[1],response[0]))
         except Exception as exc:
             generror = generate_error(exc)
-            
             if not debug_mode or not check_local(self.client_address2[0]):
                 # don't show stacktrace if not permitted and not in debug mode
                 if "stacktrace" in generror:
@@ -641,7 +629,6 @@ class client_handler(commonscnhandler):
             ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
             self.scn_send_answer(500, body=ob, mime="application/json")
             return
-
         if jsonnized is None:
             jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
             response[0] = False
@@ -650,7 +637,6 @@ class client_handler(commonscnhandler):
             self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
         else:
             self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
-        
     def do_GET(self):
         if self.init_scn_stuff() == False:
             return
@@ -660,10 +646,8 @@ class client_handler(commonscnhandler):
             else:
                 self.scn_send_answer(404, docache=True)
             return
-        
         if self.webgui == False:
             self.scn_send_answer(404, message="no webgui enabled", docache=True)
-        
         _path=self.path[1:].split("/")
         if _path[0] in ("","client","html","index"):
             self.html("client.html")
@@ -676,8 +660,7 @@ class client_handler(commonscnhandler):
             self.handle_server(_path[0])
             return
         self.scn_send_answer(404, message="resource not found (GET)", docache=True)
-    
-    
+
     def do_POST(self):
         if self.init_scn_stuff() == False:
             return
@@ -688,7 +671,6 @@ class client_handler(commonscnhandler):
         else:
             resource = splitted[0]
             sub = splitted[1]
-        
         if resource == "plugin":
             pluginm = self.links["client_server"].pluginmanager
             split2 = sub.split("/", 1)
@@ -697,12 +679,10 @@ class client_handler(commonscnhandler):
                 self.scn_send_answer(400, message="no plugin/action specified")
                 return
             plugin, action = split2
-            
             if plugin not in pluginm.plugins:
                 #self.cleanup_stale_data()
                 self.scn_send_answer(404, message="plugin not available")
                 return
-            
             #pluginpw = "plugin:{}".format(plugin)
             #if self.links["auth_server"].verify(pluginpw, self.auth_info) == False and action not in pluginm.plugins[plugin].whitelist:
             #    authreq = self.links["auth_server"].request_auth(pluginpw)
@@ -753,27 +733,23 @@ class client_init(object):
     plugins_config = None
     links = None
     run = True # necessary for some runmethods
-    
+
     def __init__(self, confm, pluginm):
         logging.root.setLevel(confm.get("loglevel"))
         self.links = {"trusted_certhash": ""}
         self.links["config"] = confm
         self.links["config_root"] = confm.get("config")
-        
         _cpath=os.path.join(self.links["config_root"],"client")
         init_config_folder(self.links["config_root"],"client")
-        
-        
+
         if check_certs(_cpath+"_cert") == False:
             logging.info("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
             logging.info("Certificate generation complete")
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
-        
         self.links["auth_client"] = scnauth_client()
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
-        
         if confm.getb("webgui")!=False:
             logging.debug("webgui enabled")
             client_handler.webgui=True
@@ -800,7 +776,6 @@ class client_init(object):
             if confm.getb("remote") == True:
                 client_handler.handle_remote = True
             self.links["auth_server"].init_realm("client", dhash(confm.get("cpw")))
-        
         if confm.getb("apwhash") == True:
             if not check_hash(confm.get("apwhash")):
                 logging.error("hashtest failed for apwhash, apwhash: {}".format(confm.get("apwhash")))
@@ -808,7 +783,6 @@ class client_init(object):
                 self.links["auth_server"].init_realm("admin", confm.get("apwhash"))
         elif confm.getb("apw") == True:
             self.links["auth_server"].init_realm("admin", dhash(confm.get("apw")))
-            
         if confm.getb("spwhash") == True:
             if not check_hash(confm.get("spwhash")):
                 logging.error("hashtest failed for spwhash, spwhash: {}".format(confm.get("spwhash")))
@@ -816,22 +790,17 @@ class client_init(object):
                 self.links["auth_server"].init_realm("server", confm.get("spwhash"))
         elif confm.getb("spw") == True:
             self.links["auth_server"].init_realm("server", dhash(confm.get("spw")))
-        
-
         with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline().strip().rstrip() # remove \n
-            
         with open(_cpath+"_message.txt", 'r') as readinmes:
             _message = readinmes.read()
         #report missing file
         if None in [pub_cert, _name, _message]:
             raise(Exception("missing"))
-        
         _name = _name.split("/")
         if len(_name)>2 or check_name(_name[0]) == False:
             logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_cpath+"_name"))
             sys.exit(1)
-
         if confm.get("port") > -1:
             pass
         elif len(_name) >= 2:
@@ -839,27 +808,21 @@ class client_init(object):
         else: # fallback, configmanager autoconverts into string
             confm.set("port", client_port)
         port = confm.get("port")
-        
         clientserverdict={"name": _name[0], "certhash": dhash(pub_cert),
                 "priority": confm.get("priority"), "message": _message}
-        
         self.links["client_server"] = client_server(clientserverdict)
         self.links["client_server"].pluginmanager = pluginm
         self.links["configmanager"] = confm
-        
-
         client_handler.links = self.links
-        
         # use timeout argument of BaseServer
         http_server.timeout = confm.get("timeout")
         if confm.getb("noserver") == False:
             self.links["hserver"] = http_server(("", port), _cpath+"_cert", client_handler, "Enter client certificate pw")
         self.links["client"] = client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), _cpath+"_cert", self.links)
-        
-        
+
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
-        
+
     def serve_forever_nonblock(self):
         threading.Thread(target=self.serve_forever_block, daemon=True).start()
 
@@ -925,5 +888,4 @@ def cmdloop(clientinitm):
             else:
                 print("Print direct", ret[1])
                 print(ret[1])
-
 
