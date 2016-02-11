@@ -21,9 +21,12 @@ class configmanager(object):
     db_path = None
     lock = None
     imported = False
-    overlays = {}
-    defaults = {"state":("False", bool, "is component active")}
+    overlays = None
+    defaults = None
     def __init__(self, _dbpath):
+        # init here because of multiple instances
+        self.overlays = {}
+        self.defaults = {"state":("False", bool, "is component active")}
         self.db_path = _dbpath
         self.lock = threading.Lock()
         self.reload()
@@ -275,7 +278,7 @@ class configmanager(object):
 
 def pluginresources_creater(_dict, requester):
     if requester == "":
-        return None #crash instead
+        return None # crash instead
     def wrap(res):
         ob = _dict.get(res)
         if ob is None:
@@ -297,10 +300,13 @@ class pluginmanager(object):
     pathes_plugins = None
     path_plugins_config = None
     resources = None
-    interfaces = []
-    plugins = {}
+    interfaces = None
+    plugins = None
     
     def __init__(self, _pathes_plugins, _path_plugins_config, scn_type, resources = {}, pluginenv = {}):
+        # init here because of multiple instances
+        self.interfaces = []
+        self.plugins = {}
         self.pluginenv = pluginenv
         self.pathes_plugins = _pathes_plugins
         self.path_plugins_config = _path_plugins_config

@@ -692,7 +692,7 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=def
 
 
 class commonscn(object):
-    # replace not add elsewise bugs in multithreading situation
+    # replace not add elsewise bugs in multi instance situation
     capabilities = []
     info = None
     priority = None
@@ -705,7 +705,7 @@ class commonscn(object):
     isactive = True
     update_cache_lock = None
     
-    # set in __init__, elsewise bugs in multithreading situation (references)
+    # set in __init__, elsewise bugs in multi instance situation (references)
     cache = None
     
     def __init__(self):

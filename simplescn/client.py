@@ -468,7 +468,8 @@ class client_server(commonscn):
     wlock = None
     def __init__(self, dcserver):
         commonscn.__init__(self)
-        spmap = {}
+        # init here for multi instance
+        self.spmap = {}
         self.wlock = threading.Lock()
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
             logging.info("Name empty")
