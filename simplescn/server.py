@@ -25,7 +25,7 @@ server_broadcast_header = \
 
         
 class server(commonscn):
-    capabilities = ["basic",]
+    capabilities = ["basic", "server"]
     nhipmap = None
     nhipmap_cache = ""
     refreshthread = None
@@ -46,6 +46,7 @@ class server(commonscn):
     
     def __init__(self,d):
         commonscn.__init__(self)
+        # init here because of multithreading
         self.nhipmap = {}
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()

@@ -460,13 +460,15 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
 ### receiverpart of client ###
 
 class client_server(commonscn):
-    spmap = {}
+    spmap = None
     scn_type = "client"
-    capabilities = ["basic",]
+    # replace commonscn capabilities
+    capabilities = ["basic", "client"]
     validactions = {"info", "getservice", "dumpservices", "cap", "prioty", "registerservice", "delservice"}
     wlock = None
     def __init__(self, dcserver):
         commonscn.__init__(self)
+        spmap = {}
         self.wlock = threading.Lock()
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
             logging.info("Name empty")
