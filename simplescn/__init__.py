@@ -1031,7 +1031,7 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
 
 # args is iterable with (argname, type)
 # obdict (=_moddict) is modified
-def check_argsdeco(requires=dict(), optional=dict()):
+def check_argsdeco(requires={}, optional={}):
     def func_to_check(func):
         def get_args(*args):
             if len(args) != 2:

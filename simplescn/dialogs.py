@@ -4,8 +4,11 @@ from simplescn import classify_local, classify_redirect, pwcallmethod, notify, c
 
 
 class client_dialogs(object):
-    validactions_dialogs={"open_pwrequest", "open_notify"}
-    
+    validactions_dialogs = {"open_pwrequest", "open_notify"}
+    links = None
+    redirect_addr = ""
+    redirect_hash = ""
+
     @check_argsdeco({"message": str}, optional={"requester": str})
     @classify_local
     @classify_redirect
@@ -27,39 +30,39 @@ class client_dialogs(object):
             return: True or False, or error when not allowed
             message: message for the notification dialog
             requester: plugin calling the notification dialog (default: ""=main application) """
-        if obdict.get("clientcerthash","") == "" or self.links.get("trusted_certhash", "") == "" or self.links.get("trusted_certhash", "") != obdict.get("clientcerthash",""):
+        if obdict.get("clientcerthash", "") == "" or self.links.get("trusted_certhash", "") == "" or self.links.get("trusted_certhash", "") != obdict.get("clientcerthash", ""):
             return False, "auth failed"
         temp = notify(obdict.get("message"), obdict.get("requester", ""))
         return True, {"result": temp}
-        
+
     # internal method automatically redirecting
     def use_pwrequest(self, message, requester=""):
         if self.redirect_addr == "" or self.redirect_hash == "":
             return pwcallmethod(message, requester)
         else:
             try:
-                resp = self.do_request(self.redirect_addr, "/client/open_pwrequest",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
-            except Exception as e:
-                logging.error(e)
+                resp = self.do_request(self.redirect_addr, "/client/open_pwrequest", body={"message": message, "requester": requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
+            except Exception as exc:
+                logging.error(exc)
                 return None
-            if logcheck(resp, logging.ERROR) == False:
+            if not logcheck(resp, logging.ERROR):
                 return None
             return resp[1].get("pw")
-        
+
     # internal method automatically redirecting
     def use_notify(self, message, requester=""):
         if self.redirect_addr == "" or self.redirect_hash == "":
             return pwcallmethod(message, requester)
         else:
             try:
-                resp = self.do_request(self.redirect_addr, "/client/open_notify",body={"message": message, "requester":requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
-            except Exception as e:
-                logging.error(e)
+                resp = self.do_request(self.redirect_addr, "/client/open_notify", body={"message": message, "requester": requester}, forcehash=self.redirect_hash, sendclientcert=True, forceport=True)
+            except Exception as exc:
+                logging.error(exc)
                 return None
-            if logcheck(resp, logging.ERROR) == False:
+            if not logcheck(resp, logging.ERROR):
                 return None
             return resp[1].get("result")
-    
+
     def pw_auth(self, hashpcert, reqob, reauthcount):
         authob = None
         if reauthcount == 0:

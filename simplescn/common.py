@@ -1,21 +1,23 @@
 
 #license: bsd3, see LICENSE.txt
-import os, sys
+import os
+import sys
 import importlib.machinery
 import importlib
 import traceback
 import threading
 import logging
-from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type, default_loglevel
-from simplescn import confdb_ending, isself, default_configdir
 
 try:
     import markdown
 except ImportError:
     pass
 
-if hasattr(importlib.util, "module_from_spec") == False:
+if not hasattr(importlib.util, "module_from_spec"):
     import types
+
+from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
+from simplescn import confdb_ending, isself, default_configdir, loglevel_converter, max_typelength
 
 class configmanager(object):
     db_path = None
@@ -31,10 +33,9 @@ class configmanager(object):
         self.lock = threading.Lock()
         self.reload()
 
-        
     def __getitem__(self, key):
         self.get(key)
-    
+
     def dbaccess(func):
         def funcwrap(self, *args, **kwargs):
             with self.lock:
@@ -45,19 +46,20 @@ class configmanager(object):
                     dbcon = None
                 temp = None
                 try:
-                    temp = func(self, dbcon, *args, **kwargs)
-                except Exception as e:
-                    if hasattr(e, "__traceback__"):
-                        st = "{}\n\n{}".format(e, traceback.format_tb(e.__traceback__))
+                    kwargs["dbcon"] = dbcon
+                    temp = func(self, *args, **kwargs)
+                except Exception as exc:
+                    if hasattr(exc, "__traceback__"):
+                        st = "{}\n\n{}".format(exc, traceback.format_tb(exc.__traceback__))
                     else:
-                        st = "{}".format(e)
+                        st = "{}".format(exc)
                     logging.error(st)
                 dbcon.close()
             return temp
         return funcwrap
 
     @dbaccess
-    def reload(self, dbcon):
+    def reload(self, dbcon=None):
         if self.db_path is None:
             return
         cur = dbcon.cursor()
@@ -67,7 +69,7 @@ class configmanager(object):
         dbcon.commit()
 
     @dbaccess
-    def update(self, dbcon, _defaults, _overlays = {}):
+    def update(self, _defaults, _overlays={}, dbcon=None):
         # insert False, don't let it change
         _defaults["state"] = ("False", bool, "is component active")
         self.defaults = {}
@@ -81,10 +83,9 @@ class configmanager(object):
             if tmp is None:
                 logging.error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
                 return False
-            if check_conftype(tmp[0], tmp[1]) == False or isinstance(tmp[0], str) == False: # must be string
+            if not isinstance(tmp[0], str) or not check_conftype(tmp[0], tmp[1]): # must be string and convertable
                 return False
             self.defaults[_key] = tmp
-        
         for _key, elem  in _overlays.items():
             tmp = None
             if isinstance(elem[0], (str, None)) == False: # must be string
@@ -101,23 +102,20 @@ class configmanager(object):
             elif len(elem) == 3:
                 tmp = list(elem)
             if tmp is None:
-                logging.error("invalid default tuple: key:{} tuple:{}".format(_key, elem))
+                logging.error("invalid default tuple: key: {} tuple: {}".format(_key, elem))
                 return False
             if _key in self.defaults:
                 if tmp[1] != self.defaults[_key][1]:
                     logging.error("converter mismatch between defaults: {} and overlays: {}".format(self.defaults[_key][1], tmp[1]))
                     return False
-
             if check_conftype(tmp[0], tmp[1]) == False:
                 return False
             self.overlays[_key] = tmp
-
         if dbcon is None:
             return True
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM main;''')
         _in_db = cur.fetchall()
-        
         for _key, (_value, _type, _doc) in _defaults.items():
             cur.execute('''INSERT OR IGNORE INTO main(name,val) values (?,?);''', (_key, _value))
         if _in_db == None:
@@ -127,9 +125,9 @@ class configmanager(object):
                 cur.execute('''DELETE FROM main WHERE name=?;''', (elem[0],))
         dbcon.commit()
         return True
-        
+
     @dbaccess
-    def set(self, dbcon, key, value):
+    def set(self, key, value, dbcon=None):
         if isinstance(key, str) == False:
             logging.error("key not a string")
             return False
@@ -142,7 +140,6 @@ class configmanager(object):
         elif key not in self.defaults and key not in self.overlays:
             logging.error("not in defaults/overlays")
             return False
-        
         if value is None:
             value = ""
         elif isinstance(value, bytes):
@@ -156,20 +153,18 @@ class configmanager(object):
             cur.execute('''UPDATE main SET val=? WHERE name=?;''', (value, key))
             dbcon.commit()
         return True
-    
+
     def set_default(self, key):
         if key not in self.defaults:
             return False
-        return self.set(name, self.defaults[key][0])
-    
-    # get converted value
+        return self.set(key, self.defaults[key][0])
+
     @dbaccess
-    def get(self, dbcon, _key):
+    def get(self, _key, dbcon=None):
         """ get converted value """
         if isinstance(_key, str) == False:
             logging.error("key is no string")
             return None
-        
         # key can be in overlays but not in defaults
         if _key in self.overlays:
             ret = self.overlays[_key][0]
@@ -186,8 +181,6 @@ class configmanager(object):
                 temp = cur.fetchone()
                 if temp is not None and temp[0] is not None:
                     ret = temp[0]
-                    
-        
         if ret is None:
             return ""
         elif ret in ["False", "false", False]:
@@ -196,14 +189,14 @@ class configmanager(object):
             return True
         else:
             return _converter(ret)
-    
+
     def getb(self, name):
         """ evaluate value to True/False """
         temp = self.get(name)
         if temp in [None, "-1", -1, "", False]:
             return False
         return True
-    
+
     def get_default(self, name):
         """ return default value as string """
         if name in self.defaults:
@@ -213,7 +206,7 @@ class configmanager(object):
                 return self.defaults[name][0]
         else:
             return None
-    
+
     def get_meta(self, name):
         """ return value with additional information """
         if name in self.overlays:
@@ -222,9 +215,9 @@ class configmanager(object):
             return self.defaults[name][1], self.defaults[name][2], True
         else:
             return None
-    
+
     @dbaccess
-    def list(self, dbcon, onlypermanent=False):
+    def list(self, onlypermanent=False, dbcon=None):
         ret = []
         _tdic = self.defaults.copy()
         _tdic.update(self.overlays.copy())
@@ -234,11 +227,9 @@ class configmanager(object):
             cur.execute('''SELECT name, val FROM main;''')
             _in_db_list = cur.fetchall()
             _in_db = {}
-            
             if _in_db_list is not None:
                 for _key, _val in _in_db_list:
                     _in_db[_key] = _val
-        
         for elem in _listitems:
             if len(elem) != 2 or len(elem[1]) != 3:
                 logging.error("invalid element {}".format(elem))
@@ -256,7 +247,6 @@ class configmanager(object):
                 ispermanent = True
             if _val2 is None:
                 _val2 = ""
-            
             if _val2 in ["False", "false", False]:
                 _val2 = "False"
             elif _val2 in ["True", "true", True]:
@@ -267,12 +257,11 @@ class configmanager(object):
                 _val2 = str(_val2)
             if _key in ["state",] and _val2 in [None, "", "False"]:
                 _val2 = "False"
-            if isinstance(_val2, str) == False:
+            if not isinstance(_val2, str):
                 logging.info("value should be str")
-                
-            if onlypermanent == True and ispermanent == True:
+            if onlypermanent and ispermanent:
                 ret.append((_key, _val2, str(_converter), _defaultval, _doc, ispermanent))
-            elif onlypermanent == False:
+            elif not onlypermanent:
                 ret.append((_key, _val2, str(_converter), _defaultval, _doc, ispermanent))
         return ret
 
@@ -284,16 +273,14 @@ def pluginresources_creater(_dict, requester):
         if ob is None:
             logging.error("Resource: {} not available".format(res))
             return None
-        elif callable(ob) == True:
+        elif callable(ob):
             def wrap2(*args, **kwargs):
                 kwargs["requester"] = requester
-                return ob(*args,**kwargs)
+                return ob(*args, **kwargs)
             return wrap2
-        #elif hasattr(ob, "shared_with") and 
         else:
             return ob.copy()
     return wrap
-
 
 class pluginmanager(object):
     pluginenv = None
@@ -302,11 +289,13 @@ class pluginmanager(object):
     resources = None
     interfaces = None
     plugins = None
-    
-    def __init__(self, _pathes_plugins, _path_plugins_config, scn_type, resources = {}, pluginenv = {}):
+    redirect_addr = None
+
+    def __init__(self, _pathes_plugins, _path_plugins_config, scn_type, resources={}, pluginenv={}):
         # init here because of multiple instances
         self.interfaces = []
         self.plugins = {}
+        self.redirect_addr = ""
         self.pluginenv = pluginenv
         self.pathes_plugins = _pathes_plugins
         self.path_plugins_config = _path_plugins_config
@@ -319,8 +308,7 @@ class pluginmanager(object):
         else:
             module = types.ModuleType("_plugins", None)
         sys.modules[module.__name__] = module
-        
-        
+
     def list_plugins(self):
         temp = {}
         for path in self.pathes_plugins:
@@ -332,12 +320,11 @@ class pluginmanager(object):
                     if os.path.isdir(newpath) == True and os.path.isfile(os.path.join(newpath, pluginstartfile)) == True and plugin not in temp:
                         temp[plugin] = path
         return temp
-    
+
     def plugin_is_active(self, plugin):
-        pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin, confdb_ending)))
+        pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin, confdb_ending)))
         return pconf.getb("state")
-             
-    
+
     def clean_plugin_config(self):
         lplugins = self.list_plugins()
         lconfig = os.listdir(self.path_plugins_config)
@@ -345,7 +332,7 @@ class pluginmanager(object):
             #remove .confdb
             if dbconf[:-len(confdb_ending)] not in lplugins:
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
-    
+
     def load_pluginconfig(self, plugin):
         if plugin in self.plugins:
             return self.plugins[plugin].config
@@ -354,22 +341,18 @@ class pluginmanager(object):
         if pluginpath is None:
             return None
         plugin = (plugin, pluginpath)
-        pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
-        
-            
+        pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin[0], confdb_ending)))
         if hasattr(importlib.util, "module_from_spec"):
             module = importlib.machinery.ModuleSpec("_plugins.{}".format(plugin[0]), None, origin=plugin[1])
-            module.submodule_search_locations = [os.path.join(plugin[1],plugin[0]), plugin[1]]
+            module.submodule_search_locations = [os.path.join(plugin[1], plugin[0]), plugin[1]]
             module = importlib.util.module_from_spec(module)
         else:
             module = types.ModuleType("_plugins.{}".format(plugin[0]), None)
-            module.__path__ = [os.path.join(plugin[1],plugin[0]), plugin[1]]
-            
-            
+            module.__path__ = [os.path.join(plugin[1], plugin[0]), plugin[1]]
         sys.modules[module.__name__] = module
         #print(sys.modules.get("plugins"),sys.modules.get("plugins.{}".format(plugin[0])))
         globalret = self.pluginenv.copy()
-        globalret["__name__"] = "_plugins.{}.{}".format(plugin[0], pluginstartfile.rsplit(".",1)[0])
+        globalret["__name__"] = "_plugins.{}.{}".format(plugin[0], pluginstartfile.rsplit(".", 1)[0])
         globalret["__package__"] = "_plugins.{}".format(plugin[0])
         globalret["__file__"] = os.path.join(plugin[1], plugin[0], pluginstartfile)
         try:
@@ -377,40 +360,36 @@ class pluginmanager(object):
                 exec(readob.read(), globalret)
                 # unchangeable default, check that config_defaults is really a dict
             if isinstance(globalret.get("config_defaults", None), dict) == False or issubclass(dict, type(globalret["config_defaults"])) == False:
-                    logging.error("global value: config_defaults is no dict/not specified")
-                    return None
+                logging.error("global value: config_defaults is no dict/not specified")
+                return None
             globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
             pconf.update(globalret["config_defaults"])
-        except Exception as e:
-            st = "Plugin failed to load, reason:\n{}".format(e)
-            if hasattr(e,"tb_frame"):
-                st += "\n\n{}".format(traceback.format_tb(e))
+        except Exception as exc:
+            st = "Plugin failed to load, reason:\n{}".format(exc)
+            if hasattr(exc, "tb_frame"):
+                st += "\n\n{}".format(traceback.format_tb(exc))
             logging.error(st)
         # delete namespace stub
         del sys.modules[module.__name__]
         return pconf
-    
+
     def init_plugins(self):
         lplugins = self.list_plugins()
         for plugin in lplugins.items():
-            pconf = configmanager(os.path.join(self.path_plugins_config,"{}{}".format(plugin[0], confdb_ending)))
-            if pconf.getb("state") == False:
+            pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin[0], confdb_ending)))
+            if not pconf.getb("state"):
                 continue
-                
-            
             if hasattr(importlib.util, "module_from_spec"):
                 module = importlib.machinery.ModuleSpec("_plugins.{}".format(plugin[0]), None, origin=plugin[1])
-                module.submodule_search_locations = [os.path.join(plugin[1],plugin[0]), plugin[1]]
+                module.submodule_search_locations = [os.path.join(plugin[1], plugin[0]), plugin[1]]
                 module = importlib.util.module_from_spec(module)
             else:
                 module = types.ModuleType("_plugins.{}".format(plugin[0]), None)
-                module.__path__ = [os.path.join(plugin[1],plugin[0]), plugin[1]]
-            
-                
+                module.__path__ = [os.path.join(plugin[1], plugin[0]), plugin[1]]
             sys.modules[module.__name__] = module
             #print(sys.modules.get("plugins"),sys.modules.get("plugins.{}".format(plugin[0])))
             globalret = self.pluginenv.copy()
-            globalret["__name__"] = "_plugins.{}.{}".format(plugin[0], pluginstartfile.rsplit(".",1)[0])
+            globalret["__name__"] = "_plugins.{}.{}".format(plugin[0], pluginstartfile.rsplit(".", 1)[0])
             globalret["__package__"] = "_plugins.{}".format(plugin[0])
             globalret["__file__"] = os.path.join(plugin[1], plugin[0], pluginstartfile)
             finobj = None
@@ -418,18 +397,17 @@ class pluginmanager(object):
                 with open(os.path.join(plugin[1], plugin[0], pluginstartfile), "r") as readob:
                     exec(readob.read(), globalret)
                     # unchangeable default, check that config_defaults is really a dict
-                    if isinstance(globalret.get("config_defaults", None), dict) == False or issubclass(dict, type(globalret["config_defaults"])) == False:
+                    if not isinstance(globalret.get("config_defaults", None), dict) or not issubclass(dict, type(globalret["config_defaults"])):
                         logging.error("global value: config_defaults is no dict/not specified")
                         continue
                     globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
                     pconf.update(globalret["config_defaults"])
                     finobj = globalret["init"](self.interfaces.copy(), pconf, pluginresources_creater(self.resources, plugin[0]), os.path.join(plugin[1], plugin[0]))
-            except Exception as e:
-                st = "Plugin failed to load, reason:\n{}".format(e)
-                if hasattr(e,"tb_frame"):
-                    st += "\n\n{}".format(traceback.format_tb(e))
+            except Exception as exc:
+                st = "Plugin failed to load, reason:\n{}".format(exc)
+                if hasattr(exc, "tb_frame"):
+                    st += "\n\n{}".format(traceback.format_tb(exc))
                 logging.error(st)
-
                 finobj = None
             if finobj:
                 # config is found in finobj.config
@@ -444,12 +422,11 @@ class pluginmanager(object):
     def delete_remote(self):
         self.redirect_addr = ""
 
-
 class certhash_db(object):
     db_path = None
     lock = None
 
-    def __init__(self,dbpath):
+    def __init__(self, dbpath):
         import sqlite3
         self.db_path = dbpath
         self.lock = threading.Lock()
@@ -479,7 +456,8 @@ class certhash_db(object):
             self.lock.acquire()
             try:
                 dbcon = sqlite3.connect(self.db_path)
-                temp = func(self, dbcon, *args, **kwargs)
+                kwargs["dbcon"] = dbcon
+                temp = func(self, *args, **kwargs)
                 dbcon.close()
             except Exception as e:
                 st = str(e)
@@ -491,13 +469,13 @@ class certhash_db(object):
         return funcwrap
 
     @connecttodb
-    def addentity(self, dbcon, _name):
+    def addentity(self, _name, dbcon=None):
         cur = dbcon.cursor()
-        cur.execute('''SELECT name FROM certs WHERE name=?;''',(_name,))
+        cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is not None:
             logging.info("name exist: {}".format(_name))
             return False
-        if check_name(_name) == False:
+        if not check_name(_name):
             logging.info("name contains invalid elements")
             return False
         cur.execute('''INSERT INTO certs(name,certhash) values (?,'default');''', (_name,))
@@ -505,7 +483,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def delentity(self,dbcon,_name):
+    def delentity(self, _name, dbcon=None):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
@@ -516,7 +494,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def renameentity(self, dbcon, _name, _newname):
+    def renameentity(self, _name, _newname, dbcon=None):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
@@ -531,16 +509,14 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def addhash(self, dbcon, _name, _certhash, nodetype="unknown", priority=20, security="valid"):
+    def addhash(self, _name, _certhash, nodetype="unknown", priority=20, security="valid", dbcon=None):
         if _name is None:
             logging.error("name None")
         if nodetype is None:
             logging.error("nodetype None")
-        
         if check_hash(_certhash) == False:
             logging.error("hash contains invalid characters: {}".format(_certhash))
             return False
-        
         if check_security(security) == False:
             logging.error("security is invalid type: {}".format(security))
             return False
@@ -550,43 +526,40 @@ class certhash_db(object):
             logging.info("name does not exist: {}".format(_name))
             return False
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (_certhash,))
-        _oldname=cur.fetchone()
+        _oldname = cur.fetchone()
         if _oldname is not None:
             logging.info("hash already exist: {}".format(_certhash))
             return False
 
-        #hack
+        # hack
         cur.execute('''SELECT certreferenceid FROM certrefcount''')
         count = cur.fetchone()[0]
         cur.execute('''UPDATE certrefcount SET certreferenceid=?''', (count+1,))
-        #hack end
+        # hack end
         cur.execute('''INSERT INTO certs(name,certhash,type,priority,security,certreferenceid) values(?,?,?,?,?,?);''', (_name, _certhash, nodetype, priority, security, count))
-
         dbcon.commit()
         return True
 
     @connecttodb
-    def movehash(self,dbcon,_certhash,_newname):
+    def movehash(self, _certhash, _newname, dbcon=None):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
         if cur.fetchone() is None:
             logging.info("name does not exist: {}".format(_newname))
             return False
-
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (_certhash,))
         _oldname = cur.fetchone()
         if _oldname is None:
             logging.info("certhash does not exist: {}".format(_certhash))
             return False
         cur.execute('''UPDATE certs SET name=? WHERE certhash=?;''', (_newname, _certhash,))
-
         dbcon.commit()
         return True
 
     @connecttodb
-    def changetype(self, dbcon, _certhash, _type):
-        if check_typename(_type,15) == False:
-            logging.info("type contains invalid characters or is too long (maxlen: {}): {}".format(15, _type))
+    def changetype(self, _certhash, _type, dbcon=None):
+        if check_typename(_type, max_typelength) == False:
+            logging.info("type contains invalid characters or is too long (maxlen: {}): {}".format(max_typelength, _type))
             return False
         if check_hash(_certhash) == False:
             logging.info("hash contains invalid characters")
@@ -597,93 +570,80 @@ class certhash_db(object):
             logging.info("hash does not exist: {}".format(_certhash))
             return False
         cur.execute('''UPDATE certs SET type=? WHERE certhash=?;''', (_type, _certhash))
-
         dbcon.commit()
         return True
 
     @connecttodb
-    def changepriority(self, dbcon, _certhash, _priority):
+    def changepriority(self, _certhash, _priority, dbcon=None):
         #convert str to int and fail if either no integer in string format
         # or datatype is something else except int
         if isinstance(_priority, str) == True and _priority.isdecimal() == False:
             logging.info("priority can not parsed as integer: {}".format(_priority))
             return False
         elif isinstance(_priority, str) == True:
-            _priority=int(_priority)
+            _priority = int(_priority)
         elif isinstance(_priority, int) == False:
             logging.info("priority has unsupported datatype: {}".format(type(_priority).__name__))
             return False
-
         if _priority < 0 or _priority > 100:
             logging.info("priority too big (>100) or smaller 0")
             return False
-        
         if check_hash(_certhash) == False:
             logging.info("hash contains invalid characters: {}".format(_certhash))
             return False
         cur = dbcon.cursor()
-        
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
             logging.info("hash does not exist: {}".format(_certhash))
             return False
-
         cur.execute('''UPDATE certs SET priority=? WHERE certhash=?;''', (_priority, _certhash))
-
         dbcon.commit()
         return True
-    
+
     @connecttodb
-    def changesecurity(self, dbcon, _certhash, _security):
+    def changesecurity(self, _certhash, _security, dbcon=None):
         if check_hash(_certhash) == False:
             logging.info("hash contains invalid characters: {}".format(_certhash))
             return False
         if check_security(_security) == False:
             logging.error("security is invalid type: {}".format(_security))
             return False
-            
         cur = dbcon.cursor()
-        
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
             logging.info("hash does not exist: {}".format(_certhash))
             return False
-
         cur.execute('''UPDATE certs SET security=? WHERE certhash=?;''', (_security, _certhash))
-
         dbcon.commit()
         return True
-    
+
     def updatehash(self, _certhash, certtype=None, priority=None, security=None):
         if certtype is not None:
-            if self.changetype(_certhash, certtype) == False:
+            if not self.changetype(_certhash, certtype):
                 return False
         if priority is not None:
-            if self.changepriority(_certhash, priority) == False:
+            if not self.changepriority(_certhash, priority):
                 return False
         if certtype is not None:
-            if self.changesecurity(_certhash, security) == False:
+            if not self.changesecurity(_certhash, security):
                 return False
-        
-    
+
     @connecttodb
-    def delhash(self, dbcon, _certhash):
+    def delhash(self, _certhash, dbcon=None):
         if _certhash == "default":
             logging.error("tried to delete reserved hash 'default'")
             return False
         cur = dbcon.cursor()
-        cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''',(_certhash,))
-
+        cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (_certhash,))
         if cur.fetchone() is None:
             #logging.info("hash does not exist: {}".format(_certhash))
             return True
-
         cur.execute('''DELETE FROM certs WHERE certhash=?;''', (_certhash,))
         dbcon.commit()
         return True
 
     @connecttodb
-    def get(self, dbcon, _certhash):
+    def get(self, _certhash, dbcon=None):
         if _certhash is None:
             return None
         if check_hash(_certhash) == False:
@@ -696,12 +656,11 @@ class certhash_db(object):
             logging.critical("\"{}\" is in the db".format(isself))
             return None
         return ret
-    
+
     @connecttodb
-    def listhashes(self, dbcon, _name, _nodetype = None):
+    def listhashes(self, _name, _nodetype=None, dbcon=None):
         #if check_name(_name) == False:
         #    return None
-        
         cur = dbcon.cursor()
         if _nodetype is None:
             cur.execute('''SELECT certhash,type,priority,security,certreferenceid FROM certs WHERE name=? AND certhash!='default' ORDER BY priority DESC;''', (_name,))
@@ -712,23 +671,22 @@ class certhash_db(object):
             return []
         else:
             return out
-    
 
     @connecttodb
-    def listnodenames(self, dbcon, _nodetype = None):
+    def listnodenames(self, _nodetype=None, dbcon=None):
         cur = dbcon.cursor()
         if _nodetype is None:
             cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
         else:
-            cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''',(_nodetype,))
+            cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''', (_nodetype,))
         out = cur.fetchall()
         if out is None:
             return None
         else:
             return [elem[0] for elem in out]
-    
+
     @connecttodb
-    def listnodenametypes(self, dbcon):
+    def listnodenametypes(self, dbcon=None):
         cur = dbcon.cursor()
         cur.execute('''SELECT DISTINCT name,type FROM certs ORDER BY name ASC;''')
         out = cur.fetchall()
@@ -736,9 +694,9 @@ class certhash_db(object):
             return None
         else:
             return out
-    
+
     @connecttodb
-    def listnodeall(self, dbcon, _nodetype = None):
+    def listnodeall(self, _nodetype=None, dbcon=None):
         cur = dbcon.cursor()
         if _nodetype is None:
             cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs ORDER BY priority DESC;''')
@@ -749,17 +707,16 @@ class certhash_db(object):
             return []
         else:
             return out
-    
-    #@connecttodb
+
     def certhash_as_name(self, _certhash):
         ret = self.get(_certhash)
         if ret is None:
             return None
         else:
             return ret[0]
-    
+
     @connecttodb
-    def exist(self, dbcon, _name, _hash = None):
+    def exist(self, _name, _hash=None, dbcon=None):
         cur = dbcon.cursor()
         if _hash is None:
             cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
@@ -769,13 +726,13 @@ class certhash_db(object):
             return False
         else:
             return True
-    
+
     @connecttodb
-    def addreference(self, dbcon, _referenceid, _reference, _reftype):
-        if check_reference(_reference) == False:
+    def addreference(self, _referenceid, _reference, _reftype, dbcon=None):
+        if not check_reference(_reference):
             logging.error("reference invalid: {}".format(_reference))
             return False
-        if check_reference_type(_reftype) == False:
+        if not check_reference_type(_reftype):
             logging.error("reference type invalid: {}".format(_reftype))
             return False
         cur = dbcon.cursor()
@@ -786,9 +743,9 @@ class certhash_db(object):
         cur.execute('''INSERT INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_referenceid, _reference, _reftype))
         dbcon.commit()
         return True
-    
+
     @connecttodb
-    def delreference(self, dbcon, _certreferenceid, _reference):
+    def delreference(self, _certreferenceid, _reference, dbcon=None):
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
@@ -799,7 +756,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def updatereference(self, dbcon, _certreferenceid, _reference, _newreference, _newreftype):
+    def updatereference(self, _certreferenceid, _reference, _newreference, _newreftype, dbcon=None):
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
@@ -818,7 +775,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def getreferences(self, dbcon, _referenceid, _reftype = None):
+    def getreferences(self, _referenceid, _reftype=None, dbcon=None):
         if isinstance(_referenceid, int) == False:
             logging.error("invalid referenceid")
             return None
@@ -832,60 +789,50 @@ class certhash_db(object):
             return []
         else:
             return out
-    
-    
+
     @connecttodb
-    def movereferences(self, dbcon, _oldrefid, _newrefid):
+    def movereferences(self, _oldrefid, _newrefid, dbcon=None):
         cur = dbcon.cursor()
-        
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_oldrefid,))
         if cur.fetchone() is None:
             logging.info("src certrefid does not exist: {}".format(_oldrefid))
             return False
-            
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_newrefid,))
         if cur.fetchone() is None:
             logging.info("dest certrefid does not exist: {}".format(_newrefid))
             return False
-
         cur.execute('''UPDATE certreferences SET certreferenceid=? WHERE certreferenceid=?;''', (_newrefid, _oldrefid))
-
         dbcon.commit()
         return True
-    
-    
+
     @connecttodb
-    def copyreferences(self, dbcon, oldrefid, newrefid):
+    def copyreferences(self, oldrefid, newrefid, dbcon=None):
         cur = dbcon.cursor()
-        
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (oldrefid,))
         if cur.fetchone() is None:
             logging.info("src certrefid does not exist: {}".format(oldrefid))
             return False
-            
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (newrefid,))
         if cur.fetchone() is None:
             logging.info("dest certrefid does not exist: {}".format(newrefid))
             return False
-            
         cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''', (newrefid,))
         srclist = cur.fetchall()
         if srclist is None:
             srclist = []
         for _ref, _type in srclist:
             cur.execute('''INSERT OR IGNORE INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (newrefid, _ref, _type))
-
         dbcon.commit()
         return True
-    
+
     #@connecttodb
     #def listreferences(self, dbcon, _reftype = None):
     #    cur = dbcon.cursor()
     #    cur.execute('''SELECT DISTINCT name,type FROM certreferences WHERE type ORDER BY name ASC;''',(_reftype, ))
     #    return cur.fetchall()
-    
+
     @connecttodb
-    def findbyref(self, dbcon, _reference):
+    def findbyref(self, _reference, dbcon=None):
         if check_reference(_reference) == False:
             logging.error("invalid reference")
             return None
@@ -897,31 +844,29 @@ class certhash_db(object):
         else:
             return out
 
-
-
 # default_args, overwrite_args are modified
-def scnparse_args(arg_list, _funchelp, default_args={}, overwrite_args={}):
+def scnparse_args(arg_list, _funchelp, default_args=dict(), overwrite_args=dict()):
     pluginpathes = []
     if len(arg_list) > 0:
         tparam = ()
         for elem in arg_list: #strip filename from arg list
             elem = elem.strip("-")
-            if elem in ["help","h"]:
+            if elem in ["help", "h"]:
                 print(_funchelp())
                 sys.exit(0)
             elif elem in ["help-md", "help-markdown"]:
                 if "markdown" in globals():
-                    print(markdown.markdown(_funchelp().replace("<","&lt;").replace(">","&gt;").replace("[", "&#91;").replace("]", "&#93;")))
+                    print(markdown.markdown(_funchelp().replace("<", "&lt;").replace(">", "&gt;").replace("[", "&#91;").replace("]", "&#93;")))
                     sys.exit(0)
                 else:
                     print("markdown help not available", file=sys.stderr)
                     sys.exit(1)
             else:
-                tparam = elem.split("=")
+                tparam = elem.split("=", 1)
                 if len(tparam) == 1:
                     tparam = elem.split(":")
                 if len(tparam) == 1:
-                    tparam = [tparam[0], "True"]
+                    tparam = (tparam[0], "True")
                 if tparam[0] in ["pluginpath", "pp"]:
                     pluginpathes += [tparam[1], ]
                     continue
@@ -935,18 +880,17 @@ def scnparse_args(arg_list, _funchelp, default_args={}, overwrite_args={}):
                     overwrite_args[tparam[0]] = default_args[tparam[0]].copy()
                     overwrite_args[tparam[0]][0] = tparam[1]
     return pluginpathes
-    
-    
-    
 
-overwrite_plugin_config_args = {
-            "config": [default_configdir, str, "<dir>: path to config dir"],
-            "plugin": ["", str, "<name>: Plugin name"],
-            "key": ["", str, "<name>: config key"],
-            "value": ["", str, "<name>: config value"]}
+overwrite_plugin_config_args = \
+{
+    "config": [default_configdir, str, "<dir>: path to config dir"],
+    "plugin": ["", str, "<name>: Plugin name"],
+    "key": ["", str, "<name>: config key"],
+    "value": ["", str, "<name>: config value"]
+}
 
 def plugin_config_paramhelp():
-    t = "# parameters (non-permanent)\n"
+    temp_doc = "# parameters (non-permanent)\n"
     for _key, elem in sorted(overwrite_plugin_config_args.items(), key=lambda x: x[0]):
-        t += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
-    return t
+        temp_doc += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
+    return temp_doc

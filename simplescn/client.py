@@ -1,10 +1,8 @@
 #! /usr/bin/env python3
 #license: bsd3, see LICENSE.txt
 
-import sys, os
-
-from simplescn import sharedir
-
+import sys
+import os
 import socket
 from http import client
 import ssl
@@ -12,6 +10,8 @@ import threading
 import json
 import logging
 
+
+from simplescn import sharedir
 
 from simplescn.client_admin import client_admin
 from simplescn.client_safe import client_safe
@@ -28,9 +28,9 @@ from simplescn.common import certhash_db
 
 reference_header = \
 {
-"User-Agent": "simplescn/0.5 (client)",
-"Authorization": 'scn {}',
-"Connection": 'keep-alive' # keep-alive is set by server (and client?)
+    "User-Agent": "simplescn/0.5 (client)",
+    "Authorization": 'scn {}',
+    "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
 class client_client(client_admin, client_safe, client_config, client_dialogs):
     name = None
@@ -41,10 +41,10 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
     redirect_addr = ""
     redirect_hash = ""
     scntraverse_helper = None
-    brokencerts = []
-    
-    validactions = {"cmd_plugin", "remember_auth" }
-    
+    brokencerts = None
+
+    validactions = None
+
     def __init__(self, _name, _pub_cert_hash, _certdbpath, certfpath, _links):
         client_dialogs.__init__(self)
         client_admin.__init__(self)
@@ -55,13 +55,15 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         self.cert_hash = _pub_cert_hash
         self.hashdb = certhash_db(_certdbpath)
         self.sslcont = self.links["hserver"].sslcont
-        
+        self.brokencerts = []
+        self.validactions = {"cmd_plugin", "remember_auth"}
+
         if "hserver" in self.links:
             self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
             self.udpsrcsock.settimeout(None)
             self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
             self.scntraverse_helper = traverser_helper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
-        
+
         for elem in os.listdir(os.path.join(self.links["config_root"], "broken")):
             _splitted = elem.rsplit(".", 1)
             if _splitted[1] != "reason":
@@ -89,24 +91,21 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             headers = body.pop("headers", {})
         elif "headers" in body:
             del body["headers"]
-        
         sendheaders = reference_header.copy()
-        for key,value in headers.items():
+        for key, value in headers.items():
             if key in ["Connection", "Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent", "X-certrewrap"]:
                 continue
             sendheaders[key] = value
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
         if sendclientcert:
             sendheaders["X-certrewrap"], _random = create_certhashheader(self.cert_hash)
-        
-        if isinstance(_addr_or_con, client.HTTPSConnection) == False:
-            _addr = scnparse_url(_addr_or_con,force_port=forceport)
+        if not isinstance(_addr_or_con, client.HTTPSConnection):
+            _addr = scnparse_url(_addr_or_con, force_port=forceport)
             con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("connect_timeout"))
             try:
                 con.connect()
             except ConnectionRefusedError:
                 forcetraverse = True
-            
             if forcetraverse:
                 if "traverseserveraddr" not in body:
                     return False, "connection refused and no traversalserver specified", isself, self.cert_hash
@@ -119,7 +118,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 if retserv[0]:
                     con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
                     con.sock.bind(('', _sport)) #retserv.get("traverse_address"))
-                    for count in range(0,3):
+                    for count in range(0, 3):
                         try:
                             con.sock.connect((_addr[0], _addr[1]))
                             break
@@ -140,16 +139,15 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             con.sock.settimeout(self.links["config"].get("timeout"))
             #if headers.get("Connection", "") != "keep-alive":
             #    con.connect()
-        
         if _certtupel is None:
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
             hashpcert = dhash(pcert)
             if forcehash is not None:
                 if forcehash != hashpcert:
-                    raise(VALHashError)
+                    raise VALHashError()
             elif body.get("forcehash") is not None:
                 if body.get("forcehash") != hashpcert:
-                    raise(VALHashError)
+                    raise VALHashError()
             if hashpcert == self.cert_hash:
                 validated_name = isself
             else:
@@ -157,7 +155,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 if hashob:
                     validated_name = (hashob[0], hashob[3]) #name, security
                     if validated_name[0] == isself:
-                        raise(VALNameError)
+                        raise VALNameError()
                 else:
                     validated_name = None
             _certtupel = (validated_name, hashpcert)
@@ -171,7 +169,6 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         pwcallm = body.get("pwcall_method")
         if "pwcall_method" in body:
             del body["pwcall_method"]
-
         ob = bytes(json.dumps(body), "utf-8")
         
         con.putheader("Content-Length", str(len(ob)))
@@ -180,37 +177,34 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             con.sock = con.sock.unwrap()
             con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
         con.send(ob)
-        
         response = con.getresponse()
         servertype = response.headers.get("Server", "")
         logging.debug("Servertype: {}".format(servertype))
         if response.status == 401:
             body["pwcall_method"] = pwcallm
             auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ", 1)[1])
-            if response.headers.get("Content-Length", "").strip().rstrip().isdigit() == False:
+            if not response.headers.get("Content-Length", "").strip().rstrip().isdigit():
                 con.close()
                 return False, "no content length", _certtupel[0], _certtupel[1]
             readob = response.read(int(response.headers.get("Content-Length")))
-            reqob = safe_mdecode(readob, response.headers.get("Content-Type","application/json; charset=utf-8"))
+            reqob = safe_mdecode(readob, response.headers.get("Content-Type", "application/json; charset=utf-8"))
             if reqob is None:
                 con.close()
                 return False, "Invalid Authorization request object", _certtupel[0], _certtupel[1]
-            
             realm = reqob.get("realm")
-            if callable(pwcallm) == True:
+            if callable(pwcallm):
                 authob = pwcallm(hashpcert, reqob, _reauthcount)
             else:
                 return False, "no way to input passphrase for authorization", _certtupel[0], _certtupel[1]
-
             if authob is None:
                 con.close()
                 return False, "Authorization failed", _certtupel[0], _certtupel[1]
             _reauthcount += 1
             auth_parsed[realm] = authob
-            sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n",  ""))
+            sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n", ""))
             return self.do_request(con, _path, body=body, forcehash=forcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, sendclientcert=sendclientcert, _reauthcount=_reauthcount)
         else:
-            if response.getheader("Content-Length", "").strip().rstrip().isdigit() == False:
+            if not response.getheader("Content-Length", "").strip().rstrip().isdigit():
                 con.close()
                 return False, "No content length", _certtupel[0], _certtupel[1]
             readob = response.read(int(response.getheader("Content-Length")))
@@ -224,8 +218,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                         return False, "rewrapped cert secret does not match", _certtupel[0], _certtupel[1]
             else:
                 status = False
-
-            if response.getheader("Content-Type").split(";")[0].strip().rstrip() in ["text/plain","text/html"]:
+            if response.getheader("Content-Type").split(";")[0].strip().rstrip() in ["text/plain", "text/html"]:
                 obdict = gen_result(str(readob, "utf-8"), status)
             else:
                 obdict = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
@@ -255,7 +248,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                     con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
                     con.sock.bind(('', _sport))#retserv.get("traverse_address"))
                     con.sock.settimeout(self.links["config"].get("connect_timeout"))
-                    for count in range(0,3):
+                    for count in range(0, 3):
                         try:
                             con.sock.connect((_addr[0], _addr[1]))
                             break
@@ -276,7 +269,6 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         con.endheaders()
         con.sock = con.sock.unwrap()
         con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
-
         sock = con.sock
         try:
             # terminates connection, even keep-alive is set
@@ -300,8 +292,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             con.close()
             return None, cert, _hash
         return sock, cert, _hash
-        
-    
+
     @check_argsdeco({"plugin": str, "paction": str})
     @classify_noplugin
     def cmd_plugin(self, obdict):
@@ -316,20 +307,18 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             return False, "Error: plugin does not exist"
         plugin = plugins[obdict["plugin"]]
         if hasattr(plugin, "cmd_node_actions") == False:
-            return False,  "Error: plugin does not support commandline"
-                
+            return False, "Error: plugin does not support commandline"
         action = obdict["paction"]
         if hasattr(plugin, "cmd_node_localized_actions") and \
-                action in plugin.cmd_node_localized_actions:
-                action = plugin.cmd_node_localized_actions[action]
+            action in plugin.cmd_node_localized_actions:
+            action = plugin.cmd_node_localized_actions[action]
         try:
             resp = plugin.cmd_node_actions[action][0](obdict)
             return True, resp
-        except Exception as e:
-            False, generate_error(e)
-    
+        except Exception as exc:
+            return False, generate_error(exc)
+
     # auth is special variable see safe_mdecode in common
-    
     @check_argsdeco({"auth": dict, "hash": str, "address": str})
     @classify_local
     def remember_auth(self, obdict):
@@ -349,16 +338,13 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         for realm, pw in obdict.get("auth"):
             self.links["auth_client"].saveauth(pw, _hash, realm)
         return True
-        
-    
-    
+
     # NEVER include in validactions
     # headers=headers
     # client_address=client_address
     @classify_access
     def access_core(self, action, obdict):
         """ internal method to access functions """
-        
         if action in self.validactions:
             if "access" in getattr(getattr(self, action), "classify", set()):
                 return False, "actions: 'classified access not allowed in access_core", isself, self.cert_hash
@@ -373,7 +359,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 return False, e #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
-    
+
     # command wrapper for cmd interfaces
     @generate_error_deco
     @classify_noplugin
@@ -382,8 +368,8 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         obdict = safe_mdecode(inp, "application/x-www-form-urlencoded")
         if obdict is None:
             return False, "decoding failed"
-        error=[]
-        if check_args(obdict, {"action": str},error=error) == False:
+        error = []
+        if check_args(obdict, {"action": str}, error=error) == False:
             return False, "{}:{}".format(*error)
             #return False, "no action given", isself, self.cert_hash
         if obdict["action"] not in self.validactions:
@@ -394,7 +380,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         del obdict["action"]
         
         def pw_auth_command(pwcerthash, authreqob, reauthcount):
-            if callpw_auth == False:
+            if not callpw_auth:
                 authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
             else:
                 authob = self.pw_auth(pwcerthash, authreqob, reauthcount)
@@ -402,9 +388,9 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         obdict["pwcall_method"] = pw_auth_command
         try:
             return self.access_core(action, obdict)
-        except Exception as e:
-            return False, e
-        
+        except Exception as exc:
+            return False, exc
+
     # NEVER include in validactions
     # for plugins, e.g. untrusted
     # requester = "", invalid requester don't allow asking
@@ -430,8 +416,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             return self.access_core(action, obdict)
         else:
             return False, "not in validactions"
-    
-    
+
     # NEVER include in validactions
     # for user interactions
     # headers=headers
@@ -442,8 +427,8 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         obdict["pwcall_method"] = self.pw_auth
         try:
             return self.access_core(action, obdict)
-        except Exception as e:
-            return False, e
+        except Exception as exc:
+            return False, exc
 
     # help section
     def cmdhelp(self):
@@ -455,7 +440,6 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             else:
                 logging.info("Missing __doc__: {}".format(funcname))
         return out
-
 
 ### receiverpart of client ###
 
@@ -474,7 +458,6 @@ class client_server(commonscn):
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
             logging.info("Name empty")
             dcserver["name"] = "<noname>"
-
         if dcserver["message"] is None or len(dcserver["message"]) == 0:
             logging.info("Message empty")
             dcserver["message"] = "<empty>"
@@ -496,7 +479,7 @@ class client_server(commonscn):
             name: service name
             port: port number """
         if obdict.get("clientaddress") is None:
-            False, "bug: clientaddress is None"
+            return False, "bug: clientaddress is None"
         if check_local(obdict.get("clientaddress")[0]):
             self.wlock.acquire()
             self.spmap[obdict.get("name")] = obdict.get("port")
@@ -514,14 +497,14 @@ class client_server(commonscn):
             return: success or error
             name: service name """
         if obdict.get("clientaddress") is None:
-            False, "bug: clientaddress is None"
+            return False, "bug: clientaddress is None"
         if check_local(obdict.get("clientaddress")[0]):
             self.wlock.acquire()
             if obdict["name"] in self.spmap:
                 del self.spmap[obdict["name"]]
                 self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
             self.wlock.release()
-            return  True
+            return True
         return False, "no permission"
 
     ### management section - end ###
@@ -547,9 +530,9 @@ class client_handler(commonscnhandler):
             self.send_error(400, "invalid action - client")
             return
         # redirect overrides handle_local, handle_remote
-        if self.handle_remote == False and \
+        if not self.handle_remote and \
         "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and \
-        (self.handle_local == False or not check_local(self.client_address2[0])):
+        (not self.handle_local or not check_local(self.client_address2[0])):
             self.send_error(403, "no permission - client")
             return
         if "admin" in getattr(getattr(self.links["client"], action), "classify", set()):
@@ -563,7 +546,7 @@ class client_handler(commonscnhandler):
         else:
             realm = "client"
         # if redirect bypass
-        if "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and self.links["auth_server"].verify(realm, self.auth_info) == False:
+        if "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and not self.links["auth_server"].verify(realm, self.auth_info):
             authreq = self.links["auth_server"].request_auth(realm)
             #self.cleanup_stale_data(max_serverrequest_size)
             ob = bytes(json.dumps(authreq), "utf-8")
@@ -575,7 +558,7 @@ class client_handler(commonscnhandler):
             return
         response = self.links["client"].access_main(action, **obdict)
 
-        if response[0] == False:
+        if not response[0]:
             error = response[1]
             generror = generate_error(error)
             if not debug_mode or not check_local(self.client_address2[0]):
@@ -597,7 +580,7 @@ class client_handler(commonscnhandler):
         if action not in self.links["client_server"].validactions:
             self.scn_send_answer(400, message="invalid action - server", docache=False)
             return
-        if self.links["auth_server"].verify("server", self.auth_info) == False:
+        if not self.links["auth_server"].verify("server", self.auth_info):
             authreq = self.links["auth_server"].request_auth("server")
             ob = bytes(json.dumps(authreq), "utf-8")
             self.cleanup_stale_data(max_serverrequest_size)
@@ -616,7 +599,7 @@ class client_handler(commonscnhandler):
         try:
             func = getattr(self.links["client_server"], action)
             response = func(obdict)
-            jsonnized = json.dumps(gen_result(response[1],response[0]))
+            jsonnized = json.dumps(gen_result(response[1], response[0]))
         except Exception as exc:
             generror = generate_error(exc)
             if not debug_mode or not check_local(self.client_address2[0]):
@@ -648,15 +631,15 @@ class client_handler(commonscnhandler):
             return
         if self.webgui == False:
             self.scn_send_answer(404, message="no webgui enabled", docache=True)
-        _path=self.path[1:].split("/")
-        if _path[0] in ("","client","html","index"):
+        _path = self.path[1:].split("/")
+        if _path[0] in ("", "client", "html", "index"):
             self.html("client.html")
             return
-        elif  _path[0]=="static" and len(_path)>=2:
+        elif  _path[0] == "static" and len(_path) >= 2:
             if _path[1] in self.statics:
                 self.scn_send_answer(200, body=self.statics[_path[1]], docache=True)
                 return
-        elif len(_path)==2:
+        elif len(_path) == 2:
             self.handle_server(_path[0])
             return
         self.scn_send_answer(404, message="resource not found (GET)", docache=True)
@@ -717,7 +700,7 @@ class client_handler(commonscnhandler):
                     return
                 else:
                     self.handle_plugin(pluginm.plugins[plugin].receive, action)
-        # for invalidating and updating, don't use connection afterwards 
+        # for invalidating and updating, don't use connection afterwards
         elif resource == "usebroken":
             self.handle_usebroken(sub)
         elif resource == "server":
@@ -726,7 +709,6 @@ class client_handler(commonscnhandler):
             self.handle_client(sub)
         else:
             self.scn_send_answer(404, message="resource not found (POST)", docache=True)
-
 
 class client_init(object):
     config_root = None
@@ -739,10 +721,10 @@ class client_init(object):
         self.links = {"trusted_certhash": ""}
         self.links["config"] = confm
         self.links["config_root"] = confm.get("config")
-        _cpath=os.path.join(self.links["config_root"],"client")
-        init_config_folder(self.links["config_root"],"client")
+        _cpath = os.path.join(self.links["config_root"], "client")
+        init_config_folder(self.links["config_root"], "client")
 
-        if check_certs(_cpath+"_cert") == False:
+        if not check_certs(_cpath+"_cert"):
             logging.info("Certificate(s) not found. Generate new...")
             generate_certs(_cpath+"_cert")
             logging.info("Certificate generation complete")
@@ -750,45 +732,45 @@ class client_init(object):
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         self.links["auth_client"] = scnauth_client()
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
-        if confm.getb("webgui")!=False:
+        if confm.getb("webgui"):
             logging.debug("webgui enabled")
-            client_handler.webgui=True
+            client_handler.webgui = True
             # load static files
             # replace placeholder
             client_handler.statics = {}
             for elem in os.listdir(os.path.join(sharedir, "static")):
-                with open(os.path.join(sharedir,"static",elem), 'rb') as _staticr:
-                    client_handler.statics[elem]=_staticr.read()
+                with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
+                    client_handler.statics[elem] = _staticr.read()
         else:
-            client_handler.webgui=False
-        if confm.getb("cpwhash") == True:
+            client_handler.webgui = False
+        if confm.getb("cpwhash"):
             if not check_hash(confm.get("cpwhash")):
                 logging.error("hashtest failed for cpwhash, cpwhash: {}".format(confm.get("cpwhash")))
             else:
                 client_handler.handle_local = True
                 # ensure that password is set when allowing remote access
-                if confm.getb("remote") == True:
+                if confm.getb("remote"):
                     client_handler.handle_remote = True
                 self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
-        elif confm.getb("cpw") == True:
+        elif confm.getb("cpw"):
             client_handler.handle_local = True
             # ensure that password is set when allowing remote access
-            if confm.getb("remote") == True:
+            if confm.getb("remote"):
                 client_handler.handle_remote = True
             self.links["auth_server"].init_realm("client", dhash(confm.get("cpw")))
-        if confm.getb("apwhash") == True:
+        if confm.getb("apwhash"):
             if not check_hash(confm.get("apwhash")):
                 logging.error("hashtest failed for apwhash, apwhash: {}".format(confm.get("apwhash")))
             else:
                 self.links["auth_server"].init_realm("admin", confm.get("apwhash"))
-        elif confm.getb("apw") == True:
+        elif confm.getb("apw"):
             self.links["auth_server"].init_realm("admin", dhash(confm.get("apw")))
-        if confm.getb("spwhash") == True:
+        if confm.getb("spwhash"):
             if not check_hash(confm.get("spwhash")):
                 logging.error("hashtest failed for spwhash, spwhash: {}".format(confm.get("spwhash")))
             else:
                 self.links["auth_server"].init_realm("server", confm.get("spwhash"))
-        elif confm.getb("spw") == True:
+        elif confm.getb("spw"):
             self.links["auth_server"].init_realm("server", dhash(confm.get("spw")))
         with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline().strip().rstrip() # remove \n
@@ -796,9 +778,9 @@ class client_init(object):
             _message = readinmes.read()
         #report missing file
         if None in [pub_cert, _name, _message]:
-            raise(Exception("missing"))
+            raise Exception("missing")
         _name = _name.split("/")
-        if len(_name)>2 or check_name(_name[0]) == False:
+        if len(_name) > 2 or not check_name(_name[0]):
             logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_cpath+"_name"))
             sys.exit(1)
         if confm.get("port") > -1:
@@ -808,8 +790,8 @@ class client_init(object):
         else: # fallback, configmanager autoconverts into string
             confm.set("port", client_port)
         port = confm.get("port")
-        clientserverdict={"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": confm.get("priority"), "message": _message}
+        clientserverdict = {"name": _name[0], "certhash": dhash(pub_cert),
+                            "priority": confm.get("priority"), "message": _message}
         self.links["client_server"] = client_server(clientserverdict)
         self.links["client_server"].pluginmanager = pluginm
         self.links["configmanager"] = confm
@@ -828,36 +810,39 @@ class client_init(object):
 
 #specified seperately because of chicken egg problem
 #"config":default_configdir
-default_client_args = {
-            "noplugins": ["False", bool, "<bool>: deactivate plugins"],
-            "cpwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than cpw (needed for remote control), lowercase"],
-            "cpw": ["", str, "<pw>: password (cleartext) (needed for remote control)"],
-            "apwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than apw, lowercase"],
-            "apw": ["", str, "<pw>: password (cleartext)"],
-            "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
-            "spw": ["", str, "<pw>: password (cleartext)"],
-            "remote" : ["False", bool, "<bool>: remote reachable (not localhost) (needs cpwhash/file)"],
-            "priority": [str(default_priority), int, "<int>: set client priority"],
-            "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
-            "timeout": [str(default_timeout), int, "<int>: set default timeout"],
-            "webgui": ["False", bool, "<bool>: enables webgui"],
-            "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
-            "nocmd": ["False", bool, "<bool>: use no cmd"],
-            "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""]}
-             
-overwrite_client_args={
-            "config": [default_configdir, str, "<dir>: path to config dir"],
-            "noserver": ["False", bool, "<bool>: deactivate httpserver (= renders client useless (no register, no remote pw-, info-dialog))"]}
+default_client_args = \
+{
+    "noplugins": ["False", bool, "<bool>: deactivate plugins"],
+    "cpwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than cpw (needed for remote control), lowercase"],
+    "cpw": ["", str, "<pw>: password (cleartext) (needed for remote control)"],
+    "apwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than apw, lowercase"],
+    "apw": ["", str, "<pw>: password (cleartext)"],
+    "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
+    "spw": ["", str, "<pw>: password (cleartext)"],
+    "remote" : ["False", bool, "<bool>: remote reachable (not localhost) (needs cpwhash/file)"],
+    "priority": [str(default_priority), int, "<int>: set client priority"],
+    "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
+    "timeout": [str(default_timeout), int, "<int>: set default timeout"],
+    "webgui": ["False", bool, "<bool>: enables webgui"],
+    "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
+    "nocmd": ["False", bool, "<bool>: use no cmd"],
+    "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""]
+}
 
+overwrite_client_args = \
+{
+    "config": [default_configdir, str, "<dir>: path to config dir"],
+    "noserver": ["False", bool, "<bool>: deactivate httpserver (= renders client useless (no register, no remote pw-, info-dialog))"]
+}
 
 def client_paramhelp():
-    t = "# parameters (permanent)\n"
+    temp_doc = "# parameters (permanent)\n"
     for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
-        t += "  * key: {}, default: {}, doc: {}\n".format(_key, elem[0], elem[2])
-    t += "# parameters (non-permanent)\n"
+        temp_doc += "  * key: {}, default: {}, doc: {}\n".format(_key, elem[0], elem[2])
+    temp_doc += "# parameters (non-permanent)\n"
     for _key, elem in sorted(overwrite_client_args.items(), key=lambda x: x[0]):
-        t += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
-    return t
+        temp_doc += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
+    return temp_doc
 
 def cmdloop(clientinitm):
     while True:
@@ -878,7 +863,7 @@ def cmdloop(clientinitm):
             elif ret[2] == None:
                 print("Unknown partner, hash: {}:".format(ret[3]))
             else:
-                print("Known, name: {} ({}):".format(ret[2][0],ret[2][1]))
+                print("Known, name: {} ({}):".format(ret[2][0], ret[2][1]))
             if isinstance(ret[1], dict):
                 for elem in ret[1].items():
                     if isinstance(elem[1], str):

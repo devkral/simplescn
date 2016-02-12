@@ -6,7 +6,7 @@ import logging
 from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local, default_sslcont, check_local
 
 class client_safe(object):
-    validactions_safe={"get", "gethash", "help", "show", "register", "getlocal","listhashes","listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
+    validactions_safe = {"get", "gethash", "help", "show", "register", "getlocal", "listhashes", "listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
 
     hashdb = None
     links = None
@@ -37,10 +37,10 @@ class client_safe(object):
         _srvaddr = scnparse_url(obdict.get("server"))
         if _srvaddr:
             self.scntraverse_helper.add_desttupel(_srvaddr)
-        ret = self.do_request(obdict.get("server"),"/server/register", body={"name":self.name, "port": serversock.getsockname()[1], "pwcall_method":obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True, forcehash=obdict.get("forcehash"))
-        # 
-        if _srvaddr and (ret[0] != True or ret[1].get("traverse", False) == True):
-             self.scntraverse_helper.del_desttupel(_srvaddr)
+        ret = self.do_request(obdict.get("server"), "/server/register", body={"name": self.name, "port": serversock.getsockname()[1], "pwcall_method": obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True, forcehash=obdict.get("forcehash"))
+
+        if _srvaddr and (not ret[0] or ret[1].get("traverse", False)):
+            self.scntraverse_helper.del_desttupel(_srvaddr)
         return ret
 
     @check_argsdeco()
@@ -50,7 +50,7 @@ class client_safe(object):
             return: client stats """
         if "hserver" in self.links:
             addr = self.links["hserver"].socket.getsockname()
-            return True,{"name": self.name, "hash": self.cert_hash, "listen": addr[0], "port":addr[1]}
+            return True, {"name": self.name, "hash": self.cert_hash, "listen": addr[0], "port": addr[1]}
         else:
             return True, {"name": self.name, "hash": self.cert_hash}
 
@@ -63,7 +63,7 @@ class client_safe(object):
             port: port number
             client: LOCAL client url (default: own client) """
         if "hserver" in self.links or obdict.get("client") is not None:
-            return self.do_request(obdict.get("client","localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/registerservice", obdict, forcehash=self.cert_hash)
+            return self.do_request(obdict.get("client", "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/registerservice", obdict, forcehash=self.cert_hash)
         else:
             return False, "no servercomponent/client available"
 
@@ -75,7 +75,7 @@ class client_safe(object):
             name: service name
             client: LOCAL client url (default: own client) """
         if "hserver" in self.links or obdict.get("client") is not None:
-            return self.do_request(obdict.get("client","localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/delservice", obdict, forcehash=self.cert_hash)
+            return self.do_request(obdict.get("client", "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/delservice", obdict, forcehash=self.cert_hash)
         else:
             return False, "no servercomponent/client available"
 
@@ -105,12 +105,12 @@ class client_safe(object):
             del obdict["client"]
         else:
             _forcehash = self.cert_hash
-            client_addr="localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        _tservices = self.do_request(client_addr, "/server/dumpservices", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
+            client_addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
+        _tservices = self.do_request(client_addr, "/server/dumpservices", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         if _tservices[0] == False:
             return _tservices
-        out=sorted(_tservices[1].items(), key=lambda t: t[0])
-        return _tservices[0], {"items": out, "map":["name", "port"]}, _tservices[2], _tservices[3]
+        out = sorted(_tservices[1].items(), key=lambda t: t[0])
+        return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2], _tservices[3]
 
     @check_argsdeco({"server": str, "name": str, "hash": str})
     def get(self, obdict):
@@ -119,11 +119,11 @@ class client_safe(object):
             server: server url
             name: client name
             hash: client hash """
-        _getret = self.do_request(obdict["server"],"/server/get", body={"pwcall_method":obdict.get("pwcall_method"), "hash":obdict.get("hash"), "name":obdict.get("name")},headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
-        if _getret[0] == False or check_args(_getret[1], {"address": str, "port": int}) == False:
+        _getret = self.do_request(obdict["server"], "/server/get", body={"pwcall_method": obdict.get("pwcall_method"), "hash": obdict.get("hash"), "name": obdict.get("name")}, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
+        if not _getret[0] or not check_args(_getret[1], {"address": str, "port": int}):
             return _getret
         if _getret[1].get("port", 0) < 1:
-            return False,"port <1: {}".format(_getret[1]["port"])
+            return False, "port < 1: {}".format(_getret[1]["port"])
         # case: client runs on server
         if check_local(_getret[1]["address"]):
             # use serveraddress instead
@@ -140,20 +140,20 @@ class client_safe(object):
             return False, "address is empty"
         try:
             cont = default_sslcont()
-            _addr = scnparse_url(obdict["address"],force_port=False)
+            _addr = scnparse_url(obdict["address"], force_port=False)
             sock = socket.create_connection(_addr)
             sock = cont.wrap_socket(sock, server_side=False)
             pcert = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True)).strip().rstrip()
-            return True, {"hash":dhash(pcert), "cert": pcert}
+            return True, {"hash": dhash(pcert), "cert": pcert}
         except ssl.SSLError:
             return False, "server speaks no tls 1.2"
         except ConnectionRefusedError:
             return False, "server does not exist"
-        except EnforcedPortFail as e:
-            return False, e.msg
-        except Exception as e:
-            logging.error(e)
-            return False, e
+        except EnforcedPortFail as exc:
+            return False, exc.msg
+        except Exception as exc:
+            logging.error(exc)
+            return False, exc
 
     @check_argsdeco({"address": str})
     def ask(self, obdict):
@@ -161,22 +161,22 @@ class client_safe(object):
             return: local information about remote url
             address: node url """
         _ha = self.gethash(obdict)
-        if _ha[0] == False:
+        if not _ha[0]:
             return _ha
-        if _ha[1]["hash"] == self.cert_hash:
-            return True, {"localname":isself, "hash":self.cert_hash, "cert":_ha[1]["cert"]}
+        if _ha[1].get("hash") == self.cert_hash:
+            return True, {"localname": isself, "hash": self.cert_hash, "cert": _ha[1]["cert"]}
         hasho = self.hashdb.get(_ha[1]["hash"])
         if hasho:
-            return True, {"localname":hasho[0],"security":hasho[3], "hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
+            return True, {"localname": hasho[0], "security": hasho[3], "hash": _ha[1]["hash"], "cert": _ha[1]["cert"]}
         else:
-            return True, {"hash":_ha[1]["hash"], "cert":_ha[1]["cert"]}
+            return True, {"hash": _ha[1]["hash"], "cert": _ha[1]["cert"]}
 
     @check_argsdeco({"server": str})
     def listnames(self, obdict):
         """ func: sort and list names from server
             return: sorted list of client names with additional informations
             server: server url """
-        _tnames = self.do_request(obdict["server"], "/server/dumpnames", body={"pwcall_method":obdict.get("pwcall_method")},  headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
+        _tnames = self.do_request(obdict["server"], "/server/dumpnames", body={"pwcall_method": obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
         if _tnames[0] == False:
             return _tnames
         out = []
@@ -199,7 +199,7 @@ class client_safe(object):
         else:
             _forcehash = self.cert_hash
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        ret= self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
+        ret = self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         return ret
 
     @check_argsdeco(optional={"address": str})
@@ -228,7 +228,7 @@ class client_safe(object):
         else:
             _forcehash = self.cert_hash
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/prioty", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=_forcehash, forceport=True)
+        return self.do_request(_addr, "/server/prioty", body={"pwcall_method": obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=_forcehash, forceport=True)
 
     @check_argsdeco({"server": str, "name": str, "hash": str})
     def prioty(self, obdict):
@@ -263,7 +263,6 @@ class client_safe(object):
                 return False, "MITM attack?, Certmissmatch"
             elif check_ret in [None, []]:
                 return False, "MITM?, Wrong Server information?, Certmissmatch and security!=valid"
-            
             if obdict.get("security", "valid") == "valid":
                 obdict["security"] = "insecure"
             # is in db and was valid before
@@ -290,7 +289,7 @@ class client_safe(object):
         return prioty_ret
 
     # reason for beeing seperate from get: to detect if a minor or a bigger error happened
-    @check_argsdeco({"server": str,"name": str, "hash": str})
+    @check_argsdeco({"server": str, "name": str, "hash": str})
     def check(self, obdict):
         """ func: check if client is reachable; update local information when reachable
             return: priority, type, certificate security, (new-)hash (client)
@@ -311,7 +310,6 @@ class client_safe(object):
         if direct_ret[0]:
             direct_ret[1]["hash"] = direct_ret[3]
         return direct_ret[0], direct_ret[1], get_ret[2], get_ret[3]
-
     ### local management ###
 
     @check_argsdeco({"hash": str})
@@ -323,12 +321,13 @@ class client_safe(object):
         out = self.hashdb.get(obdict["hash"])
         if out is None:
             return False, "Not in db"
-        ret = {
-        "name": out[0],
-        "type": out[1],
-        "priority": out[2],
-        "security": out[3],
-        "certreferenceid": out[4]
+        ret = \
+        {
+            "name": out[0],
+            "type": out[1],
+            "priority": out[2],
+            "security": out[3],
+            "certreferenceid": out[4]
         }
         return True, ret
 
@@ -344,7 +343,7 @@ class client_safe(object):
         if temp is None:
             return False
         else:
-            return True, {"items":temp, "map": ["hash","type","priority","security","certreferenceid"]}
+            return True, {"items":temp, "map": ["hash", "type", "priority", "security", "certreferenceid"]}
 
     @check_argsdeco()
     @classify_local
@@ -379,19 +378,19 @@ class client_safe(object):
         if temp is None:
             return False
         else:
-            return True, {"items":temp, "map": ["name","hash","type","priority","security","certreferenceid"]}
+            return True, {"items":temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
 
     @check_argsdeco(optional={"filter": str, "hash": str, "certreferenceid": int})
     @classify_local
     def getreferences(self, obdict):
         """ func: get references of a node certificate hash
-            return: 
+            return: reference, referencetype list for hash/referenceid
             hash: local hash (or use certreferenceid)
             certreferenceid: reference id of certificate hash (or use hash)")
             filter: filter reference type """
         if obdict.get("certreferenceid") is None:
             _hash = obdict.get("hash")
-            _tref = self.hashdb.get( _hash)
+            _tref = self.hashdb.get(_hash)
             if _tref is None:
                 return False, "certhash does not exist: {}".format(_hash)
             _tref = _tref[4]
@@ -400,7 +399,7 @@ class client_safe(object):
         temp = self.hashdb.getreferences(_tref, obdict.get("filter", None))
         if temp is None:
             return False
-        return True, {"items":temp, "map": ["reference","type"]}
+        return True, {"items": temp, "map": ["reference", "type"]}
 
     @check_argsdeco({"reference": str})
     @classify_local
@@ -411,5 +410,5 @@ class client_safe(object):
         temp = self.hashdb.findbyref(obdict["reference"])
         if temp is None:
             return False, "reference does not exist: {}".format(obdict["reference"])
-        return True, {"items":temp, "map": ["name","hash","type","priority","security","certreferenceid"]}
+        return True, {"items":temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
 

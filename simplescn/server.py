@@ -54,9 +54,9 @@ class server(commonscn):
         # now: always None, because set manually
         #  traversesrcaddr = d.get("traversesrcaddr", None)
         if len(very_low_load) != 2 or len(low_load) != 3 or len(medium_load) != 3 or len(high_load) != 3:
-            raise (InvalidLoadSizeError())
+            raise InvalidLoadSizeError()
         if high_load[0] < medium_load[0] or medium_load[0] < low_load[0]:
-            raise (InvalidLoadLevelError())
+            raise InvalidLoadLevelError()
         if d["name"] is None or len(d["name"]) == 0:
             logging.debug("Name empty")
             d["name"] = "<noname>"
@@ -444,7 +444,7 @@ class server_init(object):
         with open(_spath+"_message.txt", 'r') as readservmessage:
             _message = readservmessage.read()
         if None in [pub_cert, _name, _message]:
-            raise(Exception("missing"))
+            raise Exception("missing")
         _name = _name.split("/")
         if len(_name)>2 or check_name(_name[0])==False:
             logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_spath+"_name"))
