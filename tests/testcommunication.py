@@ -97,8 +97,18 @@ class TestCommunication(unittest.TestCase):
         self.assertEqual(services_ret[0], False)
         
     
-    def test_show(self):
-        pass
+    def test_rename(self):
+        change = self.client.links["client"].access_main("changemsg", message="newtestmessage")
+        self.assertEqual(change[0], True, change[1])
+        change = self.client.links["client"].access_main("changename", name="willi")
+        self.assertEqual(change[0], True, change[1])
+        ret = self.client.links["client"].access_main("info")
+        self.assertEqual(ret[0], True, ret[1])
+        self.assertEqual(ret[1].get("message"),"newtestmessage")
+        self.assertEqual(ret[1].get("name"),"willi")
+        nochange = self.client.links["client"].access_main("changename", name="  willi")
+        self.assertEqual(nochange[0], False)
+
     
     def test_check(self):
         pass
