@@ -118,10 +118,10 @@ class client_admin(object):
         """ func: list plugins
             return: plugins """
         pluginm = self.links["client_server"].pluginmanager
-        out = sorted(pluginm.list_plugins().items())
+        out = sorted(pluginm.list_plugins().keys())
         ret = []
         for plugin in out:
-            ret.append((plugin[0], pluginm.plugin_is_active(plugin[0])))
+            ret.append((plugin, pluginm.plugin_is_active(plugin)))
         return True, {"items": ret, "map": ["plugin", "state"]}
 
     @check_argsdeco({"hash": str, "reference": str, "reftype": str})
