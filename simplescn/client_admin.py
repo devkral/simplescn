@@ -224,12 +224,12 @@ class client_admin(object):
             permanent: permanent or just temporary (cleared when closing client) (default: True) """
         configr = self.links["config_root"]
         with self.write_msg_lock:
-            self.links["client_server"].message = obdict.get("message")
-            self.links["client_server"].update_cache()
             if obdict.get("permanent", True):
                 with open(os.path.join(configr, "client_message.txt"), "w") as wm:
                     wm.write(obdict.get("message"))
-        return True
+            self.links["client_server"].message = obdict.get("message")
+            self.links["client_server"].update_cache()
+            return True
 
     @check_argsdeco({"loglevel": int})
     @classify_admin
@@ -279,9 +279,9 @@ class client_admin(object):
             return: success or error
             port: port of client server """
         if obdict.get("clientaddress") is None:
-            return False, "Cannot request redirect (clientaddress  is not available)"
+            return False, "Cannot request redirect (clientaddress is not available)"
         if obdict.get("clientcerthash") is None:
-            return False, "Cannot request redirect (clienthash  is not available)"
+            return False, "Cannot request redirect (clienthash is not available)"
         self.redirect_addr = "{}-{}".format(obdict.get("clientaddress")[0], obdict["port"])
         self.redirect_hash = obdict.get("clientcerthash")
         return True

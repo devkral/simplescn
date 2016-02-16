@@ -243,26 +243,35 @@ class client_safe(object):
         temp[1]["forcehash"] = obdict.get("hash")
         return self.prioty_direct({"address":"{address}-{port}".format(**temp[1])})
 
-    @check_argsdeco({"address": str, "hash": str})
+    @check_argsdeco({"address": str, "hash": str}, optional={"security": str})
     def check_direct(self, obdict):
         """ func: check if a address is reachable; update local information when reachable
             return: priority, type, certificate security; return [3] == new hash of client
             address: node url
             hash: node certificate hash
             security: set/verify security """
-        # only use forcehash if requested elsewise handle hash missmatch later
+        # force hash if hash is from client itself
+        if obdict["hash"] == self.cert_hash:
+            obdict["forcehash"] = self.cert_hash
+            if obdict.get("security", "valid") != "valid":
+                return False, "Error: own client is marked not valid"
+        # only use forcehash if requested elsewise handle hash mismatch later
         prioty_ret = self.prioty_direct({"address": obdict["address"], "forcehash": obdict.get("forcehash")})
         if prioty_ret[0] == False:
             return prioty_ret
-        hashdbo = self.hashdb.get(obdict["hash"])
-        # handle hash missmatch
+        # don't query if hash is from client itself
+        if obdict["hash"] == self.cert_hash:
+            hashdbo = None
+        else:
+            hashdbo = self.hashdb.get(obdict["hash"])
+        # handle hash mismatch
         if prioty_ret[3] != obdict["hash"] or obdict.get("security", "valid") != "valid":
             address, port = scnparse_url(obdict.get("address"), False)
             check_ret = check_updated_certs(address, port, [(obdict.get("hash"), "insecure"), ], newhash=prioty_ret[3])
             if check_ret in [None, []] and obdict.get("security", "valid") == "valid":
-                return False, "MITM attack?, Certmissmatch"
+                return False, "MITM attack?, Certmismatch"
             elif check_ret in [None, []]:
-                return False, "MITM?, Wrong Server information?, Certmissmatch and security!=valid"
+                return False, "MITM?, Wrong Server information?, Certmismatch and security!=valid"
             if obdict.get("security", "valid") == "valid":
                 obdict["security"] = "insecure"
             # is in db and was valid before
@@ -280,12 +289,16 @@ class client_safe(object):
                 hashdbo = newhashdbo
         # add security field, init as unverified
         prioty_ret[1]["security"] = "unverified"
-        # is hashdbo/newhashdbo in db
         if hashdbo:
+            # is hashdbo/newhashdbo in db
             self.hashdb.changepriority(prioty_ret[3], prioty_ret[1]["priority"])
             self.hashdb.changetype(prioty_ret[3], prioty_ret[1]["type"])
             # return security of current hash
             prioty_ret[1]["security"] = hashdbo[3]
+        elif obdict["hash"] == self.cert_hash:
+            # is client itself
+            # valid because (hashdbo=None)
+            prioty_ret[1]["security"] = "valid"
         return prioty_ret
 
     # reason for beeing seperate from get: to detect if a minor or a bigger error happened

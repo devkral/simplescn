@@ -27,7 +27,7 @@ def signal_handler(_signal, frame):
 def server(argv=sys.argv[1:], doreturn=False):
     init_scn()
     from simplescn.common import pluginmanager
-    from simplescn.server import server_paramhelp, overwrite_server_args, server_handler, server_init
+    from simplescn.server import server_paramhelp, overwrite_server_args, server_init
     pluginpathes = [os.path.join(sharedir, "plugins")]
     pluginpathes += scnparse_args(argv, server_paramhelp, overwrite_args=overwrite_server_args)
     configpath = overwrite_server_args["config"][0]
@@ -39,21 +39,6 @@ def server(argv=sys.argv[1:], doreturn=False):
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     # path to config folder of plugins
     configpath_plugins = os.path.join(configpath, "config", "plugins")
-
-    # should be gui agnostic so specify here
-    if overwrite_server_args["webgui"][0] != "False":
-        server_handler.webgui = True
-        # load static files
-        # replace placeholder
-        server_handler.statics = {}
-        for elem in os.listdir(os.path.join(sharedir, "static")):
-            with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
-                server_handler.statics[elem] = _staticr.read()
-                #against ssl failures
-                if len(server_handler.statics[elem]) == 0:
-                    server_handler.statics[elem] = b" "
-    else:
-        server_handler.webgui = False
 
     server_instance = server_init(configpath, **overwrite_server_args)
     if overwrite_server_args["useplugins"][0] != "False":
@@ -253,11 +238,14 @@ def check_dependencies():
     except ImportError:
         print("No gtkgui (gobject) support", file=sys.stderr)
 
+is_init_already = False
 def init_scn():
+    global is_init_already
     #import multiprocessing
     #multiprocessing.freeze_support()
     #multiprocessing.set_start_method('spawn')
-    if threading.current_thread() == threading.main_thread():
+    if not is_init_already and threading.current_thread() == threading.main_thread():
+        is_init_already = True
         logging.basicConfig(level=loglevel_converter(default_loglevel), format=logformat)
         signal.signal(signal.SIGINT, signal_handler)
 

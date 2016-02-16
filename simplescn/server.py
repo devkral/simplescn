@@ -311,103 +311,105 @@ class server(commonscn):
         except Exception as e:
             return False, e
 
-class server_handler(commonscnhandler):
-    server_version = 'simplescn/1.0 (server)'
-    webgui = False
+def gen_server_handler():
+    class server_handler(commonscnhandler):
+        server_version = 'simplescn/1.0 (server)'
+        webgui = False
 
-    def handle_server(self, action):
-        if action not in self.links["server_server"].validactions:
-            self.scn_send_answer(400, message="invalid action - server")
-            return
-        if self.links["auth"].verify("server", self.auth_info) == False:
-            authreq = self.links["auth"].request_auth("server")
-            ob = bytes(json.dumps(authreq), "utf-8")
-            self.scn_send_answer(401, body=ob, docache=False)
-            return
-        if action in self.links["server_server"].cache:
-            # cleanup {} or smaller, protect against big transmissions
-            self.cleanup_stale_data(2)
-            ob = bytes(self.links["server_server"].cache[action], "utf-8")
-            self.scn_send_answer(200, body=ob, docache=False)
-            return
+        def handle_server(self, action):
+            if action not in self.links["server_server"].validactions:
+                self.scn_send_answer(400, message="invalid action - server")
+                return
+            if self.links["auth"].verify("server", self.auth_info) == False:
+                authreq = self.links["auth"].request_auth("server")
+                ob = bytes(json.dumps(authreq), "utf-8")
+                self.scn_send_answer(401, body=ob, docache=False)
+                return
+            if action in self.links["server_server"].cache:
+                # cleanup {} or smaller, protect against big transmissions
+                self.cleanup_stale_data(2)
+                ob = bytes(self.links["server_server"].cache[action], "utf-8")
+                self.scn_send_answer(200, body=ob, docache=False)
+                return
 
-        obdict = self.parse_body(max_serverrequest_size)
-        if obdict is None:
-            return None
-        try:
-            func = getattr(self.links["server_server"], action)
-            success, result = func(obdict)[:2]
-            jsonnized = json.dumps(gen_result(result, success))
-        except Exception as exc:
-            generror = generate_error(exc)
-            if not debug_mode or not check_local(self.client_address2[0]):
-                # don't show stacktrace if not permitted and not in debug mode
-                if "stacktrace" in generror:
-                    del generror["stacktrace"]
-                # with harden mode do not show errormessage
-                if harden_mode:
-                    generror = generate_error("unknown")
-            ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
-            self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
-            return
-        ob = bytes(jsonnized, "utf-8")
-        if success == False:
-            self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
-        else:
-            self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
-
-    def do_GET(self):
-        if self.init_scn_stuff() == False:
-            return
-        if self.path == "/favicon.ico":
-            if "favicon.ico" in self.statics:
-                self.scn_send_answer(200, body=self.statics["favicon.ico"], docache=True)
+            obdict = self.parse_body(max_serverrequest_size)
+            if obdict is None:
+                return None
+            try:
+                func = getattr(self.links["server_server"], action)
+                success, result = func(obdict)[:2]
+                jsonnized = json.dumps(gen_result(result, success))
+            except Exception as exc:
+                generror = generate_error(exc)
+                if not debug_mode or not check_local(self.client_address2[0]):
+                    # don't show stacktrace if not permitted and not in debug mode
+                    if "stacktrace" in generror:
+                        del generror["stacktrace"]
+                    # with harden mode do not show errormessage
+                    if harden_mode:
+                        generror = generate_error("unknown")
+                ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
+                self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
+                return
+            ob = bytes(jsonnized, "utf-8")
+            if success == False:
+                self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
             else:
-                self.scn_send_answer(404, docache=True)
-            return
-        if self.webgui == False:
-            self.scn_send_answer(404, message="no webgui enabled", docache=True)
-        _path = self.path[1:].split("/")
-        if _path[0] in ("","server","html","index"):
-            self.html("server.html")
-            return
-        elif  _path[0] == "static" and len(_path)>=2:
-            if _path[1] in self.statics:
-                self.scn_send_answer(200, body=self.statics[_path[1]])
-            return
-        elif len(_path)==2:
-            self.handle_server(_path[0])
-            return
-        self.scn_send_answer(404, message="resource not found (GET)", docache=True)
+                self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
 
-    def do_POST(self):
-        if self.init_scn_stuff() == False:
-            return
-        splitted = self.path[1:].split("/",1)
-        if len(splitted) == 1:
-            resource = splitted[0]
-            sub = ""
-        else:
-            resource = splitted[0]
-            sub = splitted[1]
-        if resource == "plugin":
-            pluginm = self.links["server_server"].pluginmanager
-            split2 = sub.split("/", 1)
-            if len(split2) != 2:
-                self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
+        def do_GET(self):
+            if self.init_scn_stuff() == False:
                 return
-            plugin, action = split2
-            if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
-                self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
+            if self.path == "/favicon.ico":
+                if "favicon.ico" in self.statics:
+                    self.scn_send_answer(200, body=self.statics["favicon.ico"], docache=True)
+                else:
+                    self.scn_send_answer(404, docache=True)
                 return
-            self.handle_plugin(pluginm.plugins[plugin].sreceive, action)
-        # for invalidating and updating, don't use connection afterwards
-        elif resource == "usebroken":
-            self.handle_usebroken(sub)
-        elif resource == "server":
-            self.handle_server(sub)
-        else:
-            self.scn_send_answer(404, message="resource not found (POST)", docache=True)
+            if self.webgui == False:
+                self.scn_send_answer(404, message="no webgui enabled", docache=True)
+            _path = self.path[1:].split("/")
+            if _path[0] in ("","server","html","index"):
+                self.html("server.html")
+                return
+            elif  _path[0] == "static" and len(_path)>=2:
+                if _path[1] in self.statics:
+                    self.scn_send_answer(200, body=self.statics[_path[1]])
+                return
+            elif len(_path)==2:
+                self.handle_server(_path[0])
+                return
+            self.scn_send_answer(404, message="resource not found (GET)", docache=True)
+
+        def do_POST(self):
+            if self.init_scn_stuff() == False:
+                return
+            splitted = self.path[1:].split("/",1)
+            if len(splitted) == 1:
+                resource = splitted[0]
+                sub = ""
+            else:
+                resource = splitted[0]
+                sub = splitted[1]
+            if resource == "plugin":
+                pluginm = self.links["server_server"].pluginmanager
+                split2 = sub.split("/", 1)
+                if len(split2) != 2:
+                    self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
+                    return
+                plugin, action = split2
+                if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
+                    self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
+                    return
+                self.handle_plugin(pluginm.plugins[plugin].sreceive, action)
+            # for invalidating and updating, don't use connection afterwards
+            elif resource == "usebroken":
+                self.handle_usebroken(sub)
+            elif resource == "server":
+                self.handle_server(sub)
+            else:
+                self.scn_send_answer(404, message="resource not found (POST)", docache=True)
+    return server_handler
 
 class server_init(object):
     config_path = None
@@ -416,15 +418,16 @@ class server_init(object):
     def __init__(self,_configpath, **kwargs):
         self.links = {}
         self.links["config_root"] = _configpath
+        self.links["handler"] = gen_server_handler()
         _spath = os.path.join(self.links["config_root"],"server")
         port = int(kwargs["port"][0])
         init_config_folder(self.links["config_root"],"server")
         if check_certs(_spath+"_cert") == False:
             logging.debug("Certificate(s) not found. Generate new...")
-            generate_certs(_spath+"_cert")
+            generate_certs(_spath + "_cert")
             logging.debug("Certificate generation complete")
         with open(_spath+"_cert.pub", 'rb') as readinpubkey:
-            pub_cert=readinpubkey.read().strip().rstrip()
+            pub_cert = readinpubkey.read().strip().rstrip()
         self.links["auth"] = scnauth_server(dhash(pub_cert))
         if bool(kwargs["spwhash"][0]):
             if not check_hash(kwargs["spwhash"][0]):
@@ -437,6 +440,17 @@ class server_init(object):
                 if pw[-1] == "\n":
                     pw = pw[:-1]
                 self.links["auth"].init_realm("server", dhash(pw))
+        
+        if kwargs["webgui"][0] != "False":
+            self.links["handler"].webgui = True
+            # load static files
+            # replace placeholder
+            self.links["handler"].statics = {}
+            for elem in os.listdir(os.path.join(sharedir, "static")):
+                with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
+                    self.links["handler"].statics[elem] = _staticr.read()
+        else:
+            self.links["handler"].webgui = False
         _message = None
         _name = None
         with open(_spath+"_name.txt", 'r') as readserver:
@@ -458,12 +472,12 @@ class server_init(object):
 
         serverd = {"name": _name[0], "certhash": dhash(pub_cert),
                 "priority": kwargs["priority"][0], "message":_message, "links": self.links}
-        server_handler.links = self.links
+        self.links["handler"].links = self.links
         self.links["server_server"] = server(serverd)
+        
         # server without server have fun if False
         if kwargs["noserver"][0] != "True":
-            http_server.timeout = int(kwargs["timeout"][0])
-            self.links["hserver"] = http_server(("", _port), _spath+"_cert", server_handler, "Enter server certificate pw")
+            self.links["hserver"] = http_server(("", _port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=int(kwargs["timeout"][0]))
             if kwargs["notraversal"][0] != "True":
                 srcaddr = self.links["hserver"].socket.getsockname()
                 self.links["server_server"].traverse = traverser_dropper(srcaddr)

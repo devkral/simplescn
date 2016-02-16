@@ -20,9 +20,12 @@ def shimrun(cmd, *args):
 
 class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
+    temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
     simplescn.server_port = 40040
     param_server = ["--config={}".format(temptestdir), "--port={}".format(simplescn.server_port)]
     param_client = ["--config={}".format(temptestdir), "--nocmd"]
+    param_client2 = ["--config={}".format(temptestdir2), "--nocmd"]
+    
     #client = None
     #server = None
     
@@ -31,20 +34,31 @@ class TestCommunication(unittest.TestCase):
     def setUpClass(cls):
         if os.path.isdir(cls.temptestdir):
             shutil.rmtree(cls.temptestdir)
+        if os.path.isdir(cls.temptestdir2):
+            shutil.rmtree(cls.temptestdir2)
         os.mkdir(cls.temptestdir, 0o700)
+        os.mkdir(cls.temptestdir2, 0o700)
+        #print(cls.temptestdir, cls.temptestdir2)
         simplescn.pwcallmethodinst = lambda msg, requester: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         cls.client = simplescn.__main__.rawclient(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["client"].cert_hash
-        cls.name = cls.client.links["client"].name
         cls.client_port = cls.client.links["hserver"].socket.getsockname()[1]
+        cls.name = cls.client.links["client"].name
+        
+        cls.client2 = simplescn.__main__.rawclient(cls.param_client2, doreturn=True)
+        cls.client_hash2 = cls.client2.links["client"].cert_hash
+        cls.client_port2 = cls.client2.links["hserver"].socket.getsockname()[1]
+        
         cls.server = simplescn.__main__.server(cls.param_server, doreturn=True)
         cls.server_port = cls.server.links["hserver"].socket.getsockname()[1]
-
+        
+        cls.client_hash3 = simplescn.dhash("m")
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.temptestdir)
+        shutil.rmtree(cls.temptestdir2)
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_register_get(self):
@@ -67,16 +81,21 @@ class TestCommunication(unittest.TestCase):
         ret3 = self.client.links["client"].access_main("get", server="127.0.0.1-{}".format(simplescn.server_port), name=self.name, hash=self.client_hash)
         self.assertEqual(ret3[0], True)
         
+        with self.subTest("test check"):
+            ret_local1 = self.client.links["client"].access_main("check", server="::1-{}".format(simplescn.server_port), name=self.name, hash=self.client_hash)
+            self.assertEqual(ret_local1[0], True, ret_local1[1])
+            ret_remote1 = self.client2.links["client"].access_main("check", server="::1-{}".format(simplescn.server_port), name=self.name, hash=self.client_hash)
+            self.assertEqual(ret_remote1[0], True, ret_remote1[1])
+        
     def test_cap(self):
         cap_ret = self.client.links["client"].access_main("cap")
         self.assertEqual(cap_ret[0], True, cap_ret[1])
         #print(cap_ret)
     
     def test_info(self):
-        info_ret = self.client.links["client"].access_main("info", address="127.0.0.1-{}".format(simplescn.server_port))
+        info_ret = self.client.links["client"].access_main("info", address="::1-{}".format(simplescn.server_port))
         self.assertEqual(info_ret[0], True, info_ret[1])
         self.assertEqual(info_ret[1]["type"], "server")
-        
         info_ret = self.client.links["client"].access_main("info")
         self.assertEqual(info_ret[0], True, info_ret[1])
         self.assertEqual(info_ret[1]["type"], "client")
@@ -95,26 +114,52 @@ class TestCommunication(unittest.TestCase):
         self.assertEqual(services_del[0], True, services_del[1])
         services_ret = self.client.links["client"].access_main("getservice", name="test")
         self.assertEqual(services_ret[0], False)
-        
-    
+
     def test_rename(self):
         change = self.client.links["client"].access_main("changemsg", message="newtestmessage")
         self.assertEqual(change[0], True, change[1])
         change = self.client.links["client"].access_main("changename", name="willi")
         self.assertEqual(change[0], True, change[1])
+        print(self.client.links["client_server"].cache)
         ret = self.client.links["client"].access_main("info")
         self.assertEqual(ret[0], True, ret[1])
-        self.assertEqual(ret[1].get("message"),"newtestmessage")
-        self.assertEqual(ret[1].get("name"),"willi")
+        self.assertEqual(ret[1].get("message"), "newtestmessage")
+        self.assertEqual(ret[1].get("name"), "willi")
         nochange = self.client.links["client"].access_main("changename", name="  willi")
         self.assertEqual(nochange[0], False)
+        ret = self.client.links["client"].access_main("info")
+        self.assertEqual(ret[0], True, ret[1])
+        self.assertEqual(ret[1].get("name"), "willi")
 
-    
-    def test_check(self):
-        pass
+    def test_authviolation(self):
+        obdict1 = {"message": "newtestmessage"}
+        unchanged1 = self.client.links["client"].do_request("::1-{}".format(self.client_port2), "/client/", body=obdict1, sendclientcert=True, forceport=True)
+        self.assertEqual(unchanged1[0], False)
     
     def test_check_direct(self):
-        pass
+        # test self
+        ret_local1 = self.client.links["client"].access_main("check_direct", address="::1-{}".format(self.client_port), security="valid", hash=self.client_hash)
+        self.assertEqual(ret_local1[0], True, ret_local1[1])
+        
+        # test self fail
+        ret_local2 = self.client.links["client"].access_main("check_direct", address="::1-{}".format(self.client_port), security="insecure", hash=self.client_hash)
+        self.assertEqual(ret_local2[0], False)
+        
+        # test remote
+        ret_remote1 = self.client.links["client"].access_main("check_direct", address="::1-{}".format(self.client_port2), security="valid", hash=self.client_hash2)
+        self.assertEqual(ret_remote1[0], True, ret_remote1[1])
+        
+        # test remote fail1
+        ret_remote2 = self.client.links["client"].access_main("check_direct", address="::1-{}".format(self.client_port2), security="insecure", hash=self.client_hash2)
+        self.assertEqual(ret_remote2[0], False)
+        
+        # test remote fail2
+        ret_remote2 = self.client.links["client"].access_main("check_direct", address="::1-{}".format(self.client_port2), security="valid", hash=self.client_hash)
+        self.assertEqual(ret_remote2[0], False)
+        
+        # test remote fail (no certinformation)
+        ret_remote3 = self.client.links["client"].access_main("check_direct", address="::1-{}".format(self.client_port2), security="insecure", hash=self.client_hash3)
+        self.assertEqual(ret_remote3[0], False)
     
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -24,8 +24,6 @@ from simplescn.guigtk import set_parent_template
 from simplescn import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
 #debug_mode
 
-client.client_handler.webgui = False
-
 messageid = 0
 
 implementedrefs = ["surl", "url", "name"]

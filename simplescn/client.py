@@ -519,196 +519,198 @@ class client_server(commonscn):
             return False
         return True, self.spmap[obdict["name"]]
 
-class client_handler(commonscnhandler):
-    server_version = 'simplescn/1.0 (client)'
-    handle_local = False
-    handle_remote = False
-    webgui = False
+def gen_client_handler():
+    class client_handler(commonscnhandler):
+        server_version = 'simplescn/1.0 (client)'
+        handle_local = False
+        handle_remote = False
+        webgui = False
 
-    def handle_client(self, action):
-        if action not in self.links["client"].validactions:
-            self.send_error(400, "invalid action - client")
-            return
-        # redirect overrides handle_local, handle_remote
-        if not self.handle_remote and \
-        "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and \
-        (not self.handle_local or not check_local(self.client_address2[0])):
-            self.send_error(403, "no permission - client")
-            return
-        if "admin" in getattr(getattr(self.links["client"], action), "classify", set()):
-            #if self.client_cert is None:
-            #    self.send_error(403, "no permission (no certrewrap) - admin")
-            #    return
-            if "admin" in self.links["auth_server"].realms:
-                realm = "admin"
+        def handle_client(self, action):
+            if action not in self.links["client"].validactions:
+                self.send_error(400, "invalid action - client")
+                return
+            # redirect overrides handle_local, handle_remote
+            if not self.handle_remote and \
+            "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and \
+            (not self.handle_local or not check_local(self.client_address2[0])):
+                self.send_error(403, "no permission - client")
+                return
+            if "admin" in getattr(getattr(self.links["client"], action), "classify", set()):
+                #if self.client_cert is None:
+                #    self.send_error(403, "no permission (no certrewrap) - admin")
+                #    return
+                if "admin" in self.links["auth_server"].realms:
+                    realm = "admin"
+                else:
+                    realm = "client"
             else:
                 realm = "client"
-        else:
-            realm = "client"
-        # if redirect bypass
-        if "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and not self.links["auth_server"].verify(realm, self.auth_info):
-            authreq = self.links["auth_server"].request_auth(realm)
-            #self.cleanup_stale_data(max_serverrequest_size)
-            ob = bytes(json.dumps(authreq), "utf-8")
-            self.scn_send_answer(401, body=ob, docache=False)
-            return
+            # if redirect bypass
+            if "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and not self.links["auth_server"].verify(realm, self.auth_info):
+                authreq = self.links["auth_server"].request_auth(realm)
+                #self.cleanup_stale_data(max_serverrequest_size)
+                ob = bytes(json.dumps(authreq), "utf-8")
+                self.scn_send_answer(401, body=ob, docache=False)
+                return
 
-        obdict = self.parse_body()
-        if obdict is None:
-            return
-        response = self.links["client"].access_main(action, **obdict)
+            obdict = self.parse_body()
+            if obdict is None:
+                return
+            response = self.links["client"].access_main(action, **obdict)
 
-        if not response[0]:
-            error = response[1]
-            generror = generate_error(error)
-            if not debug_mode or not check_local(self.client_address2[0]):
-                # don't show stacktrace if not permitted and not in debug mode
-                if "stacktrace" in generror:
-                    del generror["stacktrace"]
-                # with harden mode do not show errormessage
-                if harden_mode and not isinstance(error, (AddressFail, VALError)):
-                    generror = generate_error("unknown")
-            resultob = gen_result(generror, False)
-            status = 500
-        else:
-            resultob = gen_result(response[1], True)
-            status = 200
-        jsonnized = bytes(json.dumps(resultob), "utf-8")
-        self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
-
-    def handle_server(self, action):
-        if action not in self.links["client_server"].validactions:
-            self.scn_send_answer(400, message="invalid action - server", docache=False)
-            return
-        if not self.links["auth_server"].verify("server", self.auth_info):
-            authreq = self.links["auth_server"].request_auth("server")
-            ob = bytes(json.dumps(authreq), "utf-8")
-            self.cleanup_stale_data(max_serverrequest_size)
-            self.scn_send_answer(401, body=ob, docache=False)
-            return
-        if action in self.links["client_server"].cache:
-            # cleanup {} or smaller, protect against big transmissions
-            self.cleanup_stale_data(2)
-            ob = bytes(self.links["client_server"].cache[action], "utf-8")
-            self.scn_send_answer(200, body=ob, docache=False)
-            return
-
-        obdict = self.parse_body(max_serverrequest_size)
-        if obdict is None:
-            return None
-        try:
-            func = getattr(self.links["client_server"], action)
-            response = func(obdict)
-            jsonnized = json.dumps(gen_result(response[1], response[0]))
-        except Exception as exc:
-            generror = generate_error(exc)
-            if not debug_mode or not check_local(self.client_address2[0]):
-                # don't show stacktrace if not permitted and not in debug mode
-                if "stacktrace" in generror:
-                    del generror["stacktrace"]
-                # with harden mode do not show errormessage
-                if harden_mode and not isinstance(exc, (AddressFail, VALError)):
-                    generror = generate_error("unknown")
-            ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
-            self.scn_send_answer(500, body=ob, mime="application/json")
-            return
-        if jsonnized is None:
-            jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
-            response[0] = False
-        ob = bytes(jsonnized, "utf-8")
-        if response[0] == False:
-            self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
-        else:
-            self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
-    def do_GET(self):
-        if self.init_scn_stuff() == False:
-            return
-        if self.path == "/favicon.ico":
-            if "favicon.ico" in self.statics:
-                self.scn_send_answer(200, self.statics["favicon.ico"], docache=True)
+            if not response[0]:
+                error = response[1]
+                generror = generate_error(error)
+                if not debug_mode or not check_local(self.client_address2[0]):
+                    # don't show stacktrace if not permitted and not in debug mode
+                    if "stacktrace" in generror:
+                        del generror["stacktrace"]
+                    # with harden mode do not show errormessage
+                    if harden_mode and not isinstance(error, (AddressFail, VALError)):
+                        generror = generate_error("unknown")
+                resultob = gen_result(generror, False)
+                status = 500
             else:
-                self.scn_send_answer(404, docache=True)
-            return
-        if self.webgui == False:
-            self.scn_send_answer(404, message="no webgui enabled", docache=True)
-        _path = self.path[1:].split("/")
-        if _path[0] in ("", "client", "html", "index"):
-            self.html("client.html")
-            return
-        elif  _path[0] == "static" and len(_path) >= 2:
-            if _path[1] in self.statics:
-                self.scn_send_answer(200, body=self.statics[_path[1]], docache=True)
-                return
-        elif len(_path) == 2:
-            self.handle_server(_path[0])
-            return
-        self.scn_send_answer(404, message="resource not found (GET)", docache=True)
+                resultob = gen_result(response[1], True)
+                status = 200
+            jsonnized = bytes(json.dumps(resultob), "utf-8")
+            self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
 
-    def do_POST(self):
-        if self.init_scn_stuff() == False:
-            return
-        splitted = self.path[1:].split("/", 1)
-        if len(splitted) == 1:
-            resource = splitted[0]
-            sub = ""
-        else:
-            resource = splitted[0]
-            sub = splitted[1]
-        if resource == "plugin":
-            pluginm = self.links["client_server"].pluginmanager
-            split2 = sub.split("/", 1)
-            if len(split2) != 2:
-                #self.cleanup_stale_data()
-                self.scn_send_answer(400, message="no plugin/action specified")
+        def handle_server(self, action):
+            if action not in self.links["client_server"].validactions:
+                self.scn_send_answer(400, message="invalid action - server", docache=False)
                 return
-            plugin, action = split2
-            if plugin not in pluginm.plugins:
-                #self.cleanup_stale_data()
-                self.scn_send_answer(404, message="plugin not available")
+            if not self.links["auth_server"].verify("server", self.auth_info):
+                authreq = self.links["auth_server"].request_auth("server")
+                ob = bytes(json.dumps(authreq), "utf-8")
+                self.cleanup_stale_data(max_serverrequest_size)
+                self.scn_send_answer(401, body=ob, docache=False)
                 return
-            #pluginpw = "plugin:{}".format(plugin)
-            #if self.links["auth_server"].verify(pluginpw, self.auth_info) == False and action not in pluginm.plugins[plugin].whitelist:
-            #    authreq = self.links["auth_server"].request_auth(pluginpw)
-            #    ob = bytes(json.dumps(authreq), "utf-8")
-            #    self.scn_send_answer(401, ob)
-            #    return
-            # gui receive
-            if hasattr(pluginm.plugins[plugin], "receive") == True:
-                # not supported yet
-                # don't forget redirect_hash
-                if self.links["client"].redirect_addr != "":
-                    # needs to implement http handshake and stop or don't analyze content
-                    if hasattr(pluginm.plugins[plugin], "rreceive") == True:
-                        ret = self.handle_plugin(pluginm.plugins[plugin].rreceive, action)
-                    else:
-                        ret = True
-                    if ret == False:
-                        return
-                    self.send_response(200)
-                    self.send_header("Connection", "keep-alive")
-                    self.send_header("Cache-Control", "no-cache")
-                    if self.headers.get("X-certrewrap") is not None:
-                        self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-                    self.end_headers()
-                    # send if not sent already
-                    self.wfile.flush()
-                    sockd = self.links["client"].use_plugin(self.links["client"].redirect_addr, \
-                                        plugin, action, forcehash=self.links["client"].redirect_hash, originalcert=self.client_cert)
-                    redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
-                    redout.run()
-                    rw_socket(sockd, self.connection)
-                    return
+            if action in self.links["client_server"].cache:
+                # cleanup {} or smaller, protect against big transmissions
+                self.cleanup_stale_data(2)
+                ob = bytes(self.links["client_server"].cache[action], "utf-8")
+                self.scn_send_answer(200, body=ob, docache=False)
+                return
+
+            obdict = self.parse_body(max_serverrequest_size)
+            if obdict is None:
+                return None
+            try:
+                func = getattr(self.links["client_server"], action)
+                response = func(obdict)
+                jsonnized = json.dumps(gen_result(response[1], response[0]))
+            except Exception as exc:
+                generror = generate_error(exc)
+                if not debug_mode or not check_local(self.client_address2[0]):
+                    # don't show stacktrace if not permitted and not in debug mode
+                    if "stacktrace" in generror:
+                        del generror["stacktrace"]
+                    # with harden mode do not show errormessage
+                    if harden_mode and not isinstance(exc, (AddressFail, VALError)):
+                        generror = generate_error("unknown")
+                ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
+                self.scn_send_answer(500, body=ob, mime="application/json")
+                return
+            if jsonnized is None:
+                jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
+                response[0] = False
+            ob = bytes(jsonnized, "utf-8")
+            if response[0] == False:
+                self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
+            else:
+                self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
+        def do_GET(self):
+            if self.init_scn_stuff() == False:
+                return
+            if self.path == "/favicon.ico":
+                if "favicon.ico" in self.statics:
+                    self.scn_send_answer(200, self.statics["favicon.ico"], docache=True)
                 else:
-                    self.handle_plugin(pluginm.plugins[plugin].receive, action)
-        # for invalidating and updating, don't use connection afterwards
-        elif resource == "usebroken":
-            self.handle_usebroken(sub)
-        elif resource == "server":
-            self.handle_server(sub)
-        elif resource == "client":
-            self.handle_client(sub)
-        else:
-            self.scn_send_answer(404, message="resource not found (POST)", docache=True)
+                    self.scn_send_answer(404, docache=True)
+                return
+            if self.webgui == False:
+                self.scn_send_answer(404, message="no webgui enabled", docache=True)
+            _path = self.path[1:].split("/")
+            if _path[0] in ("", "client", "html", "index"):
+                self.html("client.html")
+                return
+            elif  _path[0] == "static" and len(_path) >= 2:
+                if _path[1] in self.statics:
+                    self.scn_send_answer(200, body=self.statics[_path[1]], docache=True)
+                    return
+            elif len(_path) == 2:
+                self.handle_server(_path[0])
+                return
+            self.scn_send_answer(404, message="resource not found (GET)", docache=True)
+
+        def do_POST(self):
+            if self.init_scn_stuff() == False:
+                return
+            splitted = self.path[1:].split("/", 1)
+            if len(splitted) == 1:
+                resource = splitted[0]
+                sub = ""
+            else:
+                resource = splitted[0]
+                sub = splitted[1]
+            if resource == "plugin":
+                pluginm = self.links["client_server"].pluginmanager
+                split2 = sub.split("/", 1)
+                if len(split2) != 2:
+                    #self.cleanup_stale_data()
+                    self.scn_send_answer(400, message="no plugin/action specified")
+                    return
+                plugin, action = split2
+                if plugin not in pluginm.plugins:
+                    #self.cleanup_stale_data()
+                    self.scn_send_answer(404, message="plugin not available")
+                    return
+                #pluginpw = "plugin:{}".format(plugin)
+                #if self.links["auth_server"].verify(pluginpw, self.auth_info) == False and action not in pluginm.plugins[plugin].whitelist:
+                #    authreq = self.links["auth_server"].request_auth(pluginpw)
+                #    ob = bytes(json.dumps(authreq), "utf-8")
+                #    self.scn_send_answer(401, ob)
+                #    return
+                # gui receive
+                if hasattr(pluginm.plugins[plugin], "receive") == True:
+                    # not supported yet
+                    # don't forget redirect_hash
+                    if self.links["client"].redirect_addr != "":
+                        # needs to implement http handshake and stop or don't analyze content
+                        if hasattr(pluginm.plugins[plugin], "rreceive") == True:
+                            ret = self.handle_plugin(pluginm.plugins[plugin].rreceive, action)
+                        else:
+                            ret = True
+                        if ret == False:
+                            return
+                        self.send_response(200)
+                        self.send_header("Connection", "keep-alive")
+                        self.send_header("Cache-Control", "no-cache")
+                        if self.headers.get("X-certrewrap") is not None:
+                            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
+                        self.end_headers()
+                        # send if not sent already
+                        self.wfile.flush()
+                        sockd = self.links["client"].use_plugin(self.links["client"].redirect_addr, \
+                                            plugin, action, forcehash=self.links["client"].redirect_hash, originalcert=self.client_cert)
+                        redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
+                        redout.run()
+                        rw_socket(sockd, self.connection)
+                        return
+                    else:
+                        self.handle_plugin(pluginm.plugins[plugin].receive, action)
+            # for invalidating and updating, don't use connection afterwards
+            elif resource == "usebroken":
+                self.handle_usebroken(sub)
+            elif resource == "server":
+                self.handle_server(sub)
+            elif resource == "client":
+                self.handle_client(sub)
+            else:
+                self.scn_send_answer(404, message="resource not found (POST)", docache=True)
+    return client_handler
 
 class client_init(object):
     config_root = None
@@ -721,12 +723,13 @@ class client_init(object):
         self.links = {"trusted_certhash": ""}
         self.links["config"] = confm
         self.links["config_root"] = confm.get("config")
+        self.links["handler"] = gen_client_handler()
         _cpath = os.path.join(self.links["config_root"], "client")
         init_config_folder(self.links["config_root"], "client")
 
-        if not check_certs(_cpath+"_cert"):
+        if not check_certs(_cpath + "_cert"):
             logging.info("Certificate(s) not found. Generate new...")
-            generate_certs(_cpath+"_cert")
+            generate_certs(_cpath + "_cert")
             logging.info("Certificate generation complete")
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
@@ -734,29 +737,29 @@ class client_init(object):
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
         if confm.getb("webgui"):
             logging.debug("webgui enabled")
-            client_handler.webgui = True
+            self.links["handler"].webgui = True
             # load static files
             # replace placeholder
-            client_handler.statics = {}
+            self.links["handler"].statics = {}
             for elem in os.listdir(os.path.join(sharedir, "static")):
                 with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
-                    client_handler.statics[elem] = _staticr.read()
+                    self.links["handler"].statics[elem] = _staticr.read()
         else:
-            client_handler.webgui = False
+            self.links["handler"].webgui = False
         if confm.getb("cpwhash"):
             if not check_hash(confm.get("cpwhash")):
                 logging.error("hashtest failed for cpwhash, cpwhash: {}".format(confm.get("cpwhash")))
             else:
-                client_handler.handle_local = True
+                self.links["handler"].handle_local = True
                 # ensure that password is set when allowing remote access
                 if confm.getb("remote"):
-                    client_handler.handle_remote = True
+                    self.links["handler"].handle_remote = True
                 self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
         elif confm.getb("cpw"):
-            client_handler.handle_local = True
+            self.links["handler"].handle_local = True
             # ensure that password is set when allowing remote access
             if confm.getb("remote"):
-                client_handler.handle_remote = True
+                self.links["handler"].handle_remote = True
             self.links["auth_server"].init_realm("client", dhash(confm.get("cpw")))
         if confm.getb("apwhash"):
             if not check_hash(confm.get("apwhash")):
@@ -795,11 +798,10 @@ class client_init(object):
         self.links["client_server"] = client_server(clientserverdict)
         self.links["client_server"].pluginmanager = pluginm
         self.links["configmanager"] = confm
-        client_handler.links = self.links
+        self.links["handler"].links = self.links
         # use timeout argument of BaseServer
-        http_server.timeout = confm.get("timeout")
         if confm.getb("noserver") == False:
-            self.links["hserver"] = http_server(("", port), _cpath+"_cert", client_handler, "Enter client certificate pw")
+            self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["handler"], "Enter client certificate pw", timeout=confm.get("timeout"))
         self.links["client"] = client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), _cpath+"_cert", self.links)
 
     def serve_forever_block(self):

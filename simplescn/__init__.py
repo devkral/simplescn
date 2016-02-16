@@ -454,9 +454,11 @@ class http_server(socketserver.ThreadingMixIn, HTTPServer):
     """ server part of client/server """
     sslcont = None
     rawsock = None
+    timeout = None
 
-    def __init__(self, _address, certfpath, _handler, pwmsg):
+    def __init__(self, _address, certfpath, _handler, pwmsg, timeout=default_timeout):
         self.address_family = socket.AF_INET6
+        self.timeout = timeout
         HTTPServer.__init__(self, _address, _handler, False)
         try:
             self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
