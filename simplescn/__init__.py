@@ -4,7 +4,6 @@
 import os
 import sys
 import logging
-import ipaddress
 from getpass import getpass
 import datetime
 
@@ -299,6 +298,16 @@ def gen_sslcont(path):
     return sslcont
 
 
+# returns url or ipv6 address unchanged, return converted ipv4 address
+# only address, without port
+#re_check_ip6 = re.compile("[0-9:]+")
+re_check_ip4 = re.compile("[0-9.]+")
+def convert_ip4_to_6(address):
+    if re_check_ip4.match(address):
+        return "::ffff:{}".format(address)
+    else:
+        return address
+
 re_parse_url_old = re.compile("\\[?(.*)\\]?:([0-9]+)")
 re_parse_url = re.compile("(.*)-([0-9]+)$")
 def scnparse_url(url, force_port=False):
@@ -308,7 +317,7 @@ def scnparse_url(url, force_port=False):
         raise AddressFail
     if url == "":
         raise AddressEmptyFail
-    _urlre = re.match(re_parse_url, url)
+    _urlre = re_parse_url.match(url)
     if _urlre is not None:
         return _urlre.groups()[0], int(_urlre.groups()[1])
     if force_port == False:
@@ -546,13 +555,8 @@ class traverser_helper(object):
         t.start()
 
     def add_desttupel(self, destaddrtupel):
-        ipaddresstype = None
-        try:
-            ipaddresstype = ipaddress.ip_address(destaddrtupel[0])
-        except Exception:
-            pass
-        if self.connectsock.family == socket.AF_INET6 and isinstance(ipaddresstype, ipaddress.IPv4Address):
-            destaddrtupel = ("::ffff:{}".format(destaddrtupel[0]), destaddrtupel[1])
+        if self.connectsock.family == socket.AF_INET6:
+            destaddrtupel = (convert_ip4_to_6(destaddrtupel[0]), destaddrtupel[1])
         self.mutex.acquire()
         if destaddrtupel in self.desttupels:
             return True
@@ -563,13 +567,8 @@ class traverser_helper(object):
         return True
 
     def del_desttupel(self, destaddrtupel):
-        ipaddresstype = None
-        try:
-            ipaddresstype = ipaddress.ip_address(destaddrtupel[0])
-        except Exception:
-            pass
-        if self.connectsock.family == socket.AF_INET6 and isinstance(ipaddresstype, ipaddress.IPv4Address):
-            destaddrtupel = ("::ffff:{}".format(destaddrtupel[0]), destaddrtupel[1])
+        if self.connectsock.family == socket.AF_INET6:
+            destaddrtupel = (convert_ip4_to_6(destaddrtupel[0]), destaddrtupel[1])
         self.mutex.acquire()
         try:
             self.desttupels.remove(destaddrtupel)
@@ -579,24 +578,26 @@ class traverser_helper(object):
         return True
 
     # makes client reachable by server by (just by udp?)
-    def _pinger(self, _destaddrtupel):
+    def _pinger(self, destaddrtupel):
         try:
             while self.active:
                 self.mutex.acquire()
-                if _destaddrtupel not in self.desttupels:
+                if destaddrtupel not in self.desttupels:
                     self.mutex.release()
                     break
                 self.mutex.release()
-                self.srcsock.sendto(scn_pingstruct, _destaddrtupel)
+                self.srcsock.sendto(scn_pingstruct, destaddrtupel)
                 time.sleep(self.interval)
         except Exception as e:
             logging.info(e)
-        self.mutex.acquire()
-        try:
-            self.desttupels.remove(_destaddrtupel)
-        except Exception:
-            pass
-        self.mutex.release()
+            # error: cleanup
+            self.mutex.acquire()
+            try:
+                self.desttupels.remove(destaddrtupel)
+            except Exception:
+                pass
+            self.mutex.release()
+        # no cleanup needed (if no exception) because a) closed or b) already removed
 
     # sub __init__ thread
     def _connecter(self):
@@ -610,8 +611,8 @@ class traverser_helper(object):
                 port = unpstru[0]
                 addr = unpstru[2][:unpstru[1]]
                 try:
-                    if self.connectsock.family == socket.AF_INET6 and ":" not in addr:
-                        addr = "::ffff:{}".format(addr)
+                    if self.connectsock.family == socket.AF_INET6:
+                        addr = convert_ip4_to_6(addr)
                     self.connectsock.connect((addr, port))
                     self.srcsock.sendto(scn_yesstruct, requesteraddress)
                 except Exception as e:
@@ -686,7 +687,7 @@ class commonscn(object):
     cache = None
 
     def __init__(self):
-        self.cache = {"cap":"", "info":"", "prioty":""}
+        self.cache = {"cap": "", "info": "", "prioty": ""}
         self.update_cache_lock = threading.Lock()
     def __del__(self):
         self.isactive = False
