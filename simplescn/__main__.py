@@ -130,7 +130,6 @@ def client(argv=sys.argv[1:]):
     try:
         client_gtk(argv)
     except Exception as exc:
-        raise(exc)
         logging.error(exc)
         rawclient(argv)
         return
