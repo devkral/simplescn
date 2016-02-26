@@ -643,12 +643,16 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def addentity_confirm(self,*args):
         addentity = self.builder.get_object("addentityentry")
         localnames = self.builder.get_object("localnames")
+        addnodecombo = self.builder.get_object("addnodecombo")
         _entity = addentity.get_text()
         res = self.do_requestdo("addentity",name=_entity)
         if logcheck(res):
             self.addentitydia.hide()
             self.empty_dic+=[_entity,]
-            localnames.prepend((_entity,))
+            # add to proposal list
+            localit = localnames.append((_entity,))
+            # select entry
+            addnodecombo.set_active_iter(localit)
             self.localstore.insert_with_values(self.emptyit,-1,[0,],[_entity,])
                 
     def delentity(self,*args):
