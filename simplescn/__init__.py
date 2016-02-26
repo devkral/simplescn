@@ -218,8 +218,8 @@ def generate_certs(_path):
                                       subject_name=_tname,
                                       public_key=_pub_key,
                                       serial_number=0,
-                                      not_valid_before=datetime.date(1,1,1),
-                                      not_valid_after=datetime.date(1,1,1),
+                                      not_valid_before=datetime.date(1970,1,1),
+                                      not_valid_after=datetime.date(1970,1,1),
                                       extensions=extensions)
     cert = builder.sign(_key, cert_sign_hash, default_backend())
     if _passphrase == "":
