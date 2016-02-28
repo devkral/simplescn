@@ -17,6 +17,7 @@
 
 ## Future
 * Webgui
+* kivy gui
 * announce client/server
 * filesockets
 * holepunching for services
