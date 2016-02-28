@@ -17,10 +17,9 @@
 
 ## Future
 * Webgui
-* kivy gui
+* kivy gui (limitation to one window, so postpone)
 * announce client/server
 * filesockets
 * holepunching for services
 * localisation
 * mass import
-* cmd configuration seperate from client
