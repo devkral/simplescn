@@ -45,7 +45,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
 
     validactions = None
 
-    def __init__(self, _name, _pub_cert_hash, _certdbpath, certfpath, _links):
+    def __init__(self, _name, _pub_cert_hash, _links):
         client_dialogs.__init__(self)
         client_admin.__init__(self)
         client_safe.__init__(self)
@@ -53,7 +53,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         self.links = _links
         self.name = _name
         self.cert_hash = _pub_cert_hash
-        self.hashdb = certhash_db(_certdbpath)
+        self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
         self.sslcont = self.links["hserver"].sslcont
         self.brokencerts = []
         self.validactions = {"cmd_plugin", "remember_auth"}
@@ -73,15 +73,14 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 _reason = reado.read().strip().rstrip()
             if check_hash(_hash) and (_hash, _reason) not in self.brokencerts:
                 self.brokencerts.append((_hash, _reason))
-                
-        #self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+
         # update self.validactions
         self.validactions.update(client_dialogs.validactions_dialogs)
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
         self.validactions.update(client_config.validactions_config)
         self._cache_help = self.cmdhelp()
-    
+
     # return success, body, (name, security), hash
     # return success, body, isself, hash
     # return success, body, None, hash
@@ -170,7 +169,6 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         if "pwcall_method" in body:
             del body["pwcall_method"]
         ob = bytes(json.dumps(body), "utf-8")
-        
         con.putheader("Content-Length", str(len(ob)))
         con.endheaders()
         if sendclientcert:
@@ -378,7 +376,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             return False, "action: 'classified as access, command' not allowed in command"
         action = obdict["action"]
         del obdict["action"]
-        
+
         def pw_auth_command(pwcerthash, authreqob, reauthcount):
             if not callpw_auth:
                 authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
@@ -802,7 +800,7 @@ class client_init(object):
         # use timeout argument of BaseServer
         if confm.getb("noserver") == False:
             self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["handler"], "Enter client certificate pw", timeout=confm.get("timeout"))
-        self.links["client"] = client_client(_name[0], dhash(pub_cert), os.path.join(self.links["config_root"], "certdb.sqlite"), _cpath+"_cert", self.links)
+        self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
 
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
