@@ -19,14 +19,13 @@ from simplescn.guigtk.clientmain_managehash import hashmanagement
 
 from simplescn.guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
 from simplescn.guigtk.clientnode import gtkclient_node
-from simplescn.guigtk import set_parent_template
+from simplescn.guigtk import set_parent_template, implementedrefs
 
 from simplescn import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
 #debug_mode
 
 messageid = 0
 
-implementedrefs = ["surl", "url", "name"]
 
 class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuff, help_stuff, hashmanagement, set_parent_template):
     links = None

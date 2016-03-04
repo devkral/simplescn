@@ -7,6 +7,9 @@ from gi.repository import Gdk
 
 from simplescn.guigtk import clientdialogs
 
+# refs which already do something; warning additional offline reference, which cannot be saved
+implementedrefs = ["surl", "url", "name"]
+
 open_hashes={}
 
 def activate_shielded(action, urlfunc, window, obdict):

@@ -10,7 +10,7 @@ import logging
 from simplescn import scnparse_url, logcheck
 
 from simplescn.guigtk.clientnode import gtkclient_node
-from simplescn.guigtk import clientmain
+from simplescn.guigtk import implementedrefs
 
 
 class hashmanagement(object):
@@ -194,7 +194,7 @@ class hashmanagement(object):
             _url = _ref
         elif _type == "None":
             _url = None
-        elif _type in clientmain.implementedrefs:
+        elif _type in implementedrefs:
             return
         else:
             logging.info("invalid type")
