@@ -8,8 +8,8 @@ from gi.repository import Gtk
 try:
     import markdown
     gi.require_version('WebKit2', '4.0')
-    from gi.repository import WebKit2 
-except ImportError:
+    from gi.repository import WebKit2
+except Exception: #ImportError: #require_version can fail too; TODO: find right exception
     pass
 
 from simplescn import isself, logcheck
@@ -351,7 +351,6 @@ class help_stuff(object):
             view = WebKit2.WebView(editable=False, hexpand=True, vexpand=True)
             wksettings = view.get_settings()
             wksettings.set_property('enable-plugins', False)
-            
             view.load_html((markdown.markdown(_help[1]["help"])))
             self.builder.get_object("helpscrollwin").add(view)
             
