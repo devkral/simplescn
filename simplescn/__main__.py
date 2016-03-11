@@ -1,8 +1,14 @@
 #! /usr/bin/env python3
-#license: bsd3, see LICENSE.txt
 
-import sys, os
-import logging, threading
+"""
+start file for simplescn
+license: bsd3, see LICENSE.txt
+"""
+
+import sys
+import os
+import logging
+import threading
 import signal
 
 if __name__ == "__main__":
@@ -10,21 +16,20 @@ if __name__ == "__main__":
     _tpath = os.path.dirname(_tpath)
     sys.path.insert(0, _tpath)
 
-
 import simplescn
 from simplescn import sharedir, confdb_ending, logformat, default_loglevel, loglevel_converter
 from simplescn.common import scnparse_args
 import simplescn.client
 import simplescn.server
 
-
-
 def signal_handler(_signal, frame):
+    """ handles signals; shutdown properly """
     simplescn.client.client_init.run = False
     logging.shutdown()
     sys.exit(0)
 
 def server(argv=sys.argv[1:], doreturn=False):
+    """ start server component """
     init_scn()
     from simplescn.common import pluginmanager
     from simplescn.server import server_paramhelp, overwrite_server_args, server_init
@@ -39,7 +44,6 @@ def server(argv=sys.argv[1:], doreturn=False):
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     # path to config folder of plugins
     configpath_plugins = os.path.join(configpath, "config", "plugins")
-
     server_instance = server_init(configpath, **overwrite_server_args)
     if overwrite_server_args["useplugins"][0] != "False":
         os.makedirs(configpath_plugins, 0o750, True)
@@ -80,30 +84,26 @@ def rawclient(argv=sys.argv[1:], doreturn=False):
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     # path to config folder of plugins
     configpath_plugins = os.path.join(configpath, "config", "plugins")
-
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
-
     confm = configmanager(os.path.join(configpath, "config", "clientmain{}".format(confdb_ending)))
     confm.update(default_client_args, overwrite_client_args)
-    if confm.getb("noplugins") == False:
+    if not confm.getb("noplugins"):
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
-        if confm.getb("webgui") == True:
+        if confm.getb("webgui"):
             pluginm.interfaces += ["web",]
-        if confm.getb("nocmd") == False:
+        if not confm.getb("nocmd"):
             pluginm.interfaces += ["cmd",]
     else:
         pluginm = None
     rawclient_instance = client_init(confm, pluginm)
-
-    if confm.getb("noplugins") == False:
+    if not confm.getb("noplugins"):
         pluginm.resources["plugin"] = rawclient_instance.links["client"].use_plugin
         pluginm.resources["access"] = rawclient_instance.links["client"].access_safe
         pluginm.init_plugins()
         #for name, elem in pluginm.plugins.items():
         #    if hasattr(elem, "pluginpw"):
         #        rawclient_instance.links["auth_server"].init_realm("plugin:{}".format(name), dhash(elem.pluginpw))
-
     if not confm.getb("noserver"):
         logging.debug("start servercomponent (client)")
     if not confm.getb("nocmd"):
@@ -124,7 +124,6 @@ def rawclient(argv=sys.argv[1:], doreturn=False):
         else:
             rawclient_instance.serve_forever_block()
 
-
 def client(argv=sys.argv[1:]):
     """ gui client """
     try:
@@ -133,6 +132,7 @@ def client(argv=sys.argv[1:]):
         logging.error(exc)
         rawclient(argv)
         return
+
 def client_gtk(argv=sys.argv[1:]):
     """ gtk gui """
     init_scn()
@@ -151,16 +151,14 @@ def client_gtk(argv=sys.argv[1:]):
     overwrite_client_args["config"][0] = configpath
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     configpath_plugins = os.path.join(configpath, "config", "plugins")
-
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
     # uses different configuration file than rawclient
     confm = configmanager(os.path.join(configpath, "config", "clientgtkgui{}".format(confdb_ending)))
     confm.update(default_client_args, overwrite_client_args)
-
-    if confm.getb("noplugins") == False:
+    if not confm.getb("noplugins"):
         pluginm = pluginmanager(pluginpathes, configpath_plugins, "client")
-        if confm.getb("webgui") != False:
+        if confm.getb("webgui"):
             pluginm.interfaces += ["web",]
         pluginm.interfaces += ["cmd", "gtk"]
     else:
@@ -198,26 +196,24 @@ def config_plugin(argv=sys.argv[1:]):
     pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     # path to config folder of plugins
     configpath_plugins = os.path.join(configpath, "config", "plugins")
-
     os.makedirs(os.path.join(configpath, "config"), 0o750, True)
     os.makedirs(configpath_plugins, 0o750, True)
-
     pluginm = pluginmanager(pluginpathes, configpath_plugins, "config_direct")
     #pluginm.init_plugins()
     config = pluginm.load_pluginconfig(overwrite_plugin_config_args["plugin"][0])
     if config is None:
-        logging.error("No such plugin: {}".format(overwrite_plugin_config_args["plugin"][0]))
+        logging.error("No such plugin: %s", overwrite_plugin_config_args["plugin"][0])
         return
     if overwrite_plugin_config_args["key"][0] == "":
         lres = config.list()
-        if isinstance(lres, (tuple, list)) == False:
+        if not isinstance(lres, (tuple, list)):
             return
         for key, val, cls, default, doc, perm in lres:
             print("* key: {}\n  * type: {}\n  * perm: {}\n  * val: {}\n  * default: {}\n  * doc: {}".format(key, type(cls).__name__, perm, val, default, doc))
     elif overwrite_plugin_config_args["value"][0] == "":
         key = overwrite_plugin_config_args["key"][0]
         res1 = config.get_meta(key)
-        if isinstance(res1, (tuple, list)) == False:
+        if not isinstance(res1, (tuple, list)):
             return
         val = config.get(key)
         default = config.get_default(key)
@@ -227,11 +223,11 @@ def config_plugin(argv=sys.argv[1:]):
         print(config.set(overwrite_plugin_config_args["key"][0], overwrite_plugin_config_args["value"][0]))
 
 def check_dependencies():
+    """ check if dependencies are available """
     try:
         import markdown
     except ImportError:
         print("No markdown support", file=sys.stderr)
-    
     try:
         import gi
     except ImportError:
@@ -239,6 +235,7 @@ def check_dependencies():
 
 is_init_already = False
 def init_scn():
+    """ initialize once and only in mainthread """
     global is_init_already
     #import multiprocessing
     #multiprocessing.freeze_support()
@@ -250,7 +247,6 @@ def init_scn():
 
 def init_method_main():
     """ starter method """
-
     #pluginpathes.insert(1, os.path.join(configpath, "plugins"))
     #plugins_config = os.path.join(configpath, "config", "plugins")
     if len(sys.argv) > 1:

@@ -1,10 +1,11 @@
 #! /usr/bin/env python3
 # bsd3, see LICENSE.txt
 
-import os, sys
+import os
+import sys
 import subprocess
-import gi
 import logging
+import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GdkPixbuf
 
@@ -41,7 +42,7 @@ def _gtkclient_notify(msg, requester=""):
     dia.destroy()
     #ret[1].release()
     return ret
-    
+
 def gtkclient_notify(msg, requester=""):
     if sys.executable in ["", None]:
         logging.error("Cannot open interpreter for subprocess")
@@ -66,21 +67,18 @@ def _gtkclient_pw(msg, requester=""):
         labelreq = Gtk.Label("{} requests pw for:\n{}".format(requester, msg))
         box.pack_start(labelreq, False, False, 0)
     box.pack_end(Gtk.Label(msg), True, True, 0)
-        
+
     pwentry = Gtk.Entry(input_purpose=Gtk.InputPurpose.PASSWORD, visibility=False, invisible_char="*", hexpand=True)
     box.pack_end(pwentry, True, True, 0)
     box.show_all()
     dia.present()
-    
     retval = dia.run()
     pw = pwentry.get_text()
     dia.destroy()
-    
     if retval == 1:
         return pw
     else:
         return ""
-
 
 def gtkclient_pw(msg, requester=""):
     if sys.executable in ["", None]:
@@ -88,7 +86,6 @@ def gtkclient_pw(msg, requester=""):
         return ""
     with subprocess.Popen([sys.executable, __file__, "pw", msg, requester], stdin=subprocess.PIPE, stdout=subprocess.PIPE) as proc:
         return str(proc.communicate()[0][:-1], "utf-8")
-    
 
 if __name__ == "__main__":
     if sys.argv[1] == "pw":

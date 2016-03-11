@@ -52,6 +52,7 @@ class AddressFail(Exception):
     basemsg = '<address>[-<port>]:\n'
     def __str__(self):
         return self.basemsg + self.msg
+
 class EnforcedPortFail(AddressFail):
     msg = 'address is lacking -<port>'
 class AddressEmptyFail(AddressFail):
@@ -111,23 +112,23 @@ def generate_error_deco(func):
         else:
             _name = isself
             _hash = self.cert_hash
-        if resp[0] == False:
+        if not resp[0]:
             return False, generate_error(resp[1]), _name, _hash
         return resp
     return get_args
 
 def gen_result(res, status):
     """ generate result """
-    s = resp_st.copy()
-    if status == True:
-        s["status"] = "ok"
-        s["result"] = res
-        del s["error"]
+    stdict = resp_st.copy()
+    if status:
+        stdict["status"] = "ok"
+        stdict["result"] = res
+        del stdict["error"]
     else:
-        s["status"] = "error"
-        s["error"] = res
-        del s["result"]
-    return s
+        stdict["status"] = "error"
+        stdict["error"] = res
+        del stdict["result"]
+    return stdict
 
 def check_result(obdict, status):
     """ is result valid """
@@ -135,9 +136,9 @@ def check_result(obdict, status):
         return False
     if "status" not in obdict:
         return False
-    if status == True and "result" not in obdict:
+    if status and "result" not in obdict:
         return False
-    if status == False and "error" not in obdict:
+    if not status and "error" not in obdict:
         return False
     return True
 
@@ -193,7 +194,7 @@ def notify(msg, requester=""):
 
 def generate_certs(_path):
     _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key")
-    if _passphrase is not None and isinstance(_passphrase, str) == False:
+    if _passphrase is not None and isinstance(_passphrase, str) is False:
         logging.error("passphrase not str, None")
         return False
     if _passphrase != "":
@@ -218,8 +219,8 @@ def generate_certs(_path):
                                       subject_name=_tname,
                                       public_key=_pub_key,
                                       serial_number=0,
-                                      not_valid_before=datetime.date(1970,1,1),
-                                      not_valid_after=datetime.date(1970,1,1),
+                                      not_valid_before=datetime.date(1970, 1, 1),
+                                      not_valid_after=datetime.date(1970, 1, 1),
                                       extensions=extensions)
     cert = builder.sign(_key, cert_sign_hash, default_backend())
     if _passphrase == "":
@@ -261,17 +262,20 @@ def init_config_folder(_dir, prefix):
     _path = os.path.join(_dir, prefix)
     if not os.path.exists("{}_name.txt".format(_path)):
         _name = os.getenv("USERNAME")
-        if _name is None:
+        if _name in [None, ""]:
             _name = os.getenv("USER")
-        if _name is None:
+        if _name in [None, ""]:
             _name = os.getenv("HOME")
             if _name:
                 _name = os.path.basename(_name)
-        if _name is None:
+        if _name in [None, ""]:
             try:
                 _name = socket.gethostname()
             except Exception:
                 pass
+        if _name in [None, ""]:
+            print(_name)
+            _name = ""
         with open("{}_name.txt".format(_path), "w") as writeo:
             if prefix == "client":
                 writeo.write("{}/{}".format(normalize_name(_name), 0))
@@ -320,7 +324,7 @@ def scnparse_url(url, force_port=False):
     _urlre = re_parse_url.match(url)
     if _urlre is not None:
         return _urlre.groups()[0], int(_urlre.groups()[1])
-    if force_port == False:
+    if not force_port:
         return (url, server_port)
     raise EnforcedPortFail
 
@@ -354,7 +358,7 @@ class scnauth_server(object):
 
     def request_auth(self, realm):
         if realm not in self.realms:
-            logging.error("Not a valid realm: {}".format(realm))
+            logging.error("Not a valid realm: %s", realm)
         rauth = authrequest_struct.copy()
         rauth["algo"] = self.hash_algorithm
         # send server time, client time should not be used because timeouts are on serverside
@@ -374,17 +378,17 @@ class scnauth_server(object):
             if len(authdict) > 0:
                 logging.debug("realm not in transmitted authdict")
             return False
-        if isinstance(authdict[realm], dict) == False:
+        if not isinstance(authdict[realm], dict):
             logging.warning("authdicts realm is no dict")
             return False
-        if isinstance(authdict[realm].get("timestamp", None), str) == False:
+        if not isinstance(authdict[realm].get("timestamp", None), str):
             logging.warning("no timestamp")
             return False
-        if authdict[realm].get("timestamp", "").isdecimal() == False:
+        if not authdict[realm].get("timestamp", "").isdecimal():
             logging.warning("Timestamp not a number")
             return False
         timestamp = int(authdict[realm].get("timestamp"))
-        if timestamp < int(time.time())-self.request_expire_time:
+        if timestamp < int(time.time()) - self.request_expire_time:
             return False
         if dhash(authdict[realm].get("timestamp"), self.hash_algorithm, prehash=self.realms[realm][0]) == authdict[realm]["auth"]:
             return True
@@ -553,8 +557,7 @@ class traverser_helper(object):
         self.connectsock = connectsock
         self.srcsock = srcsock
         self.mutex = threading.Lock()
-        t = threading.Thread(target=self._connecter, daemon=True)
-        t.start()
+        threading.Thread(target=self._connecter, daemon=True).start()
 
     def add_desttupel(self, destaddrtupel):
         if self.connectsock.family == socket.AF_INET6:
@@ -564,8 +567,7 @@ class traverser_helper(object):
             return True
         self.desttupels.append(destaddrtupel)
         self.mutex.release()
-        t = threading.Thread(target=self._pinger, args=(destaddrtupel,), daemon=True)
-        t.start()
+        threading.Thread(target=self._pinger, args=(destaddrtupel,), daemon=True).start()
         return True
 
     def del_desttupel(self, destaddrtupel):
@@ -590,8 +592,8 @@ class traverser_helper(object):
                 self.mutex.release()
                 self.srcsock.sendto(scn_pingstruct, destaddrtupel)
                 time.sleep(self.interval)
-        except Exception as e:
-            logging.info(e)
+        except Exception as exc:
+            logging.info(exc)
             # error: cleanup
             self.mutex.acquire()
             try:
@@ -617,11 +619,11 @@ class traverser_helper(object):
                         addr = convert_ip4_to_6(addr)
                     self.connectsock.connect((addr, port))
                     self.srcsock.sendto(scn_yesstruct, requesteraddress)
-                except Exception as e:
+                except Exception as exc:
                     self.srcsock.sendto(scn_nostruct, requesteraddress)
-                    logging.info(e)
-            except Exception as e:
-                logging.info(e)
+                    logging.info(exc)
+            except Exception as exc:
+                logging.info(exc)
 
 cert_update_header = \
 {
@@ -631,13 +633,13 @@ cert_update_header = \
 }
 
 
-def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=default_timeout, connect_timeout=connect_timeout):
+def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=default_timeout, ctimeout=connect_timeout):
     update_list = []
     if None in [_address, _port]:
         logging.error("address or port empty")
         return None
     cont = default_sslcont()
-    con = HTTPSConnection(_address, _port, context=cont, timeout=connect_timeout)
+    con = HTTPSConnection(_address, _port, context=cont, timeout=ctimeout)
     try:
         con.connect()
     except socket.timeout:
@@ -661,10 +663,10 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=def
         # con.sock.do_handshake()
         ret = con.getresponse()
         if ret.status != 200:
-            logging.info("checking cert failed, code: {}, reason: {}".format(ret.status, ret.reason))
+            logging.info("checking cert failed, code: %s, reason: %s", ret.status, ret.reason)
             continue
         if con.sock and oldhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
-            logging.error("certificate switch detected, stop checking ")
+            logging.error("certificate switch detected, stop checking")
             break
         if dhash(brokensslcert) == _hash:
             update_list.append((_hash, _security))
@@ -726,7 +728,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "{}; charset=utf-8".format(mime))
         if self.headers.get("X-certrewrap") is not None:
             self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        if docache == False:
+        if not docache:
             self.send_header("Cache-Control", "no-cache")
             if dokeepalive is None and status == 200:
                 dokeepalive = True
@@ -741,7 +743,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
     # use cache?
     # htmlcache = {}
     def html(self, page, lang="en"):
-        if self.webgui == False:
+        if not self.webgui:
             self.send_error(404, "no webgui")
             return
         _ppath = os.path.join(sharedir, "html", lang, page)
@@ -760,7 +762,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
 
     def init_scn_stuff(self):
         useragent = self.headers.get("User-Agent", "")
-        logging.debug("Useragent: {}".format(useragent))
+        logging.debug("Useragent: %s", useragent)
         if "simplescn" in useragent:
             self.error_message_format = "%(code)d: %(message)s – %(explain)s"
         _auth = self.headers.get("Authorization", 'scn {}')
@@ -780,7 +782,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
         _origcert = self.headers.get("X-original_cert")
         if _rewrapcert is not None:
             cont = self.connection.context
-            if self.alreadyrewrapped == False:
+            if not self.alreadyrewrapped:
                 # wrap tcp socket, not ssl socket
                 self.connection = self.connection.unwrap()
                 self.connection = cont.wrap_socket(self.connection, server_side=False)
@@ -806,12 +808,12 @@ class commonscnhandler(BaseHTTPRequestHandler):
         return True
 
     def cleanup_stale_data(self, maxchars=max_serverrequest_size):
-        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == True:
+        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal():
             # protect against big transmissions
             self.rfile.read(min(maxchars, int(self.headers.get("Content-Length"))))
 
     def parse_body(self, maxlength=None):
-        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal() == False:
+        if not self.headers.get("Content-Length", "").strip().rstrip().isdecimal():
             self.scn_send_answer(411, message="POST data+data length needed")
             return None
         contsize = int(self.headers.get("Content-Length"))
@@ -868,8 +870,8 @@ class commonscnhandler(BaseHTTPRequestHandler):
         self.wfile.flush()
         try:
             return func(action, self.connection, self.client_cert, self.client_cert_hash)
-        except Exception as e:
-            logging.error(e)
+        except Exception as exc:
+            logging.error(exc)
             return False
 
 def create_certhashheader(certhash):
@@ -878,7 +880,7 @@ def create_certhashheader(certhash):
 
 def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
     if algo not in algorithms_strong:
-        logging.error("Hashalgorithm not available: {}".format(algo))
+        logging.error("Hashalgorithm not available: %s", algo)
         return None
     if not isinstance(oblist, (list, tuple)):
         oblist = [oblist,]
@@ -892,7 +894,7 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
         elif isinstance(ob, str):
             tmp.update(bytes(ob, "utf-8"))
         else:
-            logging.error("Object not hash compatible: {}".format(ob))
+            logging.error("Object not hash compatible: %s", ob)
             continue
         ret = tmp.hexdigest()
     return ret
@@ -1038,7 +1040,7 @@ def check_argsdeco(requires={}, optional={}):
     def func_to_check(func):
         def get_args(*args):
             if len(args) != 2:
-                logging.error("check_args: wrong function call: {}: {}".format(func.__name__, args))
+                logging.error("check_args: wrong function call: %s: %s", func.__name__, args)
                 # return False, "check_args failed ({}) wrong amount args: {}".format(func.__name__, args), isself, self.cert_hash
             self, obdict = args
             error = []
@@ -1050,7 +1052,7 @@ def check_argsdeco(requires={}, optional={}):
             if isinstance(resp, bool) or len(resp) == 1:
                 if not isinstance(resp, bool):
                     resp = resp[0]
-                if resp == True:
+                if resp:
                     return True, "{} finished successfully".format(func.__name__), isself, self.cert_hash
                 else:
                     return False, "{} failed".format(func.__name__), isself, self.cert_hash
@@ -1072,7 +1074,7 @@ def loglevel_converter(loglevel):
     elif not loglevel.isdigit():
         if hasattr(logging, loglevel) and isinstance(getattr(logging, loglevel), int):
             return getattr(logging, loglevel)
-        raise(TypeError("invalid loglevel"))
+        raise TypeError("invalid loglevel")
     else:
         return int(loglevel)
 
@@ -1089,7 +1091,7 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
                 charset = split2[1].strip().rstrip()
             string = str(inp, charset)
         else:
-            logging.error("Invalid type: {}".format(type(inp)))
+            logging.error("Invalid type: %s", type(inp))
             return
         if string == "":
             logging.info("Input empty")
@@ -1112,7 +1114,7 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
                         obdict["auth"][splitted[0]] = splitted[1]
             return obdict
         else:
-            logging.error("invalid parsing type: {}".format(enctype))
+            logging.error("invalid parsing type: %s", enctype)
             return None
     except LookupError:
         logging.error("charset not available")
@@ -1126,16 +1128,16 @@ def check_reference(_reference):
         return False
     if len(_reference) > 100:
         return False
-    if all(c not in "\0'\"\x1A\x7F" for c in _reference) == False:
+    if not all(c not in "\0'\"\x1A\x7F" for c in _reference):
         return False
     return True
 
 def check_reference_type(_reference_type):
     if _reference_type is None:
         return False
-    if len(_reference_type) > 15:
+    if len(_reference_type) > max_typelength:
         return False
-    if all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type) == False:
+    if not all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type):
         return False
     return True
 
@@ -1157,7 +1159,7 @@ def check_hash(hashstr, length=None):
     if length and len(hashstr) != length:
         return False
     # don't allow uppercase as it could confuse clients+servers and lowercase is default
-    if all(c in "0123456789abcdef" for c in hashstr) == False:
+    if not all(c in "0123456789abcdef" for c in hashstr):
         return False
     return True
 
@@ -1177,7 +1179,7 @@ def normalize_name(_name, maxlength=max_namelength):
     _name = ""
     for char in _oldname:
         # ensure no bad, control characters
-        if char in badnamechars or char.isprintable() == False:
+        if char in badnamechars or not char.isprintable():
             pass
         else:
             _name += char
@@ -1223,7 +1225,7 @@ def check_conftype(_value, _converter):
         else:
             _converter(str(_value))
     except Exception as exc:
-        logging.error("invalid value converter: {} value: {} error: {}".format(_converter, _value, exc))
+        logging.error("invalid value converter: %s value: %s error: %s", _converter, _value, exc)
         return False
     return True
 

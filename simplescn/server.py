@@ -2,27 +2,23 @@
 #license: bsd3, see LICENSE.txt
 
 import os
-#from simplescn import sharedir
 
-from http.client import HTTPSConnection 
+from http.client import HTTPSConnection
 import time
-import  threading
+import threading
 import json
 import logging
-#, base64
 import ssl
 import socket
 
-from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, check_name, dhash, commonscn, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_hash, check_local, harden_mode, debug_mode
+from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, check_name, dhash, commonscn, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_hash, check_local, harden_mode, debug_mode, sharedir
 
 server_broadcast_header = \
 {
-"User-Agent": "simplescn/0.5 (broadcast)",
-"Authorization": 'scn {}',
-"Connection": 'keep-alive' # keep-alive is set by server (and client?)
+    "User-Agent": "simplescn/0.5 (broadcast)",
+    "Authorization": 'scn {}',
+    "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
-
-
 
 class server(commonscn):
     # replace not add (multi instance)
@@ -34,18 +30,19 @@ class server(commonscn):
     scn_type = "server"
     traverse = None
     links = None
-    
+    timeout = None
+    connect_timeout = None
+
     # explicitly allowed, note: server plugin can activate
     # this by their own version of this variable
     allowed_plugin_broadcasts = set()
-    
     # auto set by load balancer
     expire_time = None
     sleep_time = None
 
     validactions = {"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes", "open_traversal", "get_ownaddr"}
-    
-    def __init__(self,d):
+
+    def __init__(self, d):
         commonscn.__init__(self)
         # init here (multi instance situation)
         self.nhipmap = {}
@@ -64,6 +61,8 @@ class server(commonscn):
             logging.debug("Message empty")
             d["message"] = "<empty>"
 
+        self.timeout = d["timeout"]
+        self.connect_timeout = d["connect_timeout"]
         self.priority = int(d["priority"])
         self.cert_hash = d["certhash"]
         self.name = d["name"]
@@ -82,8 +81,8 @@ class server(commonscn):
         self.nhipmap_cond.set()
         try:
             self.refreshthread.join(4)
-        except Exception as e:
-            logging.error(e)
+        except Exception as exc:
+            logging.error(exc)
 
     # private, do not include in validactions
     def refresh_nhipmap(self):
@@ -91,7 +90,7 @@ class server(commonscn):
             self.changeip_lock.acquire()
             e_time = int(time.time())-self.expire_time
             count = 0
-            dump=[]
+            dump = []
             for _name, hashob in self.nhipmap.items():
                 for _hash, val in hashob.items():
                     if val["updatetime"] < e_time:
@@ -123,6 +122,7 @@ class server(commonscn):
         else:
             # very_low_load tuple mustn't have three items
             self.sleep_time, self.expire_time = very_low_load
+
     # private, do not include in validactions
     def check_register(self, addresst, _hash):
         try:
@@ -146,7 +146,7 @@ class server(commonscn):
         self.changeip_lock.acquire(True)
         update_time = int(time.time())
         for _uhash, _usecurity in update_list:
-            self.nhipmap[_name][_uhash] = {"security": _usecurity, "hash": newhash, "name": _name,"updatetime": update_time}
+            self.nhipmap[_name][_uhash] = {"security": _usecurity, "hash": newhash, "name": _name, "updatetime": update_time}
         self.changeip_lock.release()
         # notify that change happened
         self.nhipmap_cond.set()
@@ -158,19 +158,19 @@ class server(commonscn):
             name: client name
             port: listen port of client
             update: list with compromised hashes (includes reason=security) """
-        if check_name(obdict["name"])==False:
+        if not check_name(obdict["name"]):
             return False, "invalid_name"
         if obdict["clientcert"] is None:
             return False, "no_cert"
 
         clientcerthash = obdict["clientcerthash"]
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
-        if ret[0] == False:
-            ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1] ), "destaddr": "{}-{}".format(obdict["clientaddress"][0], obdict["port"])})
-            if ret[0] == False:
+        if not ret[0]:
+            ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1]), "destaddr": "{}-{}".format(obdict["clientaddress"][0], obdict["port"])})
+            if not ret[0]:
                 return ret
             ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
-            if ret[0] == False:
+            if not ret[0]:
                 return False, "unreachable client"
             ret[1] = "registered_traversal"
         elif check_local(obdict["clientaddress"][0]):
@@ -192,8 +192,7 @@ class server(commonscn):
         self.changeip_lock.release()
 
         # update broken certs afterwards
-        t = threading.Thread(target=self.check_brokencerts, args=(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True)
-        t.start()
+        threading.Thread(target=self.check_brokencerts, args=(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True).start()
 
         # notify that change happened
         self.nhipmap_cond.set()
@@ -208,11 +207,10 @@ class server(commonscn):
             return False, "no traversal possible"
         try:
             destaddr = scnparse_url(obdict.get("destaddr"), True)
-        except Exception: # as e:
+        except Exception:
             return False, "destaddr invalid"
         travaddr = obdict.get("clientaddress") #(obdict["clientaddress"][0], travport)
-        ret = threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr),daemon=True)
-        ret.start()
+        threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr), daemon=True).start()
         return True, {"traverse_address": travaddr}
 
     @check_argsdeco()
@@ -224,7 +222,7 @@ class server(commonscn):
 
     @check_argsdeco({"hash": str, "name": str}, optional={"autotraverse": bool})
     def get(self, obdict):
-        """ func: get address of a client 
+        """ func: get address of a client
             return: client address, client port, security, traverse_address, traverse_needed
             name: client name
             hash: client hash
@@ -240,10 +238,10 @@ class server(commonscn):
         else:
             _usecurity = None
         _travaddr = None
-        if self.traverse and _obj.get("autotraverse", False) == True:
+        if self.traverse and _obj.get("autotraverse", False):
             _travobj1 = self.open_traversal(obdict)
             if _travobj1[0]:
-                _travaddr = _travobj1.get("traverse_address")
+                _travaddr = _travobj1[1].get("traverse_address")
         if _usecurity:
             return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
         else:
@@ -251,9 +249,9 @@ class server(commonscn):
 
     def broadcast_helper(self, _addr, _path, payload, _certhash, timeout=default_timeout, timeout_con=connect_timeout):
         try:
-            con = HTTPSConnection(_addr,  timeout=connect_timeout)
+            con = HTTPSConnection(_addr, timeout=connect_timeout)
             con.connect()
-            con.socket.settimeout(timeout_con)
+            con.socket.settimeout(timeout)
             pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True))
             hashpcert = dhash(pcert)
             if hashpcert != _certhash:
@@ -267,6 +265,16 @@ class server(commonscn):
             con.endheaders()
             con.sock = con.sock.unwrap()
             con.sock = self.links["hserver"].sslcont.wrap_socket(con.sock, server_side=True)
+            resp = client.HTTPResponse(con.sock, con.debuglevel, method=con._method)
+            resp.begin()
+            if resp.status != 200:
+                logging.error("requesting plugin failed: %s, action: %s, status: %s, reason: %s", plugin, paction, resp.status, resp.reason)
+                con.close()
+                return
+            if _random != resp.getheader("X-certrewrap", ""):
+                logging.error("rewrapped cert secret does not match")
+                con.close()
+                return
             con.send(payload)
             con.close()
         except socket.timeout:
@@ -288,8 +296,8 @@ class server(commonscn):
         if (_plugin, paction) not in self.allowed_plugin_broadcasts:
             return False, "not in allowed_plugin_broadcasts"
         for elem in obdict.get("receivers"):
-            if len(elem)!=2:
-                logging.debug("invalid element: {}".format(elem))
+            if len(elem) != 2:
+                logging.debug("invalid element: %s", elem)
                 continue
             _name, _hash = elem
             if _name not in self.nhipmap:
@@ -308,8 +316,8 @@ class server(commonscn):
             return False, "no permission"
         try:
             return getattr(self, action)(obdict)
-        except Exception as e:
-            return False, e
+        except Exception as exc:
+            return False, exc
 
 def gen_server_handler():
     class server_handler(commonscnhandler):
@@ -320,7 +328,7 @@ def gen_server_handler():
             if action not in self.links["server_server"].validactions:
                 self.scn_send_answer(400, message="invalid action - server")
                 return
-            if self.links["auth"].verify("server", self.auth_info) == False:
+            if not self.links["auth"].verify("server", self.auth_info):
                 authreq = self.links["auth"].request_auth("server")
                 ob = bytes(json.dumps(authreq), "utf-8")
                 self.scn_send_answer(401, body=ob, docache=False)
@@ -352,13 +360,13 @@ def gen_server_handler():
                 self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
                 return
             ob = bytes(jsonnized, "utf-8")
-            if success == False:
+            if not success:
                 self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
             else:
                 self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
 
         def do_GET(self):
-            if self.init_scn_stuff() == False:
+            if not self.init_scn_stuff():
                 return
             if self.path == "/favicon.ico":
                 if "favicon.ico" in self.statics:
@@ -366,25 +374,25 @@ def gen_server_handler():
                 else:
                     self.scn_send_answer(404, docache=True)
                 return
-            if self.webgui == False:
+            if not self.webgui:
                 self.scn_send_answer(404, message="no webgui enabled", docache=True)
             _path = self.path[1:].split("/")
-            if _path[0] in ("","server","html","index"):
+            if _path[0] in ("", "server", "html", "index"):
                 self.html("server.html")
                 return
-            elif  _path[0] == "static" and len(_path)>=2:
+            elif  _path[0] == "static" and len(_path) >= 2:
                 if _path[1] in self.statics:
                     self.scn_send_answer(200, body=self.statics[_path[1]])
                 return
-            elif len(_path)==2:
+            elif len(_path) == 2:
                 self.handle_server(_path[0])
                 return
             self.scn_send_answer(404, message="resource not found (GET)", docache=True)
 
         def do_POST(self):
-            if self.init_scn_stuff() == False:
+            if not self.init_scn_stuff():
                 return
-            splitted = self.path[1:].split("/",1)
+            splitted = self.path[1:].split("/", 1)
             if len(splitted) == 1:
                 resource = splitted[0]
                 sub = ""
@@ -415,14 +423,14 @@ class server_init(object):
     config_path = None
     links = None
 
-    def __init__(self,_configpath, **kwargs):
+    def __init__(self, _configpath, **kwargs):
         self.links = {}
         self.links["config_root"] = _configpath
         self.links["handler"] = gen_server_handler()
-        _spath = os.path.join(self.links["config_root"],"server")
+        _spath = os.path.join(self.links["config_root"], "server")
         port = int(kwargs["port"][0])
-        init_config_folder(self.links["config_root"],"server")
-        if check_certs(_spath+"_cert") == False:
+        init_config_folder(self.links["config_root"], "server")
+        if not check_certs(_spath+"_cert"):
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(_spath + "_cert")
             logging.debug("Certificate generation complete")
@@ -431,7 +439,7 @@ class server_init(object):
         self.links["auth"] = scnauth_server(dhash(pub_cert))
         if bool(kwargs["spwhash"][0]):
             if not check_hash(kwargs["spwhash"][0]):
-                logging.error("hashtest failed for spwhash, spwhash: {}".format(kwargs["spwhash"][0]))
+                logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"][0])
             else:
                 self.links["auth"].init_realm("server", kwargs["spwhash"][0])
         elif bool(kwargs["spwfile"][0]):
@@ -440,7 +448,7 @@ class server_init(object):
                 if pw[-1] == "\n":
                     pw = pw[:-1]
                 self.links["auth"].init_realm("server", dhash(pw))
-        
+
         if kwargs["webgui"][0] != "False":
             self.links["handler"].webgui = True
             # load static files
@@ -460,8 +468,8 @@ class server_init(object):
         if None in [pub_cert, _name, _message]:
             raise Exception("missing")
         _name = _name.split("/")
-        if len(_name)>2 or check_name(_name[0])==False:
-            logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_spath+"_name"))
+        if len(_name) > 2 or not check_name(_name[0]):
+            logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _spath + "_name")
 
         if port > -1:
             _port = port
@@ -470,11 +478,10 @@ class server_init(object):
         else:
             _port = server_port
 
-        serverd = {"name": _name[0], "certhash": dhash(pub_cert),
-                "priority": kwargs["priority"][0], "message":_message, "links": self.links}
+        serverd = {"name": _name[0], "certhash": dhash(pub_cert), "timeout": kwargs["timeout"][0], "connect_timeout": kwargs["connect_timeout"][0], "priority": kwargs["priority"][0], "message":_message, "links": self.links}
         self.links["handler"].links = self.links
         self.links["server_server"] = server(serverd)
-        
+
         # server without server have fun if False
         if kwargs["noserver"][0] != "True":
             self.links["hserver"] = http_server(("", _port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=int(kwargs["timeout"][0]))
@@ -493,22 +500,22 @@ class server_init(object):
 #### but optionally support plugins (some risk)
 
 overwrite_server_args = {
-            "config": [default_configdir, str, "<path>: path to config dir"],
-            "port": [str(-1), int, "<int>: port of server, -1: use port in \"server_name.txt\""],
-            "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than pwfile, lowercase"],
-            "spwfile": ["", str, "<file>: file with password (cleartext)"],
-            "webgui": ["False", bool, "<bool>: activate webgui"],
-            "useplugins": ["False", bool, "<bool>: activate plugins"],
-            "priority": [str(default_priority), int, "<int>: set server priority"],
-            "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
-            "timeout": [str(default_timeout), int, "<int>: set timeout"],
-            "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
-            "notraversal": ["False", bool, "<bool>: disable traversal"],
-            "noserver": ["False", bool, "<bool>: deactivate httpserver (=a server without a server, have fun)"]}
+    "config": [default_configdir, str, "<path>: path to config dir"],
+    "port": [str(-1), int, "<int>: port of server, -1: use port in \"server_name.txt\""],
+    "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than pwfile, lowercase"],
+    "spwfile": ["", str, "<file>: file with password (cleartext)"],
+    "webgui": ["False", bool, "<bool>: activate webgui"],
+    "useplugins": ["False", bool, "<bool>: activate plugins"],
+    "priority": [str(default_priority), int, "<int>: set server priority"],
+    "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
+    "timeout": [str(default_timeout), int, "<int>: set timeout"],
+    "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
+    "notraversal": ["False", bool, "<bool>: disable traversal"],
+    "noserver": ["False", bool, "<bool>: deactivate httpserver (=a server without a server, have fun)"]}
 
 def server_paramhelp():
-    t = "# parameters (non-permanent)\n"
+    _temp = "# parameters (non-permanent)\n"
     for _key, elem in sorted(overwrite_server_args.items(), key=lambda x: x[0]):
-        t += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
-    return t
+        _temp += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
+    return _temp
 

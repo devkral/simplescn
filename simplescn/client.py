@@ -25,7 +25,6 @@ from simplescn.common import certhash_db
 #VALMITMError
 
 
-
 reference_header = \
 {
     "User-Agent": "simplescn/0.5 (client)",
@@ -280,7 +279,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         # set to None before connection can destroy socket
         con.sock = None
         if resp.status != 200:
-            logging.error("requesting plugin failed: {}, action: {}, status: {}, reason: {}".format(plugin, paction, resp.status, resp.reason))
+            logging.error("requesting plugin failed: %s, action: %s, status: %s, reason: %s", plugin, paction, resp.status, resp.reason)
             return None, None, None
         if _hash != forcehash:
             con.close()
@@ -782,7 +781,7 @@ class client_init(object):
             raise Exception("missing")
         _name = _name.split("/")
         if len(_name) > 2 or not check_name(_name[0]):
-            logging.error("Configuration error in {}\nshould be: <name>/<port>\nor name contains some restricted characters".format(_cpath+"_name"))
+            logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _cpath + "_name")
             sys.exit(1)
         if confm.get("port") > -1:
             pass

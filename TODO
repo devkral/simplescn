@@ -2,7 +2,7 @@
 
 
 ## Beta 2
-* gtk gui (for windows nearly impossible so give up)
+* gtk gui for windows (nearly impossible so give up)
 
 ## rc 1
 * more tests
@@ -17,7 +17,7 @@
 
 ## Future
 * Webgui
-* kivy gui (limitation to one window, so postpone)
+* kivy gui (limitation to one window, so ignore)
 * announce client/server
 * filesockets
 * holepunching for services
