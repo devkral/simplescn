@@ -6,7 +6,6 @@ import sys
 import logging
 import time
 import threading
-
 import traceback
 
 import gi
@@ -18,52 +17,44 @@ from simplescn import client, logcheck
 
 from simplescn.guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff, help_stuff
 from simplescn.guigtk.clientmain_managehash import hashmanagement
-
 from simplescn.guigtk.clientdialogs import gtkclient_pw, gtkclient_notify, parentlist
 from simplescn.guigtk.clientnode import gtkclient_node
 from simplescn.guigtk import set_parent_template, implementedrefs
 
 from simplescn import default_sslcont, sharedir, isself, check_hash, scnparse_url, AddressEmptyFail, generate_error
 #debug_mode
-
 messageid = 0
-
 
 class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuff, help_stuff, hashmanagement, set_parent_template):
     links = None
-
     curnode = None
     curlocal = None
     app = None
     win = None
-    
+
     builder = None
     clip = None
     backlog = []
     statusbar = None
-    
+
     localstore = None
     serverlist_dic = []
-    
+
     recentstore = None
     recentcount = 0
     remote_client = None
     #use_remote_client=False
-    
 
     clientwin = None
-    
-    
+
     remoteclient_url = ""
     remoteclient_hash = ""
     use_localclient = True
-    
 
     cert_hash = None
     #start_url_hash=(None,None)
     _old_serverurl = ""
-    
-    
+
     def __init__(self, _links):
         self.links = _links
         logging.Handler.__init__(self)
@@ -184,10 +175,9 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         _names = self.do_requestdo("listnodenames")
         if logcheck(_names) == False:
             return
-        
         for elem in _names[1]["items"]:
             localnames.append((elem,))
-        
+
     def update_serverlist_refid(self, _refid):
         serverlist = self.builder.get_object("serverlist")
         _serverrefs = self.do_requestdo("getreferences", certreferenceid=_refid)
@@ -362,9 +352,8 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         #else:
         #    #name = askinfo.get("localname")
         gtkclient_node(self.links, "{}-{}".format(*scnparse_url(serverurl)), forcehash=askinfo.get("hash"), page="server")
-        
-    
-    #### node actions ####
+
+    ### node actions ###
     def addnodehash_intern(self, _name, _hash, _type="unknown", refstoadd=()):
         addnodecombo = self.builder.get_object("addnodecombo")
         addnodehashentry = self.builder.get_object("addnodehashentry")
