@@ -15,7 +15,7 @@ from simplescn import server_port, check_certs, generate_certs, init_config_fold
 
 server_broadcast_header = \
 {
-    "User-Agent": "simplescn/0.5 (broadcast)",
+    "User-Agent": "simplescn/1.0 (broadcast)",
     "Authorization": 'scn {}',
     "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }

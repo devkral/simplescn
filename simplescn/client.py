@@ -27,7 +27,7 @@ from simplescn.common import certhash_db
 
 reference_header = \
 {
-    "User-Agent": "simplescn/0.5 (client)",
+    "User-Agent": "simplescn/1.0 (client)",
     "Authorization": 'scn {}',
     "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
@@ -260,7 +260,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
         _certheader, _random = create_certhashheader(self.cert_hash)
         con.putheader("X-certrewrap", _certheader)
-        con.putheader("User-Agent", "simplescn/0.5 (client-plugin)")
+        con.putheader("User-Agent", "simplescn/1.0 (client-plugin)")
         if originalcert:
             con.putheader("X-original_cert", originalcert)
         con.endheaders()
