@@ -19,7 +19,7 @@ from simplescn.client_config import client_config
 from simplescn.dialogs import client_dialogs
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -530,7 +530,7 @@ def gen_client_handler():
             # redirect overrides handle_local, handle_remote
             if not self.handle_remote and \
             "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and \
-            (not self.handle_local or not check_local(self.client_address2[0])):
+            (not self.handle_local or self.server.address_family != file_family or not check_local(self.client_address2[0])):
                 self.send_error(403, "no permission - client")
                 return
             if "admin" in getattr(getattr(self.links["client"], action), "classify", set()):
@@ -559,7 +559,7 @@ def gen_client_handler():
             if not response[0]:
                 error = response[1]
                 generror = generate_error(error)
-                if not debug_mode or not check_local(self.client_address2[0]):
+                if not debug_mode or self.server.address_family != file_family or not check_local(self.client_address2[0]):
                     # don't show stacktrace if not permitted and not in debug mode
                     if "stacktrace" in generror:
                         del generror["stacktrace"]
@@ -600,7 +600,7 @@ def gen_client_handler():
                 jsonnized = json.dumps(gen_result(response[1], response[0]))
             except Exception as exc:
                 generror = generate_error(exc)
-                if not debug_mode or not check_local(self.client_address2[0]):
+                if not debug_mode or self.server.address_family != file_family or not check_local(self.client_address2[0]):
                     # don't show stacktrace if not permitted and not in debug mode
                     if "stacktrace" in generror:
                         del generror["stacktrace"]

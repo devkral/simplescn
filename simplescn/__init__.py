@@ -44,6 +44,11 @@ except ImportError:
     from simplescn.parameters import *
 socket.setdefaulttimeout(default_timeout)
 
+# define file_family
+if hasattr(socket, "AF_UNIX"):
+    file_family = socket.AF_UNIX
+else:
+    file_family = None
 
 ###### signaling ######
 

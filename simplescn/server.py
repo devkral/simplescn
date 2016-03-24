@@ -11,7 +11,7 @@ import logging
 import ssl
 import socket
 
-from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, check_name, dhash, commonscn, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_hash, check_local, harden_mode, debug_mode, sharedir
+from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, check_name, dhash, commonscn, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_hash, check_local, harden_mode, debug_mode, sharedir, file_family
 
 server_broadcast_header = \
 {
@@ -325,6 +325,9 @@ def gen_server_handler():
         webgui = False
 
         def handle_server(self, action):
+            if self.server.address_family == file_family:
+                self.scn_send_answer(500, message="file_family is not supported by server component")
+                return
             if action not in self.links["server_server"].validactions:
                 self.scn_send_answer(400, message="invalid action - server")
                 return
