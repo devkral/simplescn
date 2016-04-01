@@ -107,7 +107,7 @@ class client_safe(object):
             _forcehash = self.cert_hash
             client_addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
         _tservices = self.do_request(client_addr, "/server/dumpservices", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
-        if _tservices[0] == False:
+        if not _tservices[0]:
             return _tservices
         out = sorted(_tservices[1].items(), key=lambda t: t[0])
         return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2], _tservices[3]
@@ -177,7 +177,7 @@ class client_safe(object):
             return: sorted list of client names with additional informations
             server: server url """
         _tnames = self.do_request(obdict["server"], "/server/dumpnames", body={"pwcall_method": obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
-        if _tnames[0] == False:
+        if not _tnames[0]:
             return _tnames
         out = []
         for name, _hash, _security in sorted(_tnames[1], key=lambda t: t[0]):
@@ -238,7 +238,7 @@ class client_safe(object):
             name: client name
             hash: client hash """
         temp = self.get(obdict)
-        if temp[0] == False:
+        if not temp[0]:
             return temp
         temp[1]["forcehash"] = obdict.get("hash")
         return self.prioty_direct({"address":"{address}-{port}".format(**temp[1])})
@@ -257,7 +257,7 @@ class client_safe(object):
                 return False, "Error: own client is marked not valid"
         # only use forcehash if requested elsewise handle hash mismatch later
         prioty_ret = self.prioty_direct({"address": obdict["address"], "forcehash": obdict.get("forcehash")})
-        if prioty_ret[0] == False:
+        if not prioty_ret[0]:
             return prioty_ret
         # don't query if hash is from client itself
         if obdict["hash"] == self.cert_hash:
@@ -310,7 +310,7 @@ class client_safe(object):
             name: client name
             hash: client certificate hash """
         get_ret = self.get(obdict)
-        if get_ret[0] == False:
+        if not get_ret[0]:
             return get_ret
         # request forcehash if not valid
         if get_ret[1].get("security", "valid") != "valid":

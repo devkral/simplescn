@@ -314,9 +314,9 @@ class client_admin(object):
         for _name, _hash, _type, _priority, _security, _certreferenceid in listall:
             if _imp_ent is not None and _name not in _imp_ent and _hash not in _imp_hash:
                 continue
-            if self.hashdb.exists(_name) == False:
+            if not self.hashdb.exists(_name):
                 self.hashdb.addentity(_name)
-            if self.hashdb.exists(_name, _hash) == True:
+            if self.hashdb.exists(_name, _hash):
                 pass
                 #self.hashdb.updatehash(_hash, _type, _priority, _security)
             elif self.hashdb.get(_hash) is not None:
@@ -330,7 +330,7 @@ class client_admin(object):
                 localref = localref[4]
             localreferences = self.hashdb.getreferences(localref)
             _retreferences = self.do_request(obdict.get("client"), "/client/getreferences", {"hash":_hash})
-            if _retreferences[0] == True:
+            if _retreferences[0]:
                 for _ref, _reftype in _retreferences[1]["items"]:
                     if (_ref, _reftype) in localreferences:
                         pass

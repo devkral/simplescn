@@ -130,7 +130,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def update_storage(self):
         """ func: update local storage """
         _storage = self.do_requestdo("listnodenametypes")
-        if logcheck(_storage) == False:
+        if not logcheck(_storage):
             return
         self.localstore.clear()
         self.serverit = self.localstore.insert_with_values(None, -1, [0], ["Server"])
@@ -141,7 +141,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         self.unknown_dic = []
         self.emptyit = self.localstore.insert_with_values(None, -1, [0], ["Empty"])
         self.empty_dic = []
-        
+
         #serverlist=self.builder.get_object("serverlist")
         #serverlist.clear()
         for elem in _storage[1]["items"]:
@@ -160,7 +160,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             else:
                 self.unknown_dic += [elem[0]]
                 self.localstore.insert_with_values(self.unknownit, -1, [0], [elem[0]])
-                
         for elem in self.server_dic+self.friend_dic+self.unknown_dic:
             if elem in self.empty_dic:
                 self.empty_dic.remove(elem)
@@ -172,7 +171,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         localnames.clear()
         localnames.append(("",))
         _names = self.do_requestdo("listnodenames")
-        if logcheck(_names) == False:
+        if not logcheck(_names):
             return
         for elem in _names[1]["items"]:
             localnames.append((elem,))
@@ -180,7 +179,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def update_serverlist_refid(self, _refid):
         serverlist = self.builder.get_object("serverlist")
         _serverrefs = self.do_requestdo("getreferences", certreferenceid=_refid)
-        if logcheck(_serverrefs) == False:
+        if not logcheck(_serverrefs):
             return
         for elem in _serverrefs[1]["items"]:
             if elem[0] not in self.serverlist_dic:
@@ -190,7 +189,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
                 elif elem[1] == "url":
                     serverlist.append((elem[0], False))
                     self.serverlist_dic.append(elem[0])
-                    
+
     def update_serverlist(self, _localname):
         _serverhashes = self.do_requestdo("listhashes", name=_localname)
         if logcheck(_serverhashes):
@@ -202,7 +201,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         """ func: execute requests """
         # use_localclient is True if client was set successfully
         # can force remote or local
-        if (self.use_localclient == True or forcelocal == True) and forceremote == False:
+        if (self.use_localclient is True or forcelocal is True) and not forceremote:
             resp = self.links["client"].access_main(action, **obdict)
         else:
             clienturl = self.builder.get_object("clienturl").get_text().strip().rstrip()
@@ -273,14 +272,14 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def _verifyserver(self, serverurl):
         """ func: update verifystateserver widget
             return: ask information
-            serverurl: server url """ 
+            serverurl: server url """
         _veri = self.builder.get_object("veristateserver")
         if serverurl == "":
             _veri.set_text("")
             return None
 
         _hash = self.do_requestdo("ask", address=serverurl)
-        if _hash[0] == False:
+        if not _hash[0]:
             _veri.set_text("")
             return None
 
@@ -291,7 +290,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         else:
             _veri.set_text("Verified as:\n{}\n ({})".format(_hash[1].get("localname"), _hash[1].get("security")))
         return _hash[1]
-        
+
     def veristate_server(self, *args):
         """ use servercomboentry widget, call _verifyserver """
         serverurl = self.builder.get_object("servercomboentry").get_text()
@@ -300,7 +299,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             if serverurl not in self.serverlist_dic:
                 servlist.append((serverurl, False))
                 self.serverlist_dic.append(serverurl)
-    
+
     def set_curnode(self, _clientaddress, _name, _hash, _serveraddress=None):
         """ set current node """
         if self.curnode is not None and self.curnode[0] != isself:
@@ -381,7 +380,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             else:
                 self.addnodehash_intern(_name, self.curnode[3], "client", refstoadd=(("surl", self.curnode[4]), ("name", self.curnode[2])))
 
-
     def addnodehash_confirm(self, *args):
         addnodecombo = self.builder.get_object("addnodecombo")
         addnodehashentry = self.builder.get_object("addnodehashentry")
@@ -393,7 +391,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         _name = addnodecombo.get_active_id()
         _hash = addnodehashentry.get_text().strip(" ").rstrip(" ")
         _type = addnodetypecombo.get_active_id()
-        
         if _name is None:
             return
         if _type == "":
@@ -453,12 +450,12 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         self.set_curnode(_address, ret[1]["name"], _hash, None)
         self.close_enternodedia()
         self.opennode()
-    
+
     def opennode(self, *args):
         """ func: open current node """
         if self.curnode is not None:
             gtkclient_node(self.links, self.curnode[1], forcehash=self.curnode[3], page="services", traverseserveraddr=self.curnode[4])
-    
+
     def opennode_self(self, *args):
         """ func: open own node """
         ret = self.do_requestdo("show")
@@ -502,12 +499,12 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             self.addnodehash_intern(_name, _hash, "server", refstoadd=(("url", serverurl),))
         else:
             res = self.do_requestdo("addreference", hash=_hash, reference=serverurl, reftype="url")
-            if res[0] == False:
+            if not res[0]:
                 logging.debug("Already exists")
 
     ### client actions ###
 
-    def clientme(self,*args):
+    def clientme(self, *args):
         """ func: switch between controlling remote client and own client """
         self.builder.get_object("clienturl").set_text(self.remoteclient_url)
         self.builder.get_object("clienthash").set_text(self.remoteclient_hash)
@@ -515,7 +512,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         self.clientwin.show()
         self.clientwin.grab_focus()
 
-    def client_confirm(self,*args):
+    def client_confirm(self, *args):
         clurl = self.builder.get_object("clienturl")
         clhash = self.builder.get_object("clienthash")
         ulocal = self.builder.get_object("uselocal")
@@ -526,7 +523,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             return
         if _hash == "":
             ret = self.do_requestdo("gethash", forcelocal=True, address=_url)
-            if logcheck(ret, logging.INFO) == False:
+            if not logcheck(ret, logging.INFO):
                 return
             clhash.set_text(ret[1]["hash"])
             return
@@ -576,13 +573,13 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     ### misc actions ###
 
     def checkserver(self, *args):
-        serverurl=self.builder.get_object("servercomboentry").get_text()
+        serverurl = self.builder.get_object("servercomboentry").get_text()
         try:
-            serverurl="{}-{}".format(*scnparse_url(serverurl))
+            serverurl = "{}-{}".format(*scnparse_url(serverurl))
         except AddressEmptyFail:
             logging.debug("Address Empty")
             return
-        if self.do_requestdo("prioty_direct",address=serverurl)[0] == False:
+        if not self.do_requestdo("prioty_direct", address=serverurl)[0]:
             logging.debug("Server address invalid")
             return
         self.update_storage()
@@ -692,7 +689,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         res = self.do_requestdo("addreference", hash=ref_hash, reference=_ref, reftype=_type)
         if res[0]:
             addrefentry.hide()
-            it=reflist.prepend((_ref,_type))
+            it = reflist.prepend((_ref, _type))
             refview.get_selection().select_iter(it)
             if _type in ["url", "name"] and self.curlocal[0] == "server":
                 self.update_serverlist(self.curlocal[1])
@@ -731,7 +728,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
             logging.debug("invalid input")
             updatereftb.set_active(True)
             return
-        _type, _ref=_ref_entry.split(":", 1)
+        _type, _ref = _ref_entry.split(":", 1)
 
         if not _type in implementedrefs:
             logging.debug("invalid type")
@@ -795,7 +792,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         if _selr[1] is None:
             return
         _ref = _selr[0][_selr[1]][0]
-        
         res = self.do_requestdo("delreference", hash=_hash, reference=_ref)
         if res[0]:
             if _selr[0][_selr[1]][1] in ["url", "name"]:

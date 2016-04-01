@@ -176,7 +176,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         con.send(ob)
         response = con.getresponse()
         servertype = response.headers.get("Server", "")
-        logging.debug("Servertype: {}".format(servertype))
+        logging.debug("Servertype: %s", servertype)
         if response.status == 401:
             body["pwcall_method"] = pwcallm
             auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ", 1)[1])
@@ -219,10 +219,10 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 obdict = gen_result(str(readob, "utf-8"), status)
             else:
                 obdict = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
-            if check_result(obdict, status) == False:
+            if not check_result(obdict, status):
                 return False, "error parsing request\n{}".format(readob), _certtupel[0], _certtupel[1]
 
-            if status == True:
+            if status:
                 return status, obdict["result"], _certtupel[0], _certtupel[1]
             else:
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
@@ -303,7 +303,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         if obdict["plugin"] not in plugins:
             return False, "Error: plugin does not exist"
         plugin = plugins[obdict["plugin"]]
-        if hasattr(plugin, "cmd_node_actions") == False:
+        if not hasattr(plugin, "cmd_node_actions"):
             return False, "Error: plugin does not support commandline"
         action = obdict["paction"]
         if hasattr(plugin, "cmd_node_localized_actions") and \
@@ -327,7 +327,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         """
         if obdict.get("hash") is None:
             _hashob = self.gethash(obdict)
-            if _hashob[0] == False:
+            if not _hashob[0]:
                 return False, "invalid address for retrieving hash"
             _hash = _hashob[1]["hash"]
         else:
@@ -348,12 +348,12 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             if "insecure" in getattr(getattr(self, action), "classify", set()):
                 return False, "method call not allowed this way (insecure)", isself, self.cert_hash
             if "experimental" in getattr(getattr(self, action), "classify", set()):
-                logging.warning("action: \"{}\" is experimental".format(action))
+                logging.warning("action: \"%s\" is experimental", action)
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
                 return getattr(self, action)(obdict)
-            except Exception as e:
-                return False, e #.with_traceback(sys.last_traceback)
+            except Exception as exc:
+                return False, exc #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
 
@@ -366,7 +366,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         if obdict is None:
             return False, "decoding failed"
         error = []
-        if check_args(obdict, {"action": str}, error=error) == False:
+        if not check_args(obdict, {"action": str}, error=error):
             return False, "{}:{}".format(*error)
             #return False, "no action given", isself, self.cert_hash
         if obdict["action"] not in self.validactions:
@@ -435,7 +435,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             if getattr(func, "__doc__", None) is not None:
                 out += "{doc}\n".format(doc=func.__doc__)
             else:
-                logging.info("Missing __doc__: {}".format(funcname))
+                logging.info("Missing __doc__: %s", funcname)
         return out
 
 ### receiverpart of client ###
@@ -614,12 +614,12 @@ def gen_client_handler():
                 jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
                 response[0] = False
             ob = bytes(jsonnized, "utf-8")
-            if response[0] == False:
+            if not response[0]:
                 self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
             else:
                 self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
         def do_GET(self):
-            if self.init_scn_stuff() == False:
+            if not self.init_scn_stuff():
                 return
             if self.path == "/favicon.ico":
                 if "favicon.ico" in self.statics:
@@ -627,7 +627,7 @@ def gen_client_handler():
                 else:
                     self.scn_send_answer(404, docache=True)
                 return
-            if self.webgui == False:
+            if not self.webgui:
                 self.scn_send_answer(404, message="no webgui enabled", docache=True)
             _path = self.path[1:].split("/")
             if _path[0] in ("", "client", "html", "index"):
@@ -643,7 +643,7 @@ def gen_client_handler():
             self.scn_send_answer(404, message="resource not found (GET)", docache=True)
 
         def do_POST(self):
-            if self.init_scn_stuff() == False:
+            if not self.init_scn_stuff():
                 return
             splitted = self.path[1:].split("/", 1)
             if len(splitted) == 1:
@@ -671,16 +671,16 @@ def gen_client_handler():
                 #    self.scn_send_answer(401, ob)
                 #    return
                 # gui receive
-                if hasattr(pluginm.plugins[plugin], "receive") == True:
+                if hasattr(pluginm.plugins[plugin], "receive"):
                     # not supported yet
                     # don't forget redirect_hash
                     if self.links["client"].redirect_addr != "":
                         # needs to implement http handshake and stop or don't analyze content
-                        if hasattr(pluginm.plugins[plugin], "rreceive") == True:
+                        if hasattr(pluginm.plugins[plugin], "rreceive"):
                             ret = self.handle_plugin(pluginm.plugins[plugin].rreceive, action)
                         else:
                             ret = True
-                        if ret == False:
+                        if not ret:
                             return
                         self.send_response(200)
                         self.send_header("Connection", "keep-alive")
@@ -745,7 +745,7 @@ class client_init(object):
             self.links["handler"].webgui = False
         if confm.getb("cpwhash"):
             if not check_hash(confm.get("cpwhash")):
-                logging.error("hashtest failed for cpwhash, cpwhash: {}".format(confm.get("cpwhash")))
+                logging.error("hashtest failed for cpwhash, cpwhash: %s", confm.get("cpwhash"))
             else:
                 self.links["handler"].handle_local = True
                 # ensure that password is set when allowing remote access
@@ -760,14 +760,14 @@ class client_init(object):
             self.links["auth_server"].init_realm("client", dhash(confm.get("cpw")))
         if confm.getb("apwhash"):
             if not check_hash(confm.get("apwhash")):
-                logging.error("hashtest failed for apwhash, apwhash: {}".format(confm.get("apwhash")))
+                logging.error("hashtest failed for apwhash, apwhash: %s", confm.get("apwhash"))
             else:
                 self.links["auth_server"].init_realm("admin", confm.get("apwhash"))
         elif confm.getb("apw"):
             self.links["auth_server"].init_realm("admin", dhash(confm.get("apw")))
         if confm.getb("spwhash"):
             if not check_hash(confm.get("spwhash")):
-                logging.error("hashtest failed for spwhash, spwhash: {}".format(confm.get("spwhash")))
+                logging.error("hashtest failed for spwhash, spwhash: %s", confm.get("spwhash"))
             else:
                 self.links["auth_server"].init_realm("server", confm.get("spwhash"))
         elif confm.getb("spw"):
@@ -797,7 +797,7 @@ class client_init(object):
         self.links["configmanager"] = confm
         self.links["handler"].links = self.links
         # use timeout argument of BaseServer
-        if confm.getb("noserver") == False:
+        if not confm.getb("noserver"):
             self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["handler"], "Enter client certificate pw", timeout=confm.get("timeout"))
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
 
@@ -853,13 +853,13 @@ def cmdloop(clientinitm):
             inp = "action=help"
         ret = clientinitm.links["client"].command(inp, callpw_auth=True)
         if ret[1] is not None:
-            if ret[0] == True:
+            if ret[0]:
                 print("Success: ", end="")
             else:
                 print("Error: ", end="")
             if ret[2] == isself:
                 print("This client:")
-            elif ret[2] == None:
+            elif ret[2] is None:
                 print("Unknown partner, hash: {}:".format(ret[3]))
             else:
                 print("Known, name: {} ({}):".format(ret[2][0], ret[2][1]))

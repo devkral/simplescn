@@ -22,18 +22,17 @@ from http.client import HTTPSConnection
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import socketserver
 
-sharedir = os.path.dirname(os.path.realpath(__file__))
-# append to pathes
-if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-
-
-
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
+
+
+sharedir = os.path.dirname(os.path.realpath(__file__))
+# append to pathes
+if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 # load parameters in simplescn namespace
 # don't load directly from parameters
@@ -199,15 +198,13 @@ def notify(msg, requester=""):
 
 def generate_certs(_path):
     _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key")
-    if _passphrase is not None and isinstance(_passphrase, str) is False:
+    if _passphrase is not None and not isinstance(_passphrase, str):
         logging.error("passphrase not str, None")
         return False
     if _passphrase != "":
         _passphrase2 = pwcallmethod("Retype:\n")
         if _passphrase != _passphrase2:
             return False
-        if isinstance(_passphrase, str):
-            _passphrase = bytes(_passphrase, "utf-8")
     _key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=key_size,
@@ -231,7 +228,7 @@ def generate_certs(_path):
     if _passphrase == "":
         encryption_algorithm = serialization.NoEncryption()
     else:
-        encryption_algorithm = serialization.BestAvailableEncryption(_passphrase)
+        encryption_algorithm = serialization.BestAvailableEncryption(bytes(_passphrase, "utf-8"))
     privkey = _key.private_bytes(encoding=serialization.Encoding.PEM,
                                  format=serialization.PrivateFormat.PKCS8,
                                  encryption_algorithm=encryption_algorithm)
@@ -375,7 +372,7 @@ class scnauth_server(object):
     def verify(self, realm, authdict):
         if realm not in self.realms or self.realms[realm] is None:
             return True
-        if isinstance(authdict, dict) == False:
+        if not isinstance(authdict, dict):
             logging.warning("authdict is no dict")
             return False
         if realm not in authdict:
