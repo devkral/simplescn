@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.19.0 -->
+<!-- Generated with glade 3.20.0 -->
 <interface>
   <requires lib="gtk+" version="3.16"/>
   <object class="GtkMenu" id="actions">
@@ -61,8 +61,8 @@
               <object class="GtkMenuButton" id="nodeactionbutton">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="receives_default">False</property>
                 <property name="focus_on_click">False</property>
+                <property name="receives_default">False</property>
                 <property name="popup">actions</property>
                 <child>
                   <object class="GtkLabel" id="label2">
@@ -414,10 +414,10 @@ name</property>
                   <object class="GtkButton" id="securityshow">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
+                    <property name="focus_on_click">False</property>
                     <property name="receives_default">True</property>
                     <property name="halign">start</property>
                     <property name="valign">center</property>
-                    <property name="focus_on_click">False</property>
                     <signal name="clicked" handler="open_security" swapped="no"/>
                   </object>
                   <packing>
@@ -493,6 +493,7 @@ name</property>
                         <property name="can_focus">False</property>
                         <property name="editable">False</property>
                         <property name="has_frame">False</property>
+                        <signal name="changed" handler="address_change" swapped="no"/>
                       </object>
                     </child>
                   </object>

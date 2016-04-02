@@ -16,8 +16,6 @@ import logging
 def myListBoxCreateWidgetFunc(item, **userdata):
     return item
 
-    
-
 class gtkstuff(object):
     parent = None
     def __init__(self, parent):

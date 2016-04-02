@@ -278,6 +278,7 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
         noteb.show_all()
         # don't connect signals, should be done by plugins itself
         #self.connect_signals(self)
+        self.address_change()
         if isinstance(page, int):
             noteb.set_current_page(page)
         else:
@@ -503,6 +504,19 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
 
     def get_traverseaddr(self):
         return self.resdict.get("traverseserveraddr")
+
+    def address_change(self, *args):
+        if len(open_hashes[self.resdict.get("forcehash")][1]) == 0:
+            return
+        _address = self.get_object("chooseaddresse").get_text()
+        if _address == "offline":
+            return
+        for plugin in self.links["client_server"].pluginmanager.plugins.values():
+            if hasattr(plugin, "address_change"):
+                try:
+                    plugin.address_change("gtk", _address, self.win, self.resdict.get("forcehash"))
+                except Exception as exc:
+                    logging.error(exc)
 
     def get_address(self):
         if len(open_hashes[self.resdict.get("forcehash")][1]) == 0 or self.get_object("chooseaddresse").get_text() == "offline":

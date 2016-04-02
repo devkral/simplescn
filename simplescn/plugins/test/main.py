@@ -3,7 +3,6 @@
 config_defaults={}
 
 class test(object):
-
     # localized name
     lname = {"*": "Test", "de": "Deutsch: Test deutsch", "de_DE": "Deutsch: Test DE"}
     interfaces = None
@@ -47,6 +46,8 @@ class test(object):
     gui_server_actions=[{"text":"foo-actionname","action":sampleaction, "icon":"optionalfoo-iconlocation", \
 "interfaces": ["gtk",], "description": "foo"}, ]
 
+    def address_change(self, gui, _address, window, _hash):
+        print("address change: {}".format((gui, _address, window, _hash)))
 
     #def gui_server_iface(gui, _name, _hash, _addressfunc):
     #    pass
@@ -68,5 +69,5 @@ class test(object):
     # def sreceive(action, _socket, _cert, certhash):
     #     pass
 
-def init(interfaces, config, resources, proot, logger):
-    return test(interfaces, config, resources, proot, logger)
+def init(interfaces, config, resources, proot):
+    return test(interfaces, config, resources, proot)

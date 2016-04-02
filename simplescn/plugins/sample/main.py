@@ -68,6 +68,10 @@ class sample_test(object):
     #def gui_node_iface(self, gui, _name, _hash, _addressfunc, _traversefunc):
     #    pass
     #    return widget
+    
+    # when different address is selected
+    #def address_change(self, gui, _address, window, _hash):
+    #    pass
 
     ### uncomment for being accessable by internet
     ### client:
