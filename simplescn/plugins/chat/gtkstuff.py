@@ -130,7 +130,7 @@ class gtkstuff(object):
             if sock is None and self.parent.sessions[certhash].private:
                 logging.error("request failed")
                 return False
-            elif sock is None:
+            elif sock is None:  # if not private
                 self.parent.sessions[certhash].send("send_text", "/{size}".format(size=len(_textb)), _textb)
                 
             else:
@@ -201,7 +201,7 @@ class gtkstuff(object):
         if sock is None and self.parent.sessions[certhash].private:
             logging.error("sending failed")
             return
-        elif sock is None:
+        elif sock is None: # if not private
             self.parent.sessions[certhash].send("send_img", "/{size}".format(size=len(_img2)), _img2)
         else:
             sock.sendall(_img2)
