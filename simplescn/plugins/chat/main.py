@@ -103,23 +103,24 @@ class hash_session(object):
 
     def sendthread(self):
         while True: 
-            for elem in sorted(os.listdir(os.path.join(self.sessionpath, "out"))):
-                num, _type = elem.split("_", 1)
-                if _type != "args":
-                    continue
-                with open(os.path.join(self.sessionpath, "out", str(self.outcounter))+"_args", "r") as readob:
-                    if not os.path.exists(os.path.join(self.sessionpath, "out", num+"_file")):
+            if self.addressfunc() is not None:
+                for elem in sorted(os.listdir(os.path.join(self.sessionpath, "out"))):
+                    num, _type = elem.split("_", 1)
+                    if _type != "args":
                         continue
-                    action, parameters = readob.read().split("/", 1)
-                    with self.lock:
-                        _socket, _cert, _hash = self.request(action, parameters)
-                        if _socket:
-                            with open(os.path.join(self.sessionpath, "out", num+"_file"), "rb") as readob:
-                                _socket.sendfile(readob)
-                                os.remove(os.path.join(self.sessionpath, "out", num+"_file"))
-                                os.remove(os.path.join(self.sessionpath, "out", num+"_args"))
-            with self.lock:
-                self.outcounter = len(os.listdir(os.path.join(self.sessionpath, "out")))//2
+                    with open(os.path.join(self.sessionpath, "out", str(self.outcounter))+"_args", "r") as readob:
+                        if not os.path.exists(os.path.join(self.sessionpath, "out", num+"_file")):
+                            continue
+                        action, parameters = readob.read().split("/", 1)
+                        with self.lock:
+                            _socket, _cert, _hash = self.request(action, parameters)
+                            if _socket:
+                                with open(os.path.join(self.sessionpath, "out", num+"_file"), "rb") as readob:
+                                    _socket.sendfile(readob)
+                                    os.remove(os.path.join(self.sessionpath, "out", num+"_file"))
+                                    os.remove(os.path.join(self.sessionpath, "out", num+"_args"))
+                with self.lock:
+                    self.outcounter = len(os.listdir(os.path.join(self.sessionpath, "out")))//2
             time.sleep(5)
 
     # send when connection is available
