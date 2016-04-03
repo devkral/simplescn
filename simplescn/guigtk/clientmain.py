@@ -869,7 +869,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         
     def close(self, *args):
         self.win.destroy()
-        gtkclient_instance.quit()
+        #gtkclient_instance.quit()
 
 def open_gtk_node(_address, forcehash=None, page=0, requester=""):
     """ plugin: open a node window
