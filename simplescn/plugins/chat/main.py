@@ -1,6 +1,6 @@
 
 
-import sys
+#import sys
 try:
     from . import gtkstuff
 except ImportError as e:
@@ -10,8 +10,9 @@ import datetime
 import os.path
 import hashlib
 import shutil
+import time
 import logging
-from threading import Lock
+from threading import RLock, Thread
 
 ###### used by pluginmanager ######
 
@@ -22,10 +23,8 @@ config_defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chat
 # return None deactivates plugin
 def init(interfaces, config, resources, proot):
     #global logger
-    
     if "gtk" not in interfaces or gtkstuff is None:
         return None
-    
 
     #logger = _logger
     #port_to_answer = resources("access")("show")[1]["port"]
@@ -45,13 +44,97 @@ def parse_timestamp(_inp):
 def unparse_timestamp(_inp):
     return _inp.strftime(_inp, "%Y_%m_%d_%H_%M_%S")
 
+class hash_session(object):
+    parent = None
+    certhash = None
+    buffer = None
+    lock = None
+    private = None
+    addressfunc = None
+    traversefunc = None
+    window = None
+    sessionpath = None
+    outcounter = None
+    _thread = None
+    guitype = None
+    gui = None
+    name = None
+    
+    def __init__(self, guitype, parent,  _name, certhash, _addressfunc, _traversefunc, window):
+        self.certhash = certhash
+        self.parent = parent
+        self.addressfunc = _addressfunc
+        self.traversefunc = _traversefunc
+        self.window = window
+        self.lock = RLock()
+        self.private = False
+        self.guitype = guitype
+        self.name = _name
+        self.sessionpath = os.path.join(os.path.expanduser(self.parent.config.get("chatdir")), certhash)
+        self.init_pathes()
+
+        self._thread = Thread(target=self.sendthread, daemon=True)
+        self._thread.start()
+    
+    def init_gui(self):
+        if self.guitype != "gtk":
+            return None
+        return self.parent.gui.gtk_node_iface(self.name, self.certhash, self.addressfunc, self.traversefunc, self.window)
+
+    def init_pathes(self):
+        os.makedirs(self.sessionpath, 0o770, exist_ok=True)
+        os.makedirs(os.path.join(self.sessionpath, "images"), 0o770, exist_ok=True)
+        os.makedirs(os.path.join(self.sessionpath, "tosend"), 0o770, exist_ok=True)
+        os.makedirs(os.path.join(self.sessionpath, "out"), 0o770, exist_ok=True)
+        self.outcounter = len(os.listdir(os.path.join(self.sessionpath, "out")))//2
+
+    def request(self, action, arguments): #, timestamp=create_timestamp()): #, _traversefunc()
+        url = self.addressfunc()
+        if url is None:
+            logging.error("No address")
+            return None
+        if self.private:
+            privstate = "private"
+        else:
+            privstate = "public"
+        #sock, _cert, _hash = 
+        #, timestamp=timestamp
+        return self.parent.resources("plugin")(url, "chat", self.parent.reqstring.format(action=action, privstate=privstate, other=arguments), forcehash=self.certhash, traverseserveraddr=self.traversefunc())
+
+    def sendthread(self):
+        while True: 
+            for elem in sorted(os.listdir(os.path.join(self.sessionpath, "out"))):
+                num, _type = elem.split("_", 1)
+                if _type != "args":
+                    continue
+                with open(os.path.join(self.sessionpath, "out", str(self.outcounter))+"_args", "r") as readob:
+                    if not os.path.exists(os.path.join(self.sessionpath, "out", num+"_file")):
+                        continue
+                    action, parameters = readob.read().split("/", 1)
+                    with self.lock:
+                        _socket, _cert, _hash = self.request(action, parameters)
+                        if _socket:
+                            with open(os.path.join(self.sessionpath, "out", num+"_file"), "rb") as readob:
+                                _socket.sendfile(readob)
+                                os.remove(os.path.join(self.sessionpath, "out", num+"_file"))
+                                os.remove(os.path.join(self.sessionpath, "out", num+"_args"))
+            with self.lock:
+                self.outcounter = len(os.listdir(os.path.join(self.sessionpath, "out")))//2
+            time.sleep(5)
+
+    def send(self, action, arguments, _ob):
+        with self.lock:
+            self.init_pathes()
+            with open(os.path.join(self.sessionpath, "out", str(self.outcounter))+"_args", "w") as writeob:
+                writeob.write(action+"/"+arguments)
+            with open(os.path.join(self.sessionpath, "out", str(self.outcounter))+"_file", "wb") as writeob:
+                writeob.write(_ob)
+            self.outcounter += 1
+
 class chat_plugin(object):
     lname = {"*": "Chat"}
 
-    chatbuf = {}
-    chatlock = {}
-    chaturl = {}
-    private_state = {}
+    sessions = None
     openforeign = 0
     reqstring = None
     gui = None
@@ -61,6 +144,7 @@ class chat_plugin(object):
     def __init__(self, interfaces, config, resources, proot):
         self.interfaces, self.config, self.resources, self.proot = interfaces, config, resources, proot
         self.reqstring = "{action}/{privstate}/%s{other}" % resources("access")("show")[1]["port"]
+        self.sessions = {}
         self.gui_node_actions = [
 {"text":"private", "action": self.toggle_private, \
 "interfaces": ["gtk",], "description": "Toggle private chat", "state": False},
@@ -70,58 +154,38 @@ class chat_plugin(object):
         self.gui = gtkstuff.gtkstuff(self)
 
     def cleanup(self, widget, certhash):
-        del self.chaturl[certhash]
+        del self.sessions[certhash]
         #port_to_answer = None
 
-
-    def init_pathes(self, _hash):
-        os.makedirs(os.path.join(os.path.expanduser(self.config.get("chatdir")), _hash), 0o770, exist_ok=True)
-        os.makedirs(os.path.join(os.path.expanduser(self.config.get("chatdir")), _hash, "images"), 0o770, exist_ok=True)
-        os.makedirs(os.path.join(os.path.expanduser(self.config.get("chatdir")), _hash, "tosend"), 0o770, exist_ok=True)
-
-
-    def request(self, url, certhash, action, arguments, traverseserveraddr=None): #, timestamp=create_timestamp()): #, _traversefunc()
-        if url is None:
-            logging.error("No address")
-            return None
-        if self.private_state.get(certhash, False):
-            privstate = "private"
-        else:
-            privstate = "public"
-        #sock, _cert, _hash = 
-        #, timestamp=timestamp
-        return self.resources("plugin")(url, "chat", self.reqstring.format(action=action, privstate=privstate, other=arguments), forcehash=certhash, traverseserveraddr=traverseserveraddr)
-
-
-
-
     def delete_log(self, gui, _addressfunc, window, certhash, dheader):
-        if certhash not in self.chatlock:
+        if certhash not in self.sessions:
             return
-        with self.chatlock[certhash]:
+        with self.sessions[certhash].lock:
             try:
                 shutil.rmtree(os.path.join(os.path.expanduser(self.config.get("chatdir")), certhash))
                 #os.remove(os.path.join(os.path.expanduser(config.get("chatdir")), dheader.get("forcehash")+".log"))
             except FileNotFoundError:
                 pass
-            self.chatbuf[certhash].remove_all()
+            self.sessions[certhash].buffer.remove_all()
         
 
     def toggle_private(self, gui, _addressfunc, window, certhash, state, dheader):
         if state:
-            self.private_state[certhash] = True
+            self.sessions[certhash].private = True
         else:
-            self.private_state[certhash] = False
+            self.sessions[certhash].private = False
 
-    def gui_node_iface(self, gui, _name, certhash, _addressfunc, _traversefunc, window):
-        if certhash not in self.chatlock:
-            self.chatlock[certhash] = Lock()
-        if certhash not in self.chaturl:
-            self.chaturl[certhash] = (_addressfunc, _traversefunc)
-        if gui != "gtk":
+    def gui_node_iface(self, guitype, _name, certhash, _addressfunc, _traversefunc, window):
+        if guitype != "gtk":
             return None
-        return self.gui.gtk_node_iface(_name, certhash, _addressfunc, _traversefunc, window)
+            
+        self.sessions[certhash] = hash_session(guitype, self,  _name, certhash, _addressfunc, _traversefunc, window)
+        return self.sessions[certhash].init_gui()
 
+    # not needed because routine
+    def address_change(self, gui, _address, window, _hash):
+        pass
+    
     def receive(self, action, _socket, _cert, certhash):
         splitted = action.split("/", 3)
         if len(splitted) != 4:
@@ -149,12 +213,12 @@ class chat_plugin(object):
         #        return
         #    self.resources("open_node")("{}-{}".format(_socket.getsockname()[0], answerport), page="chat", forcehash=certhash)
     
-        if certhash not in self.chatlock:
+        if certhash not in self.sessions:
             # if still not existent
             return
-        self.init_pathes(certhash)
+        self.sessions[certhash].init_pathes()
     
-        with self.chatlock[certhash]:
+        with self.sessions[certhash].lock:
             if action == "send_text":
                 _size = int(_rest)
                 if _size > self.config.get("maxsizetext"):
