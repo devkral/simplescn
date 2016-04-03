@@ -22,9 +22,13 @@ from simplescn.common import scnparse_args
 import simplescn.client
 import simplescn.server
 
+running_instances = []
+
 def signal_handler(_signal, frame):
     """ handles signals; shutdown properly """
-    simplescn.client.client_init.run = False
+    for elem in running_instances:
+        if hasattr(elem, "quit"):
+            elem.quit()
     logging.shutdown()
     sys.exit(0)
 
@@ -64,6 +68,7 @@ def server(argv=sys.argv[1:], doreturn=False):
             server_instance.serve_forever_nonblock()
             return server_instance
         else:
+            running_instances.append(server_instance)
             server_instance.serve_forever_block()
     else:
         print("You really want a server without a server?", file=sys.stderr)
@@ -116,12 +121,14 @@ def rawclient(argv=sys.argv[1:], doreturn=False):
             threading.Thread(target=cmdloop, args=(rawclient_instance,), daemon=True).start()
             return rawclient_instance
         else:
+            running_instances.append(raw_instance)
             cmdloop(rawclient_instance)
     elif not confm.getb("noserver"):
         if doreturn:
             rawclient_instance.serve_forever_nonblock()
             return rawclient_instance
         else:
+            running_instances.append(raw_instance)
             rawclient_instance.serve_forever_block()
 
 def client(argv=sys.argv[1:]):
@@ -140,10 +147,11 @@ def client_gtk(argv=sys.argv[1:]):
     from simplescn.common import pluginmanager, configmanager
     from simplescn.client import client_paramhelp, overwrite_client_args, default_client_args
 
-    del default_client_args["nocmd"]
+    default_client_args2 = default_client_args.copy()
+    del default_client_args2["nocmd"]
     default_client_args["backlog"] = [str(200), int, "length of backlog"]
     pluginpathes = [os.path.join(sharedir, "plugins")]
-    pluginpathes += scnparse_args(argv, client_paramhelp, default_client_args, overwrite_client_args)
+    pluginpathes += scnparse_args(argv, client_paramhelp, default_client_args2, overwrite_client_args)
     configpath = overwrite_client_args["config"][0]
     configpath = os.path.expanduser(configpath)
     if configpath[-1] == os.sep:
@@ -165,7 +173,7 @@ def client_gtk(argv=sys.argv[1:]):
         pluginm = None
     _init_method_gtkclient(confm, pluginm)
 
-def hashpw():
+def hashpw(argv=sys.argv[1:]):
     """ create pw hash for ?pwhash """
     init_scn()
     from simplescn import dhash
@@ -173,7 +181,7 @@ def hashpw():
     if len(sys.argv) < 2 or sys.argv[1] in ["--help", "help"]:
         print("Usage: {} hashpw <pw>/\"random\"".format(sys.argv[0]))
         return
-    pw = sys.argv[1]
+    pw = argv[0]
     if pw == "random":
         pw = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
     print("pw: {}, hash: {}".format(pw, dhash(pw)))

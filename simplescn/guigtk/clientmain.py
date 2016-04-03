@@ -9,10 +9,11 @@ import traceback
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GLib, Gio
 
 import simplescn
 from simplescn import client, logcheck
+from simplescn.__main__ import running_instances
 
 from simplescn.guigtk.clientmain_sub import cmd_stuff, debug_stuff, configuration_stuff, help_stuff
 from simplescn.guigtk.clientmain_managehash import hashmanagement
@@ -58,16 +59,21 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         self.links = _links
         logging.Handler.__init__(self)
         #self.setFormatter(logging.Formatter('%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'))
-        self.app = Gtk.Application()
+        #self.app = Gtk.Application.new("apps.simplescn", Gio.ApplicationFlags.NON_UNIQUE)
+        self.app = Gtk.Application.new(None, Gio.ApplicationFlags. FLAGS_NONE)
         self.sslcont = default_sslcont()
         self.builder = Gtk.Builder()
         self.builder.set_application(self.app)
         self.builder.add_from_file(os.path.join(sharedir, "guigtk", "clientmain.ui"))
         self.builder.add_from_file(os.path.join(sharedir, "guigtk", "clientmain_sub.ui"))
-        #self.app.add_window(self.builder.get_object("mainwin"))
         self.builder.connect_signals(self)
-        self.clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.win = self.builder.get_object("mainwin")
+        self.app.register()
+        self.app.add_window(self.win)
+        self.app.connect("activate", self.do_activate)
+
+    def do_activate(self, *args):
+        self.clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.localstore = self.builder.get_object("localstore")
         self.recentstore = self.builder.get_object("recentstore")
         self.statusbar = self.builder.get_object("mainstatusbar")
@@ -94,7 +100,6 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         self.delnodedia = self.builder.get_object("delnodedia")
         self.enternodedia = self.builder.get_object("enternodedia")
         self.renameentitydia = self.builder.get_object("renameentitydia")
-
 
         addnodecombo = self.builder.get_object("addnodecombo")
         addnodecomborenderer = Gtk.CellRendererText()
@@ -863,8 +868,8 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         return True
         
     def close(self, *args):
-        gtkclient_init.run = False
         self.win.destroy()
+        gtkclient_instance.quit()
 
 def open_gtk_node(_address, forcehash=None, page=0, requester=""):
     """ plugin: open a node window
@@ -912,14 +917,19 @@ class gtkclient_init(client.client_init):
         # threadsubsystem seems to be initialized automatically
         #GLib.threads_init()
         #Gtk.main()
-        while gtkclient_init.run:
-            Gtk.main_iteration_do(True)
+        self.links["gtkclient"].app.run()
+        #while gtkclient_init.run:
+        #    Gtk.main_iteration_do(True)
+    
+    def quit(self):
+        self.links["gtkclient"].app.quit()
 
 # for open_gtk_node and debug?
 gtkclient_instance = None
 def _init_method_gtkclient(confm, pluginm):
     global gtkclient_instance
     gtkclient_instance = gtkclient_init(confm, pluginm)
+    running_instances.append(gtkclient_instance)
     if not confm.getb("noplugins"):
         pluginm.resources["access"] = gtkclient_instance.links["client"].access_safe
         pluginm.resources["plugin"] = gtkclient_instance.links["client"].use_plugin

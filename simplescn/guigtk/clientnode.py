@@ -37,6 +37,7 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
     def init(self, page):
         self.win = self.get_object("nodewin")
         self.win.connect('delete-event', self.close)
+        self.links["gtkclient"].app.add_window(self.win)
         self.init_connects()
         if self.info is None:
             self.update_info()
