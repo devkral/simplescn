@@ -122,6 +122,7 @@ class hash_session(object):
                 self.outcounter = len(os.listdir(os.path.join(self.sessionpath, "out")))//2
             time.sleep(5)
 
+    # send when connection is available
     def send(self, action, arguments, _ob):
         with self.lock:
             self.init_pathes()
