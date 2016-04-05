@@ -282,6 +282,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             logging.error("requesting plugin failed: %s, action: %s, status: %s, reason: %s", plugin, paction, resp.status, resp.reason)
             return None, None, None
         if _hash != forcehash:
+            logging.error("forcehash failed")
             con.close()
             return None, cert, _hash
         if _random != resp.getheader("X-certrewrap", ""):
