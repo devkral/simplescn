@@ -1040,11 +1040,7 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
 # obdict (=_moddict) is modified
 def check_argsdeco(requires={}, optional={}):
     def func_to_check(func):
-        def get_args(*args):
-            if len(args) != 2:
-                logging.error("check_args: wrong function call: %s: %s", func.__name__, args)
-                # return False, "check_args failed ({}) wrong amount args: {}".format(func.__name__, args), isself, self.cert_hash
-            self, obdict = args
+        def get_args(self, obdict):
             error = []
             if not check_args(obdict, requires, optional, error=error):
                 return False, "check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), isself, self.cert_hash
