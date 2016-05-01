@@ -520,7 +520,7 @@ class _gtkclient_node(Gtk.Builder, set_parent_template):
                     logging.error(exc)
 
     def get_address(self):
-        if len(open_hashes[self.resdict.get("forcehash")][1]) == 0 or self.get_object("chooseaddresse").get_text() == "offline":
+        if len(open_hashes.get(self.resdict.get("forcehash"), ["", ""])[1]) == 0 or self.get_object("chooseaddresse").get_text() == "offline":
             return None
         return self.get_object("chooseaddresse").get_text()
 
