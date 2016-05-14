@@ -117,16 +117,16 @@ class hash_session(object):
             pass
         with self.lock:
             self.buffer = list(filter(lambda x: x.get("type", "unknown") == "file" and x.get("name", None) == name and x.get("owner") == True, self.buffer))
+            self.save()
             if "gtk" in self.parent.interfaces:
                 self.parent.gui.updateb(self.certhash)
-            self.save()
     
     def remove_download(self, name):
         with self.lock:
             self.buffer = list(filter(lambda x: lambda x: x.get("type", "unknown") == "file" and x.get("name", None) == name and x.get("owner") == False, self.buffer))
+            self.save()
             if "gtk" in self.parent.interfaces:
                 self.parent.gui.updateb(self.certhash)
-            self.save()
 
     def remove_image(self, nahash):
         try:
@@ -152,13 +152,18 @@ class hash_session(object):
     
     def clear_private(self):
         with self.lock:
-            self.buffer = list(filter(lambda x: x.get("private", 0) >= 1, self.buffer))
+            self.buffer = list(filter(lambda x: not x.get("private", 0) >= 1, self.buffer))
             self.save()
+            if "gtk" in self.parent.interfaces:
+                self.parent.gui.updateb_add(self.certhash)
 
     def clear_sensitive(self):
         with self.lock:
-            self.buffer = list(filter(lambda x: x.get("private", 0) == 2, self.buffer))
+            self.buffer = list(filter(lambda x: x.get("private", 0) != 2, self.buffer))
             self.save()
+            if "gtk" in self.parent.interfaces:
+                self.parent.gui.updateb_add(self.certhash)
+            
 
     def save (self):
         result = list(filter(lambda x: x.get("private", 0) == 0, self.buffer))
@@ -350,8 +355,8 @@ class chat_plugin(object):
             saveob["text"] = str(data, "utf-8")
         elif action == "send_file":
             saveob["type"] = "file"
-            saveob["name"] = _rest
             saveob["size"] = size
+            saveob["name"] = _rest
         
         self.sessions[certhash].add(saveob)
         

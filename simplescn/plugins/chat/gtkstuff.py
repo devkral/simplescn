@@ -75,16 +75,18 @@ class gtkstuff(object):
                 newimg.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(red=1.0, green=1.0, blue=1.0, alpha=0.7))
         return newimg
 
-    def gtk_download(self, widget, _addressfunc, _traversefunc, certhash, filename, size, pos=0):
+    def gtk_download(self, widget, certhash, size, filename, pos=0):
         _filech = Gtk.FileChooserDialog(title="Save to file", parent=widget.get_toplevel(), select_multiple=False, action=Gtk.FileChooserAction.SAVE, buttons=("Save", 10, "Cancel", 20))
-        #filech.set_filename(os.path.join filename)
+        down = os.path.expanduser(self.parent.config.get("downloaddir"))
+        _filech.set_current_folder(down)
+        _filech.set_current_name(filename)
         retrun = _filech.run()
         if retrun != 10:
             _filech.destroy()
             return
         _file2 = _filech.get_filename()
         _filech.destroy()
-        _socket, _cert, _hash = self.parent.session[certhash].request("fetch_file", "/{filename}/{pos}".format(filename=filename, pos=pos), _traversefunc())
+        _socket, _cert, _hash = self.parent.sessions[certhash].request("fetch_file", "/{pos}/{filename}".format(filename=filename, pos=pos))
         if _socket is None:
             logging.error("fetching file failed")
             return
@@ -101,19 +103,24 @@ class gtkstuff(object):
                 wrio.write(_data)
                 pos += len(_data)
             wrio.write(_socket.recv(size - pos))
-        self.parent.session[certhash].remove_download(filename)
+        self.parent.sessions[certhash].remove_download(filename)
+    
+    def gtk_download_offer_abort(self, widget, certhash, filename):
+        self.parent.sessions[certhash].remove_file(filename)
 
-
-    def gtk_create_fileob(self, isowner, isprivate, timestamp, filename, size, _addressfunc, _traversefunc, certhash):
+    def gtk_create_fileob(self, isowner, isprivate, timestamp, size, filename, certhash):
         #timest = timestamp.strftime("%Y.%m.%d %H:%M%S")
         ret = Gtk.Grid()
         if isowner:
             ret.attach_next_to(Gtk.Label("Offer File: {}".format(filename)), None, Gtk.PositionType.RIGHT, 1, 1)
+            downbut = Gtk.Button("Remove ({} KB)".format(size // 1024))
+            downbut.connect("clicked", self.gtk_download_offer_abort, certhash, filename)
+            ret.attach_next_to(downbut, None, Gtk.PositionType.RIGHT, 1, 1)
             ret.set_halign(Gtk.Align.END)
         else:
             ret.attach_next_to(Gtk.Label("File: {}".format(filename)), None, Gtk.PositionType.RIGHT, 1, 1)
             downbut = Gtk.Button("Download ({} KB)".format(size // 1024))
-            downbut.connect("clicked", self.gtk_download, _addressfunc, _traversefunc, certhash, filename, size)
+            downbut.connect("clicked", self.gtk_download, certhash, size, filename)
             ret.attach_next_to(downbut, None, Gtk.PositionType.RIGHT, 1, 1)
             ret.set_halign(Gtk.Align.START)
         ret.show_all()
@@ -133,7 +140,7 @@ class gtkstuff(object):
             self.parent.sessions[certhash].private = 2
         if privateselect != "sensitive":
             self.parent.sessions[certhash].clear_sensitive()
-        self.update_private(certhash)
+        self.updateb(certhash)
 
     def gtk_send_text(self, widget, _textwidget, _addressfunc, _traversefunc, certhash):
         with self.parent.sessions[certhash].lock:
@@ -179,7 +186,7 @@ class gtkstuff(object):
         if _newname[0] == ".":
             _newname = _newname[1:]
         _size = os.stat(_filename).st_size
-        shutil.copyfile(_filename, os.path.join(self.parent.sessions[certhash], "tosend", _newname))
+        shutil.copyfile(_filename, os.path.join(self.parent.sessions[certhash].sessionpath, "tosend", _newname))
         
         saveob = {}
         saveob["timestamp"] = create_timestamp()
@@ -189,10 +196,11 @@ class gtkstuff(object):
         saveob["size"] = _size
         saveob["name"] = _newname
         self.parent.sessions[certhash].add(saveob)
-        sock, _cert, _hash = self.parent[certhash].request("send_file","/{name}/{size}".format(name=_newname, size=_size))
+        sock, _cert, _hash = self.parent.sessions[certhash].request("send_file","/{size}/{name}".format(name=_newname, size=_size))
         if sock is None:
             logging.error("Cannot connect/other error")
             return
+        sock.close()
 
     def gtk_send_img(self, widget, _addressfunc, _traversefunc, window, certhash):
         with self.parent.sessions[certhash].lock:
@@ -272,9 +280,9 @@ class gtkstuff(object):
         clist = builder.get_object("chatlist")
         if self.parent.sessions[certhash].buffer_gui is None:
             self.parent.sessions[certhash].buffer_gui = Gio.ListStore()
+            self.parent.sessions[certhash].load()
             #init_async( certhash, _addressfunc)
             #Gdk.threads_add_idle(GLib.PRIORITY_LOW, self.init_async, certhash, _addressfunc, _traversefunc)
-            threading.Thread(target=self.updateb, args=(certhash,), daemon=True).start()
             # broken so use own function to workaround
             #clist.bind_model(chatbuf[certhash], Gtk.ListBoxCreateWidgetFunc)
 
@@ -282,7 +290,7 @@ class gtkstuff(object):
         
         builder.get_object("chatin").connect("destroy", self.parent.cleanup, certhash)
         
-        self.parent.sessions[certhash].load()
+        
         return builder.get_object("chatin")
 
     def update_private(self, certhash):
@@ -301,19 +309,24 @@ class gtkstuff(object):
 
     def updateb(self, certhash):
         Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, self.updateb_intern, certhash)
-        self.updateb_add(certhash)
     
     def updateb_intern(self, certhash):
+        print("lslsl")
         self.parent.sessions[certhash].__cache_size_gui = 0
         self.parent.sessions[certhash].__cache_private_plus = 0
         self.parent.sessions[certhash].buffer_gui.remove_all()
+        self.updateb_add(certhash)
     
     def updateb_add(self, certhash):
         self.update_private(certhash)
         with self.parent.sessions[certhash].lock:
+            #count = self.parent.sessions[certhash].__cache_size_gui
             self.parent.sessions[certhash].init_pathes()
-            while len(self.parent.sessions[certhash].buffer) > self.parent.sessions[certhash].__cache_size_gui:
+            while self.parent.sessions[certhash].__cache_size_gui < len(self.parent.sessions[certhash].buffer):
                 temp = self.parent.sessions[certhash].buffer[self.parent.sessions[certhash].__cache_size_gui]
+                if self.parent.sessions[certhash].private < temp["private"]:
+                    self.parent.sessions[certhash].__cache_size_gui += 1
+                    continue
                 if temp["type"] == "text":
                     self.glist_add_certhash(certhash, self.gtk_create_textob, temp["owner"], temp["private"], parse_timestamp(temp["timestamp"]), temp["text"])
                 elif temp["type"] == "img":
@@ -325,7 +338,8 @@ class gtkstuff(object):
                         img = temp["data"]
                     self.glist_add_certhash(certhash, self.gtk_create_imgob, temp["owner"], temp["private"], parse_timestamp(temp["timestamp"]), img)
                 elif temp["type"] == "file":
-                    self.glist_add_certhash(certhash, self.gtk_create_fileob, temp["owner"], temp["private"], parse_timestamp(temp["timestamp"]), temp.get("name"), temp.get("size"), self.parent.sessions[certhash].addressfunc, self.parent.sessions[certhash].traversefunc, certhash)
+                    self.glist_add_certhash(certhash, self.gtk_create_fileob, temp["owner"], temp["private"], parse_timestamp(temp["timestamp"]), temp.get("size"), temp.get("name"), certhash)
+                #count += 1
                 self.parent.sessions[certhash].__cache_size_gui += 1
         return False
 
