@@ -81,11 +81,11 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         recentview = self.builder.get_object("recentview")
         localview = self.builder.get_object("localview")
 
-        help_stuff.__init__(self)
-        debug_stuff.__init__(self)
-        configuration_stuff.__init__(self)
-        cmd_stuff.__init__(self)
-        hashmanagement.__init__(self)
+        help_stuff.init(self)
+        debug_stuff.init(self)
+        configuration_stuff.init(self)
+        cmd_stuff.init(self)
+        hashmanagement.init(self)
 
         listnodetypes = self.builder.get_object("listnodetypes")
         listnodetypes.append(("server", "Server"))
@@ -866,7 +866,7 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
     def close_renameentitydia(self, *args):
         self.renameentitydia.hide()
         return True
-        
+
     def close(self, *args):
         self.win.destroy()
         #gtkclient_instance.quit()

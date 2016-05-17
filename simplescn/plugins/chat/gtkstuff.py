@@ -138,35 +138,33 @@ class gtkstuff(object):
             self.parent.sessions[certhash].private = 1
         elif privateselect == "sensitive":
             self.parent.sessions[certhash].private = 2
-        if privateselect != "sensitive":
-            self.parent.sessions[certhash].clear_sensitive()
+        #if privateselect not in ["sensitive", "private"]:
+        #    self.parent.sessions[certhash].clear_sensitive()
         self.updateb(certhash)
 
     def gtk_send_text(self, widget, _textwidget, _addressfunc, _traversefunc, certhash):
         with self.parent.sessions[certhash].lock:
             self.parent.sessions[certhash].init_pathes()
         _text = _textwidget.get_text()
-        
+
         saveob = {}
         saveob["timestamp"] = create_timestamp()
         saveob["private"] = self.parent.sessions[certhash].private
         saveob["owner"] = True
         saveob["type"] = "text"
         saveob["text"] = _text
-        
-        
+
         _textb = bytes(_text, "utf-8")
         if len(_textb) == 0:
             return True
         sock, _cert, _hash = self.parent.sessions[certhash].request("send_text", "/{size}".format(size=len(_textb)))
 
-        if sock is None and self.parent.sessions[certhash].private>0:
+        if sock is None and self.parent.sessions[certhash].private > 0:
             logging.error("request failed")
             return False
         elif sock is None:
             # if not private
             self.parent.sessions[certhash].send("send_text", "/{size}".format(size=len(_textb)), _textb)
-            
         else:
             sock.sendall(_textb)
             sock.close()
@@ -187,7 +185,6 @@ class gtkstuff(object):
             _newname = _newname[1:]
         _size = os.stat(_filename).st_size
         shutil.copyfile(_filename, os.path.join(self.parent.sessions[certhash].sessionpath, "tosend", _newname))
-        
         saveob = {}
         saveob["timestamp"] = create_timestamp()
         saveob["private"] = self.parent.sessions[certhash].private
@@ -215,7 +212,7 @@ class gtkstuff(object):
         _filech.destroy()
         with open(_filename, "rb") as imgo:
             _img = imgo.read()
-        
+
         newimg = GdkPixbuf.PixbufLoader()
         newimg.write(_img)
         newimg.close()
@@ -234,7 +231,7 @@ class gtkstuff(object):
         if not os.path.exists(_imgname) and self.parent.sessions[certhash].private > 0:
             with open(_imgname, "wb") as wobj:
                 wobj.write(_img2)
-            
+
         saveob = {}
         saveob["timestamp"] = create_timestamp()
         saveob["private"] = self.parent.sessions[certhash].private
@@ -242,7 +239,6 @@ class gtkstuff(object):
         saveob["type"] = "img"
         saveob["size"] = len(_img2)
         saveob["hash"] = hashlib.sha256(_img2).hexdigest()
-        
         sock, _cert, _hash = self.parent.sessions[certhash].request("send_img", "/{size}".format(size=len(_img2)))
         if sock is None and self.parent.sessions[certhash].private>0:
             logging.error("sending failed")
@@ -253,7 +249,6 @@ class gtkstuff(object):
             sock.sendall(_img2)
             sock.close()
         self.parent.sessions[certhash].add(saveob)
-        
 
     def gtk_node_iface(self, _name, certhash, _addressfunc, _traversefunc, window):
         builder = Gtk.Builder()
@@ -262,7 +257,7 @@ class gtkstuff(object):
         self.parent.sessions[certhash].senslabel = builder.get_object("sensitivel")
         self.parent.sessions[certhash].__cache_size_gui = 0
         self.parent.sessions[certhash].__cache_private_plus = 0
-        
+
         textsende = builder.get_object("textsende")
         textsende.connect("activate", self.gtk_send_text, textsende, _addressfunc, _traversefunc, certhash)
         sendchatb = builder.get_object("sendchatb")
@@ -273,10 +268,10 @@ class gtkstuff(object):
         sendimgb.connect("clicked", self.gtk_send_img, _addressfunc, _traversefunc, window, certhash)
         privateselect = builder.get_object("privateselect")
         privateselect.connect("changed", self.update_private_select, certhash)
-        
+
         #TODO: connect and autoscrolldown
         #sendchatb.connect("child_notify", gtk_scroll_down, builder.get_object("chatscroll"))
-        
+
         clist = builder.get_object("chatlist")
         if self.parent.sessions[certhash].buffer_gui is None:
             self.parent.sessions[certhash].buffer_gui = Gio.ListStore()
@@ -287,17 +282,13 @@ class gtkstuff(object):
             #clist.bind_model(chatbuf[certhash], Gtk.ListBoxCreateWidgetFunc)
 
         clist.bind_model(self.parent.sessions[certhash].buffer_gui, myListBoxCreateWidgetFunc)
-        
         builder.get_object("chatin").connect("destroy", self.parent.cleanup, certhash)
-        
-        
         return builder.get_object("chatin")
 
     def update_private(self, certhash):
         Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, self.update_private_intern, certhash)
 
     def update_private_intern(self, certhash):
-        
         sensitive = self.parent.sessions[certhash].num_sensitive()
         private = self.parent.sessions[certhash].num_private()
         if self.parent.sessions[certhash].private > 0:
@@ -305,18 +296,17 @@ class gtkstuff(object):
         else:
             private_plus = 0
         self.parent.sessions[certhash].__cache_private_plus = private
-        self.parent.sessions[certhash].senslabel.set_text("private: {}+({}), sensitive: {}".format(private, private_plus, sensitive))
+        self.parent.sessions[certhash].senslabel.set_text("private: {} (+{}), sensitive: {}".format(private, private_plus, sensitive))
 
     def updateb(self, certhash):
         Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, self.updateb_intern, certhash)
-    
+
     def updateb_intern(self, certhash):
-        print("lslsl")
         self.parent.sessions[certhash].__cache_size_gui = 0
         self.parent.sessions[certhash].__cache_private_plus = 0
         self.parent.sessions[certhash].buffer_gui.remove_all()
         self.updateb_add(certhash)
-    
+
     def updateb_add(self, certhash):
         self.update_private(certhash)
         with self.parent.sessions[certhash].lock:

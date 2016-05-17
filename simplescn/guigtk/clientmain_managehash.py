@@ -16,7 +16,7 @@ class hashmanagement(object):
     _intern_node_type = None
     curlocal = None
 
-    def __init__(self):
+    def init(self):
         hview = self.builder.get_object("hashview")
         rview = self.builder.get_object("refview")
         hcol1 = Gtk.TreeViewColumn("Node", Gtk.CellRendererText(), text=0)

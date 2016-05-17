@@ -28,7 +28,7 @@ class configuration_stuff(object):
     _changed_pluginconf = None
     _changed_mainconf = None
 
-    def __init__(self):
+    def init(self):
         self.configurationwin = self.builder.get_object("configurationwin")
         self.configurationwin.set_transient_for(self.win)
         self.configurationwin.connect('delete-event', self.close_configurationwin)
@@ -214,7 +214,7 @@ class cmd_stuff(object):
     builder = None
     links = None
 
-    def __init__(self):
+    def init(self):
         self.cmdwin = self.builder.get_object("cmdwin")
         self.cmdwin.set_transient_for(self.win)
         cmdbuffer = self.builder.get_object("cmdbuffer")
@@ -260,7 +260,7 @@ class debug_stuff(object):
     debugfilter = None
     builder = None
 
-    def __init__(self):
+    def init(self):
         self.debugwin = self.builder.get_object("debugwin")
         self.debugwin.set_transient_for(self.win)
         self.debugview = self.builder.get_object("debugview")
@@ -323,7 +323,7 @@ class help_stuff(object):
     builder = None
     win = None
 
-    def __init__(self):
+    def init(self):
         self.aboutwin = self.builder.get_object("aboutwin")
         self.aboutwin.set_transient_for(self.win)
         self.aboutwin.connect('delete-event', self.close_about)

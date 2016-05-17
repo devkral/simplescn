@@ -155,14 +155,14 @@ class hash_session(object):
             self.buffer = list(filter(lambda x: not x.get("private", 0) >= 1, self.buffer))
             self.save()
             if "gtk" in self.parent.interfaces:
-                self.parent.gui.updateb_add(self.certhash)
+                self.parent.gui.updateb(self.certhash)
 
     def clear_sensitive(self):
         with self.lock:
             self.buffer = list(filter(lambda x: x.get("private", 0) != 2, self.buffer))
             self.save()
             if "gtk" in self.parent.interfaces:
-                self.parent.gui.updateb_add(self.certhash)
+                self.parent.gui.updateb(self.certhash)
             
 
     def save (self):
@@ -295,11 +295,14 @@ class chat_plugin(object):
         #    if resources("access")("getlocal", hash=certhash)[0] == False:
         #        return
         #    self.resources("open_node")("{}-{}".format(_socket.getsockname()[0], answerport), page="chat", forcehash=certhash)
-    
+
         if certhash not in self.sessions:
             # if still not existent
             return
-        
+
+        if answerport == 2 and self.sessions[certhash].private < 2:
+            return
+
         if action == "fetch_file":
             pos = size
             name = _rest
@@ -357,9 +360,8 @@ class chat_plugin(object):
             saveob["type"] = "file"
             saveob["size"] = size
             saveob["name"] = _rest
-        
         self.sessions[certhash].add(saveob)
-        
+
     ## executed when redirected, return False, when redirect should not be executed
     # def rreceive(self, action, _socket, _cert, certhash):
     #     pass
