@@ -201,9 +201,7 @@ class gtkstuff(object):
             # if not private
             self.parent.sessions[certhash].send("send_file", "/{size}/{name}".format(size=_size, name=_newname))
         else:
-            sock.send(b"")
             sock.close()
-        self.parent.sessions[certhash].add(saveob)
 
     def gtk_send_img(self, widget, _addressfunc, _traversefunc, window, certhash):
         with self.parent.sessions[certhash].lock:

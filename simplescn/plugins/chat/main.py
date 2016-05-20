@@ -119,14 +119,14 @@ class hash_session(object):
         except Exception:
             pass
         with self.lock:
-            self.buffer = list(filter(lambda x: x.get("type", "unknown") == "file" and x.get("name", None) == name and x.get("owner") == True, self.buffer))
+            self.buffer = list(filter(lambda x: x.get("type", "unknown") != "file" or x.get("name", None) != name or not x.get("owner", False), self.buffer))
             self.save()
             if "gtk" in self.parent.interfaces:
                 self.parent.gui.updateb(self.certhash)
     
     def remove_download(self, name):
         with self.lock:
-            self.buffer = list(filter(lambda x: lambda x: x.get("type", "unknown") == "file" and x.get("name", None) == name and x.get("owner") == False, self.buffer))
+            self.buffer = list(filter(lambda x: lambda x: x.get("type", "unknown") != "file" or x.get("name", None) != name or x.get("owner", False), self.buffer))
             self.save()
             if "gtk" in self.parent.interfaces:
                 self.parent.gui.updateb(self.certhash)
@@ -137,7 +137,7 @@ class hash_session(object):
         except Exception:
             pass
         with self.lock:
-            self.buffer = list(filter(lambda x: x.get("hash", None) == nahash, self.buffer)[:])
+            self.buffer = list(filter(lambda x: x.get("hash", None) != nahash, self.buffer))
             if "gtk" in self.parent.interfaces:
                 self.parent.gui.updateb(self.certhash)
             self.save()
@@ -239,6 +239,8 @@ class chat_plugin(object):
         self.gui = gtkstuff.gtkstuff(self)
 
     def cleanup(self, widget, certhash):
+        if certhash not in self.sessions:
+            return
         self.sessions[certhash].save()
         del self.sessions[certhash]
         #port_to_answer = None
@@ -248,7 +250,7 @@ class chat_plugin(object):
             return
         with self.sessions[certhash].lock:
             try:
-                shutil.rmtree(os.path.join(os.path.expanduser(self.config.get("chatdir")), certhash))
+                shutil.rmtree(self.sessions[certhash].sessionpath)
                 #os.remove(os.path.join(os.path.expanduser(config.get("chatdir")), dheader.get("forcehash")+".log"))
             except FileNotFoundError:
                 pass
