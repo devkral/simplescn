@@ -161,7 +161,7 @@ class gtkstuff(object):
 
         if sock is None and self.parent.sessions[certhash].private > 0:
             logging.error("request failed")
-            return False
+            return
         elif sock is None:
             # if not private
             self.parent.sessions[certhash].send("send_text", "/{size}".format(size=len(_textb)), _textb)
@@ -194,10 +194,16 @@ class gtkstuff(object):
         saveob["name"] = _newname
         self.parent.sessions[certhash].add(saveob)
         sock, _cert, _hash = self.parent.sessions[certhash].request("send_file","/{size}/{name}".format(name=_newname, size=_size))
-        if sock is None:
+        if sock is None and self.parent.sessions[certhash].private > 0:
             logging.error("Cannot connect/other error")
             return
-        sock.close()
+        elif sock is None:
+            # if not private
+            self.parent.sessions[certhash].send("send_file", "/{size}/{name}".format(size=_size, name=_newname))
+        else:
+            sock.send(b"")
+            sock.close()
+        self.parent.sessions[certhash].add(saveob)
 
     def gtk_send_img(self, widget, _addressfunc, _traversefunc, window, certhash):
         with self.parent.sessions[certhash].lock:
@@ -240,7 +246,7 @@ class gtkstuff(object):
         saveob["size"] = len(_img2)
         saveob["hash"] = hashlib.sha256(_img2).hexdigest()
         sock, _cert, _hash = self.parent.sessions[certhash].request("send_img", "/{size}".format(size=len(_img2)))
-        if sock is None and self.parent.sessions[certhash].private>0:
+        if sock is None and self.parent.sessions[certhash].private > 0:
             logging.error("sending failed")
             return
         elif sock is None: # if not private
@@ -255,8 +261,9 @@ class gtkstuff(object):
         builder.add_from_file(os.path.join(self.parent.proot, "chat.ui"))
         builder.connect_signals(self)
         self.parent.sessions[certhash].senslabel = builder.get_object("sensitivel")
-        self.parent.sessions[certhash].__cache_size_gui = 0
-        self.parent.sessions[certhash].__cache_private_plus = 0
+        self.parent.sessions[certhash]._cache_size_gui = 0
+        self.parent.sessions[certhash]._cache_private_plus = 0
+        self.parent.sessions[certhash]._cache_sensitive_plus = 0
 
         textsende = builder.get_object("textsende")
         textsende.connect("activate", self.gtk_send_text, textsende, _addressfunc, _traversefunc, certhash)
@@ -291,31 +298,38 @@ class gtkstuff(object):
     def update_private_intern(self, certhash):
         sensitive = self.parent.sessions[certhash].num_sensitive()
         private = self.parent.sessions[certhash].num_private()
-        if self.parent.sessions[certhash].private > 0:
-            private_plus = private - self.parent.sessions[certhash].__cache_private_plus
-        else:
+        private_plus = private - self.parent.sessions[certhash]._cache_private_plus
+        sensitive_plus = sensitive - self.parent.sessions[certhash]._cache_sensitive_plus
+        if self.parent.sessions[certhash].private >= 1:
             private_plus = 0
-        self.parent.sessions[certhash].__cache_private_plus = private
-        self.parent.sessions[certhash].senslabel.set_text("private: {} (+{}), sensitive: {}".format(private, private_plus, sensitive))
+            self.parent.sessions[certhash]._cache_private_plus = private
+        if self.parent.sessions[certhash].private >= 2:
+            sensitive_plus = 0
+            self.parent.sessions[certhash]._cache_sensitive_plus = sensitive
+        self.parent.sessions[certhash].senslabel.set_text("private: {} (+{}), sensitive: {} (+{})".format(private, private_plus, sensitive, sensitive_plus))
 
     def updateb(self, certhash):
         Gdk.threads_add_idle(GLib.PRIORITY_DEFAULT, self.updateb_intern, certhash)
 
     def updateb_intern(self, certhash):
-        self.parent.sessions[certhash].__cache_size_gui = 0
-        self.parent.sessions[certhash].__cache_private_plus = 0
+        self.parent.sessions[certhash]._cache_size_gui = 0
+        if not hasattr(self.parent.sessions[certhash], "_cache_private_plus"):
+            self.parent.sessions[certhash]._cache_private_plus = 0
+        
+        if not hasattr(self.parent.sessions[certhash], "_cache_sensitive_plus"):
+            self.parent.sessions[certhash]._cache_sensitive_plus = 0
         self.parent.sessions[certhash].buffer_gui.remove_all()
         self.updateb_add(certhash)
 
     def updateb_add(self, certhash):
         self.update_private(certhash)
         with self.parent.sessions[certhash].lock:
-            #count = self.parent.sessions[certhash].__cache_size_gui
+            #count = self.parent.sessions[certhash]._cache_size_gui
             self.parent.sessions[certhash].init_pathes()
-            while self.parent.sessions[certhash].__cache_size_gui < len(self.parent.sessions[certhash].buffer):
-                temp = self.parent.sessions[certhash].buffer[self.parent.sessions[certhash].__cache_size_gui]
+            while self.parent.sessions[certhash]._cache_size_gui < len(self.parent.sessions[certhash].buffer):
+                temp = self.parent.sessions[certhash].buffer[self.parent.sessions[certhash]._cache_size_gui]
                 if self.parent.sessions[certhash].private < temp["private"]:
-                    self.parent.sessions[certhash].__cache_size_gui += 1
+                    self.parent.sessions[certhash]._cache_size_gui += 1
                     continue
                 if temp["type"] == "text":
                     self.glist_add_certhash(certhash, self.gtk_create_textob, temp["owner"], temp["private"], parse_timestamp(temp["timestamp"]), temp["text"])
@@ -330,6 +344,6 @@ class gtkstuff(object):
                 elif temp["type"] == "file":
                     self.glist_add_certhash(certhash, self.gtk_create_fileob, temp["owner"], temp["private"], parse_timestamp(temp["timestamp"]), temp.get("size"), temp.get("name"), certhash)
                 #count += 1
-                self.parent.sessions[certhash].__cache_size_gui += 1
+                self.parent.sessions[certhash]._cache_size_gui += 1
         return False
 

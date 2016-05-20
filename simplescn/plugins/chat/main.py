@@ -13,12 +13,13 @@ import shutil
 import time
 import logging
 import json
+import socket
 from threading import RLock, Thread
 
 ###### used by pluginmanager ######
 
 # defaults for config (needed)
-config_defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": ["4000", int, "max image size in KB"], "maxsizetext": ["4000", int, "max size text in B"]}
+config_defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": ["4000", int, "max image size in KB"], "maxsizetext": ["4000", int, "max size text in B"], "accept_sensitive": ["True", bool, "accept sensitive stuff"]}
 
 # interfaces, config, accessable resources (communication with main program), pluginpath, logger
 # return None deactivates plugin
@@ -52,6 +53,7 @@ class hash_session(object):
     buffer_gui = None
     lock = None
     private = None
+    accept_sensitive = None
     addressfunc = None
     traversefunc = None
     window = None
@@ -72,6 +74,7 @@ class hash_session(object):
         self.private = 0
         self.guitype = guitype
         self.name = _name
+        self.accept_sensitive = self.parent.config.getb("accept_sensitive")
         self.buffer = []
         self.sessionpath = os.path.join(os.path.expanduser(self.parent.config.get("chatdir")), certhash)
         self.init_pathes()
@@ -227,7 +230,10 @@ class chat_plugin(object):
 "interfaces": ["gtk",], "description": "Delete the chat log"},
 {"text":"Delete private messages", "action": self.clear_private, \
 "interfaces": ["gtk",], "description": "Delete private and sensitive messages"}, {"text":"Delete sensitive messages", "action": self.clear_sensitive, \
-"interfaces": ["gtk",], "description": "Delete sensitive messages"}
+"interfaces": ["gtk",], "description": "Delete sensitive messages"},
+{"text":"Accept sensitive messages", "action": self.activate_sensitive, \
+"state": self.config.getb("accept_sensitive"), \
+"interfaces": ["gtk",], "description": "Accept sensitive messages"}
 
 ]
         self.gui = gtkstuff.gtkstuff(self)
@@ -260,6 +266,11 @@ class chat_plugin(object):
         if certhash not in self.sessions:
             return
         self.sessions[certhash].clear_sensitive()
+    
+    def activate_sensitive(self, gui, _addressfunc, window, certhash, state, dheader):
+        if not state:
+            self.clear_sensitive(gui, _addressfunc, window, certhash, dheader)
+        self.sessions[certhash].accept_sensitive = state
 
     def gui_node_iface(self, guitype, _name, certhash, _addressfunc, _traversefunc, window):
         if guitype != "gtk":
@@ -284,12 +295,14 @@ class chat_plugin(object):
     def receive(self, action, _socket, _cert, certhash):
         splitted = action.split("/", 4)
         if len(splitted) == 5:
-            action, private, answerport, _size, _rest = splitted
+            action, _private, answerport, _size, _rest = splitted
         elif len(splitted) == 4:
-            action, private, answerport, _size = splitted
+            action, _private, answerport, _size = splitted
         else:
+            _socket.close()
             return
         size = int(_size)
+        private = int(_private)
         
         #if certhash not in self.chatlock:
         #    if resources("access")("getlocal", hash=certhash)[0] == False:
@@ -298,9 +311,12 @@ class chat_plugin(object):
 
         if certhash not in self.sessions:
             # if still not existent
+            _socket.close()
             return
 
-        if answerport == 2 and self.sessions[certhash].private < 2:
+        if private == 2 and not self.sessions[certhash].accept_sensitive:
+            _socket.shutdown(socket.SHUT_RDWR)
+            _socket.close()
             return
 
         if action == "fetch_file":
@@ -322,6 +338,8 @@ class chat_plugin(object):
             return
         
         if not self.check_limits(action, size):
+            _socket.shutdown(socket.SHUT_RDWR)
+            _socket.close()
             return
         
         saveob = {}
