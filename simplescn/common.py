@@ -71,11 +71,15 @@ class configmanager(object):
         dbcon.commit()
 
     @dbaccess
-    def update(self, _defaults, _overlays={}, dbcon=None):
+    def update(self, _defaults, overlays=None, dbcon=None):
         # insert False, don't let it change
         _defaults["state"] = ("False", bool, "is component active")
         self.defaults = {}
         self.overlays = {}
+        if overlays:
+            _overlays = overlays
+        else:
+            _overlays = {}
         for _key, elem  in _defaults.items():
             tmp = None
             if len(elem) == 2:
