@@ -91,7 +91,7 @@ url&#91;-port&#93;
 e.g. testfoo.test.com-4040, 127.0.0.1-4040, ::1-4040, ::1, testfoo-lla.com-4040
 
 if no port is given the default server-port is used, this is possible for some methods
-if the url contains a - , port must be specified with -
+if the url ends with - and a number (only true for very, very rare local networks), port must be specified with -
 
 # scn
 This is a rewrite of scn.
