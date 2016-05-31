@@ -2,13 +2,18 @@
 
 import sys, os
 import json
+import struct
 import subprocess
 import selectors
-from threading import Lock #only for threads
+import socket
+from threading import RLock
 import logging
 from simplescn import pluginconfigdefaults;
 
-sel = selectors.DefaultSelector()
+
+detsize_format = "@QB"
+detsize_size = struct.calcsize(detsize_format)
+retrieve_format = "@{}s"
 
 
 class pluginmanager(object):
@@ -101,37 +106,52 @@ class pluginmanager(object):
 class plugincontroller(object):
     procinstance = None
     uicreator = None
-    config = None
     resources = None
+    sel = None
+    lock = None
 
     def __init__(self, procinstance, resources, uicreator):
         self.procinstance = procinstance
         self.uicreator = uicreator
         self.resources = resources
+        self.lock = RLock()
+        self.sel = selectors.DefaultSelector()
+        self.sel.register(procinstance.stdout, selectors.EVENT_READ)
 
     def __del__(self):
         self.procinstance.terminate()
     
     def access(self, command, *args, **kwargs):
+        contentsend = bytes(json.dumps((command, args, kwargs)), "utf-8")
         with self.lock:
-            return self.pluginpipe.send((command, args, kwargs))
+            if self.procinstance.poll() is not None:
+                return (False, "Plugin terminated")
+            self.sel.unregister(self.procinstance.stdout)
+            self.procinstance.stdin.write(struct.pack(detsize_format, len(contentsend), 0))
+            self.procinstance.stdin.write(contentsend)
+            size, turn = struct.unpack(detsize_format, con.read(detsize_size))
+            content = str(con.read(size), "utf-8")
+            self.sel.register(self.procinstance.stdout, selectors.READ)
+            return json.loads(content)
     
-    def run(self):
-        while True:
-            try:
-                command, args, kwargs = self.requestpipe.recv()
-            except Exception:
-                logging.error(exc)
-                break
-            try:
-                res = getattr(plugininstance, command)(*args, **kwargs)
-            except Exception as exc:
-                logging.error(exc)
-    
+    def read(self):
+        with self.lock:
+            size, turn = struct.unpack(detsize_format, self.procinstance.stdout.read(detsize_size))
+            if turn != 1:
+                return
+            #_size = struct.calcsize(retrieve_format.format(size))
+            #content = struct.unpack(retrieve_format.format(size), con.read(_size)
+            content = str(self.procinstance.stdout.read(size), "utf-8")
+            command, args, kwargs = json.loads(content)
+            res = self.resources.get(command, lambda *args, **kwargs: (False, "resource does not exist"))
+            contentret = bytes(json.dumps(res), "utf-8")
+            self.procinstance.stdin.write(struct.pack(detsize_format, len(contentret), 1))
+            self.procinstance.stdin.write(contentret)
+
     @classmethod
-    def create(pluginccls, name, path, resources, configm=None, uicreator=None):
+    def create(pluginccls, path, resources, configm=None, uicreator=None):
         proc = create_plugin(path, configm)
-        if not proc.is_alive():
+        if proc.poll() is not None:
             return None
         return pluginccls(proc, resources, uicreator)
 
@@ -139,7 +159,12 @@ class plugincontroller(object):
         if self.uicreator is None:
             return None
         return self.uicreator(self.access, *args, **kwargs)
-        
+    
+    def event_loop(self):
+        while True:
+            events = p.sel.select()
+            for key, mask in events:
+                self.read()
 
 
 

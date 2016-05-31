@@ -21,6 +21,36 @@ except ImportError:
 from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
 from simplescn import confdb_ending, isself, default_configdir, loglevel_converter, max_typelength
 
+
+def verify_config(obj):
+    if not isinstance(obj, dict):
+        return False
+    for name, value in obj:
+        if not isinstance(name, str):
+            return False
+        if not isinstance(value, (list, tuple)) or value.size():
+            return False
+        if not isinstance(value[0], str) or not isinstance(value[2], str):
+            return False
+        if not callable(value[1]):  # and not isinstance(value[0], str):
+            return False
+    return True
+
+convertmap = \
+{
+    "json": json.loads,
+    "str": str,
+    "int": int,
+    "float": float
+}
+
+# no return needed, references
+def convert_config(obj):
+    for name, value in obj:
+        if not callable(value[1]):
+            value[1] = convertmap.get(value[1], str)
+
+
 class configmanager(object):
     db_path = None
     lock = None
@@ -339,50 +369,33 @@ class pluginmanager(object):
             if dbconf[:-len(confdb_ending)] not in lplugins:
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
 
-    def load_pluginconfig(self, plugin):
-        if plugin in self.plugins:
-            return self.plugins[plugin].config
-        plugins = self.list_plugins()
-        pluginpath = plugins.get(plugin)
+    def load_pluginconfig(self, plugin_name):
+        pluginlist = self.list_plugins()
+        pluginpath = pluginlist.get(plugin_name)
         if pluginpath is None:
             return None
-        plugin = (plugin, pluginpath)
-        pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin[0], confdb_ending)))
-        if hasattr(importlib.util, "module_from_spec"):
-            module = importlib.machinery.ModuleSpec("_plugins.{}".format(plugin[0]), None, origin=plugin[1])
-            module.submodule_search_locations = [os.path.join(plugin[1], plugin[0]), plugin[1]]
-            module = importlib.util.module_from_spec(module)
-        else:
-            module = types.ModuleType("_plugins.{}".format(plugin[0]), None)
-            module.__path__ = [os.path.join(plugin[1], plugin[0]), plugin[1]]
-        sys.modules[module.__name__] = module
-        #print(sys.modules.get("plugins"),sys.modules.get("plugins.{}".format(plugin[0])))
-        globalret = self.pluginenv.copy()
-        globalret["__name__"] = "_plugins.{}.{}".format(plugin[0], pluginstartfile.rsplit(".", 1)[0])
-        globalret["__package__"] = "_plugins.{}".format(plugin[0])
-        globalret["__file__"] = os.path.join(plugin[1], plugin[0], pluginstartfile)
-        try:
-            with open(os.path.join(plugin[1], plugin[0], pluginstartfile), "r") as readob:
-                exec(readob.read(), globalret)
-                # unchangeable default, check that config_defaults is really a dict
-            if not isinstance(globalret.get("config_defaults", None), dict) or not issubclass(dict, type(globalret["config_defaults"])):
-                logging.error("global value: config_defaults is no dict/not specified")
-                return None
-            globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
-            pconf.update(globalret["config_defaults"])
-        except Exception as exc:
-            st = "Plugin failed to load, reason:\n{}".format(exc)
-            if hasattr(exc, "tb_frame"):
-                st += "\n\n{}".format(traceback.format_tb(exc))
-            logging.error(st)
-        # delete namespace stub
-        del sys.modules[module.__name__]
+        defaults = {}
+        if os.path.isfile(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, pluginconfigdefaults))):
+            try:
+                with open(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, pluginconfigdefaults)), "r") as obread:
+                    defaults = json.load(obread)
+                    convert_config(defaults)
+                    # verify; on error delete config
+                    if not verify_config(defaults):
+                        defaults = {}
+            except Exception:
+                logging.warning("%s: loading plugin configuration failed", plugin_name)
+        # unchangeable default
+        defaults["state"] = ("False", bool, "is plugin active")
+        pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, confdb_ending)))
+        # no overlays for plugins so ignore
+        pconf.update(defaults)
         return pconf
 
     def init_plugins(self):
         lplugins = self.list_plugins()
         for plugin in lplugins.items():
-            pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin[0], confdb_ending)))
+            pconf = self.load_pluginconfig(plugin[0])
             if not pconf.getb("state"):
                 continue
             if hasattr(importlib.util, "module_from_spec"):
@@ -402,12 +415,6 @@ class pluginmanager(object):
             try:
                 with open(os.path.join(plugin[1], plugin[0], pluginstartfile), "r") as readob:
                     exec(readob.read(), globalret)
-                    # unchangeable default, check that config_defaults is really a dict
-                    if not isinstance(globalret.get("config_defaults", None), dict) or not issubclass(dict, type(globalret["config_defaults"])):
-                        logging.error("global value: config_defaults is no dict/not specified")
-                        continue
-                    globalret["config_defaults"]["state"] = ("False", bool, "is plugin active")
-                    pconf.update(globalret["config_defaults"])
                     finobj = globalret["init"](self.interfaces.copy(), pconf, pluginresources_creater(self.resources, plugin[0]), os.path.join(plugin[1], plugin[0]))
             except Exception as exc:
                 st = "Plugin failed to load, reason:\n{}".format(exc)
