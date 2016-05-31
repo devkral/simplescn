@@ -2,8 +2,6 @@
 
 ###### used by pluginmanager ######
 
-# defaults for config (needed)
-config_defaults = {"test": ["testvar", str, "testvar description"]}
 
 # interfaces, config, accessable resources (communication with main program), pluginpath, logger
 # return None deactivates plugin
@@ -12,8 +10,6 @@ def init(interfaces, config, resources, proot):
     return sample_test(interfaces, config, resources, proot)
 
 ###### used by pluginmanager end ######
-
-
 
 class sample_test(object):
     interfaces = None
@@ -28,8 +24,6 @@ class sample_test(object):
     
     def __init__(self, interfaces, config, resources, proot):
         self.interfaces, self.config, self.resources, self.proot = interfaces, config, resources, proot
-        
-        
         # iterable, for node actions, just shows up in gui, do localization in plugin
         gui_node_actions=[{"text":"foo-actionname","action": self.sampleaction, "icon":"optionalfoo-iconlocation", \
 "interfaces": ["gtk",], "description": "foo"}, ]

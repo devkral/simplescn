@@ -18,8 +18,6 @@ from threading import RLock, Thread
 
 ###### used by pluginmanager ######
 
-# defaults for config (needed)
-config_defaults = {"chatdir": ["~/.simplescn/chatlogs", str, "directory for chatlogs"], "downloaddir": ["~/Downloads", str, "directory for Downloads"], "maxsizeimg": ["4000", int, "max image size in KB"], "maxsizetext": ["4000", int, "max size text in B"], "accept_sensitive": ["True", bool, "accept sensitive stuff"]}
 
 # interfaces, config, accessable resources (communication with main program), pluginpath, logger
 # return None deactivates plugin
@@ -32,7 +30,7 @@ def init(interfaces, config, resources, proot):
     #port_to_answer = resources("access")("show")[1]["port"]
     # assign port to answer
     #/{timestamp}
-    os.makedirs(os.path.join(os.path.expanduser(config.get("chatdir"))), 0o770, exist_ok=True)
+    os.makedirs(os.path.expanduser(config.get("chatdir")), 0o770, exist_ok=True)
     return chat_plugin(interfaces, config, resources, proot)
 
 ###### used by pluginmanager end ######
@@ -119,14 +117,14 @@ class hash_session(object):
         except Exception:
             pass
         with self.lock:
-            self.buffer = list(filter(lambda x: x.get("type", "unknown") != "file" or x.get("name", None) != name or not x.get("owner", False), self.buffer))
+            self.buffer = list(filter(lambda x: not (x.get("type", "unknown") == "file" and x.get("name", None) == name and x.get("owner", False)), self.buffer))
             self.save()
             if "gtk" in self.parent.interfaces:
                 self.parent.gui.updateb(self.certhash)
     
     def remove_download(self, name):
         with self.lock:
-            self.buffer = list(filter(lambda x: lambda x: x.get("type", "unknown") != "file" or x.get("name", None) != name or x.get("owner", False), self.buffer))
+            self.buffer = list(filter(lambda x: not (x.get("type", "unknown") == "file" and x.get("name", None) == name and not x.get("owner", False)), self.buffer))
             self.save()
             if "gtk" in self.parent.interfaces:
                 self.parent.gui.updateb(self.certhash)

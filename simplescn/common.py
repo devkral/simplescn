@@ -7,6 +7,7 @@ import importlib
 import traceback
 import threading
 import logging
+import json
 
 
 if not hasattr(importlib.util, "module_from_spec"):
@@ -18,21 +19,21 @@ except ImportError:
     pass
 
 
-from simplescn import pluginstartfile, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
+from simplescn import pluginstartfile, pluginconfigdefaults, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
 from simplescn import confdb_ending, isself, default_configdir, loglevel_converter, max_typelength
 
 
 def verify_config(obj):
     if not isinstance(obj, dict):
         return False
-    for name, value in obj:
+    for name, value in obj.items():
         if not isinstance(name, str):
             return False
-        if not isinstance(value, (list, tuple)) or value.size():
+        if not isinstance(value, (list, tuple)) or len(value) != 3:
             return False
         if not isinstance(value[0], str) or not isinstance(value[2], str):
             return False
-        if not callable(value[1]):  # and not isinstance(value[0], str):
+        if not callable(value[1]):
             return False
     return True
 
@@ -41,12 +42,13 @@ convertmap = \
     "json": json.loads,
     "str": str,
     "int": int,
-    "float": float
+    "float": float,
+    "path": lambda p:os.path.expanduser(os.path.expandvars(p))
 }
 
 # no return needed, references
 def convert_config(obj):
-    for name, value in obj:
+    for name, value in obj.items():
         if not callable(value[1]):
             value[1] = convertmap.get(value[1], str)
 
@@ -60,6 +62,7 @@ class configmanager(object):
     def __init__(self, _dbpath):
         # init here because of multiple instances
         self.overlays = {}
+        # unchangeable default
         self.defaults = {"state":("False", bool, "is component active")}
         self.db_path = _dbpath
         self.lock = threading.Lock()
@@ -102,7 +105,7 @@ class configmanager(object):
 
     @dbaccess
     def update(self, _defaults, overlays=None, dbcon=None):
-        # insert False, don't let it change
+        # unchangeable default
         _defaults["state"] = ("False", bool, "is component active")
         self.defaults = {}
         self.overlays = {}
@@ -300,6 +303,32 @@ class configmanager(object):
             elif not onlypermanent:
                 ret.append((_key, _val2, str(_converter), _defaultval, _doc, ispermanent))
         return ret
+    
+    @classmethod
+    def defaults_from_json(cls, dbpath, jstring=None, jpath=None, overlays=None):
+        defaults = {}
+        try:
+            if jpath:
+                with open(jpath, "r") as readob:
+                    defaults = json.load(readob)
+            elif jstring:
+                defaults = json.load(jstring)
+            else:
+                return None
+            convert_config(defaults)
+            if not verify_config(defaults):
+                return None
+            tconf = cls(dbpath)
+            # if update is success return tconf
+            if tconf.update(defaults, overlays):
+                return tconf
+        except Exception as exc:
+            if hasattr(exc, "__traceback__"):
+                st = "{}\n\n{}".format(exc, traceback.format_tb(exc.__traceback__))
+            else:
+                st = "{}".format(exc)
+            logging.error(st)
+        return None
 
 def pluginresources_creater(_dict, requester):
     if requester == "":
@@ -365,38 +394,30 @@ class pluginmanager(object):
         lplugins = self.list_plugins()
         lconfig = os.listdir(self.path_plugins_config)
         for dbconf in lconfig:
-            #remove .confdb
+            #remove .confdb from name
             if dbconf[:-len(confdb_ending)] not in lplugins:
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
 
-    def load_pluginconfig(self, plugin_name):
-        pluginlist = self.list_plugins()
-        pluginpath = pluginlist.get(plugin_name)
+    def load_pluginconfig(self, plugin_name, pluginpath=None):
+        if pluginpath is None:
+            pluginlist = self.list_plugins()
+            pluginpath = pluginlist.get(plugin_name)
         if pluginpath is None:
             return None
-        defaults = {}
-        if os.path.isfile(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, pluginconfigdefaults))):
-            try:
-                with open(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, pluginconfigdefaults)), "r") as obread:
-                    defaults = json.load(obread)
-                    convert_config(defaults)
-                    # verify; on error delete config
-                    if not verify_config(defaults):
-                        defaults = {}
-            except Exception:
-                logging.warning("%s: loading plugin configuration failed", plugin_name)
-        # unchangeable default
-        defaults["state"] = ("False", bool, "is plugin active")
-        pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, confdb_ending)))
-        # no overlays for plugins so ignore
-        pconf.update(defaults)
+        dbpath = os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, confdb_ending))
+        dbdefaults = os.path.join(pluginpath, plugin_name, pluginconfigdefaults)
+        # no overlays for plugins
+        if os.path.isfile(dbdefaults):
+            pconf = configmanager.defaults_from_json(dbpath, jpath=dbdefaults)
+        else:
+            pconf = configmanager(dbpath)
         return pconf
 
     def init_plugins(self):
         lplugins = self.list_plugins()
         for plugin in lplugins.items():
             pconf = self.load_pluginconfig(plugin[0])
-            if not pconf.getb("state"):
+            if pconf is None or not pconf.getb("state"):
                 continue
             if hasattr(importlib.util, "module_from_spec"):
                 module = importlib.machinery.ModuleSpec("_plugins.{}".format(plugin[0]), None, origin=plugin[1])
@@ -423,7 +444,6 @@ class pluginmanager(object):
                 logging.error(st)
                 finobj = None
             if finobj:
-                # config is found in finobj.config
                 self.plugins[plugin[0]] = finobj
             else:
                 # delete namespace stub

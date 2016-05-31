@@ -60,7 +60,7 @@ class pluginmanager(object):
         lplugins = self.list_plugins()
         lconfig = os.listdir(self.path_plugins_config)
         for dbconf in lconfig:
-            #remove .confdb
+            #remove .confdb from name
             if dbconf[:-len(confdb_ending)] not in lplugins:
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
 

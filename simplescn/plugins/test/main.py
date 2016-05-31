@@ -1,6 +1,4 @@
 
-# defaults for config (needed)
-config_defaults={}
 
 class test(object):
     # localized name
