@@ -1,5 +1,12 @@
 
+The solution for pluginmanager:
+pluginmanager->plugin communication via stdin stdout
+plugin->simplescn via socket
 
+init:
+the port+cert is transferred via stdin
+
+getline loop in plugin for receiving commands
 
 
 ## 0.2
