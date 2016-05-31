@@ -10,6 +10,7 @@
 * pwhandling for plugins
 * ui_node_session
 * ui_main_session
+* predefined config shortcuts (e.g. json for saving in json format)
 
 ## Future
 * Webgui
