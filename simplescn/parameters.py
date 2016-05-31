@@ -27,6 +27,7 @@ ping_interval = 50
 # timeouts for connecting and else
 default_timeout = 60
 connect_timeout = 5
+local_timeout = 5
 
 ## file positions ##
 default_configdir = '~/.simplescn/'

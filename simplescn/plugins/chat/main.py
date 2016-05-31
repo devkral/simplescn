@@ -30,7 +30,7 @@ def init(interfaces, config, resources, proot):
     #port_to_answer = resources("access")("show")[1]["port"]
     # assign port to answer
     #/{timestamp}
-    os.makedirs(os.path.expanduser(config.get("chatdir")), 0o770, exist_ok=True)
+    os.makedirs(config.get("chatdir"), 0o770, exist_ok=True)
     return chat_plugin(interfaces, config, resources, proot)
 
 ###### used by pluginmanager end ######
@@ -74,7 +74,7 @@ class hash_session(object):
         self.name = _name
         self.accept_sensitive = self.parent.config.getb("accept_sensitive")
         self.buffer = []
-        self.sessionpath = os.path.join(os.path.expanduser(self.parent.config.get("chatdir")), certhash)
+        self.sessionpath = os.path.join(self.parent.config.get("chatdir"), certhash)
         self.init_pathes()
 
         self._thread = Thread(target=self.sendthread, daemon=True)

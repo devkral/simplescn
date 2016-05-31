@@ -469,21 +469,22 @@ class client_server(commonscn):
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
 
-    @check_argsdeco({"name": str, "port": int})
+    @check_argsdeco({"name": str, "port": int}, optional={"invisibleport": bool,"post": bool})
     @classify_local
     def registerservice(self, obdict):
         """ func: register a service = (map port to name)
             return: success or error
             name: service name
-            port: port number """
+            port: port number
+            invisibleport: port is not shown (but can wrap)
+            post: send http post request with certificate in header to service """
         if obdict.get("clientaddress") is None:
             return False, "bug: clientaddress is None"
         if check_local(obdict.get("clientaddress")[0]):
-            self.wlock.acquire()
-            self.spmap[obdict.get("name")] = obdict.get("port")
-            self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
-            #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
-            self.wlock.release()
+            with self.wlock:
+                self.spmap[obdict.get("name")] = (obdict.get("port"), obdict.get("invisibleport", False), obdict.get("post", False))
+                self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
+                #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             return True
         return False, "no permission"
 
@@ -497,11 +498,10 @@ class client_server(commonscn):
         if obdict.get("clientaddress") is None:
             return False, "bug: clientaddress is None"
         if check_local(obdict.get("clientaddress")[0]):
-            self.wlock.acquire()
-            if obdict["name"] in self.spmap:
-                del self.spmap[obdict["name"]]
-                self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
-            self.wlock.release()
+            with self.wlock:
+                if obdict["name"] in self.spmap:
+                    del self.spmap[obdict["name"]]
+                    self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
             return True
         return False, "no permission"
 
@@ -511,11 +511,15 @@ class client_server(commonscn):
     @classify_local
     def getservice(self, obdict):
         """ func: get the port of a service
-            return: portnumber
+            return: portnumber or negative for invisibleport
             name: servicename """
         if obdict["name"] not in self.spmap:
             return False
-        return True, self.spmap[obdict["name"]]
+        if not self.spmap[obdict["name"]][1]:
+            return True, self.spmap[obdict["name"]][0]
+        else:
+            return True, -1
+
 
 def gen_client_handler():
     class client_handler(commonscnhandler):
@@ -605,9 +609,9 @@ def gen_client_handler():
                     # don't show stacktrace if not permitted and not in debug mode
                     if "stacktrace" in generror:
                         del generror["stacktrace"]
-                    # with harden mode do not show errormessage
-                    if harden_mode and not isinstance(exc, (AddressFail, VALError)):
-                        generror = generate_error("unknown")
+                # with harden mode do not show errormessage
+                if harden_mode and not isinstance(exc, (AddressFail, VALError)):
+                    generror = generate_error("unknown")
                 ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
                 self.scn_send_answer(500, body=ob, mime="application/json")
                 return
@@ -619,6 +623,7 @@ def gen_client_handler():
                 self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
             else:
                 self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
+
         def do_GET(self):
             if not self.init_scn_stuff():
                 return
@@ -634,7 +639,7 @@ def gen_client_handler():
             if _path[0] in ("", "client", "html", "index"):
                 self.html("client.html")
                 return
-            elif  _path[0] == "static" and len(_path) >= 2:
+            elif _path[0] == "static" and len(_path) >= 2:
                 if _path[1] in self.statics:
                     self.scn_send_answer(200, body=self.statics[_path[1]], docache=True)
                     return
@@ -699,8 +704,11 @@ def gen_client_handler():
                         return
                     else:
                         self.handle_plugin(pluginm.plugins[plugin].receive, action)
-            # for invalidating and updating, don't use connection afterwards
+            # not ready
+            #elif resource == "wrap":
+            #    self.handle_wrap(action)
             elif resource == "usebroken":
+                # for invalidating and updating, don't use connection afterwards
                 self.handle_usebroken(sub)
             elif resource == "server":
                 self.handle_server(sub)

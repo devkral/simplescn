@@ -861,7 +861,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.wfile = self.connection.makefile(mode='wb')
             self.scn_send_answer(404, message="brokencert not found", docache=False, dokeepalive=True)
 
-    def handle_plugin(self, func, action):
+    def wrap_func(self, func, *args, **kwargs):
         self.send_response(200)
         self.send_header("Connection", "keep-alive")
         self.send_header("Cache-Control", "no-cache")
@@ -871,10 +871,35 @@ class commonscnhandler(BaseHTTPRequestHandler):
         # send if not sent already
         self.wfile.flush()
         try:
-            return func(action, self.connection, self.client_cert, self.client_cert_hash)
+            return func(*args, **kwargs)
         except Exception as exc:
             logging.error(exc)
             return False
+
+    def handle_plugin(self, func, action):
+        return self.wrap_func(func, action, self.connection, self.client_cert, self.client_cert_hash)
+
+    def handle_wrap(self, func, servicename):
+        service = self.links["client_server"].spmap.get(servicename, None)
+        if service is None:
+            # send error
+            self.scn_send_answer(404, message="service not available")
+            return
+        port = service[0]
+        sockd = None
+        for addr in ["::1", "127.0.0.1"]:
+            try:
+                sockd = socket.create_connection((addr, port), local_timeout)
+                break
+            except Exception as e:
+                logging.debug(e)
+                sockd = None
+        if sockd is None:
+            self.scn_send_answer(404, message="service not reachable")
+            return
+        redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
+        redout.run()
+        rw_socket(sockd, self.connection)
 
 def create_certhashheader(certhash):
     _random = os.urandom(token_size).hex()

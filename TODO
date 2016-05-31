@@ -3,6 +3,8 @@
 
 
 ## 0.2
+* generalized module for connecting
+* wrap, also with extended syntax for certchecking (requires generalized module for connecting)
 * rewrite pluginmanager
 * better isolation of plugins
 * pwhandling for plugins
