@@ -273,6 +273,7 @@ class debug_stuff(object):
         for name in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
             filterlevelcombo.append_text(name)
         self.builder.get_object("filterlevel-entry").set_text(logging.getLevelName(self.links["config"].get("loglevel")))
+        logging.Handler.__init__(self)
         self.debugwin.connect('delete-event', self.close_debug)
 
     def debugfilter_refilter(self, *args):
