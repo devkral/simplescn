@@ -1,38 +1,52 @@
 #! /usr/bin/env python3
 
-import sys, os
+import sys
 import json
 import subprocess
-import selectors
+import os
 import socket
-from threading import RLock
+from threading import Lock, Thread
 import logging
 from simplescn import pluginconfigdefaults;
 
 
 class pluginmanager(object):
     plugin_config_path = None
+    wlock = None
     pathes_plugins = None
     pluginloader = None
-    resources = None
     plugins = None
     interfaces = None
     redirect_addr = None
     uicreator = None
-    
-    def __init__(self, pluginloader, pathes_plugins, path_plugins_config, scn_type, resources, uicreator=None):
-        if resources is None:
-            self.resources = {}
-        else:
-            self.resources = resources
+    portpoll = None
+    portcom = None
+
+    def __init__(self, pluginloader, portcom, pathes_plugins, path_plugins_config, scn_type, uicreator=None, tempdir="/tmp/"):
         self.plugins = {}
         self.interfaces = []
         self.redirect_addr = ""
+        self.wlock = Lock()
         self.pluginloader = pluginloader
+        self.portcom = portcom
         self.pathes_plugins = pathes_plugins
         self.uicreator = uicreator
         self.plugin_config_path = plugin_config_path
         self.interfaces.insert(0, scn_type)
+        if hasattr(socket, "AF_UNIX"):
+            self.portpoll = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            self.portpoll.bind(os.path.join(tempdir, "pluginmanager"))
+        else:
+            self.portpoll = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            self.portpoll.bind(("::1", 0))
+
+    def run(self):
+        while True:
+            recvc = self.portpoll.recv(512)
+            name, certhash = str(recvc, "utf-8", errors="ignore").rsplit("/", 1)
+            if name not in self.plugins:
+                continue
+            self.plugins[name].update_ui(certhash)
 
     def list_plugins(self):
         temp = {}
@@ -58,37 +72,42 @@ class pluginmanager(object):
             if dbconf[:-len(confdb_ending)] not in lplugins:
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
 
-    def load_pluginconfig(self, plugin_name):
-        pluginlist = self.list_plugins()
-        pluginpath = pluginlist.get(plugin_name)
+    def load_pluginconfig(self, plugin_name, pluginpath=None):
+        if pluginpath is None:
+            pluginlist = self.list_plugins()
+            pluginpath = pluginlist.get(plugin_name)
         if pluginpath is None:
             return None
-        defaults = {}
-        with open(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, pluginconfigdefaults)), "r") as obread:
-            defaults = json.load(obread)
-        defaults["state"] = ("False", bool, "is plugin active")
-        pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, confdb_ending)))
-        pconf.update(defaults)
+        dbpath = os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, confdb_ending))
+        dbdefaults = os.path.join(pluginpath, plugin_name, pluginconfigdefaults)
+        # no overlays for plugins
+        if os.path.isfile(dbdefaults):
+            pconf = configmanager.defaults_from_json(dbpath, jpath=dbdefaults, ensure={"pwhash": (str, "", "hashed password, empty for none")})
+        else:
+            pconf = configmanager(dbpath)
+            pconf.update({"pwhash": (str, "", "hashed password, empty for none")})
         return pconf
 
+    def load_plugin(self, name, path):
+        pconf = self.load_pluginconfig(name)
+        if pconf is None or not pconf.getb("state"):
+            return
+        ret = self.plugincontroller.create(os.path.join(path, name), self.portcom, self.portpoll, pconf.db_path, self.uicreator)
+        if ret:
+            with self.wlock:
+                self.plugins[name] = ret
+        
     def init_plugins(self):
-        for plugin in self.list_plugins():
-            pconf = configmanager(os.path.join(self.path_plugins_config, "{}{}".format(plugin[0], confdb_ending)))
-            
-            if not pconf.getb("state"):
-                continue
-            defaults = {}
+        lplugins = self.list_plugins()
+        _threads = []
+        for plugin in lplugins.items():
+            _threads.append(Thread(target=self.load_plugin, args=(plugin[0], plugin[1]), daemon=True))
+            _threads[-1].start()
+        for _thread in _threads:
             try:
-                with open(os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, pluginconfigdefaults)), "r") as obread:
-                    defaults = json.load(obread)
+                _thread.join()
             except Exception:
-                logging.info("Plugin: {} has no config".format(plugin[0]))
-            
-            defaults["state"] = ("False", bool, "is plugin active")
-            pconf.update(defaults)
-            ret = self.plugincontroller.create(plugin[1], self.resources, pconf, self.uicreator)
-            if ret:
-                self.plugins[plugin[0]] = ret
+                pass
 
     def register_remote(self, _addr):
         self.redirect_addr = _addr
@@ -98,110 +117,48 @@ class pluginmanager(object):
 
 
 class plugincontroller(object):
+    portcom = None
+    portpoll = None
     procinstance = None
     uicreator = None
-    resources = None
-    sel = None
     lock = None
 
-    def __init__(self, procinstance, resources, uicreator):
-        self.procinstance = procinstance
+    def __init__(self, procinstance, portcom, portpoll, uicreator):
+        self.portcom = portcom
+        self.portpoll = portpoll
         self.uicreator = uicreator
-        self.resources = resources
-        self.lock = RLock()
-        self.sel = selectors.DefaultSelector()
-        self.sel.register(procinstance.stdout, selectors.EVENT_READ)
+        self.procinstance = procinstance
+        self.lock = Lock()
 
     def __del__(self):
         self.procinstance.terminate()
-    
+
+    def update_ui(self, certhash):
+        if self.uicreator:
+            ui = self.uicreator.uis.get(certhash, None)
+            if ui:
+                ui.update(self.access("update_ui"))
+
     def access(self, command, *args, **kwargs):
-        contentsend = bytes(json.dumps((command, args, kwargs)), "utf-8")
+        contentsend = json.dumps((command, args, kwargs))
         with self.lock:
             if self.procinstance.poll() is not None:
                 return (False, "Plugin terminated")
-            self.sel.unregister(self.procinstance.stdout)
-            self.procinstance.stdin.write(struct.pack(detsize_format, len(contentsend), 0))
-            self.procinstance.stdin.write(contentsend)
-            size, turn = struct.unpack(detsize_format, con.read(detsize_size))
-            content = str(con.read(size), "utf-8")
-            self.sel.register(self.procinstance.stdout, selectors.READ)
-            return json.loads(content)
-    
-    def read(self):
-        with self.lock:
-            size, turn = struct.unpack(detsize_format, self.procinstance.stdout.read(detsize_size))
-            if turn != 1:
-                return
-            #_size = struct.calcsize(retrieve_format.format(size))
-            #content = struct.unpack(retrieve_format.format(size), con.read(_size)
-            content = str(self.procinstance.stdout.read(size), "utf-8")
-            command, args, kwargs = json.loads(content)
-            res = self.resources.get(command, lambda *args, **kwargs: (False, "resource does not exist"))
-            contentret = bytes(json.dumps(res), "utf-8")
-            self.procinstance.stdin.write(struct.pack(detsize_format, len(contentret), 1))
-            self.procinstance.stdin.write(contentret)
+            content = self.procinstance.communicate(contentsend, 15)[0]
+        return json.loads(content)
 
     @classmethod
-    def create(pluginccls, path, resources, configm=None, uicreator=None):
-        proc = create_plugin(path, configm)
+    def create(pluginccls, path, portcom, portpoll, plugin_config_path="", uicreator=None):
+        pargs = [sys.executable, path, portcom, portpoll, plugin_config_path]
+        proc = subprocess.Popen(pargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        # can miss a crash of a plugin with long loadtime
+        
         if proc.poll() is not None:
             return None
-        return pluginccls(proc, resources, uicreator)
+        return pluginccls(proc, portcom, portpoll, uicreator)
 
-    def create_uiinstance(self, *args, **kwargs):
+    def create_uiinstance(self, certhash, *args, **kwargs):
         if self.uicreator is None:
             return None
-        return self.uicreator(self.access, *args, **kwargs)
-    
-    def event_loop(self):
-        while True:
-            events = p.sel.select()
-            for key, mask in events:
-                self.read()
-
-
-
-
-class pluginshim(object):
-    queue = None
-    # requests from plugin
-    requestpipe = None
-    lock = None
-    
-    def __init__(self, pipe, requestpipe,):
-        QueueHandler.__init__(self, pipe)
-        self.plugininstance = plugininstance
-        #logging.root.removeHandler(logging.root.handlers[0])
-        #logging.root.addHandler(self)
-        self.requestpipe = requestpipe
-        self.lock = Lock()
-    
-    #def enqueue(self, record):
-    #    self.queue.send([False, record])
-        
-    def access(self, command, *args, **kwargs):
-        with self.lock:
-            return self.pluginpipe.send((command, args, kwargs))
-    
-    def run(self, plugininstance):
-        while True:
-            try:
-                command, args, kwargs = self.queue.recv()
-            except Exception:
-                break
-            try:
-                self.queue.send(getattr(plugininstance, command)(*args, **kwargs))
-            except Exception as exc:
-                logging.error(exc)
-    
-
-def create_plugin(path, plugin_config_path=None):
-    pshim = pluginshim(pipe, requestpipe, plugin_config_path)
-    try:
-        ret = pluginshim.create(path)
-    except Exception as e:
-        logging.error(e)
-    if ret:
-        pshim.run(ret)
+        return self.uicreator.ui_node_session(self.access, certhash *args, **kwargs)
 
