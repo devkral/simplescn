@@ -682,16 +682,16 @@ def gen_client_handler():
                 resource = splitted[0]
                 sub = splitted[1]
             if resource == "plugin":
-                plugindomain = "plugin:{}".format(plugin)
-                if not self.do_auth(plugindomain):
-                    return
-                pluginm = self.links["client_server"].pluginmanager
                 split2 = sub.split("/", 1)
                 if len(split2) != 2:
                     #self.cleanup_stale_data()
                     self.scn_send_answer(400, message="no plugin/action specified")
                     return
                 plugin, action = split2
+                plugindomain = "plugin:{}".format(plugin)
+                if not self.do_auth(plugindomain):
+                    return
+                pluginm = self.links["client_server"].pluginmanager
                 if plugin not in pluginm.plugins:
                     #self.cleanup_stale_data()
                     self.scn_send_answer(404, message="plugin not available")

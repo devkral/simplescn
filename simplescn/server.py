@@ -403,22 +403,22 @@ def gen_server_handler():
                 resource = splitted[0]
                 sub = splitted[1]
             if resource == "plugin":
+                split2 = sub.split("/", 1)
+                if len(split2) != 2:
+                    #self.cleanup_stale_data()
+                    self.scn_send_answer(400, message="no plugin/action specified")
+                    return
+                plugin, action = split2
                 plugindomain = "plugin:{}".format(plugin)
                 if not self.do_auth(plugindomain):
                     return
-                pluginm = self.links["server_server"].pluginmanager
-                split2 = sub.split("/", 1)
-                if len(split2) != 2:
-                    self.send_error(400, "no plugin/action specified", "No plugin/action was specified")
-                    return
-                plugin, action = split2
                 if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
                     self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                     return
 
                 self.handle_plugin(pluginm.plugins[plugin].sreceive, action)
-            # for invalidating and updating, don't use connection afterwards
             elif resource == "usebroken":
+                # for invalidating and updating, don't use connection afterwards
                 self.handle_usebroken(sub)
             elif resource == "server":
                 self.handle_server(sub)
