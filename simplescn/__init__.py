@@ -876,30 +876,18 @@ class commonscnhandler(BaseHTTPRequestHandler):
             logging.error(exc)
             return False
 
+    def do_auth(self, domain):
+        if not self.links["auth_server"].verify(domain, self.auth_info):
+            authreq = self.links["auth_server"].request_auth(domain)
+            ob = bytes(json.dumps(authreq), "utf-8")
+            self.cleanup_stale_data(max_serverrequest_size)
+            self.scn_send_answer(401, body=ob, docache=False)
+            return False
+        return True
+
     def handle_plugin(self, func, action):
         return self.wrap_func(func, action, self.connection, self.client_cert, self.client_cert_hash)
 
-    def handle_wrap(self, func, servicename):
-        service = self.links["client_server"].spmap.get(servicename, None)
-        if service is None:
-            # send error
-            self.scn_send_answer(404, message="service not available")
-            return
-        port = service[0]
-        sockd = None
-        for addr in ["::1", "127.0.0.1"]:
-            try:
-                sockd = socket.create_connection((addr, port), local_timeout)
-                break
-            except Exception as e:
-                logging.debug(e)
-                sockd = None
-        if sockd is None:
-            self.scn_send_answer(404, message="service not reachable")
-            return
-        redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
-        redout.run()
-        rw_socket(sockd, self.connection)
 
 def create_certhashheader(certhash):
     _random = os.urandom(token_size).hex()
@@ -925,6 +913,16 @@ def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
             continue
         ret = tmp.hexdigest()
     return ret
+
+def check_classify(func, perm):
+    if isinstance(perm, (list, set, tuple)):
+        for p in perm:
+            if not check_classify(func, p):
+                return False
+        return True
+    if not hasattr(func, "classify"):
+        return False
+    return perm in func.classify
 
 # signals that method not be accessed by plugins (access_safe)
 def classify_noplugin(func):

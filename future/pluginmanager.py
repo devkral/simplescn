@@ -2,18 +2,12 @@
 
 import sys, os
 import json
-import struct
 import subprocess
 import selectors
 import socket
 from threading import RLock
 import logging
 from simplescn import pluginconfigdefaults;
-
-
-detsize_format = "@QB"
-detsize_size = struct.calcsize(detsize_format)
-retrieve_format = "@{}s"
 
 
 class pluginmanager(object):

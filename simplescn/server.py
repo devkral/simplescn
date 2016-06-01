@@ -331,8 +331,8 @@ def gen_server_handler():
             if action not in self.links["server_server"].validactions:
                 self.scn_send_answer(400, message="invalid action - server")
                 return
-            if not self.links["auth"].verify("server", self.auth_info):
-                authreq = self.links["auth"].request_auth("server")
+            if not self.links["auth_server"].verify("server", self.auth_info):
+                authreq = self.links["auth_server"].request_auth("server")
                 ob = bytes(json.dumps(authreq), "utf-8")
                 self.scn_send_answer(401, body=ob, docache=False)
                 return
@@ -403,6 +403,9 @@ def gen_server_handler():
                 resource = splitted[0]
                 sub = splitted[1]
             if resource == "plugin":
+                plugindomain = "plugin:{}".format(plugin)
+                if not self.do_auth(plugindomain):
+                    return
                 pluginm = self.links["server_server"].pluginmanager
                 split2 = sub.split("/", 1)
                 if len(split2) != 2:
@@ -412,6 +415,7 @@ def gen_server_handler():
                 if plugin not in pluginm.plugins or hasattr(pluginm.plugins[plugin], "sreceive"):
                     self.send_error(404, "plugin not available", "Plugin with name {} does not exist/is not capable of receiving".format(plugin))
                     return
+
                 self.handle_plugin(pluginm.plugins[plugin].sreceive, action)
             # for invalidating and updating, don't use connection afterwards
             elif resource == "usebroken":
@@ -439,18 +443,18 @@ class server_init(object):
             logging.debug("Certificate generation complete")
         with open(_spath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip()
-        self.links["auth"] = scnauth_server(dhash(pub_cert))
+        self.links["auth_server"] = scnauth_server(dhash(pub_cert))
         if bool(kwargs["spwhash"][0]):
             if not check_hash(kwargs["spwhash"][0]):
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"][0])
             else:
-                self.links["auth"].init_realm("server", kwargs["spwhash"][0])
+                self.links["auth_server"].init_realm("server", kwargs["spwhash"][0])
         elif bool(kwargs["spwfile"][0]):
             with open(kwargs["spwfile"][0], "r") as op:
                 pw = op.readline()
                 if pw[-1] == "\n":
                     pw = pw[:-1]
-                self.links["auth"].init_realm("server", dhash(pw))
+                self.links["auth_server"].init_realm("server", dhash(pw))
 
         if kwargs["webgui"][0] != "False":
             self.links["handler"].webgui = True

@@ -305,8 +305,11 @@ class configmanager(object):
         return ret
     
     @classmethod
-    def defaults_from_json(cls, dbpath, jstring=None, jpath=None, overlays=None):
-        defaults = {}
+    def defaults_from_json(cls, dbpath, jstring=None, jpath=None, overlays=None, ensure=None):
+        if ensure:
+            defaults = ensure.copy()
+        else:
+            defaults = {}
         try:
             if jpath:
                 with open(jpath, "r") as readob:
@@ -408,9 +411,10 @@ class pluginmanager(object):
         dbdefaults = os.path.join(pluginpath, plugin_name, pluginconfigdefaults)
         # no overlays for plugins
         if os.path.isfile(dbdefaults):
-            pconf = configmanager.defaults_from_json(dbpath, jpath=dbdefaults)
+            pconf = configmanager.defaults_from_json(dbpath, jpath=dbdefaults, ensure={"pwhash": (str, "", "hashed password, empty for none")})
         else:
             pconf = configmanager(dbpath)
+            pconf.update({"pwhash": (str, "", "hashed password, empty for none")})
         return pconf
 
     def init_plugins(self):

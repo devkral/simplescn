@@ -19,7 +19,7 @@ from simplescn.client_config import client_config
 from simplescn.dialogs import client_dialogs
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -344,11 +344,12 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
     def access_core(self, action, obdict):
         """ internal method to access functions """
         if action in self.validactions:
-            if "access" in getattr(getattr(self, action), "classify", set()):
+            gaction = getattr(self, action)
+            if check_classify(gaction, "access"):
                 return False, "actions: 'classified access not allowed in access_core", isself, self.cert_hash
-            if "insecure" in getattr(getattr(self, action), "classify", set()):
+            if check_classify(gaction, "insecure"):
                 return False, "method call not allowed this way (insecure)", isself, self.cert_hash
-            if "experimental" in getattr(getattr(self, action), "classify", set()):
+            if check_classify(gaction, "experimental"):
                 logging.warning("action: \"%s\" is experimental", action)
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
@@ -372,7 +373,7 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             #return False, "no action given", isself, self.cert_hash
         if obdict["action"] not in self.validactions:
             return False, "action: \"{}\" not in validactions".format(obdict["action"])
-        if obdict["action"] == "command"  or "access" in getattr(getattr(self, obdict["action"]), "classify", set()):
+        if obdict["action"] == "command"  or check_classify(getattr(self, obdict["action"]), "access"):
             return False, "action: 'classified as access, command' not allowed in command"
         action = obdict["action"]
         del obdict["action"]
@@ -397,7 +398,8 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
     @generate_error_deco
     @classify_access
     def access_safe(self, action, requester="", **obdict):
-        if "access" in getattr(getattr(self, action), "classify", set()):
+        gaction = getattr(self, action)
+        if check_classify(gaction, "access"):
             return False, "actions: 'access methods not allowed in access_safe"
         def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
             authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
@@ -405,9 +407,9 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
         obdict["pwcall_method"] = pw_auth_plugin
         obdict["requester"] = requester
         if action in self.validactions:
-            if "noplugin" in getattr(getattr(self, action), "classify", set()):
+            if check_classify(gaction, "noplugin"):
                 return False, "{} tried to use noplugin protected methods".format(requester)
-            if "admin" in getattr(getattr(self, action), "classify", set()):
+            if check_classify(gaction, "admin"):
                 # use_notify returns in error case None or False both evaluated as False (when not checking with ==)
                 if requester == "" or self.use_notify('"{}" wants admin permissions\nAllow?'.format(requester)):
                     return False, "no permission"
@@ -527,18 +529,41 @@ def gen_client_handler():
         handle_local = False
         handle_remote = False
         webgui = False
+        
+        def handle_wrap(self, func, servicename):
+            service = self.links["client_server"].spmap.get(servicename, None)
+            if service is None:
+                # send error
+                self.scn_send_answer(404, message="service not available")
+                return
+            port = service[0]
+            sockd = None
+            for addr in ["::1", "127.0.0.1"]:
+                try:
+                    sockd = socket.create_connection((addr, port), local_timeout)
+                    break
+                except Exception as e:
+                    logging.debug(e)
+                    sockd = None
+            if sockd is None:
+                self.scn_send_answer(404, message="service not reachable")
+                return
+            redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
+            redout.run()
+            rw_socket(sockd, self.connection)
 
         def handle_client(self, action):
             if action not in self.links["client"].validactions:
                 self.send_error(400, "invalid action - client")
                 return
             # redirect overrides handle_local, handle_remote
+            gaction = getattr(self.links["client"], action)
             if not self.handle_remote and \
-            "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and \
-            (not self.handle_local or self.server.address_family != file_family or not check_local(self.client_address2[0])):
+                check_classify(redirect, "redirect") and \
+                (not self.handle_local or self.server.address_family != file_family or not check_local(self.client_address2[0])):
                 self.send_error(403, "no permission - client")
                 return
-            if "admin" in getattr(getattr(self.links["client"], action), "classify", set()):
+            if check_classify(redirect, "admin"):
                 #if self.client_cert is None:
                 #    self.send_error(403, "no permission (no certrewrap) - admin")
                 #    return
@@ -549,11 +574,9 @@ def gen_client_handler():
             else:
                 realm = "client"
             # if redirect bypass
-            if "redirect" not in getattr(getattr(self.links["client"], action), "classify", set()) and not self.links["auth_server"].verify(realm, self.auth_info):
-                authreq = self.links["auth_server"].request_auth(realm)
-                #self.cleanup_stale_data(max_serverrequest_size)
-                ob = bytes(json.dumps(authreq), "utf-8")
-                self.scn_send_answer(401, body=ob, docache=False)
+            gaction = getattr(self.links["client"], action)
+            if not check_classify(gaction, "redirect") and \
+                    not self.do_auth(realm, self.auth_info):
                 return
 
             obdict = self.parse_body()
@@ -659,6 +682,9 @@ def gen_client_handler():
                 resource = splitted[0]
                 sub = splitted[1]
             if resource == "plugin":
+                plugindomain = "plugin:{}".format(plugin)
+                if not self.do_auth(plugindomain):
+                    return
                 pluginm = self.links["client_server"].pluginmanager
                 split2 = sub.split("/", 1)
                 if len(split2) != 2:
@@ -670,15 +696,8 @@ def gen_client_handler():
                     #self.cleanup_stale_data()
                     self.scn_send_answer(404, message="plugin not available")
                     return
-                #pluginpw = "plugin:{}".format(plugin)
-                #if self.links["auth_server"].verify(pluginpw, self.auth_info) == False and action not in pluginm.plugins[plugin].whitelist:
-                #    authreq = self.links["auth_server"].request_auth(pluginpw)
-                #    ob = bytes(json.dumps(authreq), "utf-8")
-                #    self.scn_send_answer(401, ob)
-                #    return
                 # gui receive
                 if hasattr(pluginm.plugins[plugin], "receive"):
-                    # not supported yet
                     # don't forget redirect_hash
                     if self.links["client"].redirect_addr != "":
                         # needs to implement http handshake and stop or don't analyze content
@@ -706,6 +725,12 @@ def gen_client_handler():
                         self.handle_plugin(pluginm.plugins[plugin].receive, action)
             # not ready
             #elif resource == "wrap":
+            #    if not self.links["auth_server"].verify("server", self.auth_info):
+            #        authreq = self.links["auth_server"].request_auth("server")
+            #        ob = bytes(json.dumps(authreq), "utf-8")
+            #        self.cleanup_stale_data(max_serverrequest_size)
+            #        self.scn_send_answer(401, body=ob, docache=False)
+            #        return
             #    self.handle_wrap(action)
             elif resource == "usebroken":
                 # for invalidating and updating, don't use connection afterwards

@@ -1,4 +1,9 @@
 
+File "/home/alex/simplescn/simplescn/guigtk/clientmain.py", line 254, in _emit
+    self.backlogdebug.remove(self.backlogdebug.get_iter_first())
+AttributeError: 'NoneType' object has no attribute 'remove'
+
+
 The solution for pluginmanager:
 pluginmanager->plugin communication via stdin stdout
 plugin->simplescn via socket
