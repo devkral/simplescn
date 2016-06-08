@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import unittest
 import logging
 import shutil
+import timeit
 from threading import Thread
 
 import simplescn
@@ -90,6 +91,8 @@ class TestCommunication(unittest.TestCase):
     def test_cap(self):
         cap_ret = self.client.links["client"].access_main("cap")
         self.assertEqual(cap_ret[0], True, cap_ret[1])
+        cap_ret = self.client.links["client"].access_main("cap", address="::1-{}".format(simplescn.server_port))
+        self.assertEqual(cap_ret[0], True, cap_ret[1])
         #print(cap_ret)
     
     def test_info(self):
@@ -160,6 +163,6 @@ class TestCommunication(unittest.TestCase):
         # test remote fail (no certinformation)
         ret_remote3 = self.client.links["client"].access_main("check_direct", address="::1-{}".format(self.client_port2), security="insecure", hash=self.client_hash3)
         self.assertEqual(ret_remote3[0], False)
-    
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
