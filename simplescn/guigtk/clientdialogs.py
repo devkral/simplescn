@@ -1,5 +1,8 @@
 #! /usr/bin/env python3
-# bsd3, see LICENSE.txt
+"""
+dialogs for gtk gui
+license: MIT, see LICENSE.txt
+"""
 
 import os
 import sys

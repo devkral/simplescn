@@ -1,5 +1,9 @@
 #! /usr/bin/env python3
-#license: bsd3, see LICENSE.txt
+
+"""
+server stuff
+license: MIT, see LICENSE.txt
+"""
 
 import os
 

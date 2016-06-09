@@ -1,5 +1,8 @@
 #! /usr/bin/env python3
-# bsd3, see LICENSE.txt
+"""
+some gtk gui helpers
+license: MIT, see LICENSE.txt
+"""
 
 import gi
 gi.require_version('Gdk', '3.0')

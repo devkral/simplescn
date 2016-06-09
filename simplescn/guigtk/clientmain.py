@@ -1,4 +1,7 @@
-# bsd3, see LICENSE.txt
+"""
+init gtk gui
+license: MIT, see LICENSE.txt
+"""
 
 import os
 import sys

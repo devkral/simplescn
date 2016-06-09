@@ -1,4 +1,9 @@
 
+"""
+dialogs (pw and notify)
+license: MIT, see LICENSE.txt
+"""
+
 import logging
 from simplescn import classify_local, classify_redirect, pwcallmethod, notify, check_argsdeco, logcheck
 

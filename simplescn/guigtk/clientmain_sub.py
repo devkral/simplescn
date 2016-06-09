@@ -1,5 +1,8 @@
 
-# bsd3, see LICENSE.txt
+"""
+various stuff for clientmain
+license: MIT, see LICENSE.txt
+"""
 
 import logging
 import gi

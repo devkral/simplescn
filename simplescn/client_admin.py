@@ -1,5 +1,9 @@
 
-#license: bsd3, see LICENSE.txt
+"""
+admin stuff (client)
+license: MIT, see LICENSE.txt
+"""
+
 import os
 import sys
 import threading

@@ -1,5 +1,9 @@
 
-#license: bsd3, see LICENSE.txt
+"""
+safe stuff (harm is limited, so useable for plugins) (client)
+license: MIT, see LICENSE.txt
+"""
+
 import ssl
 import socket
 import logging

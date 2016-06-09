@@ -2,7 +2,7 @@
 
 """
 start file for simplescn
-license: bsd3, see LICENSE.txt
+license: MIT, see LICENSE.txt
 """
 
 import sys

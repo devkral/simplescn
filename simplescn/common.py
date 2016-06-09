@@ -1,5 +1,9 @@
 
-#license: bsd3, see LICENSE.txt
+"""
+stuff
+license: MIT, see LICENSE.txt
+"""
+
 import os
 import sys
 import importlib.machinery

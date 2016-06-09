@@ -1,4 +1,7 @@
-# bsd3, see LICENSE.txt
+"""
+nodes
+license: MIT, see LICENSE.txt
+"""
 
 import logging
 import os

@@ -1,4 +1,7 @@
-# bsd3, see LICENSE.txt
+"""
+hashmanagement for gtk gui
+license: MIT, see LICENSE.txt
+"""
 
 import logging
 import gi
