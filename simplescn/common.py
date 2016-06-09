@@ -362,11 +362,13 @@ class pluginmanager(object):
     interfaces = None
     plugins = None
     redirect_addr = None
+    _cache_config = None
 
     def __init__(self, _pathes_plugins, _path_plugins_config, scn_type, resources={}, pluginenv={}):
         # init here because of multiple instances
         self.interfaces = []
         self.plugins = {}
+        self._cache_config = {}
         self.redirect_addr = ""
         self.pluginenv = pluginenv
         self.pathes_plugins = _pathes_plugins
@@ -406,6 +408,8 @@ class pluginmanager(object):
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
 
     def load_pluginconfig(self, plugin_name, pluginpath=None):
+        if plugin_name in self._cache_config:
+            return self._cache_config.get(plugin_name)
         if pluginpath is None:
             pluginlist = self.list_plugins()
             pluginpath = pluginlist.get(plugin_name)
@@ -419,6 +423,7 @@ class pluginmanager(object):
         else:
             pconf = configmanager(dbpath)
             pconf.update({"pwhash": (str, "", "hashed password, empty for none")})
+        self._cache_config[plugin_name] = pconf
         return pconf
 
     def init_plugins(self):
