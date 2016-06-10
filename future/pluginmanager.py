@@ -2,13 +2,17 @@
 
 import sys
 import json
-import subprocess
 import os
 import socket
-from threading import Lock, Thread
 import logging
-from simplescn import pluginconfigdefaults;
+import subprocess
+from threading import Lock, Thread
+from simplescn import pluginconfig
 
+import os.path as op
+
+path_shim = op.join(op.dirname(op.realpath(__file__)), "pluginshim.py")
+proc_timeout = 30
 
 class pluginmanager(object):
     plugin_config_path = None
@@ -21,11 +25,13 @@ class pluginmanager(object):
     uicreator = None
     portpoll = None
     portcom = None
+    _cache_config = None
 
     def __init__(self, pluginloader, portcom, pathes_plugins, path_plugins_config, scn_type, uicreator=None, tempdir="/tmp/"):
         self.plugins = {}
         self.interfaces = []
         self.redirect_addr = ""
+        self._cache_config = {}
         self.wlock = Lock()
         self.pluginloader = pluginloader
         self.portcom = portcom
@@ -73,26 +79,29 @@ class pluginmanager(object):
                 os.remove(os.path.join(self.path_plugins_config, dbconf))
 
     def load_pluginconfig(self, plugin_name, pluginpath=None):
+        if plugin_name in self._cache_config:
+            return self._cache_config[plugin_name]
         if pluginpath is None:
             pluginlist = self.list_plugins()
             pluginpath = pluginlist.get(plugin_name)
         if pluginpath is None:
             return None
         dbpath = os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, confdb_ending))
-        dbdefaults = os.path.join(pluginpath, plugin_name, pluginconfigdefaults)
+        dbdefaults = os.path.join(pluginpath, plugin_name, pluginconfig)
         # no overlays for plugins
         if os.path.isfile(dbdefaults):
             pconf = configmanager.defaults_from_json(dbpath, jpath=dbdefaults, ensure={"pwhash": (str, "", "hashed password, empty for none")})
         else:
             pconf = configmanager(dbpath)
             pconf.update({"pwhash": (str, "", "hashed password, empty for none")})
+        self._cache_config[plugin_name] = pconf
         return pconf
 
     def load_plugin(self, name, path):
         pconf = self.load_pluginconfig(name)
         if pconf is None or not pconf.getb("state"):
             return
-        ret = self.plugincontroller.create(os.path.join(path, name), self.portcom, self.portpoll, pconf.db_path, self.uicreator)
+        ret = self.plugincontroller.create(path, name, self.portcom, self.portpoll, pconf.db_path, self.uicreator)
         if ret:
             with self.wlock:
                 self.plugins[name] = ret
@@ -140,21 +149,28 @@ class plugincontroller(object):
                 ui.update(self.access("update_ui"))
 
     def access(self, command, *args, **kwargs):
-        contentsend = json.dumps((command, args, kwargs))
+        return self.accessj(json.dumps((command, args, kwargs)))
+    
+    def accessj(self, jstring):
         with self.lock:
-            if self.procinstance.poll() is not None:
+            try:
+                content = self.procinstance.communicate(jstring, timeout=proc_timeout)[0]
+            except:
                 return (False, "Plugin terminated")
-            content = self.procinstance.communicate(contentsend, 15)[0]
         return json.loads(content)
 
     @classmethod
-    def create(pluginccls, path, portcom, portpoll, plugin_config_path="", uicreator=None):
-        pargs = [sys.executable, path, portcom, portpoll, plugin_config_path]
+    def create(pluginccls, path, name, portcom, portpoll, plugin_config_path="", uicreator=None):
+        pargs = [sys.executable, path_shim, path, name, portcom, portpoll, plugin_config_path]
         proc = subprocess.Popen(pargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        # can miss a crash of a plugin with long loadtime
-        
-        if proc.poll() is not None:
+        try:
+            ret = proc.communicate(timeout=proc_timeout)
+        except subprocess.TimeoutExpired:
             return None
+        if ret != 'ok':
+            logging.error(ret[2:])
+            return None
+        
         return pluginccls(proc, portcom, portpoll, uicreator)
 
     def create_uiinstance(self, certhash, *args, **kwargs):

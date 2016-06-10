@@ -35,7 +35,7 @@ confdb_ending = ".confdb"
 # don't change
 isself = 'isself'
 pluginstartfile = "main.py"
-pluginconfigdefaults = "config.json"
+pluginconfig = "config.json"
 
 ## ports ##
 client_port = 0 # 0 = random port, recommended

@@ -263,14 +263,16 @@ class gtkclient_main(logging.Handler, configuration_stuff, cmd_stuff, debug_stuf
         else:
             self.blcounter += 1
 
+        shortmsg = record.getMessage()
         if record.exc_info:
-            backtr = "".join(traceback.format_tb(record.exc_info)).replace("\\n", "") #record.stack_info
+            backtr = "".join(traceback.format_tb(record.exc_info)).replace("\\n", "")
         elif record.stack_info:
             backtr = record.stack_info #"".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
+        elif shortmsg.count("\n\n") >= 1:
+            shortmsg, backtr = shortmsg.split("\n\n", 1)
+            backtr = backtr.strip("\n")
         else:
-            backtr = "n.a." #record.getMessage()
-        shortmsg = record.getMessage()
-        #"".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
+            backtr = "n.a."
         if self.blcounter > 0:
             self.backlogdebug.append((shortmsg, backtr, record.levelno))
         self.statusbar.push(messageid, shortmsg)

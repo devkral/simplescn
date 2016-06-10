@@ -151,6 +151,7 @@ def check_result(obdict, status):
     return True
 
 ### logging ###
+
 def logcheck(ret, level=logging.DEBUG):
     if ret[0]:
         return True

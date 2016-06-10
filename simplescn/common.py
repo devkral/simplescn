@@ -23,7 +23,7 @@ except ImportError:
     pass
 
 
-from simplescn import pluginstartfile, pluginconfigdefaults, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
+from simplescn import pluginstartfile, pluginconfig, check_conftype, check_name, check_hash, check_security, check_typename, check_reference, check_reference_type
 from simplescn import confdb_ending, isself, default_configdir, loglevel_converter, max_typelength
 
 
@@ -409,14 +409,14 @@ class pluginmanager(object):
 
     def load_pluginconfig(self, plugin_name, pluginpath=None):
         if plugin_name in self._cache_config:
-            return self._cache_config.get(plugin_name)
+            return self._cache_config[plugin_name]
         if pluginpath is None:
             pluginlist = self.list_plugins()
             pluginpath = pluginlist.get(plugin_name)
         if pluginpath is None:
             return None
         dbpath = os.path.join(self.path_plugins_config, "{}{}".format(plugin_name, confdb_ending))
-        dbdefaults = os.path.join(pluginpath, plugin_name, pluginconfigdefaults)
+        dbdefaults = os.path.join(pluginpath, plugin_name, pluginconfig)
         # no overlays for plugins
         if os.path.isfile(dbdefaults):
             pconf = configmanager.defaults_from_json(dbpath, jpath=dbdefaults, ensure={"pwhash": (str, "", "hashed password, empty for none")})
@@ -452,8 +452,8 @@ class pluginmanager(object):
                     finobj = globalret["init"](self.interfaces.copy(), pconf, pluginresources_creater(self.resources, plugin[0]), os.path.join(plugin[1], plugin[0]))
             except Exception as exc:
                 st = "Plugin failed to load, reason:\n{}".format(exc)
-                if hasattr(exc, "tb_frame"):
-                    st += "\n\n{}".format(traceback.format_tb(exc))
+                if hasattr(exc, "__traceback__"):
+                    st += "\n\n{}".format("".join(traceback.format_tb(exc.__traceback__)).replace("\\n", ""))
                 logging.error(st)
                 finobj = None
             if finobj:
