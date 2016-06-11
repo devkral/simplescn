@@ -46,13 +46,11 @@ class SCNConnection(HTTPConnection):
     def connect(self):
         "Connect to a host on a given (SSL) port."
         
-        super().connect()
+        self.sock = self._create_connection(
+            (self.host,self.port), self.timeout, self.source_address)
 
         if not self.plaintext:
-            if self._tunnel_host:
-                server_hostname = self._tunnel_host
-            else:
-                server_hostname = self.host
+            server_hostname = self.host
             # stop if plaintext
             self.sock = self._context.wrap_socket(self.sock,
                                                   server_hostname=server_hostname)

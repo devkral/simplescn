@@ -18,7 +18,7 @@ class UnixServer(TCPServer):
 
     def get_request(self):
         con, addr = self.socket.accept()
-        print(con)
+        print(con.family, addr)
         return con, ('', 0)
 
 class ThreadingUnixServer(ThreadingMixIn, UnixServer):

@@ -48,7 +48,9 @@ class pluginmanager(object):
 
     def run(self):
         while True:
-            recvc = self.portpoll.recv(512)
+            recvc, addr = self.portpoll.recvfrom(512)
+            if addr not in [None, "::1"] or recvc.count(b"/") == 0:
+                continue
             name, certhash = str(recvc, "utf-8", errors="ignore").rsplit("/", 1)
             if name not in self.plugins:
                 continue
