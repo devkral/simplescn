@@ -41,7 +41,7 @@ class pluginmanager(object):
         self.interfaces.insert(0, scn_type)
         if hasattr(socket, "AF_UNIX"):
             self.portpoll = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-            self.portpoll.bind(os.path.join(tempdir, "pluginmanager"))
+            self.portpoll.bind(os.path.join(tempdir, "{}-pluginmanager".format(os.getpid())))
         else:
             self.portpoll = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
             self.portpoll.bind(("::1", 0))
