@@ -6,7 +6,6 @@ import os
 import socket
 import logging
 
-
 class pluginshim(object):
     portcom = None
     portpoll = None

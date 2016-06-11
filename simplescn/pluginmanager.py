@@ -18,7 +18,6 @@ class pluginmanager(object):
     plugin_config_path = None
     wlock = None
     pathes_plugins = None
-    pluginloader = None
     plugins = None
     interfaces = None
     redirect_addr = None
@@ -27,13 +26,12 @@ class pluginmanager(object):
     portcom = None
     _cache_config = None
 
-    def __init__(self, pluginloader, portcom, pathes_plugins, path_plugins_config, scn_type, uicreator=None, tempdir="/tmp/"):
+    def __init__(self, portcom, pathes_plugins, path_plugins_config, scn_type, uicreator=None, tempdir="/tmp/"):
         self.plugins = {}
         self.interfaces = []
         self.redirect_addr = ""
         self._cache_config = {}
         self.wlock = Lock()
-        self.pluginloader = pluginloader
         self.portcom = portcom
         self.pathes_plugins = pathes_plugins
         self.uicreator = uicreator

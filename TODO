@@ -9,6 +9,10 @@ the port+cert is transferred via stdin
 
 getline loop in plugin for receiving commands
 
+use per plugin cert/different server
+first solution: should do_GET be removed and only connections with cert be allowed?
+second solution: how to check which plugin, a server per plugin?
+
 
 ## 0.2
 * generalized module for connecting
