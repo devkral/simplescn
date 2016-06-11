@@ -461,23 +461,32 @@ class scnauth_client(object):
             authreq_ob["algo"] = _hashalgo
         return self.asauth(pre, authreq_ob, pubcert_hash)
 
-class http_server(socketserver.ThreadingMixIn, HTTPServer):
+
+class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     """ server part of client/server """
     sslcont = None
     rawsock = None
     timeout = None
+    use_unix = False
 
-    def __init__(self, _address, certfpath, _handler, pwmsg, timeout=default_timeout):
-        self.address_family = socket.AF_INET6
+    def __init__(self, _address, certfpath, _handler, pwmsg, timeout=default_timeout, use_unix=False):
+        self.use_unix=use_unix
+        
+        if self.use_unix:
+            self.address_family = socket.AF_UNIX
+        else:
+            self.address_family = socket.AF_INET6
+            self.allow_reuse_address = 1
         self.timeout = timeout
-        HTTPServer.__init__(self, _address, _handler, False)
-        try:
-            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-        except Exception:
-            # python for windows has disabled it
-            # hope that it works without
-            pass
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        socketserver.TCPServer.__init__(self, _address, _handler, False)
+        if not self.use_unix:
+            try:
+                self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+            except Exception:
+                # python for windows has disabled it
+                # hope that it works without
+                pass
+            #self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             self.server_bind()
             self.server_activate()
@@ -487,10 +496,24 @@ class http_server(socketserver.ThreadingMixIn, HTTPServer):
         self.sslcont = default_sslcont()
         self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda: bytes(pwcallmethod(pwmsg), "utf-8"))
         self.socket = self.sslcont.wrap_socket(self.socket)
-    #def get_request(self):
-    #    if self.socket is None:
-    #        return None, None
-    #    socketserver.TCPServer.get_request(self)
+    def get_request(self):
+        con, addr = self.socket.accept()
+        if self.use_unix:
+            return con, ('', 0)
+        else:
+            return con, addr
+    def server_bind(self):
+        """Override server_bind to store the server name."""
+        socketserver.TCPServer.server_bind(self)
+        if self.use_unix:
+            self.server_name = self.socket.getsockname()
+            self.server_port = 0
+            # valid port but wildcard and invalid as returned port
+            # so use it
+        else:
+            host, port = self.socket.getsockname()[:2]
+            self.server_name = socket.getfqdn(host)
+            self.server_port = port
 
 scn_pingstruct = struct.pack(">c511x", b"p")
 scn_yesstruct = struct.pack(">c511x", b"y")

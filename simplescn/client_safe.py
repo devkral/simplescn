@@ -51,10 +51,12 @@ class client_safe(object):
     @classify_local
     def show(self, obdict):
         """ func: show client stats
-            return: client stats """
+            return: client stats; port==0 means unixsockets """
         if "hserver" in self.links:
-            addr = self.links["hserver"].socket.getsockname()
-            return True, {"name": self.name, "hash": self.cert_hash, "listen": addr[0], "port": addr[1]}
+            return True, {"name": self.name,
+            "hash": self.cert_hash,
+            "listen": self.links["hserver"].server_address,
+            "port": self.links["hserver"].server_port}
         else:
             return True, {"name": self.name, "hash": self.cert_hash}
 
