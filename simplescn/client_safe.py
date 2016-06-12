@@ -41,7 +41,7 @@ class client_safe(object):
         _srvaddr = scnparse_url(obdict.get("server"))
         if _srvaddr:
             self.scntraverse_helper.add_desttupel(_srvaddr)
-        ret = self.do_request(obdict.get("server"), "/server/register", body={"name": self.name, "port": serversock.getsockname()[1], "pwcall_method": obdict.get("pwcall_method"), "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True, forcehash=obdict.get("forcehash"))
+        ret = self.do_request(obdict.get("server"), "/server/register", body={"name": self.name, "port": serversock.getsockname()[1], "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True, forcehash=obdict.get("forcehash"))
 
         if _srvaddr and (not ret[0] or ret[1].get("traverse", False)):
             self.scntraverse_helper.del_desttupel(_srvaddr)
@@ -98,7 +98,7 @@ class client_safe(object):
         else:
             _forcehash = self.cert_hash
             client_addr = "localhost-{}".format(self.links["server"].socket.getsockname()[1])
-        return self.do_request(client_addr, "/server/getservice", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=_forcehash)
+        return self.do_request(client_addr, "/server/getservice", body={}, headers=obdict.get("headers"), forcehash=_forcehash)
 
     @check_argsdeco(optional={"client": str})
     def listservices(self, obdict):
@@ -112,7 +112,7 @@ class client_safe(object):
         else:
             _forcehash = self.cert_hash
             client_addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        _tservices = self.do_request(client_addr, "/server/dumpservices", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
+        _tservices = self.do_request(client_addr, "/server/dumpservices", body={}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         if not _tservices[0]:
             return _tservices
         out = sorted(_tservices[1].items(), key=lambda t: t[0])
@@ -125,7 +125,7 @@ class client_safe(object):
             server: server url
             name: client name
             hash: client hash """
-        _getret = self.do_request(obdict["server"], "/server/get", body={"pwcall_method": obdict.get("pwcall_method"), "hash": obdict.get("hash"), "name": obdict.get("name")}, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
+        _getret = self.do_request(obdict["server"], "/server/get", body={"hash": obdict.get("hash"), "name": obdict.get("name")}, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
         if not _getret[0] or not check_args(_getret[1], {"address": str, "port": int}):
             return _getret
         if _getret[1].get("port", 0) < 1:
@@ -182,7 +182,7 @@ class client_safe(object):
         """ func: sort and list names from server
             return: sorted list of client names with additional informations
             server: server url """
-        _tnames = self.do_request(obdict["server"], "/server/dumpnames", body={"pwcall_method": obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
+        _tnames = self.do_request(obdict["server"], "/server/dumpnames", body={}, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
         if not _tnames[0]:
             return _tnames
         out = []
@@ -205,7 +205,7 @@ class client_safe(object):
         else:
             _forcehash = self.cert_hash
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        ret = self.do_request(_addr, "/server/info", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
+        ret = self.do_request(_addr, "/server/info", body={}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         return ret
 
     @check_argsdeco(optional={"address": str})
@@ -220,7 +220,7 @@ class client_safe(object):
         else:
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
             _forcehash = self.cert_hash
-        return self.do_request(_addr, "/server/cap", body={"pwcall_method":obdict.get("pwcall_method")}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
+        return self.do_request(_addr, "/server/cap", body={}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
 
     @check_argsdeco(optional={"address": str})
     def prioty_direct(self, obdict):
@@ -234,7 +234,7 @@ class client_safe(object):
         else:
             _forcehash = self.cert_hash
             _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
-        return self.do_request(_addr, "/server/prioty", body={"pwcall_method": obdict.get("pwcall_method")}, headers=obdict.get("headers"), forcehash=_forcehash, forceport=True)
+        return self.do_request(_addr, "/server/prioty", body={}, headers=obdict.get("headers"), forcehash=_forcehash, forceport=True)
 
     @check_argsdeco({"server": str, "name": str, "hash": str})
     def prioty(self, obdict):
@@ -405,7 +405,7 @@ class client_safe(object):
         """ func: get references of a node certificate hash
             return: reference, referencetype list for hash/referenceid
             hash: local hash (or use certreferenceid)
-            certreferenceid: reference id of certificate hash (or use hash)")
+            certreferenceid: reference id of certificate hash (or use hash)
             filter: filter reference type """
         if obdict.get("certreferenceid") is None:
             _hash = obdict.get("hash")

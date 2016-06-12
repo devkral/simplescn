@@ -86,7 +86,7 @@ class client_client(client_admin, client_safe):
     # return success, body, (name, security), hash
     # return success, body, isself, hash
     # return success, body, None, hash
-    def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
+    def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
         """ func: wrapper """
         return self.requester.do_request_mold(self, _addr_or_con, _path, body, headers, forceport, forcehash, forcetraverse, sendclientcert)
 
@@ -126,22 +126,12 @@ class client_client(client_admin, client_safe):
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
                 return getattr(self, action)(obdict)
+            except AuthNeeded as exc:
+                raise(exc)
             except Exception as exc:
                 return False, exc #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
-
-    # NEVER include in validactions
-    # for user interactions
-    # headers=headers
-    # client_address=client_address
-    @generate_error_deco
-    @classify_access
-    def access_main(self, action, **obdict):
-        try:
-            return self.access_core(action, obdict)
-        except Exception as exc:
-            return False, exc
 
     # help section
     def cmdhelp(self):
@@ -288,7 +278,11 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                 obdict = self.parse_body()
                 if obdict is None:
                     return
-                response = self.links["client"].access_main(action, **obdict)
+                try:
+                    response = self.links["client"].access_core(action, **obdict)
+                except AuthNeeded as exc:
+                    self.scn_send_answer(401, body=exc.reqob, mime="application/json", docache=False)
+                    return
 
                 if not response[0]:
                     error = response[1]

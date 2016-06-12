@@ -5,10 +5,12 @@ import json
 import ssl
 
 
-from simplescn import default_sslcont, scnparse_url, default_timeout,\
-connect_timeout, VALMITMError, gen_result,\
-safe_mdecode, encode_bo, check_result, isself, dhash, VALHashError, VALNameError, create_certhashheader
+from simplescn import default_sslcont, scnparse_url, default_timeout, \
+connect_timeout, gen_result, safe_mdecode, encode_bo, check_result, \
+isself, dhash, create_certhashheader, \
+AuthNeeded, VALHashError, VALNameError, VALMITMError, scnauth_client
 
+auth_instance = scnauth_client()
 
 reference_header = \
 {
@@ -117,17 +119,54 @@ def check_cert(pcert, hashdb, ownhash, **kwargs):
             validated_name = None
     return validated_name, hashpcert, pcert
 
+
+def authorisation(pwhandler, reqob, serverhash, headers):
+    """ handles auth, headers arg will be changed """
+    if not isinstance(reqob, dict):
+        return False
+    realm = reqob.get("realm")
+    pw = pwhandler(realm)
+    if not pw:
+        return False
+    auth_parsed = json.loads(headers.get("Authorization", "scn {}").split(" ", 1)[1])
+    auth_parsed[realm] = auth_instance.auth(pw, reqob, serverhash) #, serverhash)
+    headers["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n", ""))
+    return True
+
 # return connection, success, body, certtupel
-def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel=None, **kwargs):
-    """ func: use this method to communicate with clients/servers """
+def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel, **kwargs):
+    """ func: use this method to communicate with clients/servers
+        kwargs:
+            options:
+                * forcehash: force hash on other side
+                * sendclientcert: send own certhash to server, requires ownhash and certcontext
+                * originalcert: send own cert (maybe removed)
+                * connect_timeout: timeout for connecting
+                * timeout: timeout if connection is etablished
+                * forceport: True: raise if no port is given, False: use server port in that case
+            special:
+                * certcontext: specify certcontext used
+                * ownhash: own hash
+                * pwhandler: method for handling pws
+        headers:
+            * Authorization: scn pw auth format
+        throws:
+            * AddressFail: address was incorrect
+            * AddressEmptyFail: address was empty
+            * EnforcedPortFail: no port was given (forceport)
+            * VALHashError: wrong hash (forcehash)
+            * VALNameError: isself is in db
+            * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)
+            * AuthNeeded: request Auth, contains con and authob (needed for auth)
+    """
     if not kwargs.get("certcontext", None):
         kwargs["certcontext"] = default_sslcont()
 
     sendbody, sendheaders = init_body_headers(body, headers)
 
     con = init_connection(addr_or_con, **kwargs)
+    pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
     if not _certtupel:
-        pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
         _certtupel = check_cert(pcert, **kwargs)
 
     if kwargs.get("sendclientcert", False):
@@ -135,7 +174,7 @@ def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel=None, *
             sendheaders["X-certrewrap"], _random = create_certhashheader(kwargs["ownhash"])
         else:
             con.close()
-            return None, 400, "missing: certcontext or ownhash", _certtupel
+            return None, False, "missing: certcontext or ownhash", _certtupel
 
     #start connection
     con.putrequest("POST", path)
@@ -152,7 +191,7 @@ def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel=None, *
     if kwargs.get("sendclientcert", False):
         if _random != response.getheader("X-certrewrap", ""):
             con.close()
-            return None, 400, "rewrapped cert secret does not match", _certtupel
+            return None, False, "rewrapped cert secret does not match", _certtupel
 
     if kwargs.get("sendclientcert", False):
         if _random != response.getheader("X-certrewrap", ""):
@@ -161,9 +200,14 @@ def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel=None, *
     if response.status == 401:
         if not response.headers.get("Content-Length", "").strip().rstrip().isdigit():
             con.close()
-            return None, 400, "pwrequest has no content length", _certtupel
-            readob = response.read(int(response.getheader("Content-Length")))
-        return con, 401, str(readob, "utf-8"), _certtupel
+            return None, False, "pwrequest has no content length", _certtupel
+        readob = response.read(int(response.getheader("Content-Length")))
+        if callable(kwargs.get("pwhandler", None)):
+            reqob = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
+            if authorisation(kwargs["pwhandler"], reqob, sendheaders):
+                return do_request(addr_or_con, path, body=body, \
+                    headers=sendheaders, _certtupel=_certtupel, **kwargs)
+        raise AuthNeeded(con, str(readob, "utf-8"))
     else:
         if response.status == 200:
             success = True
@@ -179,15 +223,16 @@ def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel=None, *
                 obdict = safe_mdecode(readob, conth)
             if not check_result(obdict, success):
                 con.close()
-                return None, 400, "error parsing request\n{}".format(readob), _certtupel
+                return None, False, "error parsing request\n{}".format(readob), _certtupel
         else:
             obdict = gen_result("", success)
         if success:
-            return con, 200, obdict["result"], _certtupel
+            return con, True, obdict["result"], _certtupel
         else:
-            return con, response.status, obdict["error"], _certtupel
+            return con, False, obdict["error"], _certtupel
 
 def do_request_mold(*args, **kwargs):
     ret = do_request(*args, **kwargs)
-    ret[0].close()
-    return ret[1]== 200, ret[2], ret[3][0], ret[3][1]
+    if ret[0]:
+        ret[0].close()
+    return ret[1], ret[2], ret[3][0], ret[3][1]

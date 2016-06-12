@@ -55,6 +55,13 @@ else:
 
 ###### signaling ######
 
+class AuthNeeded(Exception):
+    reqob = None
+    con = None
+    def __init__(self, con, reqob):
+        self.reqob = reqob
+        self.con = con
+
 class AddressFail(Exception):
     msg = ''
     basemsg = '<address>[-<port>]:\n'
@@ -344,7 +351,7 @@ class scnauth_server(object):
     def request_auth(self, realm):
         if realm not in self.realms:
             logging.error("Not a valid realm: %s", realm)
-        rauth = authrequest_struct.copy()
+        rauth = {}
         rauth["algo"] = self.hash_algorithm
         # send server time, client time should not be used because timeouts are on serverside
         rauth["timestamp"] = str(int(time.time()))
@@ -383,7 +390,6 @@ class scnauth_server(object):
         # internal salt for memory protection+nonce
         nonce = os.urandom(salt_size).hex()
         self.realms[realm] = (dhash((pwhash, realm, nonce, self.serverpubcert_hash), self.hash_algorithm), nonce)
-
 
 class scnauth_client(object):
     # save credentials
