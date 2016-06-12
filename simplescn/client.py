@@ -22,6 +22,7 @@ from simplescn.client_safe import client_safe
 
 
 from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify
+from scnrequest import requester
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -43,6 +44,7 @@ class client_client(client_admin, client_safe):
     brokencerts = None
 
     validactions = None
+    requester = None
 
     def __init__(self, _name, _pub_cert_hash, _links):
         client_admin.__init__(self)
@@ -57,7 +59,7 @@ class client_client(client_admin, client_safe):
             self.sslcont = default_sslcont()
         self.brokencerts = []
         self.validactions = set()
-        #"remember_auth"
+        self.requester = requester(ownhash=self.cert_hash, hashdb=self.hashdb, certcontext=self.sslcont)
         
 
         if "hserver" in self.links:
@@ -84,149 +86,9 @@ class client_client(client_admin, client_safe):
     # return success, body, (name, security), hash
     # return success, body, isself, hash
     # return success, body, None, hash
-    def do_request(self, _addr_or_con, _path, body={}, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
-        """ func: use this method to communicate with clients/servers """
-        if headers is None:
-            headers = body.pop("headers", {})
-        elif "headers" in body:
-            del body["headers"]
-        sendheaders = reference_header.copy()
-        for key, value in headers.items():
-            if key in ["Connection", "Host", "Accept-Encoding", "Content-Type", "Content-Length", "User-Agent", "X-certrewrap"]:
-                continue
-            sendheaders[key] = value
-        sendheaders["Content-Type"] = "application/json; charset=utf-8"
-        if sendclientcert:
-            sendheaders["X-certrewrap"], _random = create_certhashheader(self.cert_hash)
-        if not isinstance(_addr_or_con, client.HTTPSConnection):
-            _addr = scnparse_url(_addr_or_con, force_port=forceport)
-            con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("connect_timeout"))
-            try:
-                con.connect()
-            except ConnectionRefusedError:
-                forcetraverse = True
-            if forcetraverse:
-                if "traverseserveraddr" not in body:
-                    return False, "connection refused and no traversalserver specified", isself, self.cert_hash
-                _tsaddr = scnparse_url(body.get("traverseserveraddr"))
-                contrav = client.HTTPSConnection(_tsaddr[0], _tsaddr[1], context=self.sslcont, timeout=self.links["config"].get("connect_timeout"))
-                contrav.connect()
-                _sport = contrav.sock.getsockname()[1]
-                retserv = self.do_request(contrav, "/server/open_traversal")
-                contrav.close()
-                if retserv[0]:
-                    con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-                    con.sock.bind(('', _sport)) #retserv.get("traverse_address"))
-                    for count in range(0, 3):
-                        try:
-                            con.sock.connect((_addr[0], _addr[1]))
-                            break
-                        except Exception:
-                            pass
-                    con.sock = self.sslcont.wrap_socket(con.sock)
-                    con.timeout = self.links["config"].get("timeout")
-                    con.sock.settimeout(self.links["config"].get("timeout"))
-        else:
-            con = _addr_or_con
-            if con.sock is None:
-                con.timeout = self.links["config"].get("connect_timeout")
-                try:
-                    con.connect()
-                except ConnectionRefusedError:
-                    pass
-            con.timeout = self.links["config"].get("timeout")
-            con.sock.settimeout(self.links["config"].get("timeout"))
-            #if headers.get("Connection", "") != "keep-alive":
-            #    con.connect()
-        if _certtupel is None:
-            pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
-            hashpcert = dhash(pcert)
-            if forcehash is not None:
-                if forcehash != hashpcert:
-                    raise VALHashError()
-            elif body.get("forcehash") is not None:
-                if body.get("forcehash") != hashpcert:
-                    raise VALHashError()
-            if hashpcert == self.cert_hash:
-                validated_name = isself
-            else:
-                hashob = self.hashdb.get(hashpcert)
-                if hashob:
-                    validated_name = (hashob[0], hashob[3]) #name, security
-                    if validated_name[0] == isself:
-                        raise VALNameError()
-                else:
-                    validated_name = None
-            _certtupel = (validated_name, hashpcert)
-        else:
-            validated_name, hashpcert = _certtupel
-        #start connection
-        con.putrequest("POST", _path)
-        for key, value in sendheaders.items():
-            #if key != "Proxy-Authorization":
-            con.putheader(key, value)
-        pwcallm = body.get("pwcall_method")
-        if "pwcall_method" in body:
-            del body["pwcall_method"]
-        ob = bytes(json.dumps(body), "utf-8")
-        con.putheader("Content-Length", str(len(ob)))
-        con.endheaders()
-        if sendclientcert:
-            con.sock = con.sock.unwrap()
-            con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
-        con.send(ob)
-        response = con.getresponse()
-        servertype = response.headers.get("Server", "")
-        logging.debug("Servertype: %s", servertype)
-        if response.status == 401:
-            body["pwcall_method"] = pwcallm
-            auth_parsed = json.loads(sendheaders.get("Authorization", "scn {}").split(" ", 1)[1])
-            if not response.headers.get("Content-Length", "").strip().rstrip().isdigit():
-                con.close()
-                return False, "no content length", _certtupel[0], _certtupel[1]
-            readob = response.read(int(response.headers.get("Content-Length")))
-            reqob = safe_mdecode(readob, response.headers.get("Content-Type", "application/json; charset=utf-8"))
-            if reqob is None:
-                con.close()
-                return False, "Invalid Authorization request object", _certtupel[0], _certtupel[1]
-            realm = reqob.get("realm")
-            if callable(pwcallm):
-                authob = pwcallm(hashpcert, reqob, _reauthcount)
-            else:
-                return False, "no way to input passphrase for authorization", _certtupel[0], _certtupel[1]
-            if authob is None:
-                con.close()
-                return False, "Authorization failed", _certtupel[0], _certtupel[1]
-            _reauthcount += 1
-            auth_parsed[realm] = authob
-            sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n", ""))
-            return self.do_request(con, _path, body=body, forcehash=forcehash, headers=sendheaders, forceport=forceport, _certtupel=_certtupel, forcetraverse=forcetraverse, sendclientcert=sendclientcert, _reauthcount=_reauthcount)
-        else:
-            if not response.getheader("Content-Length", "").strip().rstrip().isdigit():
-                con.close()
-                return False, "No content length", _certtupel[0], _certtupel[1]
-            readob = response.read(int(response.getheader("Content-Length")))
-            # kill keep-alive connection when finished, or transport connnection
-            #if isinstance(_addr_or_con, client.HTTPSConnection) == False:
-            con.close()
-            if response.status == 200:
-                status = True
-                if sendclientcert:
-                    if _random != response.getheader("X-certrewrap", ""):
-                        return False, "rewrapped cert secret does not match", _certtupel[0], _certtupel[1]
-            else:
-                status = False
-            if response.getheader("Content-Type").split(";")[0].strip().rstrip() in ["text/plain", "text/html"]:
-                obdict = gen_result(str(readob, "utf-8"), status)
-            else:
-                obdict = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
-            if not check_result(obdict, status):
-                return False, "error parsing request\n{}".format(readob), _certtupel[0], _certtupel[1]
-
-            if status:
-                return status, obdict["result"], _certtupel[0], _certtupel[1]
-            else:
-                return status, obdict["error"], _certtupel[0], _certtupel[1]
+    def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, _reauthcount=0, _certtupel=None):
+        """ func: wrapper """
+        return self.requester.do_request_mold(self, _addr_or_con, _path, body, headers, forceport, forcehash, forcetraverse, sendclientcert)
 
     # auth is special variable see safe_mdecode in common
     #@check_argsdeco({"auth": dict, "hash": str, "address": str})
@@ -616,7 +478,6 @@ class client_init(object):
         self.links["client_server"] = client_server(clientserverdict)
         self.links["handler"].links = self.links
         # use timeout argument of BaseServer
-        print(kwargs.get("noserver"))
         if not kwargs.get("noserver"):
             self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["handler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)

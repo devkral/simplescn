@@ -12,12 +12,12 @@ import logging
 from simplescn import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, classify_admin, classify_experimental, classify_local
 
 class client_admin(object):
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changeloglevel", "changename", "invalidatecert", "changesecurity", "addredirect", "delredirect", "massimporter"}
-
+    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changeloglevel", "changename", "invalidatecert", "changesecurity", "massimporter"}
+#, "addredirect", "delredirect"
     hashdb = None
     links = None
     cert_hash = None
-    redirect_addr = ""
+#    redirect_addr = ""
 
     write_msg_lock = None
     change_name_lock = None
@@ -273,30 +273,30 @@ class client_admin(object):
             self.links["client_server"].update_cache()
             return True
 
-    @check_argsdeco({"port": int})
-    @classify_admin
-    @classify_local
-    def addredirect(self, obdict):
-        """ func: request redirect
-            return: success or error
-            port: port of client server """
-        if obdict.get("clientaddress") is None:
-            return False, "Cannot request redirect (clientaddress is not available)"
-        if obdict.get("clientcerthash") is None:
-            return False, "Cannot request redirect (clienthash is not available)"
-        self.redirect_addr = "{}-{}".format(obdict.get("clientaddress")[0], obdict["port"])
-        self.redirect_hash = obdict.get("clientcerthash")
-        return True
+    #@check_argsdeco({"port": int})
+    #@classify_admin
+    #@classify_local
+    #def addredirect(self, obdict):
+    #    """ func: request redirect
+    #        return: success or error
+    #        port: port of client server """
+    #    if obdict.get("clientaddress") is None:
+    #        return False, "Cannot request redirect (clientaddress is not available)"
+    #    if obdict.get("clientcerthash") is None:
+    #        return False, "Cannot request redirect (clienthash is not available)"
+    #    self.redirect_addr = "{}-{}".format(obdict.get("clientaddress")[0], obdict["port"])
+    #    self.redirect_hash = obdict.get("clientcerthash")
+    #    return True
 
-    @check_argsdeco()
-    @classify_admin
-    @classify_local
-    def delredirect(self, obdict):
-        """ func: deactivate redirect
-            return: success or error """
-        self.redirect_addr = ""
-        self.redirect_hash = ""
-        return True
+    #@check_argsdeco()
+    #@classify_admin
+    #@classify_local
+    #def delredirect(self, obdict):
+    #    """ func: deactivate redirect
+    #        return: success or error """
+    #    self.redirect_addr = ""
+    #    self.redirect_hash = ""
+    #    return True
 
     # TODO: test
     @check_argsdeco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
