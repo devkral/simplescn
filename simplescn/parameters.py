@@ -1,5 +1,6 @@
 
 # public domain  (only options)
+import tempfile
 from cryptography.hazmat.primitives import hashes
 
 logformat = '%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'
@@ -30,7 +31,8 @@ connect_timeout = 5
 local_timeout = 5
 
 ## file positions ##
-default_configdir = '~/.simplescn/'
+default_configdir = '~/.simplescn'
+default_runpath = tempfile.gettempdir()
 # don't change
 isself = 'isself'
 

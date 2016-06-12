@@ -169,35 +169,13 @@ def logcheck(ret, level=logging.DEBUG):
             logging.root.handle(record)
         return False
 
-def inp_passw_cmd(msg, requester=""):
-    if requester != "":
-        inp = getpass(msg+" (from {}):\n".format(requester))
-    else:
-        inp = getpass(msg+":\n")
-    return inp
+def inp_passw_cmd(msg):
+    return getpass(msg+":\n")
 pwcallmethodinst = inp_passw_cmd
 
 # returns pw or ""
-def pwcallmethod(msg, requester=""):
-    return pwcallmethodinst(msg, requester)
-
-def notify_cmd(msg, requester):
-    if requester != "":
-        inp = input(msg+" (from {}): ".format(requester))
-    else:
-        inp = input(msg+": ")
-    if inp.lower() in ["y", "j"]:
-        return True
-    elif inp.lower() in ["n"]:
-        return False
-    else:
-        return None
-
-notifyinst = notify_cmd
-
-# returns True, False, None
-def notify(msg, requester=""):
-    return notifyinst(msg, requester)
+def pwcallmethod(msg):
+    return pwcallmethodinst(msg)
 
 ##### init ######
 
@@ -470,7 +448,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     use_unix = False
 
     def __init__(self, _address, certfpath, _handler, pwmsg, timeout=default_timeout, use_unix=False):
-        self.use_unix=use_unix
+        self.use_unix = use_unix
         
         if self.use_unix:
             self.address_family = socket.AF_UNIX
@@ -891,8 +869,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
             return False
         return True
 
-    def handle_plugin(self, func, action):
-        return self.wrap_func(func, action, self.connection, self.client_cert, self.client_cert_hash)
 
 
 def create_certhashheader(certhash):
@@ -943,26 +919,11 @@ def classify_local(func):
     func.classify.add("local")
     return func
 
-# signals that method should have no pwcheck
-# redirect overrides handle_local, handle_remote
-def classify_redirect(func):
-    if not hasattr(func, "classify"):
-        func.classify = set()
-    func.classify.add("redirect")
-    return func
-
 # signals that method is experimental
 def classify_experimental(func):
     if not hasattr(func, "classify"):
         func.classify = set()
     func.classify.add("experimental")
-    return func
-
-# signals that method is insecure
-def classify_insecure(func):
-    if not hasattr(func, "classify"):
-        func.classify = set()
-    func.classify.add("insecure")
     return func
 
 # signals that method is access method
@@ -1019,7 +980,13 @@ def gen_doc_deco(func):
 
 # args is iterable with (argname, type)
 # _moddic is modified
-def check_args(_moddict, requires={}, optional={}, error=[]):
+def check_args(_moddict, requires=None, optional=None, error=None):
+    if not requires:
+        requires = {}
+    if not optional:
+        optional = {}
+    if not error:
+        error = []
     search = set()
     if not isinstance(requires, dict):
         raise TypeError("requires wrong type: " + type(requires).__name__)
@@ -1060,7 +1027,11 @@ def check_args(_moddict, requires={}, optional={}, error=[]):
 
 # args is iterable with (argname, type)
 # obdict (=_moddict) is modified
-def check_argsdeco(requires={}, optional={}):
+def check_argsdeco(requires=None, optional=None):
+    if not requires:
+        requires = {}
+    if not optional:
+        optional = {}
     def func_to_check(func):
         def get_args(self, obdict):
             error = []
@@ -1098,18 +1069,22 @@ def loglevel_converter(loglevel):
     else:
         return int(loglevel)
 
+def encode_bo(inp, encoding, charset="utf-8"):
+    splitted = encoding.split(";", 1)
+    if len(splitted) == 2:
+        #splitted in format charset=utf-8
+        split2 = splitted[1].split("=", 1)
+        charset = split2[1].strip().rstrip()
+    return str(inp, charset, errors="ignore")
+
 def safe_mdecode(inp, encoding, charset="utf-8"):
     try:
-        splitted = encoding.split(";", 1)
-        enctype = splitted[0].strip().rstrip()
+        # extract e.g. application/json
+        enctype = encoding.split(";", 1)[0].strip().rstrip()
         if isinstance(inp, str):
             string = inp
         elif isinstance(inp, bytes):
-            if len(splitted) == 2:
-                #splitted in format charset=utf-8
-                split2 = splitted[1].split("=", 1)
-                charset = split2[1].strip().rstrip()
-            string = str(inp, charset)
+            string = encode_bo(inp, encoding, charset="utf-8")
         else:
             logging.error("Invalid type: %s", type(inp))
             return

@@ -7,7 +7,6 @@ license: MIT, see LICENSE.txt
 import sys
 import os
 import socket
-from http import client
 import ssl
 import threading
 import json
@@ -21,8 +20,9 @@ from simplescn.client_admin import client_admin
 from simplescn.client_safe import client_safe
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify
-from scnrequest import requester
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify, default_runpath, default_sslcont
+
+from simplescn.scnrequest import requester
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -121,8 +121,6 @@ class client_client(client_admin, client_safe):
             gaction = getattr(self, action)
             if check_classify(gaction, "access"):
                 return False, "actions: 'classified access not allowed in access_core", isself, self.cert_hash
-            if check_classify(gaction, "insecure"):
-                return False, "method call not allowed this way (insecure)", isself, self.cert_hash
             if check_classify(gaction, "experimental"):
                 logging.warning("action: \"%s\" is experimental", action)
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
@@ -140,7 +138,6 @@ class client_client(client_admin, client_safe):
     @generate_error_deco
     @classify_access
     def access_main(self, action, **obdict):
-        obdict["pwcall_method"] = self.pw_auth
         try:
             return self.access_core(action, obdict)
         except Exception as exc:
@@ -239,12 +236,11 @@ class client_server(commonscn):
             return True, -1
 
 
-def gen_client_handler():
+def gen_client_handler(_links, server=False, client=False, remote=False):
     class client_handler(commonscnhandler):
         server_version = 'simplescn/1.0 (client)'
-        handle_local = False
-        handle_remote = False
-        webgui = False
+        handle_remote = remote
+        links = _links
         
         def handle_wrap(self, func, servicename):
             service = self.links["client_server"].spmap.get(servicename, None)
@@ -256,7 +252,7 @@ def gen_client_handler():
             sockd = None
             for addr in ["::1", "127.0.0.1"]:
                 try:
-                    sockd = socket.create_connection((addr, port), local_timeout)
+                    sockd = socket.create_connection((addr, port), self.links["kwargs"].get("connect_timeout"))
                     break
                 except Exception as e:
                     logging.debug(e)
@@ -264,104 +260,98 @@ def gen_client_handler():
             if sockd is None:
                 self.scn_send_answer(404, message="service not reachable")
                 return
+            sockd.settimeout(self.links["kwargs"].get("timeout"))
             redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
             redout.run()
             rw_socket(sockd, self.connection)
-
-        def handle_client(self, action):
-            if action not in self.links["client"].validactions:
-                self.send_error(400, "invalid action - client")
-                return
-            # redirect overrides handle_local, handle_remote
-            gaction = getattr(self.links["client"], action)
-            if not self.handle_remote and \
-                check_classify(redirect, "redirect") and \
-                (not self.handle_local or self.server.address_family != file_family or not check_local(self.client_address2[0])):
-                self.send_error(403, "no permission - client")
-                return
-            if check_classify(redirect, "admin"):
-                #if self.client_cert is None:
-                #    self.send_error(403, "no permission (no certrewrap) - admin")
-                #    return
-                if "admin" in self.links["auth_server"].realms:
-                    realm = "admin"
+        if client:
+            def handle_client(self, action):
+                if action not in self.links["client"].validactions:
+                    self.send_error(400, "invalid action - client")
+                    return
+                gaction = getattr(self.links["client"], action)
+                if not self.handle_remote and \
+                    (self.server.address_family != file_family or not check_local(self.client_address2[0])):
+                    self.send_error(403, "no permission - client")
+                    return
+                if check_classify(gaction, "admin"):
+                    #if self.client_cert is None:
+                    #    self.send_error(403, "no permission (no certrewrap) - admin")
+                    #    return
+                    if "admin" in self.links["auth_server"].realms:
+                        realm = "admin"
+                    else:
+                        realm = "client"
                 else:
                     realm = "client"
-            else:
-                realm = "client"
-            # if redirect bypass
-            gaction = getattr(self.links["client"], action)
-            if not check_classify(gaction, "redirect") and \
-                    not self.do_auth(realm, self.auth_info):
-                return
 
-            obdict = self.parse_body()
-            if obdict is None:
-                return
-            response = self.links["client"].access_main(action, **obdict)
+                obdict = self.parse_body()
+                if obdict is None:
+                    return
+                response = self.links["client"].access_main(action, **obdict)
 
-            if not response[0]:
-                error = response[1]
-                generror = generate_error(error)
-                if not debug_mode or self.server.address_family != file_family or not check_local(self.client_address2[0]):
-                    # don't show stacktrace if not permitted and not in debug mode
-                    if "stacktrace" in generror:
-                        del generror["stacktrace"]
+                if not response[0]:
+                    error = response[1]
+                    generror = generate_error(error)
+                    if not debug_mode or (self.server.address_family != file_family and not check_local(self.client_address2[0])):
+                        # don't show stacktrace if not permitted and not in debug mode
+                        if "stacktrace" in generror:
+                            del generror["stacktrace"]
+                        # with harden mode do not show errormessage
+                        if harden_mode and not isinstance(error, (AddressFail, VALError)):
+                            generror = generate_error("unknown")
+                    resultob = gen_result(generror, False)
+                    status = 500
+                else:
+                    resultob = gen_result(response[1], True)
+                    status = 200
+                jsonnized = bytes(json.dumps(resultob), "utf-8")
+                self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
+        if server:
+            def handle_server(self, action):
+                if action not in self.links["client_server"].validactions:
+                    self.scn_send_answer(400, message="invalid action - server", docache=False)
+                    return
+                if not self.links["auth_server"].verify("server", self.auth_info):
+                    authreq = self.links["auth_server"].request_auth("server")
+                    ob = bytes(json.dumps(authreq), "utf-8")
+                    self.cleanup_stale_data(max_serverrequest_size)
+                    self.scn_send_answer(401, body=ob, docache=False)
+                    return
+                if action in self.links["client_server"].cache:
+                    # cleanup {} or smaller, protect against big transmissions
+                    self.cleanup_stale_data(2)
+                    ob = bytes(self.links["client_server"].cache[action], "utf-8")
+                    self.scn_send_answer(200, body=ob, docache=False)
+                    return
+
+                obdict = self.parse_body(max_serverrequest_size)
+                if obdict is None:
+                    return None
+                try:
+                    func = getattr(self.links["client_server"], action)
+                    response = func(obdict)
+                    jsonnized = json.dumps(gen_result(response[1], response[0]))
+                except Exception as exc:
+                    generror = generate_error(exc)
+                    if not debug_mode or self.server.address_family != file_family or not check_local(self.client_address2[0]):
+                        # don't show stacktrace if not permitted and not in debug mode
+                        if "stacktrace" in generror:
+                            del generror["stacktrace"]
                     # with harden mode do not show errormessage
-                    if harden_mode and not isinstance(error, (AddressFail, VALError)):
+                    if harden_mode and not isinstance(exc, (AddressFail, VALError)):
                         generror = generate_error("unknown")
-                resultob = gen_result(generror, False)
-                status = 500
-            else:
-                resultob = gen_result(response[1], True)
-                status = 200
-            jsonnized = bytes(json.dumps(resultob), "utf-8")
-            self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
-
-        def handle_server(self, action):
-            if action not in self.links["client_server"].validactions:
-                self.scn_send_answer(400, message="invalid action - server", docache=False)
-                return
-            if not self.links["auth_server"].verify("server", self.auth_info):
-                authreq = self.links["auth_server"].request_auth("server")
-                ob = bytes(json.dumps(authreq), "utf-8")
-                self.cleanup_stale_data(max_serverrequest_size)
-                self.scn_send_answer(401, body=ob, docache=False)
-                return
-            if action in self.links["client_server"].cache:
-                # cleanup {} or smaller, protect against big transmissions
-                self.cleanup_stale_data(2)
-                ob = bytes(self.links["client_server"].cache[action], "utf-8")
-                self.scn_send_answer(200, body=ob, docache=False)
-                return
-
-            obdict = self.parse_body(max_serverrequest_size)
-            if obdict is None:
-                return None
-            try:
-                func = getattr(self.links["client_server"], action)
-                response = func(obdict)
-                jsonnized = json.dumps(gen_result(response[1], response[0]))
-            except Exception as exc:
-                generror = generate_error(exc)
-                if not debug_mode or self.server.address_family != file_family or not check_local(self.client_address2[0]):
-                    # don't show stacktrace if not permitted and not in debug mode
-                    if "stacktrace" in generror:
-                        del generror["stacktrace"]
-                # with harden mode do not show errormessage
-                if harden_mode and not isinstance(exc, (AddressFail, VALError)):
-                    generror = generate_error("unknown")
-                ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
-                self.scn_send_answer(500, body=ob, mime="application/json")
-                return
-            if jsonnized is None:
-                jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
-                response[0] = False
-            ob = bytes(jsonnized, "utf-8")
-            if not response[0]:
-                self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
-            else:
-                self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
+                    ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
+                    self.scn_send_answer(500, body=ob, mime="application/json")
+                    return
+                if jsonnized is None:
+                    jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
+                    response[0] = False
+                ob = bytes(jsonnized, "utf-8")
+                if not response[0]:
+                    self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
+                else:
+                    self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
         def do_POST(self):
             if not self.init_scn_stuff():
                 return
@@ -384,9 +374,9 @@ def gen_client_handler():
             if resource == "usebroken":
                 # for invalidating and updating, don't use connection afterwards
                 self.handle_usebroken(sub)
-            elif resource == "server":
+            elif server and resource == "server":
                 self.handle_server(sub)
-            elif resource == "client":
+            elif client and resource == "client":
                 self.handle_client(sub)
             else:
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
@@ -400,9 +390,9 @@ class client_init(object):
 
     def __init__(self, **kwargs):
         logging.root.setLevel(kwargs.get("loglevel"))
-        self.links = {"trusted_certhash": ""}
         self.links["config_root"] = kwargs.get("config")
-        self.links["handler"] = gen_client_handler()
+        self.links["kwargs"] = kwargs
+        handle_remote = False
         _cpath = os.path.join(self.links["config_root"], "client")
         init_config_folder(self.links["config_root"], "client")
 
@@ -418,16 +408,14 @@ class client_init(object):
             if not check_hash(kwargs.get("cpwhash")):
                 logging.error("hashtest failed for cpwhash, cpwhash: %s", kwargs.get("cpwhash"))
             else:
-                self.links["handler"].handle_local = True
                 # ensure that password is set when allowing remote access
                 if kwargs.get("remote"):
-                    self.links["handler"].handle_remote = True
+                    handle_remote = True
                 self.links["auth_server"].init_realm("client", kwargs.get("cpwhash"))
         elif kwargs.get("cpwfile"):
-            self.links["handler"].handle_local = True
             # ensure that password is set when allowing remote access
             if kwargs.get("remote"):
-                self.links["handler"].handle_remote = True
+                handle_remote = True
             with open(kwargs["cpwfile"][0], "r") as op:
                 pw = op.readline()
                 if pw[-1] == "\n":
@@ -456,6 +444,8 @@ class client_init(object):
                 if pw[-1] == "\n":
                     pw = pw[:-1]
                 self.links["auth_server"].init_realm("server", dhash(pw))
+        
+        
         with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline().strip().rstrip() # remove \n
         with open(_cpath+"_message.txt", 'r') as readinmes:
@@ -476,12 +466,30 @@ class client_init(object):
         clientserverdict = {"name": _name[0], "certhash": dhash(pub_cert),
                             "priority": kwargs.get("priority"), "message": _message}
         self.links["client_server"] = client_server(clientserverdict)
-        self.links["handler"].links = self.links
         # use timeout argument of BaseServer
         if not kwargs.get("noserver"):
-            self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["handler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
+            if handle_remote:
+                self.links["shandler"] = gen_client_handler(self.links, server=True, client=True, remote=True)
+            else:
+                self.links["shandler"] = gen_client_handler(self.links, server=True, client=False, remote=False)
+            self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["shandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
+        if not handle_remote or (not kwargs.get("nounix") and file_family):
+            self.links["chandler"] = gen_client_handler(self.links, server=True, client=False, remote=False)
+            if file_family is not None:
+                rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
+                self.links["cserver_unix"] = http_server(rpath, _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"), use_unix=True)
+            if not handle_remote:
+                self.links["cserver_ip"] = http_server(("::1", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
+            
+        
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
 
+    def show(self):
+        ret = dict()
+        ret["hserver"] = self.links.get("hserver", None)
+        ret["cserver_ip"] = self.links.get("cserver_ip", None)
+        ret["cserver_unix"] = self.links.get("cserver_unix", None)
+        return ret
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
 
@@ -505,7 +513,10 @@ default_client_args = \
     "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
     "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""],
     "config": [default_configdir, parsepath, "<dir>: path to config dir"],
-    "noserver": ["False", parsebool , "<bool>: deactivate httpserver"]
+    "run": [default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
+    "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
+    "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
+    "noserver": ["False", parsebool, "<bool>: deactivate httpserver"]
 }
 
 def client_paramhelp():

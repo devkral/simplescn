@@ -325,6 +325,7 @@ class server_init(object):
     def __init__(self, **kwargs):
         self.links = {}
         self.links["config_root"] = kwargs.get("config")
+        self.links["kwargs"] = kwargs
         self.links["handler"] = gen_server_handler()
         _spath = os.path.join(self.links["config_root"], "server")
 

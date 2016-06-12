@@ -14,7 +14,12 @@ from simplescn import check_name, check_hash, check_security, check_typename, ch
 
 # for config
 def parsepath(inp):
-    return os.path.expanduser(os.path.expandvars(inp))
+    ret = os.path.expanduser(os.path.expandvars(inp))
+    if ret[-1] in ["/", "\\"]:
+        ret = ret[:-1]
+    if sys.platform.startswith('win32'):
+        ret = ret.replace("/", "\\")
+    return ret
 
 def parsebool(inp):
     if inp.lower() in ["y", "true", "t"]:

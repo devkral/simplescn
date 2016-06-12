@@ -7,10 +7,8 @@ import ssl
 
 from simplescn import default_sslcont, scnparse_url, default_timeout,\
 connect_timeout, VALMITMError, gen_result,\
-safe_mdecode, check_result, isself, dhash, VALHashError, VALNameError, create_certhashheader
+safe_mdecode, encode_bo, check_result, isself, dhash, VALHashError, VALNameError, create_certhashheader
 
-timeout = 60
-connect_timeout = 10
 
 reference_header = \
 {
@@ -174,21 +172,20 @@ def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel=None, *
 
         if response.getheader("Content-Length", "").strip().rstrip().isdigit():
             readob = response.read(int(response.getheader("Content-Length")))
-        else:
-            readob = None
-        if readob:
-            if response.getheader("Content-Type").split(";")[0].strip().rstrip() in ["text/plain", "text/html"]:
-                obdict = gen_result(str(readob, "utf-8"), success)
+            conth = response.getheader("Content-Type", "application/json")
+            if conth.split(";")[0].strip().rstrip() in ["text/plain", "text/html"]:
+                obdict = gen_result(encode_bo(readob, conth), success)
             else:
-                obdict = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
+                obdict = safe_mdecode(readob, conth)
             if not check_result(obdict, success):
                 con.close()
                 return None, 400, "error parsing request\n{}".format(readob), _certtupel
-
+        else:
+            obdict = gen_result("", success)
         if success:
             return con, 200, obdict["result"], _certtupel
         else:
-            return con, 400, obdict["error"], _certtupel
+            return con, response.status, obdict["error"], _certtupel
 
 def do_request_mold(*args, **kwargs):
     ret = do_request(*args, **kwargs)
