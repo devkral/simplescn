@@ -486,7 +486,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 # python for windows has disabled it
                 # hope that it works without
                 pass
-            #self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             self.server_bind()
             self.server_activate()
@@ -744,8 +744,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
     alreadyrewrapped = False
     client_address2 = None
     links = None
-    # default overwrite
-    webgui = False
 
     def scn_send_answer(self, status, body=None, mime="application/json", message=None, docache=False, dokeepalive=None):
         if message:
@@ -769,26 +767,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
         self.end_headers()
         if body:
             self.wfile.write(body)
-
-    # use cache?
-    # htmlcache = {}
-    def html(self, page, lang="en"):
-        if not self.webgui:
-            self.send_error(404, "no webgui")
-            return
-        _ppath = os.path.join(sharedir, "html", lang, page)
-        try:
-            with open(_ppath, "r") as rob:
-                fullob = rob.read()
-                try:
-                    _temp = self.links["client"].show({})[1]
-                    _temp.update(self.links["client"].info({})[1])
-                    fullob = fullob.format(**_temp)
-                except KeyError:
-                    pass
-                self.scn_send_answer(200, body=bytes(fullob, "utf-8"), mime="text/html", docache=True)
-        except FileNotFoundError:
-            self.send_error(404, "file not found")
 
     def init_scn_stuff(self):
         useragent = self.headers.get("User-Agent", "")
@@ -951,13 +929,6 @@ def check_classify(func, perm):
     if not hasattr(func, "classify"):
         return False
     return perm in func.classify
-
-# signals that method not be accessed by plugins (access_safe)
-def classify_noplugin(func):
-    if not hasattr(func, "classify"):
-        func.classify = set()
-    func.classify.add("noplugin")
-    return func
 
 # signals that method needs admin permission
 def classify_admin(func):
@@ -1147,21 +1118,6 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
             return None
         if enctype == "application/json":
             return json.loads(string)
-        elif enctype == "application/x-www-form-urlencoded":
-            obdict = parse.parse_qs(string)
-            # json object encoded as string is parsed
-            if obdict.get("jauth") is not None:
-                obdict["auth"] = json.loads(obdict.get("jauth")[0])
-            # fix limitation of parse_qs, "realm:pw" are splitted into dict format needed
-            elif obdict.get("auth") is not None:
-                oldauth = obdict["auth"].copy()
-                obdict["auth"] = {}
-                for elem in oldauth:
-                    # splitted = realm, pw
-                    splitted = elem.split(":", 1)
-                    if len(splitted) == 2:
-                        obdict["auth"][splitted[0]] = splitted[1]
-            return obdict
         else:
             logging.error("invalid parsing type: %s", enctype)
             return None

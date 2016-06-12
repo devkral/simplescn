@@ -1,5 +1,12 @@
 
 
+The real solution:
+remove gui crap including plugins, config, do_GET
+should be a different project
+
+
+
+
 The solution for pluginmanager:
 pluginmanager->plugin communication via stdin stdout
 plugin->simplescn via socket

@@ -1,2 +1,1 @@
-recursive-include simplescn/plugins *
 global-exclude *.pyc *.pyo *.swp *.swo __pycache__

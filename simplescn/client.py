@@ -15,14 +15,13 @@ import logging
 
 
 from simplescn import sharedir
+from simplescn.common import parsepath, parsebool
 
 from simplescn.client_admin import client_admin
 from simplescn.client_safe import client_safe
-from simplescn.client_config import client_config
-from simplescn.dialogs import client_dialogs
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_noplugin, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify
 
 from simplescn.common import certhash_db
 #VALMITMError
@@ -34,31 +33,32 @@ reference_header = \
     "Authorization": 'scn {}',
     "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
-class client_client(client_admin, client_safe, client_config, client_dialogs):
+class client_client(client_admin, client_safe):
     name = None
     cert_hash = None
     sslcont = None
     hashdb = None
     links = None
-    redirect_addr = ""
-    redirect_hash = ""
     scntraverse_helper = None
     brokencerts = None
 
     validactions = None
 
     def __init__(self, _name, _pub_cert_hash, _links):
-        client_dialogs.__init__(self)
         client_admin.__init__(self)
         client_safe.__init__(self)
-        client_config.__init__(self)
         self.links = _links
         self.name = _name
         self.cert_hash = _pub_cert_hash
         self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
-        self.sslcont = self.links["hserver"].sslcont
+        if "hserver" in self.links:
+            self.sslcont = self.links["hserver"].sslcont
+        else:
+            self.sslcont = default_sslcont()
         self.brokencerts = []
-        self.validactions = {"cmd_plugin", "remember_auth"}
+        self.validactions = set()
+        #"remember_auth"
+        
 
         if "hserver" in self.links:
             self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
@@ -77,10 +77,8 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 self.brokencerts.append((_hash, _reason))
 
         # update self.validactions
-        self.validactions.update(client_dialogs.validactions_dialogs)
         self.validactions.update(client_admin.validactions_admin)
         self.validactions.update(client_safe.validactions_safe)
-        self.validactions.update(client_config.validactions_config)
         self._cache_help = self.cmdhelp()
 
     # return success, body, (name, security), hash
@@ -230,115 +228,26 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
             else:
                 return status, obdict["error"], _certtupel[0], _certtupel[1]
 
-    def use_plugin(self, address, plugin, paction, forcehash=None, originalcert=None, forceport=False, requester="", traverseserveraddr=None):
-        """ use this method to communicate with plugins """
-        _addr = scnparse_url(address, force_port=forceport)
-        con = client.HTTPSConnection(_addr[0], _addr[1], context=self.sslcont, timeout=self.links["config"].get("connect_timeout"))
-        try:
-            con.connect()
-        except ConnectionRefusedError:
-            if traverseserveraddr is not None:
-                _tsaddr = scnparse_url(traverseserveraddr)
-                contrav = client.HTTPSConnection(_tsaddr[0], _tsaddr[1], context=self.sslcont)
-                contrav.connect()
-                _sport = contrav.sock.getsockname()[1]
-                retserv = self.do_request(contrav, "/server/open_traversal")
-                contrav.close()
-                if retserv[0]:
-                    con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-                    con.sock.bind(('', _sport))#retserv.get("traverse_address"))
-                    con.sock.settimeout(self.links["config"].get("connect_timeout"))
-                    for count in range(0, 3):
-                        try:
-                            con.sock.connect((_addr[0], _addr[1]))
-                            break
-                        except Exception:
-                            pass
-                    con.sock = self.sslcont.wrap_socket(con.sock)
-            else:
-                logging.error("connection failed and no traverse address")
-                return None, None, None
-        cert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
-        _hash = dhash(cert)
-        con.putrequest("POST", "/plugin/{}/{}".format(plugin, paction))
-        _certheader, _random = create_certhashheader(self.cert_hash)
-        con.putheader("X-certrewrap", _certheader)
-        con.putheader("User-Agent", "simplescn/1.0 (client-plugin)")
-        if originalcert:
-            con.putheader("X-original_cert", originalcert)
-        con.endheaders()
-        con.sock = con.sock.unwrap()
-        con.sock = self.sslcont.wrap_socket(con.sock, server_side=True)
-        sock = con.sock
-        try:
-            # terminates connection, even keep-alive is set
-            #resp = con.getresponse()
-            # so do it manually
-            resp = client.HTTPResponse(con.sock, con.debuglevel, method=con._method)
-            resp.begin()
-        except socket.timeout:
-            logging.error("timeout connection")
-            return None, None, None
-        # set to None before connection can destroy socket
-        con.sock = None
-        if resp.status != 200:
-            logging.error("requesting plugin failed: %s, action: %s, status: %s, reason: %s", plugin, paction, resp.status, resp.reason)
-            return None, None, None
-        if _hash != forcehash:
-            logging.error("forcehash failed")
-            con.close()
-            return None, cert, _hash
-        if _random != resp.getheader("X-certrewrap", ""):
-            logging.error("rewrapped cert secret does not match")
-            con.close()
-            return None, cert, _hash
-        return sock, cert, _hash
-
-    @check_argsdeco({"plugin": str, "paction": str})
-    @classify_noplugin
-    def cmd_plugin(self, obdict):
-        """ func: trigger commandline action of plugin
-            return: answer of plugin
-            plugin: name of plugin
-            paction: cmdaction of plugin """
-        plugins = self.links["client_server"].pluginmanager.plugins
-        if plugins is None:
-            return False, "no plugins loaded"
-        if obdict["plugin"] not in plugins:
-            return False, "Error: plugin does not exist"
-        plugin = plugins[obdict["plugin"]]
-        if not hasattr(plugin, "cmd_node_actions"):
-            return False, "Error: plugin does not support commandline"
-        action = obdict["paction"]
-        if hasattr(plugin, "cmd_node_localized_actions") and \
-            action in plugin.cmd_node_localized_actions:
-            action = plugin.cmd_node_localized_actions[action]
-        try:
-            resp = plugin.cmd_node_actions[action][0](obdict)
-            return True, resp
-        except Exception as exc:
-            return False, generate_error(exc)
-
     # auth is special variable see safe_mdecode in common
-    @check_argsdeco({"auth": dict, "hash": str, "address": str})
-    @classify_local
-    def remember_auth(self, obdict):
-        """ func: Remember authentication info for as long the program runs
-            return: True, when success
-            auth: authdict
-            hash: hash to remember
-            address: address of server/client for which the pw should be saved
-        """
-        if obdict.get("hash") is None:
-            _hashob = self.gethash(obdict)
-            if not _hashob[0]:
-                return False, "invalid address for retrieving hash"
-            _hash = _hashob[1]["hash"]
-        else:
-            _hash = obdict.get("hash")
-        for realm, pw in obdict.get("auth"):
-            self.links["auth_client"].saveauth(pw, _hash, realm)
-        return True
+    #@check_argsdeco({"auth": dict, "hash": str, "address": str})
+    #@classify_local
+    #def remember_auth(self, obdict):
+    #    """ func: Remember authentication info for as long the program runs
+    #        return: True, when success
+    #        auth: authdict
+    #        hash: hash to remember
+    #        address: address of server/client for which the pw should be saved
+    #    """
+    #    if obdict.get("hash") is None:
+    #        _hashob = self.gethash(obdict)
+    #        if not _hashob[0]:
+    #            return False, "invalid address for retrieving hash"
+    #        _hash = _hashob[1]["hash"]
+    #    else:
+    #        _hash = obdict.get("hash")
+    #    for realm, pw in obdict.get("auth"):
+    #        self.links["auth_client"].saveauth(pw, _hash, realm)
+    #    return True
 
     # NEVER include in validactions
     # headers=headers
@@ -361,64 +270,6 @@ class client_client(client_admin, client_safe, client_config, client_dialogs):
                 return False, exc #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
-
-    # command wrapper for cmd interfaces
-    @generate_error_deco
-    @classify_noplugin
-    def command(self, inp, callpw_auth=False):
-        # use safe_mdecode for x-www-form-urlencoded compatibility with auth extension
-        obdict = safe_mdecode(inp, "application/x-www-form-urlencoded")
-        if obdict is None:
-            return False, "decoding failed"
-        error = []
-        if not check_args(obdict, {"action": str}, error=error):
-            return False, "{}:{}".format(*error)
-            #return False, "no action given", isself, self.cert_hash
-        if obdict["action"] not in self.validactions:
-            return False, "action: \"{}\" not in validactions".format(obdict["action"])
-        if obdict["action"] == "command"  or check_classify(getattr(self, obdict["action"]), "access"):
-            return False, "action: 'classified as access, command' not allowed in command"
-        action = obdict["action"]
-        del obdict["action"]
-
-        def pw_auth_command(pwcerthash, authreqob, reauthcount):
-            if not callpw_auth:
-                authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
-            else:
-                authob = self.pw_auth(pwcerthash, authreqob, reauthcount)
-            return authob
-        obdict["pwcall_method"] = pw_auth_command
-        try:
-            return self.access_core(action, obdict)
-        except Exception as exc:
-            return False, exc
-
-    # NEVER include in validactions
-    # for plugins, e.g. untrusted
-    # requester = "", invalid requester don't allow asking
-    # headers=headers
-    # client_address=client_address
-    @generate_error_deco
-    @classify_access
-    def access_safe(self, action, requester="", **obdict):
-        gaction = getattr(self, action)
-        if check_classify(gaction, "access"):
-            return False, "actions: 'access methods not allowed in access_safe"
-        def pw_auth_plugin(pwcerthash, authreqob, reauthcount):
-            authob = self.links["auth_client"].asauth(obdict.get("auth", {}).get(authreqob.get("realm")), authreqob)
-            return authob
-        obdict["pwcall_method"] = pw_auth_plugin
-        obdict["requester"] = requester
-        if action in self.validactions:
-            if check_classify(gaction, "noplugin"):
-                return False, "{} tried to use noplugin protected methods".format(requester)
-            if check_classify(gaction, "admin"):
-                # use_notify returns in error case None or False both evaluated as False (when not checking with ==)
-                if requester == "" or self.use_notify('"{}" wants admin permissions\nAllow?'.format(requester)):
-                    return False, "no permission"
-            return self.access_core(action, obdict)
-        else:
-            return False, "not in validactions"
 
     # NEVER include in validactions
     # for user interactions
@@ -649,31 +500,6 @@ def gen_client_handler():
                 self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
             else:
                 self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
-
-        def do_GET(self):
-            if not self.init_scn_stuff():
-                return
-            if self.path == "/favicon.ico":
-                if "favicon.ico" in self.statics:
-                    self.scn_send_answer(200, self.statics["favicon.ico"], docache=True)
-                else:
-                    self.scn_send_answer(404, docache=True)
-                return
-            if not self.webgui:
-                self.scn_send_answer(404, message="no webgui enabled", docache=True)
-            _path = self.path[1:].split("/")
-            if _path[0] in ("", "client", "html", "index"):
-                self.html("client.html")
-                return
-            elif _path[0] == "static" and len(_path) >= 2:
-                if _path[1] in self.statics:
-                    self.scn_send_answer(200, body=self.statics[_path[1]], docache=True)
-                    return
-            elif len(_path) == 2:
-                self.handle_server(_path[0])
-                return
-            self.scn_send_answer(404, message="resource not found (GET)", docache=True)
-
         def do_POST(self):
             if not self.init_scn_stuff():
                 return
@@ -684,50 +510,8 @@ def gen_client_handler():
             else:
                 resource = splitted[0]
                 sub = splitted[1]
-            if resource == "plugin":
-                split2 = sub.split("/", 1)
-                if len(split2) != 2:
-                    #self.cleanup_stale_data()
-                    self.scn_send_answer(400, message="no plugin/action specified")
-                    return
-                plugin, action = split2
-                plugindomain = "plugin:{}".format(plugin)
-                if not self.do_auth(plugindomain):
-                    return
-                pluginm = self.links["client_server"].pluginmanager
-                if plugin not in pluginm.plugins:
-                    #self.cleanup_stale_data()
-                    self.scn_send_answer(404, message="plugin not available")
-                    return
-                # gui receive
-                if hasattr(pluginm.plugins[plugin], "receive"):
-                    # don't forget redirect_hash
-                    if self.links["client"].redirect_addr != "":
-                        # needs to implement http handshake and stop or don't analyze content
-                        if hasattr(pluginm.plugins[plugin], "rreceive"):
-                            ret = self.handle_plugin(pluginm.plugins[plugin].rreceive, action)
-                        else:
-                            ret = True
-                        if not ret:
-                            return
-                        self.send_response(200)
-                        self.send_header("Connection", "keep-alive")
-                        self.send_header("Cache-Control", "no-cache")
-                        if self.headers.get("X-certrewrap") is not None:
-                            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-                        self.end_headers()
-                        # send if not sent already
-                        self.wfile.flush()
-                        sockd = self.links["client"].use_plugin(self.links["client"].redirect_addr, \
-                                            plugin, action, forcehash=self.links["client"].redirect_hash, originalcert=self.client_cert)
-                        redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
-                        redout.run()
-                        rw_socket(sockd, self.connection)
-                        return
-                    else:
-                        self.handle_plugin(pluginm.plugins[plugin].receive, action)
-            # not ready
-            #elif resource == "wrap":
+            #if resource == "wrap":
+            #    not reader
             #    if not self.links["auth_server"].verify("server", self.auth_info):
             #        authreq = self.links["auth_server"].request_auth("server")
             #        ob = bytes(json.dumps(authreq), "utf-8")
@@ -735,7 +519,7 @@ def gen_client_handler():
             #        self.scn_send_answer(401, body=ob, docache=False)
             #        return
             #    self.handle_wrap(action)
-            elif resource == "usebroken":
+            if resource == "usebroken":
                 # for invalidating and updating, don't use connection afterwards
                 self.handle_usebroken(sub)
             elif resource == "server":
@@ -752,11 +536,10 @@ class client_init(object):
     links = None
     run = True # necessary for some runmethods
 
-    def __init__(self, confm, pluginm):
-        logging.root.setLevel(confm.get("loglevel"))
+    def __init__(self, **kwargs):
+        logging.root.setLevel(kwargs.get("loglevel"))
         self.links = {"trusted_certhash": ""}
-        self.links["config"] = confm
-        self.links["config_root"] = confm.get("config")
+        self.links["config_root"] = kwargs.get("config")
         self.links["handler"] = gen_client_handler()
         _cpath = os.path.join(self.links["config_root"], "client")
         init_config_folder(self.links["config_root"], "client")
@@ -767,48 +550,50 @@ class client_init(object):
             logging.info("Certificate generation complete")
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
-        self.links["auth_client"] = scnauth_client()
+        #self.links["auth_client"] = scnauth_client()
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
-        if confm.getb("webgui"):
-            logging.debug("webgui enabled")
-            self.links["handler"].webgui = True
-            # load static files
-            # replace placeholder
-            self.links["handler"].statics = {}
-            for elem in os.listdir(os.path.join(sharedir, "static")):
-                with open(os.path.join(sharedir, "static", elem), 'rb') as _staticr:
-                    self.links["handler"].statics[elem] = _staticr.read()
-        else:
-            self.links["handler"].webgui = False
-        if confm.getb("cpwhash"):
-            if not check_hash(confm.get("cpwhash")):
-                logging.error("hashtest failed for cpwhash, cpwhash: %s", confm.get("cpwhash"))
+        if kwargs.get("cpwhash"):
+            if not check_hash(kwargs.get("cpwhash")):
+                logging.error("hashtest failed for cpwhash, cpwhash: %s", kwargs.get("cpwhash"))
             else:
                 self.links["handler"].handle_local = True
                 # ensure that password is set when allowing remote access
-                if confm.getb("remote"):
+                if kwargs.get("remote"):
                     self.links["handler"].handle_remote = True
-                self.links["auth_server"].init_realm("client", confm.get("cpwhash"))
-        elif confm.getb("cpw"):
+                self.links["auth_server"].init_realm("client", kwargs.get("cpwhash"))
+        elif kwargs.get("cpwfile"):
             self.links["handler"].handle_local = True
             # ensure that password is set when allowing remote access
-            if confm.getb("remote"):
+            if kwargs.get("remote"):
                 self.links["handler"].handle_remote = True
-            self.links["auth_server"].init_realm("client", dhash(confm.get("cpw")))
-        if confm.getb("apwhash"):
-            if not check_hash(confm.get("apwhash")):
-                logging.error("hashtest failed for apwhash, apwhash: %s", confm.get("apwhash"))
+            with open(kwargs["cpwfile"][0], "r") as op:
+                pw = op.readline()
+                if pw[-1] == "\n":
+                    pw = pw[:-1]
+                self.links["auth_server"].init_realm("client", dhash(pw))
+
+        if kwargs.get("apwhash"):
+            if not check_hash(kwargs.get("apwhash")):
+                logging.error("hashtest failed for apwhash, apwhash: %s", kwargs.get("apwhash"))
             else:
-                self.links["auth_server"].init_realm("admin", confm.get("apwhash"))
-        elif confm.getb("apw"):
-            self.links["auth_server"].init_realm("admin", dhash(confm.get("apw")))
-        if confm.getb("spwhash"):
-            if not check_hash(confm.get("spwhash")):
-                logging.error("hashtest failed for spwhash, spwhash: %s", confm.get("spwhash"))
+                self.links["auth_server"].init_realm("admin", kwargs.get("apwhash"))
+        elif bool(kwargs["apwfile"]):
+            with open(kwargs["apwfile"], "r") as op:
+                pw = op.readline()
+                if pw[-1] == "\n":
+                    pw = pw[:-1]
+                self.links["auth_server"].init_realm("admin", dhash(pw))
+        if bool(kwargs.get("spwhash")):
+            if not check_hash(kwargs.get("spwhash")):
+                logging.error("hashtest failed for spwhash, spwhash: %s", kwargs.get("spwhash"))
             else:
-                self.links["auth_server"].init_realm("server", confm.get("spwhash"))
-        elif confm.getb("spw"):
-            self.links["auth_server"].init_realm("server", dhash(confm.get("spw")))
+                self.links["auth_server"].init_realm("server", kwargs.get("spwhash"))
+        elif bool(kwargs.get("spwfile")):
+            with open(kwargs["spwfile"], "r") as op:
+                pw = op.readline()
+                if pw[-1] == "\n":
+                    pw = pw[:-1]
+                self.links["auth_server"].init_realm("server", dhash(pw))
         with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline().strip().rstrip() # remove \n
         with open(_cpath+"_message.txt", 'r') as readinmes:
@@ -820,22 +605,20 @@ class client_init(object):
         if len(_name) > 2 or not check_name(_name[0]):
             logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _cpath + "_name")
             sys.exit(1)
-        if confm.get("port") > -1:
-            pass
+        if kwargs.get("port") > -1:
+            port = kwargs.get("port")
         elif len(_name) >= 2:
-            confm.set("port", _name[1])
-        else: # fallback, configmanager autoconverts into string
-            confm.set("port", client_port)
-        port = confm.get("port")
+            port = int(_name[1])
+        else:
+            port = client_port
         clientserverdict = {"name": _name[0], "certhash": dhash(pub_cert),
-                            "priority": confm.get("priority"), "message": _message}
+                            "priority": kwargs.get("priority"), "message": _message}
         self.links["client_server"] = client_server(clientserverdict)
-        self.links["client_server"].pluginmanager = pluginm
-        self.links["configmanager"] = confm
         self.links["handler"].links = self.links
         # use timeout argument of BaseServer
-        if not confm.getb("noserver"):
-            self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["handler"], "Enter client certificate pw", timeout=confm.get("timeout"))
+        print(kwargs.get("noserver"))
+        if not kwargs.get("noserver"):
+            self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["handler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
 
     def serve_forever_block(self):
@@ -848,65 +631,26 @@ class client_init(object):
 #"config":default_configdir
 default_client_args = \
 {
-    "noplugins": ["False", bool, "<bool>: deactivate plugins"],
     "cpwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than cpw (needed for remote control), lowercase"],
-    "cpw": ["", str, "<pw>: password (cleartext) (needed for remote control)"],
+    "cpwfile": ["", str, "<pw>: password file (needed for remote control)"],
     "apwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than apw, lowercase"],
-    "apw": ["", str, "<pw>: password (cleartext)"],
+    "apwfile": ["", str, "<pw>: password file"],
     "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
-    "spw": ["", str, "<pw>: password (cleartext)"],
+    "spwfile": ["", str, "<pw>: password file"],
     "remote" : ["False", bool, "<bool>: remote reachable (not localhost) (needs cpwhash/file)"],
     "priority": [str(default_priority), int, "<int>: set client priority"],
     "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
     "timeout": [str(default_timeout), int, "<int>: set default timeout"],
-    "webgui": ["False", bool, "<bool>: enables webgui"],
     "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
-    "nocmd": ["False", bool, "<bool>: use no cmd"],
-    "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""]
-}
-
-overwrite_client_args = \
-{
-    "config": [default_configdir, str, "<dir>: path to config dir"],
-    "noserver": ["False", bool, "<bool>: deactivate httpserver (= renders client useless (no register, no remote pw-, info-dialog))"]
+    "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""],
+    "config": [default_configdir, parsepath, "<dir>: path to config dir"],
+    "noserver": ["False", parsebool , "<bool>: deactivate httpserver"]
 }
 
 def client_paramhelp():
-    temp_doc = "# parameters (permanent)\n"
+    temp_doc = "# parameters\n"
     for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
         temp_doc += "  * key: {}, default: {}, doc: {}\n".format(_key, elem[0], elem[2])
-    temp_doc += "# parameters (non-permanent)\n"
-    for _key, elem in sorted(overwrite_client_args.items(), key=lambda x: x[0]):
-        temp_doc += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return temp_doc
 
-def cmdloop(clientinitm):
-    while True:
-        inp = input('urlgetformat:\naction=<action>&arg1=<foo>\nuse action=saveauth&auth=<realm>:<pw>&auth=<realm2>:<pw2> to save pws. Enter:\n')
-        if inp in ["exit", "close", "quit"]:
-            break
-        # help
-        if inp == "help":
-            inp = "action=help"
-        ret = clientinitm.links["client"].command(inp, callpw_auth=True)
-        if ret[1] is not None:
-            if ret[0]:
-                print("Success: ", end="")
-            else:
-                print("Error: ", end="")
-            if ret[2] == isself:
-                print("This client:")
-            elif ret[2] is None:
-                print("Unknown partner, hash: {}:".format(ret[3]))
-            else:
-                print("Known, name: {} ({}):".format(ret[2][0], ret[2][1]))
-            if isinstance(ret[1], dict):
-                for elem in ret[1].items():
-                    if isinstance(elem[1], str):
-                        print("{}:{}".format(elem[0], elem[1].replace("\\n", "\n")))
-                    else:
-                        print("{}:{}".format(elem[0], elem[1]))
-            else:
-                print("Print direct", ret[1])
-                print(ret[1])
 

@@ -9,7 +9,7 @@ import sys
 import threading
 import logging
 
-from simplescn import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, classify_admin, classify_experimental, classify_noplugin, classify_local
+from simplescn import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, classify_admin, classify_experimental, classify_local
 
 class client_admin(object):
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changeloglevel", "changename", "invalidatecert", "changesecurity", "addredirect", "delredirect", "massimporter"}
@@ -116,7 +116,6 @@ class client_admin(object):
     # other plugins could check for insecure plugins
     @check_argsdeco()
     @classify_admin
-    @classify_noplugin
     @classify_local
     def listplugins(self, obdict):
         """ func: list plugins
@@ -238,7 +237,6 @@ class client_admin(object):
     @check_argsdeco({"loglevel": int})
     @classify_admin
     @classify_local
-    #@classify_noplugin
     def changeloglevel(self, obdict):
         """ func: change loglevel
             return: success or error

@@ -1,7 +1,0 @@
-{
-    "chatdir": ["~/.simplescn/chatlogs", "path", "directory for chatlogs"],
-    "downloaddir": ["~/Downloads", "path", "directory for Downloads"],
-    "maxsizeimg": ["4000", "int", "max image size in KB"],
-    "maxsizetext": ["4000", "int", "max size text in Bytes"],
-    "accept_sensitive": ["True", "bool", "accept sensitive stuff"]
-}

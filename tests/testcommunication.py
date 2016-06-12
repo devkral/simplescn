@@ -42,12 +42,12 @@ class TestCommunication(unittest.TestCase):
         #print(cls.temptestdir, cls.temptestdir2)
         simplescn.pwcallmethodinst = lambda msg, requester: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        cls.client = simplescn.__main__.rawclient(cls.param_client, doreturn=True)
+        cls.client = simplescn.__main__.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["client"].cert_hash
         cls.client_port = cls.client.links["hserver"].socket.getsockname()[1]
         cls.name = cls.client.links["client"].name
         
-        cls.client2 = simplescn.__main__.rawclient(cls.param_client2, doreturn=True)
+        cls.client2 = simplescn.__main__.client(cls.param_client2, doreturn=True)
         cls.client_hash2 = cls.client2.links["client"].cert_hash
         cls.client_port2 = cls.client2.links["hserver"].socket.getsockname()[1]
         
