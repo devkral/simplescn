@@ -458,6 +458,11 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
         
         if self.use_unix:
             self.address_family = socket.AF_UNIX
+            try:
+                os.unlink(_address)
+            except OSError:
+                if os.path.exists(_address):
+                    raise
         else:
             self.address_family = socket.AF_INET6
             self.allow_reuse_address = 1
@@ -471,15 +476,18 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 # hope that it works without
                 pass
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        self.sslcont = default_sslcont()
+        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda: bytes(pwcallmethod(pwmsg), "utf-8"))
+        self.socket = self.sslcont.wrap_socket(self.socket)
+
         try:
             self.server_bind()
             self.server_activate()
         except:
             self.server_close()
             raise
-        self.sslcont = default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda: bytes(pwcallmethod(pwmsg), "utf-8"))
-        self.socket = self.sslcont.wrap_socket(self.socket)
+        
     def get_request(self):
         con, addr = self.socket.accept()
         if self.use_unix:

@@ -19,7 +19,7 @@ reference_header = \
     "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
 
-strip_headers = ["Connection", "Host", "Accept-Encoding",\
+strip_headers = ["Connection", "Host", "Accept-Encoding", \
 "Content-Length", "User-Agent", "X-certrewrap"]
 
 class requester(object):

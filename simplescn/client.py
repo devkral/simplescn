@@ -90,30 +90,6 @@ class client_client(client_admin, client_safe):
         """ func: wrapper """
         return self.requester.do_request_mold(self, _addr_or_con, _path, body, headers, forceport, forcehash, forcetraverse, sendclientcert)
 
-    # auth is special variable see safe_mdecode in common
-    #@check_argsdeco({"auth": dict, "hash": str, "address": str})
-    #@classify_local
-    #def remember_auth(self, obdict):
-    #    """ func: Remember authentication info for as long the program runs
-    #        return: True, when success
-    #        auth: authdict
-    #        hash: hash to remember
-    #        address: address of server/client for which the pw should be saved
-    #    """
-    #    if obdict.get("hash") is None:
-    #        _hashob = self.gethash(obdict)
-    #        if not _hashob[0]:
-    #            return False, "invalid address for retrieving hash"
-    #        _hash = _hashob[1]["hash"]
-    #    else:
-    #        _hash = obdict.get("hash")
-    #    for realm, pw in obdict.get("auth"):
-    #        self.links["auth_client"].saveauth(pw, _hash, realm)
-    #    return True
-
-    # NEVER include in validactions
-    # headers=headers
-    # client_address=client_address
     @classify_access
     def access_core(self, action, obdict):
         """ internal method to access functions """
