@@ -7,20 +7,56 @@ license: MIT, see LICENSE.txt
 import ssl
 import socket
 import logging
+import abc
+
 from simplescn import isself, dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local, default_sslcont, check_local
 
-class client_safe(object):
+class client_safe(object, metaclass=abc.ABCMeta):
     validactions_safe = {"get", "gethash", "help", "show", "register", "getlocal", "listhashes", "listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}
 
-    hashdb = None
-    links = None
-    cert_hash = None
-    _cache_help = None
-    validactions = None
-    name = None
-    sslcont = None
-    brokencerts = []
-    udpsrcsock = None
+    @property
+    @abc.abstractmethod
+    def hashdb(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def links(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def cert_hash(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def _cache_help(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def sslcont(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def name(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def brokencerts(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def scntraverse_helper(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
+        raise NotImplementedError
 
     @check_argsdeco()
     def help(self, obdict):
@@ -169,13 +205,14 @@ class client_safe(object):
         _ha = self.gethash(obdict)
         if not _ha[0]:
             return _ha
-        if _ha[1].get("hash") == self.cert_hash:
-            return True, {"localname": isself, "hash": self.cert_hash, "cert": _ha[1]["cert"]}
-        hasho = self.hashdb.get(_ha[1]["hash"])
+        _hadict = dict(_ha[1])
+        if _hadict.get("hash") == self.cert_hash:
+            return True, {"localname": isself, "hash": self.cert_hash, "cert": _hadict["cert"]}
+        hasho = self.hashdb.get(_hadict["hash"])
         if hasho:
-            return True, {"localname": hasho[0], "security": hasho[3], "hash": _ha[1]["hash"], "cert": _ha[1]["cert"]}
+            return True, {"localname": hasho[0], "security": hasho[3], "hash": _hadict["hash"], "cert": _hadict["cert"]}
         else:
-            return True, {"hash": _ha[1]["hash"], "cert": _ha[1]["cert"]}
+            return True, {"hash": _hadict["hash"], "cert": _hadict["cert"]}
 
     @check_argsdeco({"server": str})
     def listnames(self, obdict):

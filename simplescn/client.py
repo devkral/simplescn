@@ -42,6 +42,7 @@ class client_client(client_admin, client_safe):
     links = None
     scntraverse_helper = None
     brokencerts = None
+    _cache_help = None
 
     validactions = None
     requester = None
@@ -208,7 +209,7 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
         handle_remote = remote
         links = _links
         
-        def handle_wrap(self, func, servicename):
+        def handle_wrap(self, servicename):
             service = self.links["client_server"].spmap.get(servicename, None)
             if service is None:
                 # send error
@@ -334,14 +335,13 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                 resource = splitted[0]
                 sub = splitted[1]
             if resource == "wrap":
-            #    not reader
                 if not self.links["auth_server"].verify("server", self.auth_info):
                     authreq = self.links["auth_server"].request_auth("server")
                     ob = bytes(json.dumps(authreq), "utf-8")
                     self.cleanup_stale_data(max_serverrequest_size)
                     self.scn_send_answer(401, body=ob, docache=False)
                 else:
-                    self.handle_wrap(action)
+                    self.handle_wrap(sub)
             elif resource == "usebroken":
                 # for invalidating and updating, don't use connection afterwards
                 self.handle_usebroken(sub)
@@ -415,8 +415,7 @@ class client_init(object):
                 if pw[-1] == "\n":
                     pw = pw[:-1]
                 self.links["auth_server"].init_realm("server", dhash(pw))
-        
-        
+
         with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline().strip().rstrip() # remove \n
         with open(_cpath+"_message.txt", 'r') as readinmes:
@@ -452,7 +451,7 @@ class client_init(object):
             if not handle_remote and not kwargs.get("noip", False):
                 self.links["cserver_ip"] = http_server(("::1", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
                 self.links["cserver_ip"].serve_forever_nonblock()
-        
+
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
 
     def show(self):

@@ -1229,24 +1229,18 @@ def check_conftype(_value, _converter):
         return False
     return True
 
-def check_tcpclose(_socket):
-    if bool(_socket.getsockopt(socket.SO_TCP_CLOSE)) or \
-            bool(_socket.getsockopt(socket.SO_TCP_CLOSING)):
-        return True
-    return False
-
 def rw_socket(sockr, sockw):
     while True:
-        if check_tcpclose(sockr):
-            sockw.close()
-            break
-        if check_tcpclose(sockw):
-            sockr.close()
-            break
         try:
-            sockw.sendall(sockr.read(default_buffer_size))
-        except socket.timeout:
+            ret = sockr.recv(default_buffer_size)
+            if ret == b'':
+                sockw.close()
+                break
+            else:
+                sockw.sendall(ret)
+        except (socket.timeout, BrokenPipeError):
             sockw.close()
+            sockr.close()
             break
         except Exception as exc:
             logging.error(exc)

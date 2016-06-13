@@ -7,7 +7,7 @@ import ssl
 
 from simplescn import default_sslcont, scnparse_url, default_timeout, \
 connect_timeout, gen_result, safe_mdecode, encode_bo, check_result, \
-isself, dhash, create_certhashheader, \
+isself, dhash, create_certhashheader, traverse_retries, \
 AuthNeeded, VALHashError, VALNameError, VALMITMError, scnauth_client
 
 auth_instance = scnauth_client()
@@ -49,7 +49,7 @@ class SCNConnection(client.HTTPSConnection):
     certtupel = None
     def __init__(self, host, **kwargs):
         self.kwargs = kwargs
-        super(client.HTTPSConnection, self).__init__(host, 0, self.kwargs.get("connect_timeout", connect_timeout), None)
+        super().__init__(host, 0, self.kwargs.get("connect_timeout", connect_timeout), None)
         self._context = self.kwargs.get("certcontext", default_sslcont())
         self._check_hostname = None
         # throw exception here
@@ -71,7 +71,7 @@ class SCNConnection(client.HTTPSConnection):
                 _kwargs["use_unix"] = False
                 trav = _kwargs.pop("traverseaddress", None)
                 if trav is None:
-                    con.sock = None
+                    self.sock = None
                     return
                 contrav = SCNConnection(trav, **_kwargs)
                 contrav.connect()
@@ -84,7 +84,7 @@ class SCNConnection(client.HTTPSConnection):
                     self.sock.settimeout(self.kwargs.get("connect_timeout", connect_timeout))
                     for count in range(0, self.kwargs.get("traverse_retries", traverse_retries)):
                         try:
-                            con.sock.connect((_addr[0], _addr[1]))
+                            self.sock.connect(_host)
                             break
                         except Exception:
                             pass
@@ -210,7 +210,7 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
         readob = response.read(int(response.getheader("Content-Length")))
         if callable(kwargs.get("pwhandler", None)):
             reqob = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
-            if authorisation(kwargs["pwhandler"], reqob, sendheaders):
+            if authorisation(kwargs["pwhandler"], reqob, con.certtupel[1], sendheaders):
                 return do_request(con, path, body=body, \
                     headers=sendheaders, **kwargs)
         raise AuthNeeded(con, str(readob, "utf-8"))

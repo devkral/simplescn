@@ -54,6 +54,7 @@ class certhash_db(object):
         con.close()
         self.lock.release()
 
+    @staticmethod
     def connecttodb(func):
         import sqlite3
         def funcwrap(self, *args, **kwargs):

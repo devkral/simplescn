@@ -242,7 +242,7 @@ class server(commonscn):
         if self.traverse and _obj.get("autotraverse", False):
             _travobj1 = self.open_traversal(obdict)
             if _travobj1[0]:
-                _travaddr = _travobj1[1].get("traverse_address")
+                _travaddr = dict(_travobj1[1]).get("traverse_address")
         if _usecurity:
             return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
         else:
@@ -404,7 +404,7 @@ default_server_args = {
 
 def server_paramhelp():
     _temp = "# parameters\n"
-    for _key, elem in sorted(server_args.items(), key=lambda x: x[0]):
+    for _key, elem in sorted(default_server_args.items(), key=lambda x: x[0]):
         _temp += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return _temp
 

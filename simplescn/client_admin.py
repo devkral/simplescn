@@ -8,16 +8,31 @@ import os
 import sys
 import threading
 import logging
+import abc
 
 from simplescn import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, classify_admin, classify_experimental, classify_local
 
-class client_admin(object):
+class client_admin(object, metaclass=abc.ABCMeta):
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changeloglevel", "changename", "invalidatecert", "changesecurity", "massimporter"}
-#, "addredirect", "delredirect"
-    hashdb = None
-    links = None
-    cert_hash = None
-#    redirect_addr = ""
+
+    @property
+    @abc.abstractmethod
+    def hashdb(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def links(self):
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def cert_hash(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
+        raise NotImplementedError
 
     write_msg_lock = None
     change_name_lock = None
