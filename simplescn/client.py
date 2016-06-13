@@ -20,7 +20,7 @@ from simplescn.client_admin import client_admin
 from simplescn.client_safe import client_safe
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify, default_runpath, default_sslcont
+from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify, default_runpath, default_sslcont, AuthNeeded
 
 from simplescn.scnrequest import requester
 
@@ -237,7 +237,8 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                     return
                 gaction = getattr(self.links["client"], action)
                 if not self.handle_remote and \
-                    (self.server.address_family != file_family or not check_local(self.client_address2[0])):
+                    self.server.address_family != file_family and \
+                    not check_local(self.client_address2[0]):
                     self.send_error(403, "no permission - client")
                     return
                 if check_classify(gaction, "admin"):
@@ -255,7 +256,7 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                 if obdict is None:
                     return
                 try:
-                    response = self.links["client"].access_core(action, **obdict)
+                    response = self.links["client"].access_core(action, obdict)
                 except AuthNeeded as exc:
                     self.scn_send_answer(401, body=exc.reqob, mime="application/json", docache=False)
                     return
@@ -332,16 +333,16 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
             else:
                 resource = splitted[0]
                 sub = splitted[1]
-            #if resource == "wrap":
+            if resource == "wrap":
             #    not reader
-            #    if not self.links["auth_server"].verify("server", self.auth_info):
-            #        authreq = self.links["auth_server"].request_auth("server")
-            #        ob = bytes(json.dumps(authreq), "utf-8")
-            #        self.cleanup_stale_data(max_serverrequest_size)
-            #        self.scn_send_answer(401, body=ob, docache=False)
-            #        return
-            #    self.handle_wrap(action)
-            if resource == "usebroken":
+                if not self.links["auth_server"].verify("server", self.auth_info):
+                    authreq = self.links["auth_server"].request_auth("server")
+                    ob = bytes(json.dumps(authreq), "utf-8")
+                    self.cleanup_stale_data(max_serverrequest_size)
+                    self.scn_send_answer(401, body=ob, docache=False)
+                else:
+                    self.handle_wrap(action)
+            elif resource == "usebroken":
                 # for invalidating and updating, don't use connection afterwards
                 self.handle_usebroken(sub)
             elif server and resource == "server":
@@ -349,6 +350,7 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
             elif client and resource == "client":
                 self.handle_client(sub)
             else:
+                print(server, client)
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
     return client_handler
 
@@ -444,13 +446,14 @@ class client_init(object):
                 self.links["shandler"] = gen_client_handler(self.links, server=True, client=False, remote=False)
             self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["shandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
         if not handle_remote or (not kwargs.get("nounix") and file_family):
-            self.links["chandler"] = gen_client_handler(self.links, server=True, client=False, remote=False)
+            self.links["chandler"] = gen_client_handler(self.links, server=False, client=True, remote=False)
             if file_family is not None:
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
                 self.links["cserver_unix"] = http_server(rpath, _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"), use_unix=True)
+                self.links["cserver_unix"].serve_forever_nonblock()
             if not handle_remote:
                 self.links["cserver_ip"] = http_server(("::1", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
-            
+                self.links["cserver_ip"].serve_forever_nonblock()
         
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
 

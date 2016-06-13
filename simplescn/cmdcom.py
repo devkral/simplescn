@@ -13,7 +13,7 @@ if __name__ == "__main__":
     sys.path.insert(0, _tpath)
 
 
-from simplescn.scnrequest import do_request
+from simplescn.scnrequest import do_request_mold
 from simplescn.__main__ import client
 
 def cmdloop(ip):
@@ -26,7 +26,7 @@ def cmdloop(ip):
                 kwargs[splitted[0]] = splitted[1]
         command = kwargs.pop("command", "show")
         try:
-            ret = do_request(ip, "/client/{}".format(command), **kwargs)
+            ret = do_request_mold(ip, "/client/{}".format(command), kwargs)
             print(ret)
         except Exception as e:
             print(e)

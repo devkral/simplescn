@@ -507,6 +507,9 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
             self.server_name = socket.getfqdn(host)
             self.server_port = port
 
+    def serve_forever_nonblock(self):
+        threading.Thread(target=self.serve_forever, daemon=True).start()
+
 scn_pingstruct = struct.pack(">c511x", b"p")
 scn_yesstruct = struct.pack(">c511x", b"y")
 scn_nostruct = struct.pack(">c511x", b"y")
@@ -723,6 +726,7 @@ class commonscn(object):
             self.cache["cap"] = json.dumps(gen_result({"caps": self.capabilities}, True))
             self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
             self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
+    
 
 class commonscnhandler(BaseHTTPRequestHandler):
     links = None
@@ -762,9 +766,11 @@ class commonscnhandler(BaseHTTPRequestHandler):
 
     def init_scn_stuff(self):
         useragent = self.headers.get("User-Agent", "")
-        logging.debug("Useragent: %s", useragent)
         if "simplescn" in useragent:
             self.error_message_format = "%(code)d: %(message)s – %(explain)s"
+        else:
+            logging.debug("unknown useragent: %s", useragent)
+
         _auth = self.headers.get("Authorization", 'scn {}')
         method, _auth = _auth.split(" ", 1)
         _auth = _auth.strip().rstrip()
@@ -778,8 +784,8 @@ class commonscnhandler(BaseHTTPRequestHandler):
         else:
             self.client_address2 = (self.client_address[0], self.client_address[1])
         # hack around not transmitted client cert
-        _rewrapcert = self.headers.get("X-certrewrap")
-        _origcert = self.headers.get("X-original_cert")
+        _rewrapcert = self.headers.get("X-certrewrap", None)
+        _origcert = self.headers.get("X-original_cert", None)
         if _rewrapcert is not None:
             cont = self.connection.context
             if not self.alreadyrewrapped:
