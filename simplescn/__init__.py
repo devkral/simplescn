@@ -1229,14 +1229,18 @@ def check_conftype(_value, _converter):
         return False
     return True
 
+def check_tcpclose(_socket):
+    if bool(_socket.getsockopt(socket.SO_TCP_CLOSE)) or \
+            bool(_socket.getsockopt(socket.SO_TCP_CLOSING)):
+        return True
+    return False
+
 def rw_socket(sockr, sockw):
     while True:
-        if not bool(sockr.getsockopt(socket.SO_TCP_CLOSE)) and \
-           not bool(sockr.getsockopt(socket.SO_TCP_CLOSING)):
+        if check_tcpclose(sockr):
             sockw.close()
             break
-        if not bool(sockw.getsockopt(socket.SO_TCP_CLOSE)) and \
-           not bool(sockw.getsockopt(socket.SO_TCP_CLOSING)):
+        if check_tcpclose(sockw):
             sockr.close()
             break
         try:

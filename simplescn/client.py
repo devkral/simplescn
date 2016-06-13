@@ -88,7 +88,6 @@ class client_client(client_admin, client_safe):
     # return success, body, None, hash
     def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
         """ func: wrapper """
-        print(sendclientcert)
         return self.requester.do_request_simple(_addr_or_con, _path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
 
     @classify_access
@@ -458,12 +457,13 @@ class client_init(object):
 
     def show(self):
         ret = dict()
-        _r = self.links.get("hserver", None)
-        if _r:
-            ret["hserver"] = _r.server_name, _r.server_port
+        _r = self.links["hserver"]
+        ret["hserver"] = _r.server_name, _r.server_port
         _r = self.links.get("cserver_ip", None)
         if _r:
             ret["cserver_ip"] = _r.server_name, _r.server_port
+        else:
+            ret["cserver_ip"] =ret["hserver"]
         _r = self.links.get("cserver_unix", None)
         if _r:
             ret["cserver_unix"] = _r.server_name
@@ -484,7 +484,7 @@ default_client_args = \
     "apwfile": ["", str, "<pw>: password file"],
     "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
     "spwfile": ["", str, "<pw>: password file"],
-    "remote" : ["False", bool, "<bool>: remote reachable (not localhost) (needs cpwhash/file)"],
+    "remote" : ["False", bool, "<bool>: remote reachable (not only localhost) (needs cpwhash/file)"],
     "priority": [str(default_priority), int, "<int>: set client priority"],
     "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
     "timeout": [str(default_timeout), int, "<int>: set default timeout"],
@@ -492,8 +492,7 @@ default_client_args = \
     "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""],
     "config": [default_configdir, parsepath, "<dir>: path to config dir"],
     "run": [default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
-    "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
-    "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"]
+    "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"]
 }
 
 def client_paramhelp():

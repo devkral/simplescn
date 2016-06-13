@@ -52,13 +52,11 @@ class client_safe(object):
     def show(self, obdict):
         """ func: show client stats
             return: client stats; port==0 means unixsockets """
-        if "hserver" in self.links:
-            return True, {"name": self.name,
-            "hash": self.cert_hash,
-            "listen": self.links["hserver"].server_address,
-            "port": self.links["hserver"].server_port}
-        else:
-            return True, {"name": self.name, "hash": self.cert_hash}
+        
+        return True, {"name": self.name,
+        "hash": self.cert_hash,
+        "listen": self.links["hserver"].server_address,
+        "port": self.links["hserver"].server_port}
 
     @check_argsdeco({"name": str, "port": int}, optional={"client": str})
     #@classify_local
@@ -67,9 +65,11 @@ class client_safe(object):
             return: success or error
             name: service name
             port: port number
+            invisibleport: port is not shown (but can wrap)
+            post: send http post request with certificate in header to service
             client: LOCAL client url (default: own client) """
-        if "hserver" in self.links or obdict.get("client") is not None:
-            return self.do_request(obdict.get("client", "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/registerservice", obdict, forcehash=self.cert_hash)
+        if obdict.get("client") is not None:
+            return self.do_request(obdict.get("client", "::1-{}".format(self.links["hserver"].server_port)), "/server/registerservice", obdict, forcehash=self.cert_hash)
         else:
             return False, "no servercomponent/client available"
 
@@ -80,8 +80,8 @@ class client_safe(object):
             return: success or error
             name: service name
             client: LOCAL client url (default: own client) """
-        if "hserver" in self.links or obdict.get("client") is not None:
-            return self.do_request(obdict.get("client", "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])), "/server/delservice", obdict, forcehash=self.cert_hash)
+        if obdict.get("client") is not None:
+            return self.do_request(obdict.get("client", "::1-{}".format(self.links["hserver"].server_port)), "/server/delservice", obdict, forcehash=self.cert_hash)
         else:
             return False, "no servercomponent/client available"
 
@@ -97,7 +97,7 @@ class client_safe(object):
             _forcehash = obdict.get("forcehash")
         else:
             _forcehash = self.cert_hash
-            client_addr = "localhost-{}".format(self.links["server"].socket.getsockname()[1])
+            client_addr = "::1-{}".format(self.links["server"].server_port)
         return self.do_request(client_addr, "/server/getservice", body={}, headers=obdict.get("headers"), forcehash=_forcehash)
 
     @check_argsdeco(optional={"client": str})
@@ -111,7 +111,7 @@ class client_safe(object):
             del obdict["client"]
         else:
             _forcehash = self.cert_hash
-            client_addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
+            client_addr = "::1-{}".format(self.links["hserver"].server_port)
         _tservices = self.do_request(client_addr, "/server/dumpservices", body={}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         if not _tservices[0]:
             return _tservices
@@ -204,7 +204,7 @@ class client_safe(object):
             del obdict["address"]
         else:
             _forcehash = self.cert_hash
-            _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
+            _addr = "::1-{}".format(self.links["hserver"].server_port)
         ret = self.do_request(_addr, "/server/info", body={}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
         return ret
 
@@ -218,7 +218,7 @@ class client_safe(object):
             _forcehash = obdict.get("forcehash")
             del obdict["address"]
         else:
-            _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
+            _addr = "::1-{}".format(self.links["hserver"].server_port)
             _forcehash = self.cert_hash
         return self.do_request(_addr, "/server/cap", body={}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
 
@@ -233,7 +233,7 @@ class client_safe(object):
             _forcehash = obdict.get("forcehash")
         else:
             _forcehash = self.cert_hash
-            _addr = "localhost-{}".format(self.links["hserver"].socket.getsockname()[1])
+            _addr = "::1-{}".format(self.links["hserver"].server_port)
         return self.do_request(_addr, "/server/prioty", body={}, headers=obdict.get("headers"), forcehash=_forcehash, forceport=True)
 
     @check_argsdeco({"server": str, "name": str, "hash": str})
