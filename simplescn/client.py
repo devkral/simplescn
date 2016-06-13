@@ -359,7 +359,7 @@ class client_init(object):
     run = True # necessary for some runmethods
 
     def __init__(self, **kwargs):
-        logging.root.setLevel(kwargs.get("loglevel"))
+        self.links = {}
         self.links["config_root"] = kwargs.get("config")
         self.links["kwargs"] = kwargs
         handle_remote = False

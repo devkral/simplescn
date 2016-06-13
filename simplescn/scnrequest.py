@@ -57,11 +57,18 @@ def init_body_headers(body, headers):
                 sendheaders[key] = value
     return sendbody, sendheaders
 
-def init_connection(addr_or_con, certcontext, forceport=False, forcetraverse=False, traverseaddress=None, **kwargs):
+def init_connection(addr_or_con, certcontext, traverseaddress=None, **kwargs):
     if not isinstance(addr_or_con, client.HTTPSConnection):
-        _addr = scnparse_url(addr_or_con, force_port=forceport)
+        if kwargs.get("use_unix", False):
+            _addr = (addr_or_con, 0)
+        else:
+            _addr = scnparse_url(addr_or_con, force_port=kwargs.get("forceport", False))
         con = client.HTTPSConnection(_addr[0], _addr[1], context=certcontext,\
-            timeout=kwargs.get("connect_timeout", connect_timeout))
+            timeout=kwargs.get("connect_timeout", kwargs.get("connect_timeout")))
+        if kwargs.get("use_unix", False):
+            con.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            con.sock.connect(addr_or_con)
+            con.sock = certcontext.wrap_socket(con.sock)
     else:
         con = addr_or_con
     if not kwargs.get("forcetraverse", None) and con.sock is None:
@@ -70,7 +77,8 @@ def init_connection(addr_or_con, certcontext, forceport=False, forcetraverse=Fal
         except (ConnectionRefusedError, socket.timeout):
             forcetraverse = True
 
-    if con.sock is None and kwargs.get("forcetraverse", None)\
+    if con.sock is None and not kwargs.get("use_unix", False) \
+        and kwargs.get("forcetraverse", None)\
         and kwargs.get("traverseaddress", None):
         _tsaddr = scnparse_url(kwargs["traverseaddress"])
         contrav = client.HTTPSConnection(_tsaddr[0], _tsaddr[1], context=kwargs.get("connect_timeout", connect_timeout))
@@ -134,19 +142,22 @@ def authorisation(pwhandler, reqob, serverhash, headers):
     return True
 
 # return connection, success, body, certtupel
-def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel, **kwargs):
+# certtupel is None if no
+def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel=None, **kwargs):
     """ func: use this method to communicate with clients/servers
         kwargs:
             options:
+                * use_unix: use unix sockets instead
                 * forcehash: force hash on other side
                 * sendclientcert: send own certhash to server, requires ownhash and certcontext
-                * originalcert: send own cert (maybe removed)
+                * originalcert: send original cert (maybe removed)
                 * connect_timeout: timeout for connecting
                 * timeout: timeout if connection is etablished
                 * forceport: True: raise if no port is given, False: use server port in that case
             special:
                 * certcontext: specify certcontext used
                 * ownhash: own hash
+                * owncert: own cert
                 * pwhandler: method for handling pws
         headers:
             * Authorization: scn pw auth format
@@ -165,6 +176,8 @@ def do_request(addr_or_con, path, body=None, headers=None, *, _certtupel, **kwar
     sendbody, sendheaders = init_body_headers(body, headers)
 
     con = init_connection(addr_or_con, **kwargs)
+    if not con:
+        return None, False, "no connection", (isself, kwargs.get("ownhash", None), kwargs.get("owncert", None))
     pcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
     if not _certtupel:
         _certtupel = check_cert(pcert, **kwargs)
