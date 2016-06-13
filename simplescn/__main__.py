@@ -10,6 +10,7 @@ import os
 import logging
 import threading
 import signal
+import json
 
 if __name__ == "__main__":
     _tpath = os.path.realpath(os.path.dirname(sys.modules[__name__].__file__))
@@ -58,14 +59,12 @@ def client(argv=sys.argv[1:], doreturn=False):
     os.makedirs(kwargs["config"], 0o750, True)
     client_instance = client_init(**kwargs)
     if not kwargs.get("noserver"):
-        logging.debug("start servercomponent (client)")
-
-    if not kwargs.get("noserver"):
         if doreturn:
             client_instance.serve_forever_nonblock()
             return client_instance
         else:
             running_instances.append(client_instance)
+            print(json.dumps(client_instance.show()))
             client_instance.serve_forever_block()
 
 def hashpw(argv=sys.argv[1:]):
@@ -103,7 +102,7 @@ def init_method_main():
             print("Not available", file=sys.stderr)
             print("Available: client, server, hashpw", file=sys.stderr)
     else:
-        client()
+        print("Available: client, server, hashpw", file=sys.stderr)
 
 if __name__ == "__main__":
     init_method_main()

@@ -504,7 +504,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
             # so use it
         else:
             host, port = self.socket.getsockname()[:2]
-            self.server_name = socket.getfqdn(host)
+            self.server_name = host #socket.getfqdn(host)
             self.server_port = port
 
     def serve_forever_nonblock(self):

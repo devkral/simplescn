@@ -459,9 +459,15 @@ class client_init(object):
 
     def show(self):
         ret = dict()
-        ret["hserver"] = self.links.get("hserver", None)
-        ret["cserver_ip"] = self.links.get("cserver_ip", None)
-        ret["cserver_unix"] = self.links.get("cserver_unix", None)
+        _r = self.links.get("hserver", None)
+        if _r:
+            ret["hserver"] = _r.server_name, _r.server_port
+        _r = self.links.get("cserver_ip", None)
+        if _r:
+            ret["cserver_ip"] = _r.server_name, _r.server_port
+        _r = self.links.get("cserver_unix", None)
+        if _r:
+            ret["cserver_unix"] = _r.server_name
         return ret
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
