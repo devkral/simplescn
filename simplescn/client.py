@@ -449,7 +449,7 @@ class client_init(object):
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
                 self.links["cserver_unix"] = http_server(rpath, _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"), use_unix=True)
                 self.links["cserver_unix"].serve_forever_nonblock()
-            if not handle_remote:
+            if not handle_remote and not kwargs.get("noip", False):
                 self.links["cserver_ip"] = http_server(("::1", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
                 self.links["cserver_ip"].serve_forever_nonblock()
         
@@ -492,7 +492,8 @@ default_client_args = \
     "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""],
     "config": [default_configdir, parsepath, "<dir>: path to config dir"],
     "run": [default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
-    "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"]
+    "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
+    "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"]
 }
 
 def client_paramhelp():
