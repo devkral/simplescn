@@ -11,8 +11,8 @@ from setuptools import setup
 entry_points = {"console_scripts": []}
 install_requirements = ["cryptography>=1.1"]
 
-entry_points["console_scripts"].append('scnmain = simplescn.__main__:init_method_main')
-entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:init_method_main')
+entry_points["console_scripts"].append('scnmain = simplescn.__main__:_init_method_main')
+entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:_init_method_main')
 #entry_points["gui_scripts"] += ['simplescngui = simplescn.__main__:client']
 
 # plugins imported by MANIFEST.in

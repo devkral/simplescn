@@ -13,10 +13,10 @@ if __name__ == "__main__":
     sys.path.insert(0, _tpath)
 
 
-from simplescn.scnrequest import do_request_mold
+from simplescn.scnrequest import do_request_simple
 from simplescn.__main__ import client, server, running_instances
 
-def cmdloop(ip):
+def cmdloop(ip, use_unix=False):
     while True:
         inp = input("Enter command:\n")
         kwargs = {}
@@ -26,20 +26,13 @@ def cmdloop(ip):
                 kwargs[splitted[0]] = splitted[1]
         command = kwargs.pop("command", "show")
         try:
-            ret = do_request_mold(ip, "/client/{}".format(command), kwargs)
+            ret = do_request_simple(ip, "/client/{}".format(command), kwargs, use_unix=use_unix)
             print(ret)
         except Exception as e:
-            print(e)
+            print(e, file=sys.stderr)
 
-def init_method_main(argv=sys.argv[1:]):
-    if len(argv) >= 1:
-        toexe = globals().get(argv[0])
-        if callable(toexe):
-            toexe(sys.argv[1:])
-    else:
-        print("Usage: {} [single, test, loop]".format(sys.argv[0]), file=sys.stderr)
 
-def single(argv=sys.argv[1:]):
+def _single(argv, use_unix):
     if len(argv) >= 2:
         url = argv[1]
         command = argv[2]
@@ -48,18 +41,33 @@ def single(argv=sys.argv[1:]):
         else:
             stuff = input()
         headers = {"Content-Type": "application/json; charset=utf-8"}
-        print(do_request_mold(url, "/client/{}".format(command), stuff, headers))
+        ret = do_request_simple(url, "/client/{}".format(command), stuff, headers, use_unix=use_unix)
+        print(ret)
     else:
         print("Usage: {} single <url> <command>".format(sys.argv[0]), file=sys.stderr)
 
-def loop(argv=sys.argv[1:]):
+
+def single(argv=sys.argv[1:]):
+    _single(argv, False)
+
+def single_unix(argv=sys.argv[1:]):
+    _single(argv, True)
+
+
+def _loop(argv, use_unix):
     if len(argv) >= 1:
-        url = argv[1]
-        cmdloop(url)
+        url = argv[0]
+        cmdloop(url, use_unix)
     else:
         print("Usage: {} loop <url>".format(sys.argv[0]), file=sys.stderr)
 
-def test(argv=sys.argv[1:]):
+def loop(argv=sys.argv[1:]):
+    _loop(argv, False)
+
+def loop_unix(argv=sys.argv[1:]):
+    _loop(argv, True)
+
+def _test(argv, use_unix):
     c = client(doreturn=True)
     running_instances.append(c)
     t = c.show()
@@ -69,8 +77,25 @@ def test(argv=sys.argv[1:]):
     print("client unix",  t.get("cserver_unix", None))
     print("client server", t.get("hserver", None))
     print("server", "::1-{}".format(s.links.get("hserver").server_port))
-    cmdloop("::1-{}".format(t.get("cserver_ip")[1]))
+    if use_unix:
+        cmdloop(t.get("cserver_unix"), use_unix=True)
+    else:
+        cmdloop("::1-{}".format(t.get("cserver_ip")[1]))
 
+def test(argv=sys.argv[1:]):
+    _test(argv, False)
+
+def test_unix(argv=sys.argv[1:]):
+    _test(argv, True)
+
+
+def _init_method_main():
+    if len(sys.argv) >= 2:
+        toexe = globals().get(sys.argv[1].strip("_"), None)
+        if callable(toexe):
+            toexe(sys.argv[2:])
+    else:
+        print("Usage: {} [single, test, test_unix, loop]".format(sys.argv[0]), file=sys.stderr)
 
 if __name__ == "__main__":
-    init_method_main()
+    _init_method_main()

@@ -27,15 +27,15 @@ class requester(object):
     def __init__(self, **kwargs):
         self.saved_kwargs = kwargs
     
-    def do_request(self, *args, **kwargs):
+    def do_request(self, addr_or_con, path, body=None, headers=None, **kwargs):
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
-        return do_request(*args, **_kwargs)
+        return do_request(addr_or_con, path, body=body, headers=headers, **_kwargs)
 
-    def do_request_mold(self, *args, **kwargs):
+    def do_request_simple(self, addr_or_con, path, body=None, headers=None, **kwargs):
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
-        return do_request_mold(*args, **_kwargs)
+        return do_request_simple(addr_or_con, path, body=body, headers=headers, **_kwargs)
 
 
 class SCNConnection(client.HTTPSConnection):
@@ -59,15 +59,14 @@ class SCNConnection(client.HTTPSConnection):
         """Connect to the host and port specified in __init__."""
         
         if self.kwargs.get("use_unix"):
-            con.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            con.sock.connect(addr_or_con)
+            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.sock.connect(self.host)
         else:
             _host = scnparse_url(self.host, force_port=self.kwargs.get("forceport", False))
             try:
                 self.sock = self._create_connection(
                 _host, self.kwargs.get("connect_timeout", connect_timeout), self.source_address)
             except (ConnectionRefusedError, socket.timeout):
-                print("next")
                 _kwargs = self.kwargs.copy()
                 _kwargs["use_unix"] = False
                 trav = _kwargs.pop("traverseaddress", None)
@@ -146,8 +145,6 @@ def init_body_headers(body, headers):
 
 
 
-
-
 def authorisation(pwhandler, reqob, serverhash, headers):
     """ handles auth, headers arg will be changed """
     if not isinstance(reqob, dict):
@@ -163,37 +160,40 @@ def authorisation(pwhandler, reqob, serverhash, headers):
 
 # return connection, success, body, certtupel
 # certtupel is None if no
-def _do_request(addr_or_con, path, body=None, headers=None, **kwargs):
-    """ func: main part for communication, use wrapper instead
-    """
+def _do_request(addr_or_con, path, body, headers, kwargs):
+    """ func: main part for communication, use wrapper instead """
 
     sendbody, sendheaders = init_body_headers(body, headers)
 
-    if not isinstance(addr_or_con, SCNConnection):
-        con = SCNConnection(addr_or_con, **kwargs)
-    else:
+    if isinstance(addr_or_con, SCNConnection):
         con = addr_or_con
+    else:
+        con = SCNConnection(addr_or_con, **kwargs)
     if con.sock is None:
         con.connect()
 
     if kwargs.get("sendclientcert", False):
         if kwargs.get("certcontext", None) and kwargs.get("ownhash", None):
-            sendheaders["X-certrewrap"], _random = create_certhashheader(kwargs["ownhash"])
+            _header, _random = create_certhashheader(kwargs["ownhash"])
+            sendheaders["X-certrewrap"] = _header
         else:
             con.close()
             return None, False, "missing: certcontext or ownhash", con.certtupel
+
+    if kwargs.get("originalcert", None):
+        sendheaders["X-original_cert"] = kwargs.get("originalcert")
 
     #start connection
     con.putrequest("POST", path)
     for key, value in sendheaders.items():
         con.putheader(key, value)
-    if kwargs.get("originalcert", None):
-        con.putheader("X-original_cert", kwargs.get("originalcert"))
+
     con.endheaders()
     if kwargs.get("sendclientcert", False):
         con.rewrap()
     con.send(sendbody)
     response = con.getresponse()
+
     if kwargs.get("sendclientcert", False):
         if _random != response.getheader("X-certrewrap", ""):
             con.close()
@@ -264,15 +264,15 @@ def do_request(addr_or_con, path, body=None, headers=None, **kwargs):
             * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)
             * AuthNeeded: request Auth, contains con and authob (needed for auth)
     """
-    ret = _do_request(addr_or_con, path, body, headers, **kwargs)
+    ret = _do_request(addr_or_con, path, body, headers, kwargs)
     if kwargs.get("tense", True):
         return ret[0], ret[1], ret[2], ret[3][0], ret[3][1]
     else:
         return ret
 
-def do_request_mold(*args, **kwargs):
-    """ for legacy stuff """
-    ret = do_request(*args, **kwargs)
+def do_request_simple(addr_or_con, path, body=None, headers=None, **kwargs):
+    """ autoclose connection """
+    ret = do_request(addr_or_con, path, body=body, headers=headers, **kwargs)
     if ret[0]:
         ret[0].close()
     return ret[1:]

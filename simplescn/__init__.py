@@ -266,7 +266,7 @@ def init_config_folder(_dir, prefix):
             except Exception:
                 pass
         if _name in [None, ""]:
-            print(_name)
+            logging.warning("No user name could be detected, init with empty")
             _name = ""
         with open("{}_name.txt".format(_path), "w") as writeo:
             if prefix == "client":
@@ -726,7 +726,7 @@ class commonscn(object):
             self.cache["cap"] = json.dumps(gen_result({"caps": self.capabilities}, True))
             self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
             self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
-    
+
 
 class commonscnhandler(BaseHTTPRequestHandler):
     links = None
@@ -735,7 +735,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
     # replace not add, just a placeholder
     statics = {}
     client_cert = None
-    client_cert_hash = None
+    client_certhash = None
     # replaced by function not init
     alreadyrewrapped = False
     client_address2 = None
@@ -794,13 +794,13 @@ class commonscnhandler(BaseHTTPRequestHandler):
                 self.connection = cont.wrap_socket(self.connection, server_side=False)
                 self.alreadyrewrapped = True
             self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
-            self.client_cert_hash = dhash(self.client_cert)
-            if _rewrapcert.split(";")[0] != self.client_cert_hash:
+            self.client_certhash = dhash(self.client_cert)
+            if _rewrapcert.split(";")[0] != self.client_certhash:
                 return False
             if _origcert and self.links.get("trusted_certhash", "") != "":
                 if _rewrapcert == self.links.get("trusted_certhash"):
                     self.client_cert = _origcert
-                    self.client_cert_hash = dhash(_origcert)
+                    self.client_certhash = dhash(_origcert)
                 else:
                     logging.debug("rewrapcert incorrect")
                     return False
@@ -810,7 +810,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.wfile = self.connection.makefile(mode='wb')
         else:
             self.client_cert = None
-            self.client_cert_hash = None
+            self.client_certhash = None
         return True
 
     def cleanup_stale_data(self, maxchars=max_serverrequest_size):
@@ -832,8 +832,8 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.scn_send_answer(400, message="bad arguments")
             return None
         obdict["clientaddress"] = self.client_address2
-        obdict["clientcert"] = self.client_cert
-        obdict["clientcerthash"] = self.client_cert_hash
+        obdict["client_cert"] = self.client_cert
+        obdict["client_certhash"] = self.client_certhash
         obdict["headers"] = self.headers
         obdict["socket"] = self.connection
         return obdict
@@ -842,7 +842,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
         # invalidate as attacker can connect while switching
         self.alreadyrewrapped = False
         self.client_cert = None
-        self.client_cert_hash = None
+        self.client_certhash = None
         certfpath = os.path.join(self.links["config_root"], "broken", sub)
         if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
             cont = default_sslcont()

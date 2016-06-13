@@ -88,7 +88,8 @@ class client_client(client_admin, client_safe):
     # return success, body, None, hash
     def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
         """ func: wrapper """
-        return self.requester.do_request_mold(self, _addr_or_con, _path, body, headers, forceport, forcehash, forcetraverse, sendclientcert)
+        print(sendclientcert)
+        return self.requester.do_request_simple(_addr_or_con, _path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
 
     @classify_access
     def access_core(self, action, obdict):
@@ -350,7 +351,6 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
             elif client and resource == "client":
                 self.handle_client(sub)
             else:
-                print(server, client)
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
     return client_handler
 
@@ -439,12 +439,11 @@ class client_init(object):
                             "priority": kwargs.get("priority"), "message": _message}
         self.links["client_server"] = client_server(clientserverdict)
         # use timeout argument of BaseServer
-        if not kwargs.get("noserver"):
-            if handle_remote:
-                self.links["shandler"] = gen_client_handler(self.links, server=True, client=True, remote=True)
-            else:
-                self.links["shandler"] = gen_client_handler(self.links, server=True, client=False, remote=False)
-            self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["shandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
+        if handle_remote:
+            self.links["shandler"] = gen_client_handler(self.links, server=True, client=True, remote=True)
+        else:
+            self.links["shandler"] = gen_client_handler(self.links, server=True, client=False, remote=False)
+        self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["shandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
         if not handle_remote or (not kwargs.get("nounix") and file_family):
             self.links["chandler"] = gen_client_handler(self.links, server=False, client=True, remote=False)
             if file_family is not None:
@@ -494,8 +493,7 @@ default_client_args = \
     "config": [default_configdir, parsepath, "<dir>: path to config dir"],
     "run": [default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
-    "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
-    "noserver": ["False", parsebool, "<bool>: deactivate httpserver"]
+    "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"]
 }
 
 def client_paramhelp():

@@ -134,8 +134,6 @@ class server(commonscn):
             return [False, "use_traversal"]
         except ssl.SSLError:
             return [False, "use_traversal"]
-        if _cert is None:
-            return [False, "no_cert"]
         if dhash(_cert) != _hash:
             return [False, "hash_mismatch"]
         return [True, "registered_ip"]
@@ -163,10 +161,10 @@ class server(commonscn):
             update: list with compromised hashes (includes reason=security) """
         if not check_name(obdict["name"]):
             return False, "invalid_name"
-        if obdict["clientcert"] is None:
+        if obdict["client_certhash"] is None:
             return False, "no_cert"
 
-        clientcerthash = obdict["clientcerthash"]
+        clientcerthash = obdict["client_certhash"]
         ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
         if not ret[0]:
             ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1]), "destaddr": "{}-{}".format(obdict["clientaddress"][0], obdict["port"])})
@@ -372,12 +370,17 @@ class server_init(object):
         self.links["handler"].links = self.links
         self.links["server_server"] = server(serverd)
 
-        # server without server have fun if False
-        if not kwargs["noserver"]:
-            self.links["hserver"] = http_server(("", port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=kwargs["timeout"])
-            if not kwargs["notraversal"]:
-                srcaddr = self.links["hserver"].socket.getsockname()
-                self.links["server_server"].traverse = traverser_dropper(srcaddr)
+        self.links["hserver"] = http_server(("", port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=kwargs["timeout"])
+        if not kwargs["notraversal"]:
+            srcaddr = self.links["hserver"].socket.getsockname()
+            self.links["server_server"].traverse = traverser_dropper(srcaddr)
+
+    def show(self):
+        ret = dict()
+        _r = self.links.get("hserver", None)
+        if _r:
+            ret["hserver"] = _r.server_name, _r.server_port
+        return ret
 
     def serve_forever_block(self):
         self.links["hserver"].serve_forever()
@@ -397,8 +400,7 @@ default_server_args = {
     "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
     "timeout": [str(default_timeout), int, "<int>: set timeout"],
     "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
-    "notraversal": ["False", parsebool, "<bool>: disable traversal"],
-    "noserver": ["False", parsebool, "<bool>: deactivate httpserver (=a server without a server, have fun)"]}
+    "notraversal": ["False", parsebool, "<bool>: disable traversal"]}
 
 def server_paramhelp():
     _temp = "# parameters\n"
