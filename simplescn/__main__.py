@@ -61,7 +61,7 @@ def client(argv=sys.argv[1:], doreturn=False):
         client_instance.serve_forever_block()
 
 def hashpw(argv=sys.argv[1:]):
-    """ create pw hash for ?pwhash """
+    """ create pw hash for *pwhash """
     _init_scn()
     from simplescn.tools import dhash
     import base64
@@ -73,6 +73,11 @@ def hashpw(argv=sys.argv[1:]):
         pw = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
     print("pw: {}, hash: {}".format(pw, dhash(pw)))
 
+def cmdcom(argv=sys.argv[1:]):
+    """ wrapper for cmdcom """
+    from simplescn.cmdcom import _init_method_main
+    return _init_method_main(argv)
+
 _is_init_already = False
 def _init_scn():
     """ initialize once and only in mainthread """
@@ -82,18 +87,17 @@ def _init_scn():
         logging.basicConfig(level=loglevel_converter(config.default_loglevel), format=config.logformat)
         signal.signal(signal.SIGINT, _signal_handler)
 
-def _init_method_main():
+def _init_method_main(argv=sys.argv[1:]):
     """ starter method """
-    if len(sys.argv) > 1:
-        toexe = sys.argv[1]
-        toexe = globals().get(sys.argv[1].strip("_"), None)
+    if len(argv) > 0:
+        toexe = globals().get(argv[0].strip("_"), None)
         if callable(toexe):
-            toexe(sys.argv[2:])
+            toexe(argv[1:])
         else:
             print("Not available", file=sys.stderr)
-            print("Available: client, server, hashpw", file=sys.stderr)
+            print("Available: client, server, hashpw, cmdcom", file=sys.stderr)
     else:
-        print("Available: client, server, hashpw", file=sys.stderr)
+        print("Available: client, server, hashpw, cmdcom", file=sys.stderr)
 
 if __name__ == "__main__":
     _init_method_main()

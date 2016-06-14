@@ -42,7 +42,7 @@ def _single(argv, use_unix):
         ret = do_request_simple(url, "/client/{}".format(command), stuff, headers, use_unix=use_unix)
         print(ret)
     else:
-        print("Usage: {} single <url> <command>".format(sys.argv[0]), file=sys.stderr)
+        print("Usage: single <url> <command>", file=sys.stderr)
 
 
 def single(argv=sys.argv[1:]):
@@ -57,7 +57,7 @@ def _loop(argv, use_unix):
         url = argv[0]
         cmdloop(url, use_unix)
     else:
-        print("Usage: {} loop <url>".format(sys.argv[0]), file=sys.stderr)
+        print("Usage: loop <url>", file=sys.stderr)
 
 def loop(argv=sys.argv[1:]):
     _loop(argv, False)
@@ -88,13 +88,15 @@ def test_unix(argv=sys.argv[1:]):
     _test(argv, True)
 
 
-def _init_method_main():
-    if len(sys.argv) >= 2:
-        toexe = globals().get(sys.argv[1].strip("_"), None)
+def _init_method_main(argv=sys.argv[1:]):
+    if len(argv) >= 1:
+        toexe = globals().get(argv[0].strip("_"), None)
         if callable(toexe):
-            toexe(sys.argv[2:])
+            toexe(argv[1:])
+        else:
+            print("Available: single, test, test_unix, loop", file=sys.stderr)
     else:
-        print("Usage: {} [single, test, test_unix, loop]".format(sys.argv[0]), file=sys.stderr)
+        print("Available: single, test, test_unix, loop", file=sys.stderr)
 
 if __name__ == "__main__":
     _init_method_main()
