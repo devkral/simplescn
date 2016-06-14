@@ -524,7 +524,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 class commonscn(object):
     # replace not add elsewise bugs in multi instance situation
-    capabilities = []
+    capabilities = None
     info = None
     priority = None
     name = None
@@ -539,6 +539,8 @@ class commonscn(object):
     cache = None
 
     def __init__(self):
+        if not self.capabilities:
+            self.capabilities = []
         self.cache = {"cap": "", "info": "", "prioty": ""}
         self.update_cache_lock = threading.Lock()
     def __del__(self):

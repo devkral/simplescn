@@ -123,11 +123,12 @@ class client_server(commonscn):
     spmap = None
     scn_type = "client"
     # replace commonscn capabilities
-    capabilities = ["basic", "client"]
+    capabilities = None
     validactions = {"info", "getservice", "dumpservices", "cap", "prioty", "registerservice", "delservice"}
     wlock = None
     def __init__(self, dcserver):
         commonscn.__init__(self)
+        self.capabilities = ["basic", "client"]
         # init here (multi instance situation)
         self.spmap = {}
         self.wlock = threading.Lock()

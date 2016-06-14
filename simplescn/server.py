@@ -30,7 +30,7 @@ server_broadcast_header = \
 
 class server(commonscn):
     # replace not add (multi instance)
-    capabilities = ["basic", "server"]
+    capabilities = None
     nhipmap = None
     nhipmap_cache = ""
     refreshthread = None
@@ -49,6 +49,7 @@ class server(commonscn):
 
     def __init__(self, d):
         commonscn.__init__(self)
+        self.capabilities = ["basic", "server"]
         # init here (multi instance situation)
         self.nhipmap = {}
         self.nhipmap_cond = threading.Event()
@@ -380,6 +381,7 @@ class server_init(object):
 
         self.links["hserver"] = http_server(("", port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=kwargs["server_timeout"])
         if not kwargs["notraversal"]:
+            self.links["server_server"].capabilities.append("traversal")
             srcaddr = self.links["hserver"].socket.getsockname()
             self.links["server_server"].traverse = traverser_dropper(srcaddr)
     def quit(self):
