@@ -125,7 +125,6 @@ class TestCommunication(unittest.TestCase):
         self.assertEqual(change[0], True, change[1])
         change = self.client.links["client"].access_main("changename", name="willi")
         self.assertEqual(change[0], True, change[1])
-        print(self.client.links["client_server"].cache)
         ret = self.client.links["client"].access_main("info")
         self.assertEqual(ret[0], True, ret[1])
         self.assertEqual(ret[1].get("message"), "newtestmessage")

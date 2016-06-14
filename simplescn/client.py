@@ -65,7 +65,8 @@ class client_client(client_admin, client_safe):
         self.udpsrcsock.settimeout(None)
         self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
         self.scntraverse_helper = traverser_helper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
-
+        
+        os.makedirs(os.path.join(self.links["config_root"], "broken"), mode=0o700, exist_ok=True)
         for elem in os.listdir(os.path.join(self.links["config_root"], "broken")):
             _splitted = elem.rsplit(".", 1)
             if _splitted[1] != "reason":
@@ -146,6 +147,7 @@ class client_server(commonscn):
         self.cert_hash = dcserver["certhash"]
         self.cache["dumpservices"] = json.dumps(gen_result({}, True))
         self.update_cache()
+        self.validactions.update(self.cache.keys())
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)

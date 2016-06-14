@@ -525,7 +525,6 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
 class commonscn(object):
     # replace not add elsewise bugs in multi instance situation
     capabilities = None
-    info = None
     priority = None
     name = None
     message = None

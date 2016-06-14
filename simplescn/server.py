@@ -79,6 +79,7 @@ class server(commonscn):
         self.message = d["message"]
         self.links = d["links"]
         self.update_cache()
+        self.validactions.update(self.cache.keys())
         self.load_balance(0)
         self.refreshthread = threading.Thread(target=self.refresh_nhipmap, daemon=True)
         self.refreshthread.start()
