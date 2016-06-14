@@ -20,10 +20,9 @@ import socketserver
 from simplescn import config
 from simplescn.config import isself
 
-
-from simplescn.tools import check_name, check_hash, check_security, \
-check_typename, check_reference, check_reference_type, \
-dhash, safe_mdecode, default_sslcont, pwcallmethod
+from simplescn.tools import dhash, safe_mdecode, default_sslcont, pwcallmethod
+from simplescn.tools.checks import check_name, check_hash, check_security, \
+check_typename, check_reference, check_reference_type
 
 # for config
 def parsepath(inp):
@@ -81,8 +80,6 @@ class certhash_db(object):
             logging.error(exc)
         con.close()
         self.lock.release()
-
-
 
     @connecttodb
     def addentity(self, _name, dbcon=None):
@@ -733,20 +730,6 @@ def generate_error(err):
         elif sys.exc_info()[2] is not None:
             error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
     return error # json.dumps(error)
-
-def generate_error_deco(func):
-    def get_args(self, *args, **kwargs):
-        resp = func(self, *args, **kwargs)
-        if len(resp) == 4:
-            _name = resp[2]
-            _hash = resp[3]
-        else:
-            _name = isself
-            _hash = self.cert_hash
-        if not resp[0]:
-            return False, generate_error(resp[1]), _name, _hash
-        return resp
-    return get_args
 
 def gen_result(res, status):
     """ generate result """

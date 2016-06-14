@@ -10,7 +10,9 @@ import threading
 import logging
 import abc
 
-from simplescn.tools import check_reference, check_reference_type, check_argsdeco, check_name, check_security, dhash, generate_certs, classify_admin, classify_experimental, classify_local
+from simplescn.tools import dhash, generate_certs
+from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security
+from simplescn._decos import classify_admin, classify_experimental, classify_local, check_args_deco
 
 class client_admin(object, metaclass=abc.ABCMeta):
     validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changeloglevel", "changename", "invalidatecert", "changesecurity", "massimporter"}
@@ -41,7 +43,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         self.writeMsgLock = threading.Lock()
         self.changeNameLock = threading.Lock()
 
-    @check_argsdeco({"priority": int})
+    @check_args_deco({"priority": int})
     @classify_admin
     @classify_local
     def setpriority(self, obdict: dict):
@@ -55,7 +57,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         return True
 
     #local management
-    @check_argsdeco({"name": str})
+    @check_args_deco({"name": str})
     @classify_admin
     @classify_local
     def addentity(self, obdict: dict):
@@ -64,7 +66,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             name: entity name """
         return self.hashdb.addentity(obdict["name"])
 
-    @check_argsdeco({"name": str})
+    @check_args_deco({"name": str})
     @classify_admin
     @classify_local
     def delentity(self, obdict: dict):
@@ -73,7 +75,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             name: entity name """
         return self.hashdb.delentity(obdict["name"])
 
-    @check_argsdeco({"name": str, "newname": str})
+    @check_args_deco({"name": str, "newname": str})
     @classify_admin
     @classify_local
     def renameentity(self, obdict: dict):
@@ -83,7 +85,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             newname: new entity name """
         return self.hashdb.renameentity(obdict["name"], obdict["newname"])
 
-    @check_argsdeco({"name": str, "hash": str}, optional={"type": str, "priority": int})
+    @check_args_deco({"name": str, "hash": str}, optional={"type": str, "priority": int})
     @classify_admin
     @classify_local
     def addhash(self, obdict: dict):
@@ -98,7 +100,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         _name, _certhash = obdict["name"], obdict["hash"]
         return self.hashdb.addhash(_name, _certhash, _type, _priority)
 
-    @check_argsdeco({"hash": str})
+    @check_args_deco({"hash": str})
     @classify_admin
     @classify_local
     def delhash(self, obdict: dict):
@@ -107,7 +109,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             hash: certificate hash (=part of entity) """
         return self.hashdb.delhash(obdict["hash"])
 
-    @check_argsdeco({"hash": str, "security": str})
+    @check_args_deco({"hash": str, "security": str})
     @classify_admin
     @classify_local
     def changesecurity(self, obdict: dict):
@@ -117,7 +119,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             security: security level """
         return self.hashdb.changesecurity(obdict["hash"], obdict["security"])
 
-    @check_argsdeco({"hash": str, "newname": str})
+    @check_args_deco({"hash": str, "newname": str})
     @classify_admin
     @classify_local
     def movehash(self, obdict: dict):
@@ -129,7 +131,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
 
     # don't expose to other plugins, at least not without question
     # other plugins could check for insecure plugins
-    @check_argsdeco()
+    @check_args_deco()
     @classify_admin
     @classify_local
     def listplugins(self, obdict: dict):
@@ -142,7 +144,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             ret.append((plugin, pluginm.plugin_is_active(plugin)))
         return True, {"items": ret, "map": ["plugin", "state"]}
 
-    @check_argsdeco({"hash": str, "reference": str, "reftype": str})
+    @check_args_deco({"hash": str, "reference": str, "reftype": str})
     @classify_admin
     @classify_local
     def addreference(self, obdict: dict):
@@ -161,7 +163,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         _tref = self.hashdb.get(obdict["hash"])
         return self.hashdb.addreference(_tref[4], obdict["reference"], obdict["reftype"])
 
-    @check_argsdeco({"hash": str, "reference": str, "newreference": str, "newreftype": str})
+    @check_args_deco({"hash": str, "reference": str, "newreference": str, "newreftype": str})
     @classify_admin
     @classify_local
     def updatereference(self, obdict: dict):
@@ -180,7 +182,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return False, "hash not exist"
         return self.hashdb.updatereference(_tref[4], obdict["reference"], obdict["newreference"], obdict["newreftype"])
 
-    @check_argsdeco({"hash": str, "reference": str})
+    @check_args_deco({"hash": str, "reference": str})
     @classify_admin
     @classify_local
     def delreference(self, obdict: dict):
@@ -193,7 +195,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return False, "hash not exist"
         return self.hashdb.delreference(_tref[4], obdict["reference"])
 
-    @check_argsdeco({"reason": str})
+    @check_args_deco({"reason": str})
     @classify_admin
     @classify_local
     def invalidatecert(self, obdict: dict):
@@ -232,7 +234,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         sys.exit(0)
         #return True
 
-    @check_argsdeco({"message": str}, optional={"permanent": bool})
+    @check_args_deco({"message": str}, optional={"permanent": bool})
     @classify_admin
     @classify_local
     def changemsg(self, obdict: dict):
@@ -249,7 +251,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             self.links["client_server"].update_cache()
             return True
 
-    @check_argsdeco({"loglevel": int})
+    @check_args_deco({"loglevel": int})
     @classify_admin
     @classify_local
     def changeloglevel(self, obdict: dict):
@@ -259,7 +261,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         logging.root.setLevel(obdict["loglevel"])
         return True
 
-    @check_argsdeco({"name": str}, optional={"permanent": bool})
+    @check_args_deco({"name": str}, optional={"permanent": bool})
     @classify_admin
     @classify_local
     def changename(self, obdict: dict):
@@ -289,7 +291,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return True
 
     # TODO: test
-    @check_argsdeco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
+    @check_args_deco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
     @classify_experimental
     @classify_admin
     def massimporter(self, obdict: dict):

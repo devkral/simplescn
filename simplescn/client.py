@@ -11,20 +11,18 @@ import threading
 import json
 import logging
 
-from simplescn import config
-from simplescn.config import isself
+from simplescn import config, VALError, AuthNeeded, AddressFail
+from simplescn.config import isself, file_family
+from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter
 
-from simplescn.common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error,  gen_result
 
-from simplescn.client_admin import client_admin
-from simplescn.client_safe import client_safe
-
-from simplescn import VALError, AuthNeeded, file_family
-from simplescn.tools import check_certs, generate_certs, init_config_folder, dhash, check_name, AddressFail, rw_socket, check_argsdeco, scnauth_server, check_hash, traverser_helper, classify_local, classify_access,  check_local, check_classify, default_sslcont
-
+from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper, default_sslcont
+from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
+from simplescn._decos import check_args_deco, classify_local, classify_access
+from simplescn._client_admin import client_admin
+from simplescn._client_safe import client_safe
 from simplescn.scnrequest import requester
 
-from simplescn.common import certhash_db, loglevel_converter
 #VALMITMError
 
 
@@ -151,7 +149,7 @@ class client_server(commonscn):
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
 
-    @check_argsdeco({"name": str, "port": int}, optional={"invisibleport": bool,"post": bool})
+    @check_args_deco({"name": str, "port": int}, optional={"invisibleport": bool,"post": bool})
     @classify_local
     def registerservice(self, obdict):
         """ func: register a service = (map port to name)
@@ -171,7 +169,7 @@ class client_server(commonscn):
         return False, "no permission"
 
     # don't annote list with "map" dict structure on serverside (overhead)
-    @check_argsdeco({"name": str})
+    @check_args_deco({"name": str})
     @classify_local
     def delservice(self, obdict):
         """ func: delete a service
@@ -189,7 +187,7 @@ class client_server(commonscn):
 
     ### management section - end ###
 
-    @check_argsdeco({"name": str})
+    @check_args_deco({"name": str})
     @classify_local
     def getservice(self, obdict):
         """ func: get the port of a service

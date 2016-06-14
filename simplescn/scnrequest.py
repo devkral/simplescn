@@ -12,7 +12,7 @@ safe_mdecode, encode_bo, \
 dhash, create_certhashheader, scnauth_client
 
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
-from simplescn.common import gen_result, check_result
+from simplescn._common import gen_result, check_result
 
 
 auth_instance = scnauth_client()

@@ -7,7 +7,6 @@ license: MIT, see LICENSE.txt
 
 import os
 import sys
-import socket
 from getpass import getpass
 
 
@@ -16,12 +15,7 @@ sharedir = os.path.dirname(os.path.realpath(__file__))
 if sharedir not in sys.path:
     sys.path.append(sharedir)
 
-
-# define file_family
-if hasattr(socket, "AF_UNIX"):
-    file_family = socket.AF_UNIX
-else:
-    file_family = None
+#__all__ = ["AuthNeeded
 
 ###### signaling ######
 

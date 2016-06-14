@@ -3,6 +3,7 @@ tools
 license: MIT, see LICENSE.txt
 """
 
+
 import os
 import logging
 import datetime
@@ -25,114 +26,11 @@ from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
 
 from simplescn import config
 from simplescn.config import isself
-from http.client import HTTPSConnection
 from simplescn import pwcallmethod, AddressFail, AddressEmptyFail, EnforcedPortFail
 
-def check_reference(_reference):
-    if _reference is None:
-        return False
-    if len(_reference) > 100:
-        return False
-    if not all(c not in "\0'\"\x1A\x7F" for c in _reference):
-        return False
-    return True
 
-def check_reference_type(_reference_type):
-    if _reference_type is None:
-        return False
-    if len(_reference_type) > config.max_typelength:
-        return False
-    if not all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type):
-        return False
-    return True
 
-def check_security(_security):
-    if _security in config.security_states:
-        return True
-    return False
 
-def check_local(addr):
-    if addr in ["127.0.0.1", "::1"]:
-        return True
-    return False
-
-# DEFAULT_HASHALGORITHM_len for default hash algo
-# but None by default for validating hashes of other length
-def check_hash(hashstr, length=None):
-    if hashstr is None:
-        return False
-    if length and len(hashstr) != length:
-        return False
-    # don't allow uppercase as it could confuse clients+servers and lowercase is default
-    if not all(c in "0123456789abcdef" for c in hashstr):
-        return False
-    return True
-
-_badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"
-# no .:- to differ name from ip address
-_badnamechars += ".:"
-
-def normalize_name(_name, maxlength=config.max_namelength):
-    if _name is None:
-        return None
-    # name shouldn't be too long or "", strip also bad chars before length calc
-    _name = _name.strip().rstrip()[:maxlength]
-    if len(_name) == 0:
-        _name = "empty"
-        return _name
-    _oldname = _name
-    _name = ""
-    for char in _oldname:
-        # ensure no bad, control characters
-        if char in _badnamechars or not char.isprintable():
-            pass
-        else:
-            _name += char
-    # name shouldn't be isself as it is used
-    if _name == isself:
-        _name = "fake_" + isself
-    return _name
-
-def check_name(_name, maxlength=config.max_namelength):
-    if _name is None:
-        return False
-    # name shouldn't be too long or 0
-    if len(_name) > maxlength or len(_name) == 0:
-        return False
-    for char in _name:
-        # ensure no bad, control characters
-        if char in _badnamechars or not char.isprintable():
-            return False
-    # name shouldn't be isself as it is used
-    if _name == isself:
-        return False
-    return True
-
-def check_typename(_type, maxlength=config.max_typelength):
-    if _type is None:
-        return False
-    # type shouldn't be too long or 0
-    if len(_type) > maxlength or len(_type) == 0:
-        return False
-    # ensure no bad characters
-    if not _type.isalpha() or not _type.islower():
-        return False
-    # type shouldn't be isself as it is used
-    if _type == isself:
-        return False
-    return True
-
-def check_conftype(_value, _converter):
-    try:
-        if _converter is bool:
-            if str(_value) not in ["False", "True"]:
-                return False
-        else:
-            _converter(str(_value))
-    except Exception as exc:
-        logging.error("invalid value converter: %s value: %s error: %s", _converter, _value, exc)
-        return False
-    return True
 
 ##### init ######
 
@@ -179,19 +77,6 @@ def generate_certs(_path):
         writeout.write(pubcert)
     return True
 
-def check_certs(path):
-    privpath = "{}.priv".format(path)
-    pubpath = "{}.pub".format(path)
-    if not os.path.exists(privpath) or not os.path.exists(pubpath):
-        return False
-    try:
-        _context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        _context.load_cert_chain(pubpath, keyfile=privpath, password=lambda: bytes(pwcallmethod("Enter passphrase for decrypting privatekey:"), "utf-8"))
-        return True
-    except Exception as exc:
-        logging.error(exc)
-    return False
-
 def init_config_folder(_dir, prefix):
     if not os.path.exists(_dir):
         os.makedirs(_dir, 0o700)
@@ -228,6 +113,32 @@ def init_config_folder(_dir, prefix):
             writeo.write("<message>")
 
 ##### etc ######
+
+badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"
+# no .:- to differ name from ip address
+badnamechars += ".:"
+
+def normalize_name(_name, maxlength=config.max_namelength):
+    if _name is None:
+        return None
+    # name shouldn't be too long or "", strip also bad chars before length calc
+    _name = _name.strip().rstrip()[:maxlength]
+    if len(_name) == 0:
+        _name = "empty"
+        return _name
+    _oldname = _name
+    _name = ""
+    for char in _oldname:
+        # ensure no bad, control characters
+        if char in badnamechars or not char.isprintable():
+            pass
+        else:
+            _name += char
+    # name shouldn't be isself as it is used
+    if _name == isself:
+        _name = "fake_" + isself
+    return _name
+
 
 def default_sslcont():
     sslcont = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
@@ -536,67 +447,6 @@ class traverser_helper(object):
             except Exception as exc:
                 logging.info(exc)
 
-cert_update_header = \
-{
-    "User-Agent": "simplescn/1.0 (update-cert)",
-    "Authorization": 'scn {}',
-    "Connection": 'keep-alive'
-}
-
-# can't use SCNConnection here. creates a cycle
-def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=config.default_timeout, connect_timeout=config.connect_timeout, traversefunc=None):
-    update_list = []
-    if None in [_address, _port]:
-        logging.error("address or port empty")
-        return None
-    cont = default_sslcont()
-    con = HTTPSConnection(_address, _port, context=cont, timeout=connect_timeout)
-    try:
-        con.connect()
-    except (ConnectionRefusedError, socket.timeout):
-        if not traversefunc:
-            logging.warning("Connection failed")
-            return None
-        con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        con.sock.bind(('', 0))
-        traversefunc(("", con.sock.getsockname()[1]))
-        con.sock.settimeout(connect_timeout)
-        for count in range(0, config.traverse_retries):
-            try:
-                con.sock.connect((_address, _port))
-                break
-            except Exception:
-                pass
-        else:
-            logging.warning("traversal failed")
-            return None
-    con.sock.settimeout(timeout)
-    oldhash = dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip())
-    if newhash and newhash != oldhash:
-        return None
-    oldsslcont = con.sock.context
-    for _hash, _security in certhashlist:
-        con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
-        con.sock = con.sock.unwrap()
-        con.sock = cont.wrap_socket(con.sock, server_side=False)
-        con.sock.do_handshake()
-        brokensslcert = ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()
-        con.sock = con.sock.unwrap()
-        # without next line the connection would be unencrypted now
-        con.sock = oldsslcont.wrap_socket(con.sock, server_side=False)
-        # con.sock.do_handshake()
-        ret = con.getresponse()
-        if ret.status != 200:
-            logging.info("checking cert failed, code: %s, reason: %s", ret.status, ret.reason)
-            continue
-        if con.sock and oldhash != dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip()):
-            logging.error("certificate switch detected, stop checking")
-            break
-        if dhash(brokensslcert) == _hash:
-            update_list.append((_hash, _security))
-    con.close()
-    return update_list
-
 
 def create_certhashheader(certhash):
     _random = os.urandom(config.token_size).hex()
@@ -623,168 +473,6 @@ def dhash(oblist, algo=config.DEFAULT_HASHALGORITHM, prehash=""):
         ret = tmp.hexdigest()
     return ret
 
-def check_classify(func, perm):
-    if isinstance(perm, (list, set, tuple)):
-        for p in perm:
-            if not check_classify(func, p):
-                return False
-        return True
-    if not hasattr(func, "classify"):
-        return False
-    return perm in func.classify
-
-# signals that method needs admin permission
-def classify_admin(func):
-    if not hasattr(func, "classify"):
-        func.classify = set()
-    func.classify.add("admin")
-    return func
-# signals that method only access internal methods and send no requests (e.g. do_request)
-def classify_local(func):
-    if not hasattr(func, "classify"):
-        func.classify = set()
-    func.classify.add("local")
-    return func
-
-# signals that method is experimental
-def classify_experimental(func):
-    if not hasattr(func, "classify"):
-        func.classify = set()
-    func.classify.add("experimental")
-    return func
-
-# signals that method is access method
-#access = accessing client/server
-def classify_access(func):
-    if not hasattr(func, "classify"):
-        func.classify = set()
-    func.classify.add("access")
-    return func
-
-def gen_doc_deco(func):
-    # skip when no documentation is available
-    if func.__doc__ is None:
-        return func
-    requires = getattr(func, "requires", {})
-    optional = getattr(func, "optional", {})
-    _docrequires = {}
-    _docoptional = {}
-    _docfunc, _docreturn = "n.a.", "n.a."
-    for line in func.__doc__.split("\n"):
-        parsed = line.split(":", 1)
-        if len(parsed) != 2:
-            continue
-        _key = parsed[0].strip().rstrip()
-        if _key == "func":
-            _docfunc = parsed[1].strip().rstrip()
-        if _key == "return":
-            _docreturn = parsed[1].strip().rstrip()
-        if _key in requires:
-            _docrequires[_key] = parsed[1].strip().rstrip()
-        if _key in optional:
-            _docoptional[_key] = parsed[1].strip().rstrip()
-    spacing = " "
-    sep = "\n        * "
-    if len(getattr(func, "classify", set())) > 0:
-        classify = " ({})".format(", ".join(sorted(func.classify)))
-    else:
-        classify = ""
-    # double space == first layer
-    newdoc = "  * {}{classify}: {}\n    *{spaces}return: {}\n".format(func.__name__, _docfunc, _docreturn, spaces=spacing, classify=classify)
-    if len(requires) == 0:
-        newdoc = "{}    *{spaces}requires: n.a.{sep}".format(newdoc, spaces=spacing, sep=sep)
-    else:
-        newdoc = "{}    *{spaces}requires:\n        *{spaces}".format(newdoc, spaces=spacing)
-    for key in requires.keys():
-        newdoc = "{}{}({}): {}{sep}".format(newdoc, key, requires[key].__name__, _docrequires.get(key, "n.a."), sep=sep)
-    if len(optional) != 0:
-        newdoc = "{}\n    *{spaces}optional:\n        *{spaces}".format(newdoc[:-len(sep)], spaces=spacing)
-    for key in optional.keys():
-        newdoc = "{}{}({}): {}{sep}".format(newdoc, key, optional[key].__name__, _docoptional.get(key, "n.a."), sep=sep)
-    func.__origdoc__ = func.__doc__
-    func.__doc__ = newdoc[:-len(sep)]
-    return func
-
-# args is iterable with (argname, type)
-# _moddic is modified
-def check_args(_moddict, requires=None, optional=None, error=None):
-    if not requires:
-        requires = {}
-    if not optional:
-        optional = {}
-    if not error:
-        error = []
-    search = set()
-    if not isinstance(requires, dict):
-        raise TypeError("requires wrong type: " + type(requires).__name__)
-    if not isinstance(optional, dict):
-        raise TypeError("optional wrong type: " + type(optional).__name__)
-    search.update(requires.items())
-    #_optionallist = [elemoptional[0] for elemoptional in optional]
-    search.update(optional.items())
-    for argname, value in search:
-        _type = value
-        if argname not in _moddict:
-            if argname in optional:
-                continue
-            error.append(argname)
-            error.append("argname not found")
-            return False
-        if isinstance(_moddict[argname], _type):
-            continue
-        if _type is tuple and isinstance(_moddict[argname], list):
-            _moddict[argname] = tuple(_moddict[argname])
-            continue
-        if _type is list and isinstance(_moddict[argname], tuple):
-            _moddict[argname] = list(_moddict[argname])
-            continue
-        # strip array and try again (limitation of www-parser)
-        if not _type in (tuple, list) and isinstance(_moddict[argname], (tuple, list)):
-            _moddict[argname] = _moddict[argname][0]
-        # is a number given as string?
-        if _type is int and isinstance(_moddict[argname], str) and _moddict[argname].strip().rstrip().isdecimal():
-            _moddict[argname] = int(_moddict[argname])
-        # check if everything is right now
-        if isinstance(_moddict[argname], _type):
-            continue
-        error.append(argname)
-        error.append("wrong type: {}, {}".format(type(_moddict[argname]).__name__, _moddict[argname]))
-        return False
-    return True
-
-# args is iterable with (argname, type)
-# obdict (=_moddict) is modified
-def check_argsdeco(requires=None, optional=None):
-    if not requires:
-        requires = {}
-    if not optional:
-        optional = {}
-    def func_to_check(func):
-        def get_args(self, obdict):
-            error = []
-            if not check_args(obdict, requires, optional, error=error):
-                return False, "check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), isself, self.cert_hash
-            resp = func(self, obdict)
-            if resp is None:
-                return False, "bug: no return value in function {}".format(type(func).__name__), isself, self.cert_hash
-            if isinstance(resp, bool) or len(resp) == 1:
-                if not isinstance(resp, bool):
-                    resp = resp[0]
-                if resp:
-                    return True, "{} finished successfully".format(func.__name__), isself, self.cert_hash
-                else:
-                    return False, "{} failed".format(func.__name__), isself, self.cert_hash
-            elif len(resp) == 2:
-                return resp[0], resp[1], isself, self.cert_hash
-            else:
-                return resp
-        get_args.requires = requires
-        get_args.optional = optional
-        get_args.__doc__ = func.__doc__
-        get_args.__name__ = func.__name__
-        get_args.classify = getattr(func, "classify", set())
-        return gen_doc_deco(get_args)
-    return func_to_check
 
 def encode_bo(inp, encoding, charset="utf-8"):
     splitted = encoding.split(";", 1)

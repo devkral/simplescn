@@ -13,12 +13,13 @@ import json
 import logging
 import ssl
 
-from simplescn import config, file_family
+from simplescn import config, InvalidLoadSizeError, InvalidLoadLevelError
+from simplescn.config import file_family
 
-from simplescn.tools import check_certs, generate_certs, init_config_folder, check_name, dhash, check_argsdeco, scnauth_server, check_updated_certs, traverser_dropper, scnparse_url, classify_local, check_hash, check_local
-from simplescn import InvalidLoadSizeError, InvalidLoadLevelError
-
-from simplescn.common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, loglevel_converter
+from simplescn.tools import generate_certs, init_config_folder, dhash, scnauth_server, traverser_dropper, scnparse_url
+from simplescn.tools.checks import check_certs, check_hash, check_local, check_name, check_updated_certs
+from simplescn._decos import check_args_deco, classify_local
+from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, loglevel_converter
 
 server_broadcast_header = \
 {
@@ -153,7 +154,7 @@ class server(commonscn):
         # notify that change happened
         self.nhipmap_cond.set()
 
-    @check_argsdeco({"name": str, "port": int}, optional={"update": list})
+    @check_args_deco({"name": str, "port": int}, optional={"update": list})
     def register(self, obdict: dict):
         """ func: register client
             return: success or error
@@ -200,7 +201,7 @@ class server(commonscn):
         self.nhipmap_cond.set()
         return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
 
-    @check_argsdeco({"destaddr": str})
+    @check_args_deco({"destaddr": str})
     def open_traversal(self, obdict: dict):
         """ func: open traversal connection
             return: traverse_address (=remote own address)
@@ -215,14 +216,14 @@ class server(commonscn):
         threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr), daemon=True).start()
         return True, {"traverse_address": travaddr}
 
-    @check_argsdeco()
+    @check_args_deco()
     @classify_local
     def get_ownaddr(self, obdict: dict):
         """ func: return remote own address
             return: remote requester address """
         return True, {"address": obdict.get("clientaddress")}
 
-    @check_argsdeco({"hash": str, "name": str}, optional={"autotraverse": bool})
+    @check_args_deco({"hash": str, "name": str}, optional={"autotraverse": bool})
     def get(self, obdict: dict):
         """ func: get address of a client
             return: client address, client port, security, traverse_address, traverse_needed

@@ -18,7 +18,7 @@ if __name__ == "__main__":
     sys.path.insert(0, _tpath)
 
 from simplescn import config
-from simplescn.common import scnparse_args, loglevel_converter
+from simplescn._common import scnparse_args, loglevel_converter
 
 running_instances = []
 
