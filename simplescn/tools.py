@@ -1,3 +1,7 @@
+"""
+tools
+license: MIT, see LICENSE.txt
+"""
 
 import os
 import logging

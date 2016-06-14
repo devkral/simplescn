@@ -1,3 +1,7 @@
+"""
+load parameters and init socket
+license: MIT, see LICENSE.txt
+"""
 
 import socket
 
