@@ -67,25 +67,25 @@ class TestCommunication(unittest.TestCase):
         reqister1 = self.client.links["client"].access_main("register", server="::1-{}".format(self.server_port))
         self.assertEqual(reqister1[0], True)
         self.assertDictEqual(reqister1[1], {'traverse': True, 'mode': 'registered_traversal'})
-        ret1 = self.client.links["client"].access_main("get", server="::1", name=self.name, hash=self.client_hash)
+        ret1 = self.client.links["client"].access_main("get", server="::1-{}".format(self.server_port), name=self.name, hash=self.client_hash)
         self.assertEqual(ret1[0], True)
         
         register2 = self.client.links["client"].access_main("register", server="127.0.0.1-{}".format(self.server_port))
         self.assertEqual(register2[0], True)
         self.assertDictEqual(register2[1], {'traverse': True, 'mode': 'registered_traversal'})
-        ret2 = self.client.links["client"].access_main("get", server="127.0.0.1", name=self.name, hash=self.client_hash)
+        ret2 = self.client.links["client"].access_main("get", server="127.0.0.1-{}".format(self.server_port), name=self.name, hash=self.client_hash)
         self.assertEqual(ret2[0], True)
         
         register3 = self.client.links["client"].access_main("register", server="::1-{}".format(self.server_port+1))
         self.assertEqual(register3[0], False)
         
-        ret3 = self.client.links["client"].access_main("get", server="127.0.0.1-{}".format(cls.server_port), name=self.name, hash=self.client_hash)
+        ret3 = self.client.links["client"].access_main("get", server="127.0.0.1-{}".format(self.server_port), name=self.name, hash=self.client_hash)
         self.assertEqual(ret3[0], True)
         
         with self.subTest("test check"):
-            ret_local1 = self.client.links["client"].access_main("check", server="::1-{}".format(cls.server_port), name=self.name, hash=self.client_hash)
+            ret_local1 = self.client.links["client"].access_main("check", server="::1-{}".format(self.server_port), name=self.name, hash=self.client_hash)
             self.assertEqual(ret_local1[0], True, ret_local1[1])
-            ret_remote1 = self.client2.links["client"].access_main("check", server="::1-{}".format(cls.server_port), name=self.name, hash=self.client_hash)
+            ret_remote1 = self.client2.links["client"].access_main("check", server="::1-{}".format(self.server_port), name=self.name, hash=self.client_hash)
             self.assertEqual(ret_remote1[0], True, ret_remote1[1])
         
     def test_cap(self):
@@ -93,7 +93,6 @@ class TestCommunication(unittest.TestCase):
         self.assertEqual(cap_ret[0], True, cap_ret[1])
         cap_ret = self.client.links["client"].access_main("cap", address="::1-{}".format(self.server_port))
         self.assertEqual(cap_ret[0], True, cap_ret[1])
-        #print(cap_ret)
     
     def test_info(self):
         info_ret = self.client.links["client"].access_main("info", address="::1-{}".format(self.server_port))
@@ -109,10 +108,7 @@ class TestCommunication(unittest.TestCase):
     def test_services(self):
         services_reg = self.client.links["client"].access_main("registerservice", name="test", port="666")
         self.assertEqual(services_reg[0], True, services_reg[1])
-        #print(services_reg)
         services_ret = self.client.links["client"].access_main("getservice", name="test")
-        #print(services_ret)
-        #self.assertEqual(services_ret[0], True, services_ret[1])
         services_del = self.client.links["client"].access_main("delservice", name="test")
         self.assertEqual(services_del[0], True, services_del[1])
         services_ret = self.client.links["client"].access_main("getservice", name="test")

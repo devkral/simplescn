@@ -40,7 +40,6 @@ class TestCommunication(unittest.TestCase):
             shutil.rmtree(cls.temptestdir2)
         os.mkdir(cls.temptestdir, 0o700)
         os.mkdir(cls.temptestdir2, 0o700)
-        #print(cls.temptestdir, cls.temptestdir2)
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         cls.client = simplescn.__main__.client(cls.param_client, doreturn=True)

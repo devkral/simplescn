@@ -3,6 +3,7 @@
 ## 0.2
 
 ## 0.3
+* improve tests
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)
 * better code quality
 * mass import
