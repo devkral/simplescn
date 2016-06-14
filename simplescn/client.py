@@ -255,6 +255,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     ob = bytes(json.dumps(authreq), "utf-8")
                     self.scn_send_answer(401, body=ob, docache=False)
                     return
+                self.connection.settimeout(self.etablished_timeout)
                 obdict = self.parse_body()
                 if obdict is None:
                     return
@@ -292,6 +293,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     self.cleanup_stale_data(config.max_serverrequest_size)
                     self.scn_send_answer(401, body=ob, docache=False)
                     return
+                self.connection.settimeout(self.etablished_timeout)
                 if action in self.links["client_server"].cache:
                     # cleanup {} or smaller, protect against big transmissions
                     self.cleanup_stale_data(2)
@@ -327,7 +329,6 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 else:
                     self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
         def do_POST(self):
-            self.connection.settimeout(self.etablished_timeout)
             if not self.init_scn_stuff():
                 self.connection.settimeout(self.server_timeout)
                 return
@@ -345,6 +346,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     self.cleanup_stale_data(config.max_serverrequest_size)
                     self.scn_send_answer(401, body=ob, docache=False)
                 else:
+                    self.connection.settimeout(self.etablished_timeout)
                     self.handle_wrap(sub)
             elif resource == "usebroken":
                 # for invalidating and updating, don't use connection afterwards

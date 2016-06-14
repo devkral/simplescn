@@ -271,6 +271,7 @@ def gen_server_handler(_links, stimeout, etimeout):
                 ob = bytes(json.dumps(authreq), "utf-8")
                 self.scn_send_answer(401, body=ob, docache=False)
                 return
+            self.connection.settimeout(self.etablished_timeout)
             if action in self.links["server_server"].cache:
                 # cleanup {} or smaller, protect against big transmissions
                 self.cleanup_stale_data(2)
@@ -304,7 +305,6 @@ def gen_server_handler(_links, stimeout, etimeout):
                 self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
 
         def do_POST(self):
-            self.connection.settimeout(self.etablished_timeout)
             if not self.init_scn_stuff():
                 self.connection.settimeout(self.server_timeout)
                 return
