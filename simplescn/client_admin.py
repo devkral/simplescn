@@ -34,17 +34,17 @@ class client_admin(object, metaclass=abc.ABCMeta):
     def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
         raise NotImplementedError
 
-    write_msg_lock = None
-    change_name_lock = None
+    writeMsgLock = None
+    changeNameLock = None
 
     def __init__(self):
-        self.write_msg_lock = threading.Lock()
-        self.change_name_lock = threading.Lock()
+        self.writeMsgLock = threading.Lock()
+        self.changeNameLock = threading.Lock()
 
     @check_argsdeco({"priority": int})
     @classify_admin
     @classify_local
-    def setpriority(self, obdict):
+    def setpriority(self, obdict: dict):
         """ func: set priority of client
             return: success or error
             priority: priority of the client"""
@@ -58,7 +58,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"name": str})
     @classify_admin
     @classify_local
-    def addentity(self, obdict):
+    def addentity(self, obdict: dict):
         """ func: add entity (=named group for hashes)
             return: success or erro
             name: entity name """
@@ -67,7 +67,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"name": str})
     @classify_admin
     @classify_local
-    def delentity(self, obdict):
+    def delentity(self, obdict: dict):
         """ func: delete entity (=named group for hashes)
             return: success or error
             name: entity name """
@@ -76,7 +76,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"name": str, "newname": str})
     @classify_admin
     @classify_local
-    def renameentity(self, obdict):
+    def renameentity(self, obdict: dict):
         """ func: rename entity (=named group for hashes)
             return success or error
             name: entity name
@@ -86,7 +86,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"name": str, "hash": str}, optional={"type": str, "priority": int})
     @classify_admin
     @classify_local
-    def addhash(self, obdict):
+    def addhash(self, obdict: dict):
         """ func: add hash to entity (=named group for hashes)
             return: success or error
             name: entity name
@@ -101,7 +101,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"hash": str})
     @classify_admin
     @classify_local
-    def delhash(self, obdict):
+    def delhash(self, obdict: dict):
         """ func: delete hash
             return: success or error
             hash: certificate hash (=part of entity) """
@@ -110,7 +110,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"hash": str, "security": str})
     @classify_admin
     @classify_local
-    def changesecurity(self, obdict):
+    def changesecurity(self, obdict: dict):
         """ func: change security level of hash
             return: success or error
             hash: certificate hash (=part of entity)
@@ -120,7 +120,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"hash": str, "newname": str})
     @classify_admin
     @classify_local
-    def movehash(self, obdict):
+    def movehash(self, obdict: dict):
         """ func: move hash to entity
             return: success or error
             hash: certificate hash (=part of entity)
@@ -132,7 +132,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco()
     @classify_admin
     @classify_local
-    def listplugins(self, obdict):
+    def listplugins(self, obdict: dict):
         """ func: list plugins
             return: plugins """
         pluginm = self.links["client_server"].pluginmanager
@@ -145,7 +145,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"hash": str, "reference": str, "reftype": str})
     @classify_admin
     @classify_local
-    def addreference(self, obdict):
+    def addreference(self, obdict: dict):
         """ func: add reference (=child of hash) to hash
             return: success or error
             hash: certificate hash (=part of entity)
@@ -164,7 +164,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"hash": str, "reference": str, "newreference": str, "newreftype": str})
     @classify_admin
     @classify_local
-    def updatereference(self, obdict):
+    def updatereference(self, obdict: dict):
         """ func: update reference (=child of hash)
             return: success or error
             hash: certificate hash (=part of entity)
@@ -183,7 +183,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"hash": str, "reference": str})
     @classify_admin
     @classify_local
-    def delreference(self, obdict):
+    def delreference(self, obdict: dict):
         """ func: delete reference (=child of hash)
             return: success or error
             hash: certificate hash (=part of entity)
@@ -196,7 +196,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"reason": str})
     @classify_admin
     @classify_local
-    def invalidatecert(self, obdict):
+    def invalidatecert(self, obdict: dict):
         """ func: invalidate certificate
             return: success or error
             reason: reason (=security level) for invalidating cert"""
@@ -235,13 +235,13 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"message": str}, optional={"permanent": bool})
     @classify_admin
     @classify_local
-    def changemsg(self, obdict):
+    def changemsg(self, obdict: dict):
         """ func: change message
             return: success or error
             message: new message
             permanent: permanent or just temporary (cleared when closing client) (default: True) """
         configr = self.links["config_root"]
-        with self.write_msg_lock:
+        with self.writeMsgLock:
             if obdict.get("permanent", True):
                 with open(os.path.join(configr, "client_message.txt"), "w") as wm:
                     wm.write(obdict.get("message"))
@@ -252,7 +252,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"loglevel": int})
     @classify_admin
     @classify_local
-    def changeloglevel(self, obdict):
+    def changeloglevel(self, obdict: dict):
         """ func: change loglevel
             return: success or error
             loglevel: name of loglevel """
@@ -262,12 +262,12 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_argsdeco({"name": str}, optional={"permanent": bool})
     @classify_admin
     @classify_local
-    def changename(self, obdict):
+    def changename(self, obdict: dict):
         """ func: change name
             return: success or error
             name: client name
             permanent: permanent or just temporary (cleared when closing client) (default: True) """
-        with self.change_name_lock:
+        with self.changeNameLock:
             newname = obdict.get("name")
             if not check_name(newname):
                 return False, "not a valid name"
@@ -288,36 +288,11 @@ class client_admin(object, metaclass=abc.ABCMeta):
             self.links["client_server"].update_cache()
             return True
 
-    #@check_argsdeco({"port": int})
-    #@classify_admin
-    #@classify_local
-    #def addredirect(self, obdict):
-    #    """ func: request redirect
-    #        return: success or error
-    #        port: port of client server """
-    #    if obdict.get("clientaddress") is None:
-    #        return False, "Cannot request redirect (clientaddress is not available)"
-    #    if obdict.get("clientcerthash") is None:
-    #        return False, "Cannot request redirect (clienthash is not available)"
-    #    self.redirect_addr = "{}-{}".format(obdict.get("clientaddress")[0], obdict["port"])
-    #    self.redirect_hash = obdict.get("clientcerthash")
-    #    return True
-
-    #@check_argsdeco()
-    #@classify_admin
-    #@classify_local
-    #def delredirect(self, obdict):
-    #    """ func: deactivate redirect
-    #        return: success or error """
-    #    self.redirect_addr = ""
-    #    self.redirect_hash = ""
-    #    return True
-
     # TODO: test
     @check_argsdeco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
     @classify_experimental
     @classify_admin
-    def massimporter(self, obdict):
+    def massimporter(self, obdict: dict):
         """ func: import hashes and entities
             return: success or error
             sourceaddress: address of source (client)

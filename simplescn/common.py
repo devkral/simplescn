@@ -9,8 +9,21 @@ import sys
 import traceback
 import threading
 import logging
+import json
+import socket
+import ssl
 
-from simplescn import check_name, check_hash, check_security, check_typename, check_reference, check_reference_type, isself, loglevel_converter, max_typelength
+from http.server import BaseHTTPRequestHandler
+import socketserver
+
+
+from simplescn import config
+from simplescn.config import isself
+
+
+from simplescn import check_name, check_hash, check_security, \
+check_typename, check_reference, check_reference_type, loglevel_converter, \
+dhash, safe_mdecode, default_sslcont, pwcallmethod
 
 # for config
 def parsepath(inp):
@@ -22,10 +35,7 @@ def parsepath(inp):
     return ret
 
 def parsebool(inp):
-    if inp.lower() in ["y", "true", "t"]:
-        return True
-    else:
-        return False
+    return inp.lower() in ["y", "true", "t"]
 
 class certhash_db(object):
     db_path = None
@@ -54,25 +64,25 @@ class certhash_db(object):
         con.close()
         self.lock.release()
 
-    @staticmethod
-    def connecttodb(func):
-        import sqlite3
-        def funcwrap(self, *args, **kwargs):
-            temp = None
-            self.lock.acquire()
-            try:
-                dbcon = sqlite3.connect(self.db_path)
-                kwargs["dbcon"] = dbcon
-                temp = func(self, *args, **kwargs)
-                dbcon.close()
-            except Exception as exc:
-                st = str(exc)
-                if "tb_frame" in exc.__dict__:
-                    st = "{}\n\n{}".format(st, traceback.format_tb(exc))
-                logging.error("%s\n%s", st, type(func).__name__)
-            self.lock.release()
-            return temp
-        return funcwrap
+    class connecttodb(object):
+        def __init__(self, func):
+            import sqlite3
+            def funcwrap(self, *args, **kwargs):
+                temp = None
+                self.lock.acquire()
+                try:
+                    dbcon = sqlite3.connect(self.db_path)
+                    kwargs["dbcon"] = dbcon
+                    temp = func(self, *args, **kwargs)
+                    dbcon.close()
+                except Exception as exc:
+                    st = str(exc)
+                    if "tb_frame" in exc.__dict__:
+                        st = "{}\n\n{}".format(st, traceback.format_tb(exc))
+                    logging.error("%s\n%s", st, type(func).__name__)
+                self.lock.release()
+                return temp
+            #return funcwrap
 
     @connecttodb
     def addentity(self, _name, dbcon=None):
@@ -164,8 +174,8 @@ class certhash_db(object):
 
     @connecttodb
     def changetype(self, _certhash, _type, dbcon=None):
-        if not check_typename(_type, max_typelength):
-            logging.info("type contains invalid characters or is too long (maxlen: %s): %s", max_typelength, _type)
+        if not check_typename(_type, config.max_typelength):
+            logging.info("type contains invalid characters or is too long (maxlen: %s): %s", config.max_typelength, _type)
             return False
         if not check_hash(_certhash):
             logging.info("hash contains invalid characters")
@@ -450,6 +460,318 @@ class certhash_db(object):
         else:
             return out
 
+class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    """ server part of client/server """
+    sslcont = None
+    rawsock = None
+    timeout = None
+    use_unix = False
+
+    def __init__(self, _address, certfpath, _handler, pwmsg, timeout=config.default_timeout, use_unix=False):
+        self.use_unix = use_unix
+        
+        if self.use_unix:
+            self.address_family = socket.AF_UNIX
+            try:
+                os.unlink(_address)
+            except OSError:
+                if os.path.exists(_address):
+                    raise
+        else:
+            self.address_family = socket.AF_INET6
+            self.allow_reuse_address = 1
+        self.timeout = timeout
+        socketserver.TCPServer.__init__(self, _address, _handler, False)
+        if not self.use_unix:
+            try:
+                self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+            except Exception:
+                # python for windows has disabled it
+                # hope that it works without
+                pass
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        self.sslcont = default_sslcont()
+        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda: bytes(pwcallmethod(pwmsg), "utf-8"))
+        self.socket = self.sslcont.wrap_socket(self.socket)
+
+        try:
+            self.server_bind()
+            self.server_activate()
+        except:
+            self.server_close()
+            raise
+        
+    def get_request(self):
+        con, addr = self.socket.accept()
+        if self.use_unix:
+            return con, ('', 0)
+        else:
+            return con, addr
+    def server_bind(self):
+        """Override server_bind to store the server name."""
+        socketserver.TCPServer.server_bind(self)
+        if self.use_unix:
+            self.server_name = self.socket.getsockname()
+            self.server_port = 0
+            # valid port but wildcard and invalid as returned port
+            # so use it
+        else:
+            host, port = self.socket.getsockname()[:2]
+            self.server_name = host #socket.getfqdn(host)
+            self.server_port = port
+
+    def serve_forever_nonblock(self):
+        threading.Thread(target=self.serve_forever, daemon=True).start()
+
+
+class commonscn(object):
+    # replace not add elsewise bugs in multi instance situation
+    capabilities = []
+    info = None
+    priority = None
+    name = None
+    message = None
+    cert_hash = None
+    scn_type = "unknown"
+    pluginmanager = None
+    isactive = True
+    update_cache_lock = None
+
+    # set in __init__, elsewise bugs in multi instance situation (references)
+    cache = None
+
+    def __init__(self):
+        self.cache = {"cap": "", "info": "", "prioty": ""}
+        self.update_cache_lock = threading.Lock()
+    def __del__(self):
+        self.isactive = False
+
+    def update_cache(self):
+        with self.update_cache_lock:
+            self.cache["cap"] = json.dumps(gen_result({"caps": self.capabilities}, True))
+            self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
+            self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
+
+
+class commonscnhandler(BaseHTTPRequestHandler):
+    links = None
+    sys_version = "" # would say python xy, no need and maybe security hole
+    auth_info = None
+    client_cert = None
+    client_certhash = None
+    # replaced by function not init
+    alreadyrewrapped = False
+    client_address2 = None
+    links = None
+    
+    rfile = None
+    wfile = None
+    connection = None
+
+    def scn_send_answer(self, status, body=None, mime="application/json", message=None, docache=False, dokeepalive=None):
+        if message:
+            self.send_response(status, message)
+        else:
+            self.send_response(status)
+        if body:
+            self.send_header("Content-Length", len(body))
+        if mime and body:
+            self.send_header("Content-Type", "{}; charset=utf-8".format(mime))
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
+        if not docache:
+            self.send_header("Cache-Control", "no-cache")
+            if dokeepalive is None and status == 200:
+                dokeepalive = True
+        if dokeepalive:
+            self.send_header('Connection', 'keep-alive')
+        else:
+            self.send_header('Connection', 'close')
+        self.end_headers()
+        if body:
+            self.wfile.write(body)
+
+    def init_scn_stuff(self):
+        useragent = self.headers.get("User-Agent", "")
+        if "simplescn" in useragent:
+            self.error_message_format = "%(code)d: %(message)s – %(explain)s"
+        else:
+            logging.debug("unknown useragent: %s", useragent)
+
+        _auth = self.headers.get("Authorization", 'scn {}')
+        method, _auth = _auth.split(" ", 1)
+        _auth = _auth.strip().rstrip()
+        if method == "scn":
+            # is different from the body, so don't use header information
+            self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8")
+        else:
+            self.auth_info = None
+        if self.client_address[0][:7] == "::ffff:":
+            self.client_address2 = (self.client_address[0][7:], self.client_address[1])
+        else:
+            self.client_address2 = (self.client_address[0], self.client_address[1])
+        # hack around not transmitted client cert
+        _rewrapcert = self.headers.get("X-certrewrap", None)
+        _origcert = self.headers.get("X-original_cert", None)
+        if _rewrapcert is not None:
+            cont = self.connection.context
+            if not self.alreadyrewrapped:
+                # wrap tcp socket, not ssl socket
+                self.connection = self.connection.unwrap()
+                self.connection = cont.wrap_socket(self.connection, server_side=False)
+                self.alreadyrewrapped = True
+            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
+            self.client_certhash = dhash(self.client_cert)
+            if _rewrapcert.split(";")[0] != self.client_certhash:
+                return False
+            if _origcert and self.links.get("trusted_certhash", "") != "":
+                if _rewrapcert == self.links.get("trusted_certhash"):
+                    self.client_cert = _origcert
+                    self.client_certhash = dhash(_origcert)
+                else:
+                    logging.debug("rewrapcert incorrect")
+                    return False
+            #self.rfile.close()
+            #self.wfile.close()
+            self.rfile = self.connection.makefile(mode='rb')
+            self.wfile = self.connection.makefile(mode='wb')
+        else:
+            self.client_cert = None
+            self.client_certhash = None
+        return True
+
+    def cleanup_stale_data(self, maxchars=config.max_serverrequest_size):
+        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal():
+            # protect against big transmissions
+            self.rfile.read(min(maxchars, int(self.headers.get("Content-Length"))))
+
+    def parse_body(self, maxlength=None):
+        if not self.headers.get("Content-Length", "").strip().rstrip().isdecimal():
+            self.scn_send_answer(411, message="POST data+data length needed")
+            return None
+        contsize = int(self.headers.get("Content-Length"))
+        if maxlength and contsize > maxlength:
+            self.scn_send_answer(431, message="request too large", docache=False)
+        readob = self.rfile.read(contsize)
+        # str: charset (like utf-8), safe_mdecode: transform arguments to dict
+        obdict = safe_mdecode(readob, self.headers.get("Content-Type"))
+        if obdict is None:
+            self.scn_send_answer(400, message="bad arguments")
+            return None
+        obdict["clientaddress"] = self.client_address2
+        obdict["client_cert"] = self.client_cert
+        obdict["client_certhash"] = self.client_certhash
+        obdict["headers"] = self.headers
+        obdict["socket"] = self.connection
+        return obdict
+
+    def handle_usebroken(self, sub):
+        # invalidate as attacker can connect while switching
+        self.alreadyrewrapped = False
+        self.client_cert = None
+        self.client_certhash = None
+        certfpath = os.path.join(self.links["config_root"], "broken", sub)
+        if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
+            cont = default_sslcont()
+            cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
+            oldsslcont = self.connection.context
+            self.connection = self.connection.unwrap()
+            self.connection = cont.wrap_socket(self.connection, server_side=True)
+            self.connection = self.connection.unwrap()
+            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+            self.rfile = self.connection.makefile(mode='rb')
+            self.wfile = self.connection.makefile(mode='wb')
+            self.scn_send_answer(200, message="brokencert successfull", docache=False, dokeepalive=True)
+        else:
+            oldsslcont = self.connection.context
+            self.connection = self.connection.unwrap()
+            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+            self.connection = self.connection.unwrap()
+            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
+            self.rfile = self.connection.makefile(mode='rb')
+            self.wfile = self.connection.makefile(mode='wb')
+            self.scn_send_answer(404, message="brokencert not found", docache=False, dokeepalive=True)
+
+    def wrap_func(self, func, *args, **kwargs):
+        self.send_response(200)
+        self.send_header("Connection", "keep-alive")
+        self.send_header("Cache-Control", "no-cache")
+        if self.headers.get("X-certrewrap") is not None:
+            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
+        self.end_headers()
+        # send if not sent already
+        self.wfile.flush()
+        try:
+            return func(*args, **kwargs)
+        except Exception as exc:
+            logging.error(exc)
+            return False
+
+    def do_auth(self, domain):
+        if not self.links["auth_server"].verify(domain, self.auth_info):
+            authreq = self.links["auth_server"].request_auth(domain)
+            ob = bytes(json.dumps(authreq), "utf-8")
+            self.cleanup_stale_data(config.max_serverrequest_size)
+            self.scn_send_answer(401, body=ob, docache=False)
+            return False
+        return True
+
+
+
+def generate_error(err):
+    error = {"msg": "unknown", "type": "unknown"}
+    if err is None:
+        return error
+    error["msg"] = str(err)
+    if isinstance(err, str):
+        error["type"] = ""
+    else:
+        error["type"] = type(err).__name__
+        if hasattr(err, "__traceback__"):
+            error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "") #[3]
+        elif sys.exc_info()[2] is not None:
+            error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
+    return error # json.dumps(error)
+
+def generate_error_deco(func):
+    def get_args(self, *args, **kwargs):
+        resp = func(self, *args, **kwargs)
+        if len(resp) == 4:
+            _name = resp[2]
+            _hash = resp[3]
+        else:
+            _name = isself
+            _hash = self.cert_hash
+        if not resp[0]:
+            return False, generate_error(resp[1]), _name, _hash
+        return resp
+    return get_args
+
+def gen_result(res, status):
+    """ generate result """
+    stdict = {}
+    if status:
+        stdict["status"] = "ok"
+        stdict["result"] = res
+    else:
+        stdict["status"] = "error"
+        stdict["error"] = res
+    return stdict
+
+def check_result(obdict, status):
+    """ is result valid """
+    if obdict is None:
+        return False
+    if "status" not in obdict:
+        return False
+    if status and "result" not in obdict:
+        return False
+    if not status and "error" not in obdict:
+        return False
+    return True
+
+
 own_help = """
 # help:
   * help: help in markdown format
@@ -490,3 +812,5 @@ def scnparse_args(arg_list, _funchelp, default_args):
                 if tparam[0] in default_args:
                     new_arglist[tparam[0]] = default_args[tparam[0]][1](tparam[1])
     return new_arglist
+
+

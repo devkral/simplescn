@@ -7,20 +7,20 @@ license: MIT, see LICENSE.txt
 import sys
 import os
 import socket
-import ssl
 import threading
 import json
 import logging
 
+from simplescn import config
+from simplescn.config import isself
 
-from simplescn import sharedir
-from simplescn.common import parsepath, parsebool
+from simplescn.common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error,  gen_result
 
 from simplescn.client_admin import client_admin
 from simplescn.client_safe import client_safe
 
 
-from simplescn import check_certs, generate_certs, init_config_folder, default_configdir, dhash, VALNameError, VALHashError, isself, check_name, commonscn, scnparse_url, AddressFail, rw_socket, check_args, safe_mdecode, generate_error, max_serverrequest_size, gen_result, check_result, check_argsdeco, scnauth_server, http_server, generate_error_deco, VALError, client_port, default_priority, default_timeout, check_hash, scnauth_client, traverser_helper, create_certhashheader, classify_local, classify_access, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_local, debug_mode, harden_mode, file_family, check_classify, default_runpath, default_sslcont, AuthNeeded
+from simplescn import check_certs, generate_certs, init_config_folder, dhash, check_name, AddressFail, rw_socket, check_argsdeco, scnauth_server, VALError, check_hash, traverser_helper, classify_local, classify_access, loglevel_converter, check_local, file_family, check_classify, default_sslcont, AuthNeeded
 
 from simplescn.scnrequest import requester
 
@@ -47,12 +47,12 @@ class client_client(client_admin, client_safe):
     validactions = None
     requester = None
 
-    def __init__(self, _name, _pub_cert_hash, _links):
+    def __init__(self, name: str, pub_cert_hash: str, _links: dict):
         client_admin.__init__(self)
         client_safe.__init__(self)
         self.links = _links
-        self.name = _name
-        self.cert_hash = _pub_cert_hash
+        self.name = name
+        self.cert_hash = pub_cert_hash
         self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
         if "hserver" in self.links:
             self.sslcont = self.links["hserver"].sslcont
@@ -87,9 +87,9 @@ class client_client(client_admin, client_safe):
     # return success, body, (name, security), hash
     # return success, body, isself, hash
     # return success, body, None, hash
-    def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
-        """ func: wrapper """
-        return self.requester.do_request_simple(_addr_or_con, _path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
+    def do_request(self, addr_or_con, path: str, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
+        """ func: wrapper+ cache certcontext and ownhash """
+        return self.requester.do_request_simple(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
 
     @classify_access
     def access_core(self, action, obdict):
@@ -252,7 +252,11 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                         realm = "client"
                 else:
                     realm = "client"
-
+                if not self.links["auth_server"].verify(realm, self.auth_info):
+                    authreq = self.links["auth_server"].request_auth(realm)
+                    ob = bytes(json.dumps(authreq), "utf-8")
+                    self.scn_send_answer(401, body=ob, docache=False)
+                    return
                 obdict = self.parse_body()
                 if obdict is None:
                     return
@@ -265,12 +269,12 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                 if not response[0]:
                     error = response[1]
                     generror = generate_error(error)
-                    if not debug_mode or (self.server.address_family != file_family and not check_local(self.client_address2[0])):
+                    if not config.debug_mode or (self.server.address_family != file_family and not check_local(self.client_address2[0])):
                         # don't show stacktrace if not permitted and not in debug mode
                         if "stacktrace" in generror:
                             del generror["stacktrace"]
                         # with harden mode do not show errormessage
-                        if harden_mode and not isinstance(error, (AddressFail, VALError)):
+                        if config.harden_mode and not isinstance(error, (AddressFail, VALError)):
                             generror = generate_error("unknown")
                     resultob = gen_result(generror, False)
                     status = 500
@@ -287,7 +291,7 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                 if not self.links["auth_server"].verify("server", self.auth_info):
                     authreq = self.links["auth_server"].request_auth("server")
                     ob = bytes(json.dumps(authreq), "utf-8")
-                    self.cleanup_stale_data(max_serverrequest_size)
+                    self.cleanup_stale_data(config.max_serverrequest_size)
                     self.scn_send_answer(401, body=ob, docache=False)
                     return
                 if action in self.links["client_server"].cache:
@@ -297,7 +301,7 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                     self.scn_send_answer(200, body=ob, docache=False)
                     return
 
-                obdict = self.parse_body(max_serverrequest_size)
+                obdict = self.parse_body(config.max_serverrequest_size)
                 if obdict is None:
                     return None
                 try:
@@ -306,12 +310,12 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                     jsonnized = json.dumps(gen_result(response[1], response[0]))
                 except Exception as exc:
                     generror = generate_error(exc)
-                    if not debug_mode or self.server.address_family != file_family or not check_local(self.client_address2[0]):
+                    if not config.debug_mode or self.server.address_family != file_family or not check_local(self.client_address2[0]):
                         # don't show stacktrace if not permitted and not in debug mode
                         if "stacktrace" in generror:
                             del generror["stacktrace"]
                     # with harden mode do not show errormessage
-                    if harden_mode and not isinstance(exc, (AddressFail, VALError)):
+                    if config.harden_mode and not isinstance(exc, (AddressFail, VALError)):
                         generror = generate_error("unknown")
                     ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
                     self.scn_send_answer(500, body=ob, mime="application/json")
@@ -338,7 +342,7 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                 if not self.links["auth_server"].verify("server", self.auth_info):
                     authreq = self.links["auth_server"].request_auth("server")
                     ob = bytes(json.dumps(authreq), "utf-8")
-                    self.cleanup_stale_data(max_serverrequest_size)
+                    self.cleanup_stale_data(config.max_serverrequest_size)
                     self.scn_send_answer(401, body=ob, docache=False)
                 else:
                     self.handle_wrap(sub)
@@ -432,7 +436,7 @@ class client_init(object):
         elif len(_name) >= 2:
             port = int(_name[1])
         else:
-            port = client_port
+            port = config.client_port
         clientserverdict = {"name": _name[0], "certhash": dhash(pub_cert),
                             "priority": kwargs.get("priority"), "message": _message}
         self.links["client_server"] = client_server(clientserverdict)
@@ -462,7 +466,7 @@ class client_init(object):
         if _r:
             ret["cserver_ip"] = _r.server_name, _r.server_port
         else:
-            ret["cserver_ip"] =ret["hserver"]
+            ret["cserver_ip"] = ret["hserver"]
         _r = self.links.get("cserver_unix", None)
         if _r:
             ret["cserver_unix"] = _r.server_name
@@ -484,13 +488,13 @@ default_client_args = \
     "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
     "spwfile": ["", str, "<pw>: password file"],
     "remote" : ["False", bool, "<bool>: remote reachable (not only localhost) (needs cpwhash/file)"],
-    "priority": [str(default_priority), int, "<int>: set client priority"],
-    "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
-    "timeout": [str(default_timeout), int, "<int>: set default timeout"],
-    "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
+    "priority": [str(config.default_priority), int, "<int>: set client priority"],
+    "connect_timeout": [str(config.connect_timeout), int, "<int>: set timeout for connecting"],
+    "timeout": [str(config.default_timeout), int, "<int>: set default timeout"],
+    "loglevel": [str(config.default_loglevel), loglevel_converter, "<int/str>: loglevel"],
     "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""],
-    "config": [default_configdir, parsepath, "<dir>: path to config dir"],
-    "run": [default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
+    "config": [config.default_configdir, parsepath, "<dir>: path to config dir"],
+    "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
     "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"]
 }

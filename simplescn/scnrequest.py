@@ -4,11 +4,15 @@ import socket
 import json
 import ssl
 
+from simplescn import config
+from simplescn.config import isself
 
-from simplescn import default_sslcont, scnparse_url, default_timeout, \
-connect_timeout, gen_result, safe_mdecode, encode_bo, check_result, \
-isself, dhash, create_certhashheader, traverse_retries, \
+from simplescn import default_sslcont, scnparse_url, \
+safe_mdecode, encode_bo, \
+dhash, create_certhashheader, \
 AuthNeeded, VALHashError, VALNameError, VALMITMError, scnauth_client
+from simplescn.common import gen_result, check_result
+
 
 auth_instance = scnauth_client()
 
@@ -39,6 +43,7 @@ class requester(object):
 
 
 class SCNConnection(client.HTTPSConnection):
+    """ easy way to connect with simplescn nodes """
     kwargs = None
     
     # valid values for certtupel
@@ -48,8 +53,9 @@ class SCNConnection(client.HTTPSConnection):
     # (name, security), hash, cert
     certtupel = None
     def __init__(self, host, **kwargs):
+        # don't implement highlevel stuff here, needed by traversal
         self.kwargs = kwargs
-        super().__init__(host, 0, self.kwargs.get("connect_timeout", connect_timeout), None)
+        super().__init__(host, 0, self.kwargs.get("connect_timeout", config.connect_timeout), None)
         self._context = self.kwargs.get("certcontext", default_sslcont())
         self._check_hostname = None
         # throw exception here
@@ -65,7 +71,7 @@ class SCNConnection(client.HTTPSConnection):
             _host = scnparse_url(self.host, force_port=self.kwargs.get("forceport", False))
             try:
                 self.sock = self._create_connection(
-                _host, self.kwargs.get("connect_timeout", connect_timeout), self.source_address)
+                _host, self.kwargs.get("connect_timeout", config.connect_timeout), self.source_address)
             except (ConnectionRefusedError, socket.timeout):
                 _kwargs = self.kwargs.copy()
                 _kwargs["use_unix"] = False
@@ -81,8 +87,8 @@ class SCNConnection(client.HTTPSConnection):
                 if retserv[0]:
                     self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
                     self.sock.bind(('', _sport))
-                    self.sock.settimeout(self.kwargs.get("connect_timeout", connect_timeout))
-                    for count in range(0, self.kwargs.get("traverse_retries", traverse_retries)):
+                    self.sock.settimeout(self.kwargs.get("connect_timeout", config.connect_timeout))
+                    for count in range(0, self.kwargs.get("traverse_retries", config.traverse_retries)):
                         try:
                             self.sock.connect(_host)
                             break
@@ -91,7 +97,7 @@ class SCNConnection(client.HTTPSConnection):
             # set options for ip
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # set options for all
-        self.sock.settimeout(self.kwargs.get("timeout", default_timeout))
+        self.sock.settimeout(self.kwargs.get("timeout", config.default_timeout))
         self.sock = self._context.wrap_socket(self.sock, server_side=False)
         self.sock.do_handshake()
         self._check_cert()
@@ -171,6 +177,8 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
         con = SCNConnection(addr_or_con, **kwargs)
     if con.sock is None:
         con.connect()
+    if con.sock is None:
+        return None, False, "Could not open connection", (isself, kwargs.get("ownhash", None), None)
 
     if kwargs.get("sendclientcert", False):
         if kwargs.get("certcontext", None) and kwargs.get("ownhash", None):

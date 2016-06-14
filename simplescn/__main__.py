@@ -17,11 +17,8 @@ if __name__ == "__main__":
     _tpath = os.path.dirname(_tpath)
     sys.path.insert(0, _tpath)
 
-import simplescn
-from simplescn import sharedir, logformat, default_loglevel, loglevel_converter
-from simplescn.common import scnparse_args
-import simplescn.client
-import simplescn.server
+from simplescn import config
+from simplescn.common import scnparse_args, loglevel_converter
 
 running_instances = []
 
@@ -82,7 +79,7 @@ def _init_scn():
     global _is_init_already
     if not _is_init_already and threading.current_thread() == threading.main_thread():
         _is_init_already = True
-        logging.basicConfig(level=loglevel_converter(default_loglevel), format=logformat)
+        logging.basicConfig(level=loglevel_converter(config.default_loglevel), format=config.logformat)
         signal.signal(signal.SIGINT, _signal_handler)
 
 def _init_method_main():

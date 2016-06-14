@@ -7,17 +7,17 @@ license: MIT, see LICENSE.txt
 
 import os
 
-from http.client import HTTPSConnection
 import time
 import threading
 import json
 import logging
 import ssl
-import socket
 
-from simplescn import server_port, check_certs, generate_certs, init_config_folder, default_configdir, check_name, dhash, commonscn, check_argsdeco, scnauth_server, max_serverrequest_size, generate_error, gen_result, high_load, medium_load, low_load, very_low_load, InvalidLoadSizeError, InvalidLoadLevelError, generate_error_deco, default_priority, default_timeout, check_updated_certs, traverser_dropper, scnparse_url, create_certhashheader, classify_local, classify_access, http_server, commonscnhandler, default_loglevel, loglevel_converter, connect_timeout, check_hash, check_local, harden_mode, debug_mode, sharedir, file_family
+from simplescn import config
 
-from simplescn.common import parsepath, parsebool
+from simplescn import check_certs, generate_certs, init_config_folder, check_name, dhash, check_argsdeco, scnauth_server, InvalidLoadSizeError, InvalidLoadLevelError, check_updated_certs, traverser_dropper, scnparse_url, classify_local, loglevel_converter, check_hash, check_local, file_family
+
+from simplescn.common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result
 
 server_broadcast_header = \
 {
@@ -53,9 +53,9 @@ class server(commonscn):
         self.changeip_lock = threading.Lock()
         # now: always None, because set manually
         #  traversesrcaddr = d.get("traversesrcaddr", None)
-        if len(very_low_load) != 2 or len(low_load) != 3 or len(medium_load) != 3 or len(high_load) != 3:
+        if len(config.very_low_load) != 2 or len(config.low_load) != 3 or len(config.medium_load) != 3 or len(config.high_load) != 3:
             raise InvalidLoadSizeError()
-        if high_load[0] < medium_load[0] or medium_load[0] < low_load[0]:
+        if config.high_load[0] < config.medium_load[0] or config.medium_load[0] < config.low_load[0]:
             raise InvalidLoadLevelError()
         if d["name"] is None or len(d["name"]) == 0:
             logging.debug("Name empty")
@@ -116,15 +116,15 @@ class server(commonscn):
 
     # private, do not include in validactions
     def load_balance(self, size_nh):
-        if size_nh >= high_load[0]:
-            self.sleep_time, self.expire_time = high_load[1:]
-        elif size_nh >= medium_load[0]:
-            self.sleep_time, self.expire_time = medium_load[1:]
-        elif size_nh >= low_load[0]:
-            self.sleep_time, self.expire_time = low_load[1:]
+        if size_nh >= config.high_load[0]:
+            self.sleep_time, self.expire_time = config.high_load[1:]
+        elif size_nh >= config.medium_load[0]:
+            self.sleep_time, self.expire_time = config.medium_load[1:]
+        elif size_nh >= config.low_load[0]:
+            self.sleep_time, self.expire_time = config.low_load[1:]
         else:
             # very_low_load tuple mustn't have three items
-            self.sleep_time, self.expire_time = very_low_load
+            self.sleep_time, self.expire_time = config.very_low_load
 
     # private, do not include in validactions
     def check_register(self, addresst, _hash):
@@ -140,7 +140,8 @@ class server(commonscn):
 
     def check_brokencerts(self, _address, _port, _name, certhashlist, newhash):
         """ func: connect to check if requester has broken certs """
-        update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash)
+        _addrtrav = "::1-{}".format(self.links["hserver"].server_port)
+        update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traverseaddress=_addrtrav)
         if update_list in [None, []]:
             return
 
@@ -153,7 +154,7 @@ class server(commonscn):
         self.nhipmap_cond.set()
 
     @check_argsdeco({"name": str, "port": int}, optional={"update": list})
-    def register(self, obdict):
+    def register(self, obdict: dict):
         """ func: register client
             return: success or error
             name: client name
@@ -200,7 +201,7 @@ class server(commonscn):
         return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
 
     @check_argsdeco({"destaddr": str})
-    def open_traversal(self, obdict):
+    def open_traversal(self, obdict: dict):
         """ func: open traversal connection
             return: traverse_address (=remote own address)
             destaddr: destination address """
@@ -216,13 +217,13 @@ class server(commonscn):
 
     @check_argsdeco()
     @classify_local
-    def get_ownaddr(self, obdict):
+    def get_ownaddr(self, obdict: dict):
         """ func: return remote own address
             return: remote requester address """
         return True, {"address": obdict.get("clientaddress")}
 
     @check_argsdeco({"hash": str, "name": str}, optional={"autotraverse": bool})
-    def get(self, obdict):
+    def get(self, obdict: dict):
         """ func: get address of a client
             return: client address, client port, security, traverse_address, traverse_needed
             name: client name
@@ -272,7 +273,7 @@ def gen_server_handler():
                 self.scn_send_answer(200, body=ob, docache=False)
                 return
 
-            obdict = self.parse_body(max_serverrequest_size)
+            obdict = self.parse_body(config.max_serverrequest_size)
             if obdict is None:
                 return None
             try:
@@ -281,12 +282,12 @@ def gen_server_handler():
                 jsonnized = json.dumps(gen_result(result, success))
             except Exception as exc:
                 generror = generate_error(exc)
-                if not debug_mode or not check_local(self.client_address2[0]):
+                if not config.debug_mode or not check_local(self.client_address2[0]):
                     # don't show stacktrace if not permitted and not in debug mode
                     if "stacktrace" in generror:
                         del generror["stacktrace"]
                     # with harden mode do not show errormessage
-                    if harden_mode:
+                    if config.harden_mode:
                         generror = generate_error("unknown")
                 ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
                 self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
@@ -364,7 +365,7 @@ class server_init(object):
         elif len(_name) >= 2:
             port = int(_name[1])
         else:
-            port = server_port
+            port = config.server_port
 
         serverd = {"name": _name, "certhash": dhash(pub_cert), "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
         self.links["handler"].links = self.links
@@ -392,14 +393,14 @@ class server_init(object):
 #### don't base on sqlite as it increases complexity and needed libs
 
 default_server_args = {
-    "config": [default_configdir, parsepath, "<path>: path to config dir"],
+    "config": [config.default_configdir, parsepath, "<path>: path to config dir"],
     "port": [str(-1), int, "<int>: port of server, -1: use port in \"server_name.txt\""],
     "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than pwfile, lowercase"],
     "spwfile": ["", str, "<file>: file with password (cleartext)"],
-    "priority": [str(default_priority), int, "<int>: set server priority"],
-    "connect_timeout": [str(connect_timeout), int, "<int>: set timeout for connecting"],
-    "timeout": [str(default_timeout), int, "<int>: set timeout"],
-    "loglevel": [str(default_loglevel), loglevel_converter, "<int/str>: loglevel"],
+    "priority": [str(config.default_priority), int, "<int>: set server priority"],
+    "connect_timeout": [str(config.connect_timeout), int, "<int>: set timeout for connecting"],
+    "timeout": [str(config.default_timeout), int, "<int>: set timeout"],
+    "loglevel": [str(config.default_loglevel), loglevel_converter, "<int/str>: loglevel"],
     "notraversal": ["False", parsebool, "<bool>: disable traversal"]}
 
 def server_paramhelp():

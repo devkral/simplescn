@@ -15,16 +15,11 @@ import ssl
 import socket
 import time
 import struct
-import traceback
 
 import hashlib
 import re
 import threading
 import json
-from urllib import parse
-from http.client import HTTPSConnection
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import socketserver
 
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -35,17 +30,12 @@ from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
 
 sharedir = os.path.dirname(os.path.realpath(__file__))
 # append to pathes
-if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+if sharedir not in sys.path:
+    sys.path.append(sharedir)
 
-# load parameters in simplescn namespace
-# don't load directly from parameters
-# because parameters can be overwritten by parameters_overwrite
-try:
-    from simplescn.parameters_overwrite import *
-except ImportError:
-    from simplescn.parameters import *
-socket.setdefaulttimeout(default_timeout)
+from simplescn import config
+from simplescn.config import isself
+from simplescn.scnrequest import SCNConnection
 
 # define file_family
 if hasattr(socket, "AF_UNIX"):
@@ -103,59 +93,6 @@ resp_st = \
     "error": None
 }
 
-def generate_error(err):
-    error = {"msg": "unknown", "type": "unknown"}
-    if err is None:
-        return error
-    error["msg"] = str(err)
-    if isinstance(err, str):
-        error["type"] = ""
-    else:
-        error["type"] = type(err).__name__
-        if hasattr(err, "__traceback__"):
-            error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "") #[3]
-        elif sys.exc_info()[2] is not None:
-            error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
-    return error # json.dumps(error)
-
-def generate_error_deco(func):
-    def get_args(self, *args, **kwargs):
-        resp = func(self, *args, **kwargs)
-        if len(resp) == 4:
-            _name = resp[2]
-            _hash = resp[3]
-        else:
-            _name = isself
-            _hash = self.cert_hash
-        if not resp[0]:
-            return False, generate_error(resp[1]), _name, _hash
-        return resp
-    return get_args
-
-def gen_result(res, status):
-    """ generate result """
-    stdict = resp_st.copy()
-    if status:
-        stdict["status"] = "ok"
-        stdict["result"] = res
-        del stdict["error"]
-    else:
-        stdict["status"] = "error"
-        stdict["error"] = res
-        del stdict["result"]
-    return stdict
-
-def check_result(obdict, status):
-    """ is result valid """
-    if obdict is None:
-        return False
-    if "status" not in obdict:
-        return False
-    if status and "result" not in obdict:
-        return False
-    if not status and "error" not in obdict:
-        return False
-    return True
 
 ### logging ###
 
@@ -197,7 +134,7 @@ def generate_certs(_path):
             return False
     _key = rsa.generate_private_key(
         public_exponent=65537,
-        key_size=key_size,
+        key_size=config.key_size,
         backend=default_backend())
     _pub_key = _key.public_key()
     _tname = [x509.NameAttribute(NameOID.COMMON_NAME, 'secure communication nodes'), ]
@@ -214,7 +151,7 @@ def generate_certs(_path):
                                       not_valid_before=datetime.date(1970, 1, 1),
                                       not_valid_after=datetime.date(1970, 1, 1),
                                       extensions=extensions)
-    cert = builder.sign(_key, cert_sign_hash, default_backend())
+    cert = builder.sign(_key, config.cert_sign_hash, default_backend())
     if _passphrase == "":
         encryption_algorithm = serialization.NoEncryption()
     else:
@@ -272,7 +209,7 @@ def init_config_folder(_dir, prefix):
             if prefix == "client":
                 writeo.write("{}/{}".format(normalize_name(_name), 0))
             else:
-                writeo.write("{}/{}".format(normalize_name(_name), server_port))
+                writeo.write("{}/{}".format(normalize_name(_name), config.server_port))
     if not os.path.exists(_path+"_message.txt"):
         with open("{}_message.txt".format(_path), "w") as writeo:
             writeo.write("<message>")
@@ -297,15 +234,14 @@ def gen_sslcont(path):
 # returns url or ipv6 address unchanged, return converted ipv4 address
 # only address, without port
 #re_check_ip6 = re.compile("[0-9:]+")
-re_check_ip4 = re.compile("[0-9.]+")
+_recheckip4 = re.compile("[0-9.]+")
 def convert_ip4_to_6(address):
-    if re_check_ip4.match(address):
+    if _recheckip4.match(address):
         return "::ffff:{}".format(address)
     else:
         return address
 
-re_parse_url_old = re.compile("\\[?(.*)\\]?:([0-9]+)")
-re_parse_url = re.compile("(.*)-([0-9]+)$")
+_reparseurl = re.compile("(.*)-([0-9]+)$")
 def scnparse_url(url, force_port=False):
     # if isinstance(url, (tuple, list)) == True:
     #     return url
@@ -313,11 +249,11 @@ def scnparse_url(url, force_port=False):
         raise AddressFail
     if url == "":
         raise AddressEmptyFail
-    _urlre = re_parse_url.match(url)
+    _urlre = _reparseurl.match(url)
     if _urlre is not None:
         return _urlre.groups()[0], int(_urlre.groups()[1])
     if not force_port:
-        return (url, server_port)
+        return (url, config.server_port)
     raise EnforcedPortFail
 
 
@@ -342,7 +278,7 @@ class scnauth_server(object):
     hash_algorithm = None
     serverpubcert_hash = None
 
-    def __init__(self, serverpubcert_hash, hash_algorithm=DEFAULT_HASHALGORITHM, request_expire_time=auth_request_expire_time):
+    def __init__(self, serverpubcert_hash, hash_algorithm=config.DEFAULT_HASHALGORITHM, request_expire_time=config.auth_request_expire_time):
         self.realms = {}
         self.hash_algorithm = hash_algorithm
         self.serverpubcert_hash = serverpubcert_hash
@@ -388,7 +324,7 @@ class scnauth_server(object):
 
     def init_realm(self, realm, pwhash):
         # internal salt for memory protection+nonce
-        nonce = os.urandom(salt_size).hex()
+        nonce = os.urandom(config.salt_size).hex()
         self.realms[realm] = (dhash((pwhash, realm, nonce, self.serverpubcert_hash), self.hash_algorithm), nonce)
 
 class scnauth_client(object):
@@ -419,7 +355,7 @@ class scnauth_client(object):
         dauth["auth"] = dhash((authreq_ob["nonce"], pubcert_hash, authreq_ob["timestamp"]), authreq_ob["algo"], prehash=pre)
         return dauth
 
-    def saveauth(self, pw, saveid, realm, algo=DEFAULT_HASHALGORITHM):
+    def saveauth(self, pw, saveid, realm, algo=config.DEFAULT_HASHALGORITHM):
         pre = dhash((dhash(pw, algo), realm), algo)
         if saveid not in self.save_auth:
             self.save_auth[saveid] = {}
@@ -445,70 +381,6 @@ class scnauth_client(object):
             authreq_ob["algo"] = _hashalgo
         return self.asauth(pre, authreq_ob, pubcert_hash)
 
-
-class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    """ server part of client/server """
-    sslcont = None
-    rawsock = None
-    timeout = None
-    use_unix = False
-
-    def __init__(self, _address, certfpath, _handler, pwmsg, timeout=default_timeout, use_unix=False):
-        self.use_unix = use_unix
-        
-        if self.use_unix:
-            self.address_family = socket.AF_UNIX
-            try:
-                os.unlink(_address)
-            except OSError:
-                if os.path.exists(_address):
-                    raise
-        else:
-            self.address_family = socket.AF_INET6
-            self.allow_reuse_address = 1
-        self.timeout = timeout
-        socketserver.TCPServer.__init__(self, _address, _handler, False)
-        if not self.use_unix:
-            try:
-                self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-            except Exception:
-                # python for windows has disabled it
-                # hope that it works without
-                pass
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        self.sslcont = default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda: bytes(pwcallmethod(pwmsg), "utf-8"))
-        self.socket = self.sslcont.wrap_socket(self.socket)
-
-        try:
-            self.server_bind()
-            self.server_activate()
-        except:
-            self.server_close()
-            raise
-        
-    def get_request(self):
-        con, addr = self.socket.accept()
-        if self.use_unix:
-            return con, ('', 0)
-        else:
-            return con, addr
-    def server_bind(self):
-        """Override server_bind to store the server name."""
-        socketserver.TCPServer.server_bind(self)
-        if self.use_unix:
-            self.server_name = self.socket.getsockname()
-            self.server_port = 0
-            # valid port but wildcard and invalid as returned port
-            # so use it
-        else:
-            host, port = self.socket.getsockname()[:2]
-            self.server_name = host #socket.getfqdn(host)
-            self.server_port = port
-
-    def serve_forever_nonblock(self):
-        threading.Thread(target=self.serve_forever, daemon=True).start()
 
 scn_pingstruct = struct.pack(">c511x", b"p")
 scn_yesstruct = struct.pack(">c511x", b"y")
@@ -575,7 +447,7 @@ class traverser_helper(object):
     desttupels = None
     active = None
     mutex = None
-    def __init__(self, connectsock, srcsock, interval=ping_interval):
+    def __init__(self, connectsock, srcsock, interval=config.ping_interval):
         self.desttupels = []
         self.active = True
         self.interval = interval
@@ -658,20 +530,17 @@ cert_update_header = \
 }
 
 
-def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=default_timeout, ctimeout=connect_timeout):
+def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=config.default_timeout, connect_timeout=config.connect_timeout, traverseaddress=None):
     update_list = []
     if None in [_address, _port]:
         logging.error("address or port empty")
         return None
     cont = default_sslcont()
-    con = HTTPSConnection(_address, _port, context=cont, timeout=ctimeout)
-    try:
-        con.connect()
-    except socket.timeout:
+    con = SCNConnection("{}-{}".format(_address, _port), certcontext=cont, connect_timeout=connect_timeout, timeout=timeout, traverseaddress=traverseaddress)
+    con.connect()
+    if con.sock is None:
         logging.warning("Connection failed")
         return None
-    con.timeout = timeout
-    con.sock.settimeout(timeout)
     oldhash = dhash(ssl.DER_cert_to_PEM_cert(con.sock.getpeercert(True)).strip().rstrip())
     if newhash and newhash != oldhash:
         return None
@@ -699,204 +568,12 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=def
     return update_list
 
 
-class commonscn(object):
-    # replace not add elsewise bugs in multi instance situation
-    capabilities = []
-    info = None
-    priority = None
-    name = None
-    message = None
-    cert_hash = None
-    scn_type = "unknown"
-    pluginmanager = None
-    isactive = True
-    update_cache_lock = None
-
-    # set in __init__, elsewise bugs in multi instance situation (references)
-    cache = None
-
-    def __init__(self):
-        self.cache = {"cap": "", "info": "", "prioty": ""}
-        self.update_cache_lock = threading.Lock()
-    def __del__(self):
-        self.isactive = False
-
-    def update_cache(self):
-        with self.update_cache_lock:
-            self.cache["cap"] = json.dumps(gen_result({"caps": self.capabilities}, True))
-            self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
-            self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
-
-
-class commonscnhandler(BaseHTTPRequestHandler):
-    links = None
-    sys_version = "" # would say python xy, no need and maybe security hole
-    auth_info = None
-    # replace not add, just a placeholder
-    statics = {}
-    client_cert = None
-    client_certhash = None
-    # replaced by function not init
-    alreadyrewrapped = False
-    client_address2 = None
-    links = None
-
-    def scn_send_answer(self, status, body=None, mime="application/json", message=None, docache=False, dokeepalive=None):
-        if message:
-            self.send_response(status, message)
-        else:
-            self.send_response(status)
-        if body:
-            self.send_header("Content-Length", len(body))
-        if mime and body:
-            self.send_header("Content-Type", "{}; charset=utf-8".format(mime))
-        if self.headers.get("X-certrewrap") is not None:
-            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        if not docache:
-            self.send_header("Cache-Control", "no-cache")
-            if dokeepalive is None and status == 200:
-                dokeepalive = True
-        if dokeepalive:
-            self.send_header('Connection', 'keep-alive')
-        else:
-            self.send_header('Connection', 'close')
-        self.end_headers()
-        if body:
-            self.wfile.write(body)
-
-    def init_scn_stuff(self):
-        useragent = self.headers.get("User-Agent", "")
-        if "simplescn" in useragent:
-            self.error_message_format = "%(code)d: %(message)s – %(explain)s"
-        else:
-            logging.debug("unknown useragent: %s", useragent)
-
-        _auth = self.headers.get("Authorization", 'scn {}')
-        method, _auth = _auth.split(" ", 1)
-        _auth = _auth.strip().rstrip()
-        if method == "scn":
-            # is different from the body, so don't use header information
-            self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8")
-        else:
-            self.auth_info = None
-        if self.client_address[0][:7] == "::ffff:":
-            self.client_address2 = (self.client_address[0][7:], self.client_address[1])
-        else:
-            self.client_address2 = (self.client_address[0], self.client_address[1])
-        # hack around not transmitted client cert
-        _rewrapcert = self.headers.get("X-certrewrap", None)
-        _origcert = self.headers.get("X-original_cert", None)
-        if _rewrapcert is not None:
-            cont = self.connection.context
-            if not self.alreadyrewrapped:
-                # wrap tcp socket, not ssl socket
-                self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=False)
-                self.alreadyrewrapped = True
-            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
-            self.client_certhash = dhash(self.client_cert)
-            if _rewrapcert.split(";")[0] != self.client_certhash:
-                return False
-            if _origcert and self.links.get("trusted_certhash", "") != "":
-                if _rewrapcert == self.links.get("trusted_certhash"):
-                    self.client_cert = _origcert
-                    self.client_certhash = dhash(_origcert)
-                else:
-                    logging.debug("rewrapcert incorrect")
-                    return False
-            #self.rfile.close()
-            #self.wfile.close()
-            self.rfile = self.connection.makefile(mode='rb')
-            self.wfile = self.connection.makefile(mode='wb')
-        else:
-            self.client_cert = None
-            self.client_certhash = None
-        return True
-
-    def cleanup_stale_data(self, maxchars=max_serverrequest_size):
-        if self.headers.get("Content-Length", "").strip().rstrip().isdecimal():
-            # protect against big transmissions
-            self.rfile.read(min(maxchars, int(self.headers.get("Content-Length"))))
-
-    def parse_body(self, maxlength=None):
-        if not self.headers.get("Content-Length", "").strip().rstrip().isdecimal():
-            self.scn_send_answer(411, message="POST data+data length needed")
-            return None
-        contsize = int(self.headers.get("Content-Length"))
-        if maxlength and contsize > maxlength:
-            self.scn_send_answer(431, message="request too large", docache=False)
-        readob = self.rfile.read(contsize)
-        # str: charset (like utf-8), safe_mdecode: transform arguments to dict
-        obdict = safe_mdecode(readob, self.headers.get("Content-Type"))
-        if obdict is None:
-            self.scn_send_answer(400, message="bad arguments")
-            return None
-        obdict["clientaddress"] = self.client_address2
-        obdict["client_cert"] = self.client_cert
-        obdict["client_certhash"] = self.client_certhash
-        obdict["headers"] = self.headers
-        obdict["socket"] = self.connection
-        return obdict
-
-    def handle_usebroken(self, sub):
-        # invalidate as attacker can connect while switching
-        self.alreadyrewrapped = False
-        self.client_cert = None
-        self.client_certhash = None
-        certfpath = os.path.join(self.links["config_root"], "broken", sub)
-        if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
-            cont = default_sslcont()
-            cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
-            oldsslcont = self.connection.context
-            self.connection = self.connection.unwrap()
-            self.connection = cont.wrap_socket(self.connection, server_side=True)
-            self.connection = self.connection.unwrap()
-            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-            self.rfile = self.connection.makefile(mode='rb')
-            self.wfile = self.connection.makefile(mode='wb')
-            self.scn_send_answer(200, message="brokencert successfull", docache=False, dokeepalive=True)
-        else:
-            oldsslcont = self.connection.context
-            self.connection = self.connection.unwrap()
-            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-            self.connection = self.connection.unwrap()
-            self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
-            self.rfile = self.connection.makefile(mode='rb')
-            self.wfile = self.connection.makefile(mode='wb')
-            self.scn_send_answer(404, message="brokencert not found", docache=False, dokeepalive=True)
-
-    def wrap_func(self, func, *args, **kwargs):
-        self.send_response(200)
-        self.send_header("Connection", "keep-alive")
-        self.send_header("Cache-Control", "no-cache")
-        if self.headers.get("X-certrewrap") is not None:
-            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        self.end_headers()
-        # send if not sent already
-        self.wfile.flush()
-        try:
-            return func(*args, **kwargs)
-        except Exception as exc:
-            logging.error(exc)
-            return False
-
-    def do_auth(self, domain):
-        if not self.links["auth_server"].verify(domain, self.auth_info):
-            authreq = self.links["auth_server"].request_auth(domain)
-            ob = bytes(json.dumps(authreq), "utf-8")
-            self.cleanup_stale_data(max_serverrequest_size)
-            self.scn_send_answer(401, body=ob, docache=False)
-            return False
-        return True
-
-
-
 def create_certhashheader(certhash):
-    _random = os.urandom(token_size).hex()
+    _random = os.urandom(config.token_size).hex()
     return "{};{}".format(certhash, _random), _random
 
-def dhash(oblist, algo=DEFAULT_HASHALGORITHM, prehash=""):
-    if algo not in algorithms_strong:
+def dhash(oblist, algo=config.DEFAULT_HASHALGORITHM, prehash=""):
+    if algo not in config.algorithms_strong:
         logging.error("Hashalgorithm not available: %s", algo)
         return None
     if not isinstance(oblist, (list, tuple)):
@@ -1135,14 +812,14 @@ def check_reference(_reference):
 def check_reference_type(_reference_type):
     if _reference_type is None:
         return False
-    if len(_reference_type) > max_typelength:
+    if len(_reference_type) > config.max_typelength:
         return False
     if not all(c in "0123456789abcdefghijklmnopqrstuvxyz_" for c in _reference_type):
         return False
     return True
 
 def check_security(_security):
-    if _security in security_states:
+    if _security in config.security_states:
         return True
     return False
 
@@ -1163,11 +840,11 @@ def check_hash(hashstr, length=None):
         return False
     return True
 
-badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"
+_badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"
 # no .:- to differ name from ip address
-badnamechars += ".:"
+_badnamechars += ".:"
 
-def normalize_name(_name, maxlength=max_namelength):
+def normalize_name(_name, maxlength=config.max_namelength):
     if _name is None:
         return None
     # name shouldn't be too long or "", strip also bad chars before length calc
@@ -1179,7 +856,7 @@ def normalize_name(_name, maxlength=max_namelength):
     _name = ""
     for char in _oldname:
         # ensure no bad, control characters
-        if char in badnamechars or not char.isprintable():
+        if char in _badnamechars or not char.isprintable():
             pass
         else:
             _name += char
@@ -1188,7 +865,7 @@ def normalize_name(_name, maxlength=max_namelength):
         _name = "fake_" + isself
     return _name
 
-def check_name(_name, maxlength=max_namelength):
+def check_name(_name, maxlength=config.max_namelength):
     if _name is None:
         return False
     # name shouldn't be too long or 0
@@ -1196,14 +873,14 @@ def check_name(_name, maxlength=max_namelength):
         return False
     for char in _name:
         # ensure no bad, control characters
-        if char in badnamechars or not char.isprintable():
+        if char in _badnamechars or not char.isprintable():
             return False
     # name shouldn't be isself as it is used
     if _name == isself:
         return False
     return True
 
-def check_typename(_type, maxlength=max_typelength):
+def check_typename(_type, maxlength=config.max_typelength):
     if _type is None:
         return False
     # type shouldn't be too long or 0
@@ -1232,7 +909,7 @@ def check_conftype(_value, _converter):
 def rw_socket(sockr, sockw):
     while True:
         try:
-            ret = sockr.recv(default_buffer_size)
+            ret = sockr.recv(config.default_buffer_size)
             if ret == b'':
                 sockw.close()
                 break
