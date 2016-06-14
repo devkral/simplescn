@@ -19,12 +19,12 @@ from simplescn.common import parsepath, parsebool, commonscn, commonscnhandler, 
 from simplescn.client_admin import client_admin
 from simplescn.client_safe import client_safe
 
-
-from simplescn import check_certs, generate_certs, init_config_folder, dhash, check_name, AddressFail, rw_socket, check_argsdeco, scnauth_server, VALError, check_hash, traverser_helper, classify_local, classify_access, loglevel_converter, check_local, file_family, check_classify, default_sslcont, AuthNeeded
+from simplescn import VALError, AuthNeeded, file_family
+from simplescn.tools import check_certs, generate_certs, init_config_folder, dhash, check_name, AddressFail, rw_socket, check_argsdeco, scnauth_server, check_hash, traverser_helper, classify_local, classify_access,  check_local, check_classify, default_sslcont
 
 from simplescn.scnrequest import requester
 
-from simplescn.common import certhash_db
+from simplescn.common import certhash_db, loglevel_converter
 #VALMITMError
 
 

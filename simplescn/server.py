@@ -13,11 +13,12 @@ import json
 import logging
 import ssl
 
-from simplescn import config
+from simplescn import config, file_family
 
-from simplescn import check_certs, generate_certs, init_config_folder, check_name, dhash, check_argsdeco, scnauth_server, InvalidLoadSizeError, InvalidLoadLevelError, check_updated_certs, traverser_dropper, scnparse_url, classify_local, loglevel_converter, check_hash, check_local, file_family
+from simplescn.tools import check_certs, generate_certs, init_config_folder, check_name, dhash, check_argsdeco, scnauth_server, check_updated_certs, traverser_dropper, scnparse_url, classify_local, check_hash, check_local
+from simplescn import InvalidLoadSizeError, InvalidLoadLevelError
 
-from simplescn.common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result
+from simplescn.common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, loglevel_converter
 
 server_broadcast_header = \
 {
@@ -140,8 +141,7 @@ class server(commonscn):
 
     def check_brokencerts(self, _address, _port, _name, certhashlist, newhash):
         """ func: connect to check if requester has broken certs """
-        _addrtrav = "::1-{}".format(self.links["hserver"].server_port)
-        update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traverseaddress=_addrtrav)
+        update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traversefunc=lambda x:self.traverse.send((_address, _port), x))
         if update_list in [None, []]:
             return
 

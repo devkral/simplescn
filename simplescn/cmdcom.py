@@ -12,9 +12,7 @@ if __name__ == "__main__":
     _tpath = os.path.dirname(_tpath)
     sys.path.insert(0, _tpath)
 
-
 from simplescn.scnrequest import do_request_simple
-from simplescn.__main__ import client, server, running_instances
 
 def cmdloop(ip, use_unix=False):
     while True:
@@ -68,6 +66,7 @@ def loop_unix(argv=sys.argv[1:]):
     _loop(argv, True)
 
 def _test(argv, use_unix):
+    from simplescn.__main__ import client, server, running_instances
     c = client(doreturn=True)
     running_instances.append(c)
     t = c.show()

@@ -11,8 +11,8 @@ import abc
 
 
 from simplescn.config import isself
-
-from simplescn import dhash, check_argsdeco, check_args, scnparse_url, EnforcedPortFail, check_updated_certs, classify_local, default_sslcont, check_local
+from simplescn import EnforcedPortFail
+from simplescn.tools import dhash, check_argsdeco, check_args, scnparse_url, check_updated_certs, classify_local, default_sslcont, check_local
 
 class client_safe(object, metaclass=abc.ABCMeta):
     validactions_safe = {"get", "gethash", "help", "show", "register", "getlocal", "listhashes", "listnodenametypes", "listnames", "listnodenames", "listnodeall", "getservice", "registerservice", "listservices", "info", "check", "check_direct", "prioty_direct", "prioty", "ask", "getreferences", "cap", "findbyref", "delservice"}

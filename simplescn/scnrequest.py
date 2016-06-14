@@ -7,10 +7,11 @@ import ssl
 from simplescn import config
 from simplescn.config import isself
 
-from simplescn import default_sslcont, scnparse_url, \
+from simplescn.tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, \
-dhash, create_certhashheader, \
-AuthNeeded, VALHashError, VALNameError, VALMITMError, scnauth_client
+dhash, create_certhashheader, scnauth_client
+
+from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
 from simplescn.common import gen_result, check_result
 
 
@@ -94,6 +95,8 @@ class SCNConnection(client.HTTPSConnection):
                             break
                         except Exception:
                             pass
+                    else:
+                        return None
             # set options for ip
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # set options for all

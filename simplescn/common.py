@@ -21,8 +21,8 @@ from simplescn import config
 from simplescn.config import isself
 
 
-from simplescn import check_name, check_hash, check_security, \
-check_typename, check_reference, check_reference_type, loglevel_converter, \
+from simplescn.tools import check_name, check_hash, check_security, \
+check_typename, check_reference, check_reference_type, \
 dhash, safe_mdecode, default_sslcont, pwcallmethod
 
 # for config
@@ -770,6 +770,37 @@ def check_result(obdict, status):
     if not status and "error" not in obdict:
         return False
     return True
+
+### logging ###
+
+def logcheck(ret, level=logging.DEBUG):
+    if ret[0]:
+        return True
+    else:
+        if level != 0: # = logging.DEBUG
+            try:
+                fn, lno, func, sinfo = logging.root.findCaller(False)
+            except ValueError: # fails on some interpreters
+                fn, lno, func, sinfo = "(unknown file)", 0, "(unknown function)", None
+            sinfo = ret[1].get("stacktrace", None)
+            message = ret[1].get("msg", "")
+            if message == "":
+                message = "{levelname}:{line}:{funcname}: crashed".format(levelname=logging.getLevelName(level), line=lno, funcname=func)
+            record = logging.root.makeRecord(logging.root.name, level, fn, lno, message, [], None, func, None, sinfo)
+            logging.root.handle(record)
+        return False
+
+
+def loglevel_converter(loglevel):
+    if isinstance(loglevel, int):
+        return loglevel
+    elif not loglevel.isdigit():
+        if hasattr(logging, loglevel) and isinstance(getattr(logging, loglevel), int):
+            return getattr(logging, loglevel)
+        raise TypeError("invalid loglevel")
+    else:
+        return int(loglevel)
+
 
 
 own_help = """

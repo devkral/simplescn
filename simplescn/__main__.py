@@ -63,7 +63,7 @@ def client(argv=sys.argv[1:], doreturn=False):
 def hashpw(argv=sys.argv[1:]):
     """ create pw hash for ?pwhash """
     _init_scn()
-    from simplescn import dhash
+    from simplescn.tools import dhash
     import base64
     if len(sys.argv) < 2 or sys.argv[1] in ["--help", "help"]:
         print("Usage: {} hashpw <pw>/\"random\"".format(sys.argv[0]))
