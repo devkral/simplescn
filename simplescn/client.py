@@ -199,11 +199,13 @@ class client_server(commonscn):
             return True, -1
 
 
-def gen_client_handler(_links, server=False, client=False, remote=False):
+def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False, ):
     class client_handler(commonscnhandler):
         server_version = 'simplescn/1.0 (client)'
         handle_remote = remote
         links = _links
+        server_timeout=stimeout
+        etablished_timeout=etimeout
         
         def handle_wrap(self, servicename):
             service = self.links["client_server"].spmap.get(servicename, None)
@@ -325,7 +327,9 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                 else:
                     self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
         def do_POST(self):
+            self.connection.settimeout(self.etablished_timeout)
             if not self.init_scn_stuff():
+                self.connection.settimeout(self.server_timeout)
                 return
             splitted = self.path[1:].split("/", 1)
             if len(splitted) == 1:
@@ -351,6 +355,7 @@ def gen_client_handler(_links, server=False, client=False, remote=False):
                 self.handle_client(sub)
             else:
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
+            self.connection.settimeout(self.server_timeout)
     return client_handler
 
 class client_init(object):
@@ -438,12 +443,12 @@ class client_init(object):
         self.links["client_server"] = client_server(clientserverdict)
         # use timeout argument of BaseServer
         if handle_remote:
-            self.links["shandler"] = gen_client_handler(self.links, server=True, client=True, remote=True)
+            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=True, remote=True)
         else:
-            self.links["shandler"] = gen_client_handler(self.links, server=True, client=False, remote=False)
+            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=False, remote=False)
         self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["shandler"], "Enter client certificate pw", timeout=kwargs.get("server_timeout"))
         if not handle_remote or (not kwargs.get("nounix") and file_family):
-            self.links["chandler"] = gen_client_handler(self.links, server=False, client=True, remote=False)
+            self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=False, client=True, remote=False)
             if file_family is not None:
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
                 self.links["cserver_unix"] = http_server(rpath, _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=5, use_unix=True)

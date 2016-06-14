@@ -251,10 +251,13 @@ class server(commonscn):
         else:
             return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
 
-def gen_server_handler():
+def gen_server_handler(_links, stimeout, etimeout):
     class server_handler(commonscnhandler):
         server_version = 'simplescn/1.0 (server)'
         webgui = False
+        links = _links
+        server_timeout=stimeout
+        etablished_timeout=etimeout
 
         def handle_server(self, action):
             if self.server.address_family == file_family:
@@ -301,7 +304,9 @@ def gen_server_handler():
                 self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
 
         def do_POST(self):
+            self.connection.settimeout(self.etablished_timeout)
             if not self.init_scn_stuff():
+                self.connection.settimeout(self.server_timeout)
                 return
             splitted = self.path[1:].split("/", 1)
             if len(splitted) == 1:
@@ -317,6 +322,7 @@ def gen_server_handler():
                 self.handle_server(sub)
             else:
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
+            self.connection.settimeout(self.server_timeout)
     return server_handler
 
 class server_init(object):
@@ -327,7 +333,7 @@ class server_init(object):
         self.links = {}
         self.links["config_root"] = kwargs.get("config")
         self.links["kwargs"] = kwargs
-        self.links["handler"] = gen_server_handler()
+        self.links["handler"] = gen_server_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"))
         _spath = os.path.join(self.links["config_root"], "server")
 
         init_config_folder(self.links["config_root"], "server")
@@ -370,7 +376,6 @@ class server_init(object):
             port = config.server_port
 
         serverd = {"name": _name, "certhash": dhash(pub_cert), "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
-        self.links["handler"].links = self.links
         self.links["server_server"] = server(serverd)
 
         self.links["hserver"] = http_server(("", port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=kwargs["server_timeout"])

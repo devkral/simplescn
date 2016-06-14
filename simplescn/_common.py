@@ -565,6 +565,8 @@ class commonscnhandler(BaseHTTPRequestHandler):
     rfile = None
     wfile = None
     connection = None
+    etablished_timeout = config.default_timeout
+    server_timeout = config.server_timeout
 
     def scn_send_answer(self, status, body=None, mime="application/json", message=None, docache=False, dokeepalive=None):
         if message:
