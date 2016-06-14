@@ -24,8 +24,7 @@ def shimrun(cmd, *args):
 class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
     temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
-    config.server_port = 40041
-    param_server = ["--config={}".format(temptestdir), "--port={}".format(config.server_port)]
+    param_server = ["--config={}".format(temptestdir), "--port={}".format(0)]
     param_client = ["--config={}".format(temptestdir), "--nocmd"]
     param_client2 = ["--config={}".format(temptestdir2), "--nocmd"]
     
@@ -68,11 +67,11 @@ class TestCommunication(unittest.TestCase):
     def test_speed(self):
         fun = lambda :self.client.links["client"].access_main("register", server="::1")
         ret = timeit.timeit(fun, number=30)
-        print(ret)
+        self.assertLess(ret, 2)
     
         fun2 = lambda :self.client.links["client"].access_main("cap", server="::1")
         ret2 = timeit.timeit(fun, number=30)
-        print(ret2)
+        self.assertLess(ret2, 2)
 
 if __name__ == "__main__":
     unittest.main(verbosity=0)
