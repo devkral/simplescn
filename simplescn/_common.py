@@ -17,10 +17,10 @@ from http.server import BaseHTTPRequestHandler
 import socketserver
 
 
-from simplescn import config
+from simplescn import config, pwcallmethod
 from simplescn.config import isself
 
-from simplescn.tools import dhash, safe_mdecode, default_sslcont, pwcallmethod
+from simplescn.tools import dhash, safe_mdecode, default_sslcont
 from simplescn.tools.checks import check_name, check_hash, check_security, \
 check_typename, check_reference, check_reference_type
 

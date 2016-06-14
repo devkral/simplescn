@@ -3,7 +3,6 @@ tools
 license: MIT, see LICENSE.txt
 """
 
-
 import os
 import logging
 import datetime
@@ -24,9 +23,9 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
 
 
-from simplescn import config
+from simplescn import config, pwcallmethod
 from simplescn.config import isself
-from simplescn import pwcallmethod, AddressFail, AddressEmptyFail, EnforcedPortFail
+from simplescn import AddressFail, AddressEmptyFail, EnforcedPortFail
 
 
 
