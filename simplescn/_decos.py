@@ -30,15 +30,7 @@ def classify_local(func):
     func.classify.add("local")
     return func
 
-# signals that method is experimental
-def classify_experimental(func):
-    if not hasattr(func, "classify"):
-        func.classify = set()
-    func.classify.add("experimental")
-    return func
-
-# signals that method is access method
-#access = accessing client/server
+# signals that method is private and should not be accessable
 def classify_private(func):
     if not hasattr(func, "classify"):
         func.classify = set()

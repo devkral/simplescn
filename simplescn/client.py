@@ -10,6 +10,7 @@ import socket
 import threading
 import json
 import logging
+from typing import cast
 
 from simplescn import config, VALError, AuthNeeded, AddressFail
 from simplescn.config import isself, file_family
@@ -36,14 +37,13 @@ reference_header = \
 class client_client(client_admin, client_safe):
     name = None
     cert_hash = None
-    sslcont = None
     hashdb = None
     links = None
     scntraverse_helper = None
     brokencerts = None
     _cache_help = None
-
     requester = None
+
     @property
     def validactions(self):
         raise NotImplementedError
@@ -51,14 +51,14 @@ class client_client(client_admin, client_safe):
     def __init__(self, name: str, pub_cert_hash: str, _links: dict):
         client_admin.__init__(self)
         client_safe.__init__(self)
+        self.validactions.update(client_admin.validactions)
+        self.validactions.update(client_safe.validactions)
         self.links = _links
         self.name = name
         self.cert_hash = pub_cert_hash
         self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
-        self.sslcont = self.links["hserver"].sslcont
         self.brokencerts = []
-        self.validactions = set()
-        self.requester = requester(ownhash=self.cert_hash, hashdb=self.hashdb, certcontext=self.sslcont)
+        self.requester = requester(ownhash=self.cert_hash, hashdb=self.hashdb, certcontext=self.links["hserver"].sslcont)
         
 
         self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
@@ -75,7 +75,6 @@ class client_client(client_admin, client_safe):
                 _reason = reado.read().strip().rstrip()
             if check_hash(_hash) and (_hash, _reason) not in self.brokencerts:
                 self.brokencerts.append((_hash, _reason))
-
         self._cache_help = self.cmdhelp()
 
     # return success, body, (name, security), hash
@@ -90,15 +89,13 @@ class client_client(client_admin, client_safe):
         """ internal method to access functions """
         if action in self.validactions:
             gaction = getattr(self, action)
-            if check_classify(gaction, "access"):
-                return False, "actions: 'classified access not allowed in access", isself, self.cert_hash
-            if check_classify(gaction, "experimental"):
-                logging.warning("action: \"%s\" is experimental", action)
+            if check_classify(gaction, "private"):
+                return False, "actions: 'private functions not allowed in access", isself, self.cert_hash
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
                 return getattr(self, action)(obdict)
             except AuthNeeded as exc:
-                raise(exc)
+                raise exc
             except Exception as exc:
                 return False, exc #.with_traceback(sys.last_traceback)
         else:
@@ -215,8 +212,8 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
         server_version = 'simplescn/1.0 (client)'
         handle_remote = remote
         links = _links
-        server_timeout=stimeout
-        etablished_timeout=etimeout
+        server_timeout = stimeout
+        etablished_timeout = etimeout
         
         def handle_wrap(self, servicename):
             """ wrap service """
@@ -245,6 +242,8 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             def handle_client(self, action):
                 """ access to client_client """
                 if action not in self.links["client"].validactions:
+                    print(self.links["client"].validactions)
+                    
                     self.send_error(400, "invalid action - client")
                     return
                 gaction = getattr(self.links["client"], action)

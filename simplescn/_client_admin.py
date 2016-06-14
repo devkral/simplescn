@@ -12,8 +12,9 @@ import abc
 
 from simplescn.tools import dhash, generate_certs
 from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security
-from simplescn._decos import classify_admin, classify_experimental, classify_local, check_args_deco, classify_accessable
+from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable, generate_validactions_deco
 
+@generate_validactions_deco
 class client_admin(object, metaclass=abc.ABCMeta):
 
     @property
@@ -307,7 +308,6 @@ class client_admin(object, metaclass=abc.ABCMeta):
 
     # TODO: test
     @check_args_deco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
-    @classify_experimental
     @classify_admin
     @classify_accessable
     def massimporter(self, obdict: dict):

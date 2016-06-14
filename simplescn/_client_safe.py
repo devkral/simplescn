@@ -14,8 +14,9 @@ from simplescn import EnforcedPortFail
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont
 from simplescn.tools.checks import check_updated_certs, check_local, check_args
-from simplescn._decos import check_args_deco, classify_local, classify_accessable
+from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
 
+@generate_validactions_deco
 class client_safe(object, metaclass=abc.ABCMeta):
 
     @property
@@ -36,11 +37,6 @@ class client_safe(object, metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def _cache_help(self):
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def sslcont(self):
         raise NotImplementedError
 
     @property
@@ -216,7 +212,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         _ha = self.gethash(obdict)
         if not _ha[0]:
             return _ha
-        _hadict = _ha[1]
+        _hadict = cast(dict, _ha[1])
         if _hadict.get("hash") == self.cert_hash:
             return True, {"localname": isself, "hash": self.cert_hash, "cert": _hadict["cert"]}
         hasho = self.hashdb.get(_hadict["hash"])
