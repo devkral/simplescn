@@ -56,7 +56,7 @@ class SCNConnection(client.HTTPSConnection):
     def __init__(self, host, **kwargs):
         # don't implement highlevel stuff here, needed by traversal
         self.kwargs = kwargs
-        super().__init__(host, 0, self.kwargs.get("connect_timeout", config.connect_timeout), None)
+        super().__init__(host, 0, None)
         self._context = self.kwargs.get("certcontext", default_sslcont())
         self._check_hostname = None
         # throw exception here

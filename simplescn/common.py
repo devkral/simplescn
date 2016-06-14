@@ -37,6 +37,24 @@ def parsepath(inp):
 def parsebool(inp):
     return inp.lower() in ["y", "true", "t"]
 
+def connecttodb(func):
+    import sqlite3
+    def funcwrap(self, *args, **kwargs):
+        temp = None
+        self.lock.acquire()
+        try:
+            dbcon = sqlite3.connect(self.db_path)
+            kwargs["dbcon"] = dbcon
+            temp = func(self, *args, **kwargs)
+            dbcon.close()
+        except Exception as exc:
+            st = str(exc)
+            if "tb_frame" in exc.__dict__:
+                st = "{}\n\n{}".format(st, traceback.format_tb(exc))
+            logging.error("%s\n%s", st, type(func).__name__)
+        self.lock.release()
+        return temp
+    return funcwrap
 class certhash_db(object):
     db_path = None
     lock = None
@@ -64,25 +82,7 @@ class certhash_db(object):
         con.close()
         self.lock.release()
 
-    class connecttodb(object):
-        def __init__(self, func):
-            import sqlite3
-            def funcwrap(self, *args, **kwargs):
-                temp = None
-                self.lock.acquire()
-                try:
-                    dbcon = sqlite3.connect(self.db_path)
-                    kwargs["dbcon"] = dbcon
-                    temp = func(self, *args, **kwargs)
-                    dbcon.close()
-                except Exception as exc:
-                    st = str(exc)
-                    if "tb_frame" in exc.__dict__:
-                        st = "{}\n\n{}".format(st, traceback.format_tb(exc))
-                    logging.error("%s\n%s", st, type(func).__name__)
-                self.lock.release()
-                return temp
-            #return funcwrap
+
 
     @connecttodb
     def addentity(self, _name, dbcon=None):

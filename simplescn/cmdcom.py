@@ -27,6 +27,7 @@ def cmdloop(ip, use_unix=False):
             ret = do_request_simple(ip, "/client/{}".format(command), kwargs, use_unix=use_unix)
             print(ret)
         except Exception as e:
+            raise e
             print(e, file=sys.stderr)
 
 
