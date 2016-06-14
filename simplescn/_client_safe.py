@@ -216,7 +216,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         _ha = self.gethash(obdict)
         if not _ha[0]:
             return _ha
-        _hadict = _ha[1][dict]
+        _hadict = _ha[1]
         if _hadict.get("hash") == self.cert_hash:
             return True, {"localname": isself, "hash": self.cert_hash, "cert": _hadict["cert"]}
         hasho = self.hashdb.get(_hadict["hash"])

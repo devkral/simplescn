@@ -1,4 +1,5 @@
 
+#import typing
 
 from simplescn.config import isself
 from simplescn._common import generate_error
@@ -9,7 +10,7 @@ def generate_validactions_deco(DecoClass):
     for key, value in DecoClass.__dict__.items():
         if not callable(value) or key[0] == "_":
             continue
-        tClassify = getattr(value, "classify", None)#[dict, None]
+        tClassify = getattr(value, "classify", None)
         if not tClassify:
             continue
         if "accessable" in tClassify:
@@ -103,6 +104,7 @@ def gen_doc_deco(func):
 
 # args is iterable with (argname, type)
 # obdict (=_moddict) is modified
+# -> Tuple[bool, Union[str, dict], Union[str, tuple, None], Union[str, None]]:
 def check_args_deco(requires=None, optional=None):
     if not requires:
         requires = {}

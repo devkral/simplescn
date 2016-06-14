@@ -257,7 +257,7 @@ class server(commonscn):
         if self.traverse and _obj.get("autotraverse", False):
             _travobj1 = self.open_traversal(obdict)
             if _travobj1[0]:
-                _travob11 = _travobj1[1][dict]
+                _travob11 = _travobj1[1]
                 _travaddr = _travob11.get("traverse_address")
         if _usecurity:
             return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
