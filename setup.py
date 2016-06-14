@@ -30,7 +30,7 @@ setup(name='simplescn',
           'simplescn': ['*.txt', '*.md'],
       },
       install_requires=install_requirements,
-      packages=['simplescn'],
+      packages=['simplescn', 'simplescn.tools'],
       #ext_modules=distributions,
       license="MIT",
       test_suite="tests")
