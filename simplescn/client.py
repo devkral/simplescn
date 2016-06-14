@@ -441,19 +441,24 @@ class client_init(object):
             self.links["shandler"] = gen_client_handler(self.links, server=True, client=True, remote=True)
         else:
             self.links["shandler"] = gen_client_handler(self.links, server=True, client=False, remote=False)
-        self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["shandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
+        self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["shandler"], "Enter client certificate pw", timeout=kwargs.get("server_timeout"))
         if not handle_remote or (not kwargs.get("nounix") and file_family):
             self.links["chandler"] = gen_client_handler(self.links, server=False, client=True, remote=False)
             if file_family is not None:
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
-                self.links["cserver_unix"] = http_server(rpath, _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"), use_unix=True)
+                self.links["cserver_unix"] = http_server(rpath, _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=5, use_unix=True)
                 self.links["cserver_unix"].serve_forever_nonblock()
             if not handle_remote and not kwargs.get("noip", False):
-                self.links["cserver_ip"] = http_server(("::1", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs.get("timeout"))
+                self.links["cserver_ip"] = http_server(("::1", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs["server_timeout"])
                 self.links["cserver_ip"].serve_forever_nonblock()
 
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
-
+    def quit(self):
+        self.links["hserver"].shutdown()
+        if "client_ip" in self.links:
+            self.links["client_ip"].shutdown()
+        if "client_unix" in self.links:
+            self.links["client_unix"].shutdown()
     def show(self):
         ret = dict()
         _r = self.links["hserver"]
@@ -486,7 +491,8 @@ default_client_args = \
     "remote" : ["False", bool, "<bool>: remote reachable (not only localhost) (needs cpwhash/file)"],
     "priority": [str(config.default_priority), int, "<int>: set client priority"],
     "connect_timeout": [str(config.connect_timeout), int, "<int>: set timeout for connecting"],
-    "timeout": [str(config.default_timeout), int, "<int>: set default timeout"],
+    "server_timeout": [str(config.server_timeout), int, "<int>: set timeout for servercomponent"],
+    "timeout": [str(config.default_timeout), int, "<int>: set default timeout (etablished connections)"],
     "loglevel": [str(config.default_loglevel), loglevel_converter, "<int/str>: loglevel"],
     "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""],
     "config": [config.default_configdir, parsepath, "<dir>: path to config dir"],

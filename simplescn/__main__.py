@@ -22,13 +22,14 @@ from simplescn._common import scnparse_args, loglevel_converter
 
 running_instances = []
 
-def _signal_handler(_signal, frame):
-    """ handles signals; shutdown properly """
+def quit():
     for elem in running_instances:
-        if hasattr(elem, "quit"):
-            elem.quit()
+       elem.quit()
     logging.shutdown()
     sys.exit(0)
+def _signal_handler(_signal, frame):
+    """ handles signals; shutdown properly """
+    quit()
 
 def server(argv=sys.argv[1:], doreturn=False):
     """ start server component """

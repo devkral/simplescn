@@ -28,7 +28,7 @@ ping_interval = 50
 # timeouts for connecting and else
 default_timeout = 60
 connect_timeout = 5
-local_timeout = 5
+server_timeout = 20
 traverse_retries = 3
 
 ## file positions ##

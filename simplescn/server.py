@@ -373,11 +373,12 @@ class server_init(object):
         self.links["handler"].links = self.links
         self.links["server_server"] = server(serverd)
 
-        self.links["hserver"] = http_server(("", port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=kwargs["timeout"])
+        self.links["hserver"] = http_server(("", port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=kwargs["server_timeout"])
         if not kwargs["notraversal"]:
             srcaddr = self.links["hserver"].socket.getsockname()
             self.links["server_server"].traverse = traverser_dropper(srcaddr)
-
+    def quit(self):
+        self.links["hserver"].shutdown()
     def show(self):
         ret = dict()
         _r = self.links.get("hserver", None)
@@ -401,7 +402,8 @@ default_server_args = {
     "spwfile": ["", str, "<file>: file with password (cleartext)"],
     "priority": [str(config.default_priority), int, "<int>: set server priority"],
     "connect_timeout": [str(config.connect_timeout), int, "<int>: set timeout for connecting"],
-    "timeout": [str(config.default_timeout), int, "<int>: set timeout"],
+    "server_timeout": [str(config.server_timeout), int, "<int>: set timeout for servercomponent"],
+    "timeout": [str(config.default_timeout), int, "<int>: set default timeout (etablished connections)"],
     "loglevel": [str(config.default_loglevel), loglevel_converter, "<int/str>: loglevel"],
     "notraversal": ["False", parsebool, "<bool>: disable traversal"]}
 
