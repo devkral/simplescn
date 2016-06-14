@@ -4,6 +4,18 @@ from simplescn.config import isself
 from simplescn._common import generate_error
 from simplescn.tools.checks import check_args
 
+def generate_validactions_deco(DecoClass):
+    DecoClass.validactions = set()
+    for key, value in DecoClass.__dict__.items():
+        if not callable(value) or key[0] == "_":
+            continue
+        tClassify = getattr(value, "classify", None)#[dict, None]
+        if not tClassify:
+            continue
+        if "accessable" in tClassify:
+            DecoClass.validactions.add(key)
+    return DecoClass
+
 # signals that method needs admin permission
 def classify_admin(func):
     if not hasattr(func, "classify"):
@@ -26,10 +38,22 @@ def classify_experimental(func):
 
 # signals that method is access method
 #access = accessing client/server
-def classify_access(func):
+def classify_private(func):
     if not hasattr(func, "classify"):
         func.classify = set()
-    func.classify.add("access")
+    func.classify.add("private")
+    if "accessable" in func.classify:
+        raise(TypeError("can't be accessable and private"))
+    return func
+
+# signals that method is access method
+#access = accessing client/server
+def classify_accessable(func):
+    if not hasattr(func, "classify"):
+        func.classify = set()
+    func.classify.add("accessable")
+    if "private" in func.classify:
+        raise(TypeError("can't be accessable and private"))
     return func
 
 def gen_doc_deco(func):

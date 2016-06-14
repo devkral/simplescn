@@ -12,10 +12,9 @@ import abc
 
 from simplescn.tools import dhash, generate_certs
 from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security
-from simplescn._decos import classify_admin, classify_experimental, classify_local, check_args_deco
+from simplescn._decos import classify_admin, classify_experimental, classify_local, check_args_deco, classify_accessable
 
 class client_admin(object, metaclass=abc.ABCMeta):
-    validactions_admin = {"addhash", "delhash", "movehash", "addentity", "delentity", "renameentity", "setpriority", "addreference", "updatereference", "delreference", "listplugins", "changemsg", "changeloglevel", "changename", "invalidatecert", "changesecurity", "massimporter"}
 
     @property
     @abc.abstractmethod
@@ -46,6 +45,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"priority": int})
     @classify_admin
     @classify_local
+    @classify_accessable
     def setpriority(self, obdict: dict):
         """ func: set priority of client
             return: success or error
@@ -60,6 +60,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"name": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def addentity(self, obdict: dict):
         """ func: add entity (=named group for hashes)
             return: success or erro
@@ -69,6 +70,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"name": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def delentity(self, obdict: dict):
         """ func: delete entity (=named group for hashes)
             return: success or error
@@ -78,6 +80,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"name": str, "newname": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def renameentity(self, obdict: dict):
         """ func: rename entity (=named group for hashes)
             return success or error
@@ -88,6 +91,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"name": str, "hash": str}, optional={"type": str, "priority": int})
     @classify_admin
     @classify_local
+    @classify_accessable
     def addhash(self, obdict: dict):
         """ func: add hash to entity (=named group for hashes)
             return: success or error
@@ -103,6 +107,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"hash": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def delhash(self, obdict: dict):
         """ func: delete hash
             return: success or error
@@ -112,6 +117,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"hash": str, "security": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def changesecurity(self, obdict: dict):
         """ func: change security level of hash
             return: success or error
@@ -122,6 +128,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"hash": str, "newname": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def movehash(self, obdict: dict):
         """ func: move hash to entity
             return: success or error
@@ -134,6 +141,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco()
     @classify_admin
     @classify_local
+    @classify_accessable
     def listplugins(self, obdict: dict):
         """ func: list plugins
             return: plugins """
@@ -147,6 +155,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"hash": str, "reference": str, "reftype": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def addreference(self, obdict: dict):
         """ func: add reference (=child of hash) to hash
             return: success or error
@@ -166,6 +175,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"hash": str, "reference": str, "newreference": str, "newreftype": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def updatereference(self, obdict: dict):
         """ func: update reference (=child of hash)
             return: success or error
@@ -185,6 +195,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"hash": str, "reference": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def delreference(self, obdict: dict):
         """ func: delete reference (=child of hash)
             return: success or error
@@ -198,6 +209,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"reason": str})
     @classify_admin
     @classify_local
+    @classify_accessable
     def invalidatecert(self, obdict: dict):
         """ func: invalidate certificate
             return: success or error
@@ -237,6 +249,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"message": str}, optional={"permanent": bool})
     @classify_admin
     @classify_local
+    @classify_accessable
     def changemsg(self, obdict: dict):
         """ func: change message
             return: success or error
@@ -254,6 +267,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"loglevel": int})
     @classify_admin
     @classify_local
+    @classify_accessable
     def changeloglevel(self, obdict: dict):
         """ func: change loglevel
             return: success or error
@@ -264,6 +278,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"name": str}, optional={"permanent": bool})
     @classify_admin
     @classify_local
+    @classify_accessable
     def changename(self, obdict: dict):
         """ func: change name
             return: success or error
@@ -294,6 +309,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
     @check_args_deco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
     @classify_experimental
     @classify_admin
+    @classify_accessable
     def massimporter(self, obdict: dict):
         """ func: import hashes and entities
             return: success or error

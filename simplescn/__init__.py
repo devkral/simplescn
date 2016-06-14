@@ -27,6 +27,7 @@ class AuthNeeded(Exception):
     reqob = None
     con = None
     def __init__(self, con, reqob):
+        super().__init__()
         self.reqob = reqob
         self.con = con
 

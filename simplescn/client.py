@@ -18,7 +18,7 @@ from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler,
 
 from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
-from simplescn._decos import check_args_deco, classify_local, classify_access
+from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import client_admin
 from simplescn._client_safe import client_safe
 from simplescn.scnrequest import requester
@@ -32,6 +32,7 @@ reference_header = \
     "Authorization": 'scn {}',
     "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
+@generate_validactions_deco
 class client_client(client_admin, client_safe):
     name = None
     cert_hash = None
@@ -42,8 +43,10 @@ class client_client(client_admin, client_safe):
     brokencerts = None
     _cache_help = None
 
-    validactions = None
     requester = None
+    @property
+    def validactions(self):
+        raise NotImplementedError
 
     def __init__(self, name: str, pub_cert_hash: str, _links: dict):
         client_admin.__init__(self)
@@ -73,9 +76,6 @@ class client_client(client_admin, client_safe):
             if check_hash(_hash) and (_hash, _reason) not in self.brokencerts:
                 self.brokencerts.append((_hash, _reason))
 
-        # update self.validactions
-        self.validactions.update(client_admin.validactions_admin)
-        self.validactions.update(client_safe.validactions_safe)
         self._cache_help = self.cmdhelp()
 
     # return success, body, (name, security), hash
@@ -85,8 +85,8 @@ class client_client(client_admin, client_safe):
         """ func: wrapper+ cache certcontext and ownhash """
         return self.requester.do_request_simple(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
 
-    @classify_access
-    def access_core(self, action, obdict):
+    @classify_private
+    def access_dict(self, action, obdict):
         """ internal method to access functions """
         if action in self.validactions:
             gaction = getattr(self, action)
@@ -103,9 +103,9 @@ class client_client(client_admin, client_safe):
                 return False, exc #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
-    @classify_access
+    @classify_private
     def access_main(self, action, **obdict):
-        return self.access_core(action, obdict)
+        return self.access_dict(action, obdict)
     # help section
     def cmdhelp(self):
         out = "# commands\n"
@@ -119,12 +119,17 @@ class client_client(client_admin, client_safe):
 
 ### receiverpart of client ###
 
+@generate_validactions_deco
 class client_server(commonscn):
     spmap = None
     scn_type = "client"
     # replace commonscn capabilities
     capabilities = None
-    validactions = {"info", "getservice", "dumpservices", "cap", "prioty", "registerservice", "delservice"}
+    
+    @property
+    def validactions(self):
+        raise NotImplementedError
+    
     wlock = None
     def __init__(self, dcserver):
         commonscn.__init__(self)
@@ -150,6 +155,7 @@ class client_server(commonscn):
 
     @check_args_deco({"name": str, "port": int}, optional={"invisibleport": bool,"post": bool})
     @classify_local
+    @classify_accessable
     def registerservice(self, obdict):
         """ func: register a service = (map port to name)
             return: success or error
@@ -170,6 +176,7 @@ class client_server(commonscn):
     # don't annote list with "map" dict structure on serverside (overhead)
     @check_args_deco({"name": str})
     @classify_local
+    @classify_accessable
     def delservice(self, obdict):
         """ func: delete a service
             return: success or error
@@ -188,6 +195,7 @@ class client_server(commonscn):
 
     @check_args_deco({"name": str})
     @classify_local
+    @classify_accessable
     def getservice(self, obdict):
         """ func: get the port of a service
             return: portnumber or negative for invisibleport
@@ -200,8 +208,10 @@ class client_server(commonscn):
             return True, -1
 
 
-def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False, ):
+def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False):
+    """ create handler with: links, server_timeout, default_timeout, ... """
     class client_handler(commonscnhandler):
+        """ client handler """
         server_version = 'simplescn/1.0 (client)'
         handle_remote = remote
         links = _links
@@ -209,6 +219,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
         etablished_timeout=etimeout
         
         def handle_wrap(self, servicename):
+            """ wrap service """
             service = self.links["client_server"].spmap.get(servicename, None)
             if service is None:
                 # send error
@@ -232,6 +243,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             rw_socket(sockd, self.connection)
         if client:
             def handle_client(self, action):
+                """ access to client_client """
                 if action not in self.links["client"].validactions:
                     self.send_error(400, "invalid action - client")
                     return
@@ -261,7 +273,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 if obdict is None:
                     return
                 try:
-                    response = self.links["client"].access_core(action, obdict)
+                    response = self.links["client"].access_dict(action, obdict)
                 except AuthNeeded as exc:
                     self.scn_send_answer(401, body=exc.reqob, mime="application/json", docache=False)
                     return
@@ -285,6 +297,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
         if server:
             def handle_server(self, action):
+                """ access to client_server """
                 if action not in self.links["client_server"].validactions:
                     self.scn_send_answer(400, message="invalid action - server", docache=False)
                     return
@@ -330,6 +343,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 else:
                     self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
         def do_POST(self):
+            """ access to client_client and client_server """
             if not self.init_scn_stuff():
                 self.connection.settimeout(self.server_timeout)
                 return
@@ -462,11 +476,11 @@ class client_init(object):
 
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
     def quit(self):
-        self.links["hserver"].shutdown()
+        self.links["hserver"].server_close()
         if "client_ip" in self.links:
-            self.links["client_ip"].shutdown()
+            self.links["client_ip"].server_close()
         if "client_unix" in self.links:
-            self.links["client_unix"].shutdown()
+            self.links["client_unix"].server_close()
     def show(self):
         ret = dict()
         _r = self.links["hserver"]

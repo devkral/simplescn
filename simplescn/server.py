@@ -18,7 +18,7 @@ from simplescn.config import file_family
 
 from simplescn.tools import generate_certs, init_config_folder, dhash, scnauth_server, traverser_dropper, scnparse_url
 from simplescn.tools.checks import check_certs, check_hash, check_local, check_name, check_updated_certs
-from simplescn._decos import check_args_deco, classify_local
+from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, loglevel_converter
 
 server_broadcast_header = \
@@ -28,6 +28,7 @@ server_broadcast_header = \
     "Connection": 'keep-alive' # keep-alive is set by server (and client?)
 }
 
+@generate_validactions_deco
 class server(commonscn):
     # replace not add (multi instance)
     capabilities = None
@@ -45,7 +46,9 @@ class server(commonscn):
     expire_time = None
     sleep_time = None
 
-    validactions = {"register", "get", "dumpnames", "info", "cap", "prioty", "num_nodes", "open_traversal", "get_ownaddr"}
+    @property
+    def validactions(self):
+        raise NotImplementedError
 
     def __init__(self, d):
         commonscn.__init__(self)
@@ -91,6 +94,7 @@ class server(commonscn):
             logging.error(exc)
 
     # private, do not include in validactions
+    @classify_private
     def refresh_nhipmap(self):
         while self.isactive:
             self.changeip_lock.acquire()
@@ -118,6 +122,7 @@ class server(commonscn):
             self.nhipmap_cond.wait()
 
     # private, do not include in validactions
+    @classify_private
     def load_balance(self, size_nh):
         if size_nh >= config.high_load[0]:
             self.sleep_time, self.expire_time = config.high_load[1:]
@@ -130,6 +135,7 @@ class server(commonscn):
             self.sleep_time, self.expire_time = config.very_low_load
 
     # private, do not include in validactions
+    @classify_private
     def check_register(self, addresst, _hash):
         try:
             _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2).strip().rstrip()
@@ -141,6 +147,8 @@ class server(commonscn):
             return [False, "hash_mismatch"]
         return [True, "registered_ip"]
 
+    # private: don't include
+    @classify_private
     def check_brokencerts(self, _address, _port, _name, certhashlist, newhash):
         """ func: connect to check if requester has broken certs """
         update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traversefunc=lambda x:self.traverse.send((_address, _port), x))
@@ -156,6 +164,7 @@ class server(commonscn):
         self.nhipmap_cond.set()
 
     @check_args_deco({"name": str, "port": int}, optional={"update": list})
+    @classify_accessable
     def register(self, obdict: dict):
         """ func: register client
             return: success or error
@@ -203,6 +212,7 @@ class server(commonscn):
         return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
 
     @check_args_deco({"destaddr": str})
+    @classify_accessable
     def open_traversal(self, obdict: dict):
         """ func: open traversal connection
             return: traverse_address (=remote own address)
@@ -219,12 +229,14 @@ class server(commonscn):
 
     @check_args_deco()
     @classify_local
+    @classify_accessable
     def get_ownaddr(self, obdict: dict):
         """ func: return remote own address
             return: remote requester address """
         return True, {"address": obdict.get("clientaddress")}
 
     @check_args_deco({"hash": str, "name": str}, optional={"autotraverse": bool})
+    @classify_accessable
     def get(self, obdict: dict):
         """ func: get address of a client
             return: client address, client port, security, traverse_address, traverse_needed
@@ -261,9 +273,6 @@ def gen_server_handler(_links, stimeout, etimeout):
         etablished_timeout=etimeout
 
         def handle_server(self, action):
-            if self.server.address_family == file_family:
-                self.scn_send_answer(500, message="file_family is not supported by server component")
-                return
             if action not in self.links["server_server"].validactions:
                 self.scn_send_answer(400, message="invalid action - server")
                 return
@@ -385,7 +394,7 @@ class server_init(object):
             srcaddr = self.links["hserver"].socket.getsockname()
             self.links["server_server"].traverse = traverser_dropper(srcaddr)
     def quit(self):
-        self.links["hserver"].shutdown()
+        self.links["hserver"].server_close()
     def show(self):
         ret = dict()
         _r = self.links.get("hserver", None)
