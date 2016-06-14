@@ -35,7 +35,7 @@ from simplescn import pwcallmethod, AddressFail, AddressEmptyFail, EnforcedPortF
 ##### init ######
 
 def generate_certs(_path):
-    _passphrase = pwcallmethod("(optional) Enter passphrase for encrypting key")
+    _passphrase = pwcallmethod(config.pwcertgen_prompt)
     if _passphrase is not None and not isinstance(_passphrase, str):
         logging.error("passphrase not str, None")
         return False

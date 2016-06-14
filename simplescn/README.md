@@ -7,12 +7,10 @@ Features:
 * passwordprotection
 * semi-decentral + encrypted
 * simple portmapper, easy to integrate in other applications
-* entirely controllable by a webbrowser (frontend not finished)
 
 Dependencies:
 * python-cryptography (python3 version) (pip: cryptography)
 * python3
-* optional: pygobject/python-gobject (python3 version) (pip impossible)(for gui)
 * optional: markdown (pip: markdown)(for more beautiful help)
 
 # Security:
@@ -32,51 +30,40 @@ this program uses openssl for:
 * tls 1.2
 replacing openssl with libressl should work
 
-# Installation
-Requirements: working python and setuptools, pip
-
-python3 setup.py install
-or
-python3 setup.py install --user
-
 # Usage:
+## with installation
+scnmain parameters...
+scnconnect parameters...
 
-gui-client (falls back to cmd client when no gui is found):
-simplescns client parameters...
+## without installation
+python3 ./simplescn parameters...
+python3 ./simplescn/cmdcom parameters...
 
-cmd-client:
-simplescns rawclient parameters...
+parameters for scnmain:
+client, server, pwhash (for creating a compatible hash), cmdcom (if scnconnect/cmdcom is hidden)
 
-client without a command line interface:
-simplescns rawclient nocmd=True parameters...
-or
-simplescns rawclient nocmd parameters...
+e.g. "scnmain server" for starting a server
+pws can be set with:
+scnmain server spwhash=$(scnmain pwhash test_pw)
 
-server:
-simplescns server
+parameters for scnconnect:
+
+..._unix: use unix socket (not windows)
+test, test_unix: start server+client+cmdloop
+single, single_test &#91;url&#93;: send command to &#91;url&#93;
+single, single_test &#91;url&#93;: cmdloop with &#91;url&#93;
+
 
 # Installation
-## without installation, execute from repo
-python3 ./simplescn parameters...
-
 
 ## pip
 
-# windows extra (for gui)
-install python3.4:
-
-download pygi-slimgtk... from http://sourceforge.net/projects/pygobjectwin32/files/ and extract
-
-use 3.4 version if slimgtk is not updated to python3.5
-# normal routine
-
-python -m pip [https://github.com/devkral/simplescn](https://github.com/devkral/simplescn)&#91;features comma seperated&#93;
+python -m pip [https://github.com/devkral/simplescn](https://github.com/devkral/simplescn)
 
 or
 
-python -m pip path-to-local-simplescn-repo&#91;features comma seperated&#93;
+python -m pip path-to-local-simplescn-repo
 
-&#91;features comma seperated&#93; = e.g. &#91;gtkgui, mdhelp&#93;
 ## Notes:
 
 # Overwrite parameters:

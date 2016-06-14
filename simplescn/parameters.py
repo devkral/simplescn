@@ -21,6 +21,10 @@ max_serverrequest_size = 4000
 max_typelength = 15
 max_namelength = 64
 
+## password prompts:
+pwcertgen_prompt = "(optional) Enter passphrase for encrypting key"
+pwrealm_prompt = "Enter password for: {realm}"
+
 ## timeouts ##
 # time out for auth requests
 auth_request_expire_time = 60*3

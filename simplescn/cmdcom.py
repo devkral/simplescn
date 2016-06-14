@@ -12,19 +12,19 @@ if __name__ == "__main__":
     _tpath = os.path.dirname(_tpath)
     sys.path.insert(0, _tpath)
 
-from simplescn.scnrequest import do_request_simple
+from simplescn.scnrequest import do_request_simple, pwcallmethod_realm
 
 def cmdloop(ip, use_unix=False):
     while True:
         inp = input("Enter command:\n")
-        kwargs = {}
+        body = {}
         for elem in shlex.split(inp):
             splitted = elem.split("=", 1)
             if len(splitted) == 2:
-                kwargs[splitted[0]] = splitted[1]
-        command = kwargs.pop("command", "show")
+                body[splitted[0]] = splitted[1]
+        command = body.pop("command", "show")
         try:
-            ret = do_request_simple(ip, "/client/{}".format(command), kwargs, use_unix=use_unix)
+            ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod_realm, use_unix=use_unix)
             print(ret)
         except Exception as exc:
             print(exc, file=sys.stderr)

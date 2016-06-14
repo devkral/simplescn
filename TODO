@@ -1,16 +1,9 @@
 
 
-The real solution:
-remove gui crap including plugins, config, do_GET
-should be a different project
-
-
 ## 0.2
-* generalized module for connecting
-* wrap, also with extended syntax for certchecking (requires generalized module for connecting)
 
-## Future
-* announce client/server
-* filesockets
-* holepunching for services
+## 0.3
+* default pwhandler for different environments (e.g. kivy, gtk, windows, tk)
+* better code quality
 * mass import
+* holepunching for services
