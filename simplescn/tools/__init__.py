@@ -489,7 +489,7 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
         if isinstance(inp, str):
             string = inp
         elif isinstance(inp, bytes):
-            string = encode_bo(inp, encoding, charset="utf-8")
+            string = encode_bo(inp, encoding, charset=charset)
         else:
             logging.error("Invalid type: %s", type(inp))
             return

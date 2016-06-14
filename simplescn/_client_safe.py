@@ -110,9 +110,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
             post: send http post request with certificate in header to service
             client: LOCAL client url (default: own client) """
         if obdict.get("client") is not None:
-            return self.do_request(obdict.get("client", "::1-{}".format(self.links["hserver"].server_port)), "/server/registerservice", obdict, forcehash=self.cert_hash)
+            return self.do_request(obdict.get("client"), "/server/registerservice", obdict, forcehash=obdict.get("forecehash", None))
         else:
-            return False, "no servercomponent/client available"
+            return self.do_request("::1-{}".format(self.links["hserver"].server_port), "/server/registerservice", obdict, forcehash=self.cert_hash)
 
     @check_args_deco({"name": str}, optional={"client": str})
     #@classify_local
@@ -122,9 +122,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
             name: service name
             client: LOCAL client url (default: own client) """
         if obdict.get("client") is not None:
-            return self.do_request(obdict.get("client", "::1-{}".format(self.links["hserver"].server_port)), "/server/delservice", obdict, forcehash=self.cert_hash)
+            return self.do_request(obdict.get("client"), "/server/delservice", obdict, forcehash=obdict.get("forecehash", None))
         else:
-            return False, "no servercomponent/client available"
+            return self.do_request("::1-{}".format(self.links["hserver"].server_port), "/server/delservice", obdict, forcehash=self.cert_hash)
 
     @check_args_deco({"name": str}, optional={"client": str})
     def getservice(self, obdict: dict):

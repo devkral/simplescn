@@ -10,6 +10,8 @@ import timeit
 from threading import Thread
 
 import simplescn
+from simplescn import config
+from simplescn import tools
 import simplescn.__main__
 
 def shimrun(cmd, *args):
@@ -22,8 +24,8 @@ def shimrun(cmd, *args):
 class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
     temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
-    simplescn.server_port = 40040
-    param_server = ["--config={}".format(temptestdir), "--port={}".format(simplescn.server_port)]
+    config.server_port = 40041
+    param_server = ["--config={}".format(temptestdir), "--port={}".format(config.server_port)]
     param_client = ["--config={}".format(temptestdir), "--nocmd"]
     param_client2 = ["--config={}".format(temptestdir2), "--nocmd"]
     
@@ -40,21 +42,21 @@ class TestCommunication(unittest.TestCase):
         os.mkdir(cls.temptestdir, 0o700)
         os.mkdir(cls.temptestdir2, 0o700)
         #print(cls.temptestdir, cls.temptestdir2)
-        simplescn.pwcallmethodinst = lambda msg, requester: ""
+        simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         cls.client = simplescn.__main__.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["client"].cert_hash
         cls.client_port = cls.client.links["hserver"].socket.getsockname()[1]
         cls.name = cls.client.links["client"].name
         
-        #cls.client2 = simplescn.__main__.	client(cls.param_client2, doreturn=True)
+        #cls.client2 = simplescn.__main__.client(cls.param_client2, doreturn=True)
         #cls.client_hash2 = cls.client2.links["client"].cert_hash
         #cls.client_port2 = cls.client2.links["hserver"].socket.getsockname()[1]
         
         cls.server = simplescn.__main__.server(cls.param_server, doreturn=True)
         cls.server_port = cls.server.links["hserver"].socket.getsockname()[1]
         
-        cls.client_hash3 = simplescn.dhash("m")
+        cls.client_hash3 = tools.dhash("m")
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):

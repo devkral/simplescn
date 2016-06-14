@@ -10,6 +10,8 @@ import timeit
 from threading import Thread
 
 import simplescn
+from simplescn import config
+from simplescn import tools
 import simplescn.__main__
 
 def shimrun(cmd, *args):
@@ -22,8 +24,8 @@ def shimrun(cmd, *args):
 class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
     temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
-    simplescn.server_port = 40040
-    param_server = ["--config={}".format(temptestdir), "--port={}".format(simplescn.server_port)]
+    config.server_port = 40040
+    param_server = ["--config={}".format(temptestdir), "--port={}".format(config.server_port)]
     param_client = ["--config={}".format(temptestdir), "--nocmd"]
     param_client2 = ["--config={}".format(temptestdir2), "--nocmd"]
     
@@ -40,7 +42,7 @@ class TestCommunication(unittest.TestCase):
         os.mkdir(cls.temptestdir, 0o700)
         os.mkdir(cls.temptestdir2, 0o700)
         #print(cls.temptestdir, cls.temptestdir2)
-        simplescn.pwcallmethodinst = lambda msg, requester: ""
+        simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         cls.client = simplescn.__main__.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["client"].cert_hash
@@ -54,7 +56,7 @@ class TestCommunication(unittest.TestCase):
         cls.server = simplescn.__main__.server(cls.param_server, doreturn=True)
         cls.server_port = cls.server.links["hserver"].socket.getsockname()[1]
         
-        cls.client_hash3 = simplescn.dhash("m")
+        cls.client_hash3 = tools.dhash("m")
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
@@ -75,28 +77,28 @@ class TestCommunication(unittest.TestCase):
         ret2 = self.client.links["client"].access_main("get", server="127.0.0.1", name=self.name, hash=self.client_hash)
         self.assertEqual(ret2[0], True)
         
-        register3 = self.client.links["client"].access_main("register", server="127.0.0.1-{}".format(simplescn.server_port))
+        register3 = self.client.links["client"].access_main("register", server="::1-{}".format(config.server_port))
         self.assertEqual(register3[0], True)
         self.assertDictEqual(register3[1], {'traverse': True, 'mode': 'registered_traversal'})
         
-        ret3 = self.client.links["client"].access_main("get", server="127.0.0.1-{}".format(simplescn.server_port), name=self.name, hash=self.client_hash)
+        ret3 = self.client.links["client"].access_main("get", server="127.0.0.1-{}".format(config.server_port), name=self.name, hash=self.client_hash)
         self.assertEqual(ret3[0], True)
         
         with self.subTest("test check"):
-            ret_local1 = self.client.links["client"].access_main("check", server="::1-{}".format(simplescn.server_port), name=self.name, hash=self.client_hash)
+            ret_local1 = self.client.links["client"].access_main("check", server="::1-{}".format(config.server_port), name=self.name, hash=self.client_hash)
             self.assertEqual(ret_local1[0], True, ret_local1[1])
-            ret_remote1 = self.client2.links["client"].access_main("check", server="::1-{}".format(simplescn.server_port), name=self.name, hash=self.client_hash)
+            ret_remote1 = self.client2.links["client"].access_main("check", server="::1-{}".format(config.server_port), name=self.name, hash=self.client_hash)
             self.assertEqual(ret_remote1[0], True, ret_remote1[1])
         
     def test_cap(self):
         cap_ret = self.client.links["client"].access_main("cap")
         self.assertEqual(cap_ret[0], True, cap_ret[1])
-        cap_ret = self.client.links["client"].access_main("cap", address="::1-{}".format(simplescn.server_port))
+        cap_ret = self.client.links["client"].access_main("cap", address="::1-{}".format(config.server_port))
         self.assertEqual(cap_ret[0], True, cap_ret[1])
         #print(cap_ret)
     
     def test_info(self):
-        info_ret = self.client.links["client"].access_main("info", address="::1-{}".format(simplescn.server_port))
+        info_ret = self.client.links["client"].access_main("info", address="::1-{}".format(config.server_port))
         self.assertEqual(info_ret[0], True, info_ret[1])
         self.assertEqual(info_ret[1]["type"], "server")
         info_ret = self.client.links["client"].access_main("info")

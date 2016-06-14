@@ -95,7 +95,7 @@ class client_client(client_admin, client_safe):
         if action in self.validactions:
             gaction = getattr(self, action)
             if check_classify(gaction, "access"):
-                return False, "actions: 'classified access not allowed in access_core", isself, self.cert_hash
+                return False, "actions: 'classified access not allowed in access", isself, self.cert_hash
             if check_classify(gaction, "experimental"):
                 logging.warning("action: \"%s\" is experimental", action)
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
@@ -107,7 +107,9 @@ class client_client(client_admin, client_safe):
                 return False, exc #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
-
+    @classify_access
+    def access_main(self, action, **obdict):
+        return self.access_core(action, obdict)
     # help section
     def cmdhelp(self):
         out = "# commands\n"
