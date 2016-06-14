@@ -16,7 +16,7 @@ from simplescn.config import isself, file_family
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter
 
 
-from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper, default_sslcont
+from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_access
 from simplescn._client_admin import client_admin
@@ -52,20 +52,16 @@ class client_client(client_admin, client_safe):
         self.name = name
         self.cert_hash = pub_cert_hash
         self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
-        if "hserver" in self.links:
-            self.sslcont = self.links["hserver"].sslcont
-        else:
-            self.sslcont = default_sslcont()
+        self.sslcont = self.links["hserver"].sslcont
         self.brokencerts = []
         self.validactions = set()
         self.requester = requester(ownhash=self.cert_hash, hashdb=self.hashdb, certcontext=self.sslcont)
         
 
-        if "hserver" in self.links:
-            self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-            self.udpsrcsock.settimeout(None)
-            self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
-            self.scntraverse_helper = traverser_helper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
+        self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        self.udpsrcsock.settimeout(None)
+        self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
+        self.scntraverse_helper = traverser_helper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
 
         for elem in os.listdir(os.path.join(self.links["config_root"], "broken")):
             _splitted = elem.rsplit(".", 1)
