@@ -276,9 +276,9 @@ def do_request(addr_or_con, path, body=None, headers=None, **kwargs):
         headers:
             * Authorization: scn pw auth format
         throws:
-            * AddressFail: address was incorrect
-            * AddressEmptyFail: address was empty
-            * EnforcedPortFail: no port was given (forceport)
+            * AddressError: address was incorrect
+            * AddressEmptyError: address was empty
+            * EnforcedPortError: no port was given (forceport)
             * VALHashError: wrong hash (forcehash)
             * VALNameError: isself is in db
             * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)

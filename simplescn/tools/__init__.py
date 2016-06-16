@@ -25,7 +25,7 @@ from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
 
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
-from simplescn import AddressFail, AddressEmptyFail, EnforcedPortFail
+from simplescn import AddressError, AddressEmptyError, EnforcedPortError
 
 
 
@@ -169,15 +169,15 @@ def scnparse_url(url, force_port=False):
     # if isinstance(url, (tuple, list)) == True:
     #     return url
     if not isinstance(url, str):
-        raise AddressFail
+        raise AddressError
     if url == "":
-        raise AddressEmptyFail
+        raise AddressEmptyError
     _urlre = _reparseurl.match(url)
     if _urlre is not None:
         return _urlre.groups()[0], int(_urlre.groups()[1])
     if not force_port:
         return (url, config.server_port)
-    raise EnforcedPortFail
+    raise EnforcedPortError
 
 
 authrequest_struct = \

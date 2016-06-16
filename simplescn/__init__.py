@@ -15,8 +15,8 @@ sharedir = os.path.dirname(os.path.realpath(__file__))
 if sharedir not in sys.path:
     sys.path.insert(0, sharedir)
 
-#__all__ = ["simplescn.tools", "AuthNeeded", "AddressFail"]
-#__all__ += ["EnforcedPortFail", "AddressEmptyFail", "AddressInvalidFail"]
+#__all__ = ["simplescn.tools", "AuthNeeded", "AddressError"]
+#__all__ += ["EnforcedPortError", "AddressEmptyError", "AddressInvalidError"]
 #__all__ += ["InvalidLoadError"]
 #__all__ += ["VALError", "VALNameError", "VALHashError", "VALMITMError"]
 #__all__ += ["pwcallmethodinst", "pwcallmethodinst", "resp_st"]
@@ -31,17 +31,17 @@ class AuthNeeded(Exception):
         self.reqob = reqob
         self.con = con
 
-class AddressFail(Exception):
+class AddressError(Exception):
     msg = ''
     basemsg = '<address>[-<port>]:\n'
     def __str__(self):
         return self.basemsg + self.msg
 
-class EnforcedPortFail(AddressFail):
+class EnforcedPortError(AddressError):
     msg = 'address is lacking -<port>'
-class AddressEmptyFail(AddressFail):
+class AddressEmptyError(AddressError):
     msg = 'address is empty'
-class AddressInvalidFail(AddressFail):
+class AddressInvalidError(AddressError):
     msg = 'address is invalid'
 
 class InvalidLoadError(Exception):

@@ -11,7 +11,7 @@ import threading
 import json
 import logging
 
-from simplescn import config, VALError, AuthNeeded, AddressFail
+from simplescn import config, VALError, AuthNeeded, AddressError
 from simplescn.config import isself, file_family
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter
 
@@ -274,7 +274,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                         if "stacktrace" in generror:
                             del generror["stacktrace"]
                         # with harden mode do not show errormessage
-                        if config.harden_mode and not isinstance(error, (AddressFail, VALError)):
+                        if config.harden_mode and not isinstance(error, (AddressError, VALError)):
                             generror = generate_error("unknown")
                     resultob = gen_result(generror, False)
                     status = 500
@@ -317,7 +317,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                         if "stacktrace" in generror:
                             del generror["stacktrace"]
                     # with harden mode do not show errormessage
-                    if config.harden_mode and not isinstance(exc, (AddressFail, VALError)):
+                    if config.harden_mode and not isinstance(exc, (AddressError, VALError)):
                         generror = generate_error("unknown")
                     ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
                     self.scn_send_answer(500, body=ob, mime="application/json")

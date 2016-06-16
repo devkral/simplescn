@@ -10,7 +10,7 @@ import logging
 import abc
 
 
-from simplescn import EnforcedPortFail
+from simplescn import EnforcedPortError
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont
 from simplescn.tools.checks import check_updated_certs, check_local, check_args
@@ -200,7 +200,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return False, "server speaks no tls 1.2"
         except ConnectionRefusedError:
             return False, "server does not exist"
-        except EnforcedPortFail as exc:
+        except EnforcedPortError as exc:
             return False, exc.msg
         except Exception as exc:
             logging.error(exc)
