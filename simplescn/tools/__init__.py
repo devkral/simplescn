@@ -363,7 +363,7 @@ class traverser_dropper(object):
     def send(self, _dsttupel, _contupel, timeout=None):
         _dstaddr = (ip_to_ipv6(_dsttupel[0]), _dsttupel[1])
         _conaddr = (ip_to_ipv6(_contupel[0]), _dsttupel[1])
-        binaddr = bytes(_contupel[0], "utf-8")
+        binaddr = bytes(_conaddr[0], "utf-8")
         construct = struct.pack(addrstrformat, _conaddr[1], len(binaddr), binaddr)
         for elem in range(0, 3):
             self._sock.sendto(construct, _dstaddr)

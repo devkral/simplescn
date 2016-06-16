@@ -16,7 +16,7 @@ from simplescn.config import isself, file_family
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter
 
 
-from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
+from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper, traverser_dropper
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import client_admin
@@ -122,7 +122,7 @@ class client_server(commonscn):
     wlock = None
     def __init__(self, dcserver):
         commonscn.__init__(self)
-        self.capabilities = ["basic", "client"]
+        self.capabilities = ["basic", "client", "wrap", "traversal"]
         # init here (multi instance situation)
         self.spmap = {}
         self.wlock = threading.Lock()
@@ -139,11 +139,13 @@ class client_server(commonscn):
         self.cache["dumpservices"] = json.dumps(gen_result({}, True))
         self.update_cache()
         self.validactions.update(self.cache.keys())
+        srcaddr = self.links["hserver"].socket.getsockname()
+        self.traverse = traverser_dropper(srcaddr)
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
 
-    @check_args_deco({"name": str, "port": int}, optional={"invisibleport": bool,"post": bool})
+    @check_args_deco({"name": str, "port": int}, optional={"wrappedport": bool,"post": bool})
     @classify_local
     @classify_accessable
     def registerservice(self, obdict):
@@ -151,13 +153,17 @@ class client_server(commonscn):
             return: success or error
             name: service name
             port: port number
-            invisibleport: port is not shown (but can wrap)
-            post: send http post request with certificate in header to service """
+            wrappedport: port is not shown/is not traversable (but can be wrapped)
+            post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
         if obdict.get("clientaddress") is None:
             return False, "bug: clientaddress is None"
         if check_local(obdict.get("clientaddress")[0]):
             with self.wlock:
-                self.spmap[obdict.get("name")] = (obdict.get("port"), obdict.get("invisibleport", False), obdict.get("post", False))
+                wrappedport = obdict.get("wrappedport", None)
+                # activates wrappedport if unspecified
+                if wrappedport is None:
+                    wrappedport = obdict.get("post", False)
+                self.spmap[obdict.get("name")] = (obdict.get("port"), wrappedport, obdict.get("post", False))
                 self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
                 #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             return True
@@ -171,7 +177,7 @@ class client_server(commonscn):
         """ func: delete a service
             return: success or error
             name: service name """
-        if obdict.get("clientaddress") is None:
+        if not obdict.get("clientaddress"):
             return False, "bug: clientaddress is None"
         if check_local(obdict.get("clientaddress")[0]):
             with self.wlock:
@@ -190,12 +196,32 @@ class client_server(commonscn):
         """ func: get the port of a service
             return: portnumber or negative for invisibleport
             name: servicename """
-        if obdict["name"] not in self.spmap:
-            return False
-        if not self.spmap[obdict["name"]][1]:
-            return True, self.spmap[obdict["name"]][0]
+        serviceob = self.spmap.get(obdict["name"], tuple())
+        if not bool(serviceob):
+            return False, "Service not available"
+
+        if not serviceob[1]:
+            return True, serviceob[0]
         else:
             return True, -1
+
+    @check_args_deco({"name": str}, optional={"destport": int})
+    #@classify_accessable
+    def traverse_service(self, obdict):
+        """ func: get the port of a service
+            return: portnumber or negative for invisibleport
+            name: servicename
+            destaddr: destination address """
+        serviceob = self.spmap.get(obdict["name"], tuple())
+        if not bool(serviceob) or not serviceob[1]:
+            return False, "Service not available"
+        _port = obdict.get("destport", None)
+        if not _port:
+            _port = obdict.get("clientaddress")[1]
+        travaddr = ('', _port)
+        destaddr = (obdict.get("clientaddress")[0], _port)
+        threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr), daemon=True).start()
+        return True, serviceob[0]
 
 
 def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False):
