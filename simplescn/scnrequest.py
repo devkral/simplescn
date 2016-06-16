@@ -87,9 +87,9 @@ class SCNConnection(client.HTTPSConnection):
                 contrav = SCNConnection(trav, **_kwargs)
                 contrav.connect()
                 _sport = contrav.sock.getsockname()[1]
-                retserv = do_request(contrav, "/server/open_traversal", {})
+                retserv = do_request(trav, "/server/open_traversal", {"destaddr": _host}, keepalive=True)
                 contrav.close()
-                if retserv[0]:
+                if retserv[1]:
                     self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
                     self.sock.bind(('', _sport))
                     self.sock.settimeout(self.kwargs.get("connect_timeout", config.connect_timeout))
@@ -100,7 +100,8 @@ class SCNConnection(client.HTTPSConnection):
                         except Exception:
                             pass
                     else:
-                        return None
+                        self.sock = None
+                        return
             # set options for ip
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # set options for all

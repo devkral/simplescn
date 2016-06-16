@@ -179,6 +179,14 @@ def scnparse_url(url, force_port=False):
         return (url, config.server_port)
     raise EnforcedPortError
 
+# ipurl don't include port information
+# if ipurl contains alphanumeric address or ipv6 address it will returned unchanged
+_reparseipv4 = re.compile("^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$")
+def ip_to_ipv6(ipurl):
+    _urlre = _reparseipv4.match(ipurl)
+    if _urlre is not None:
+        return "::ffff:{}".format(ipurl)
+    return ipurl
 
 authrequest_struct = \
 {
@@ -353,10 +361,12 @@ class traverser_dropper(object):
             return False
 
     def send(self, _dsttupel, _contupel, timeout=None):
+        _dstaddr = (ip_to_ipv6(_dsttupel[0]), _dsttupel[1])
+        _conaddr = (ip_to_ipv6(_contupel[0]), _dsttupel[1])
         binaddr = bytes(_contupel[0], "utf-8")
-        construct = struct.pack(addrstrformat, _contupel[1], len(binaddr), binaddr)
+        construct = struct.pack(addrstrformat, _conaddr[1], len(binaddr), binaddr)
         for elem in range(0, 3):
-            self._sock.sendto(construct, _dsttupel)
+            self._sock.sendto(construct, _dstaddr)
         if timeout:
             return self.check(timeout)
         else:
@@ -383,45 +393,40 @@ class traverser_helper(object):
     def add_desttupel(self, destaddrtupel):
         if self.connectsock.family == socket.AF_INET6:
             destaddrtupel = (convert_ip4_to_6(destaddrtupel[0]), destaddrtupel[1])
-        self.mutex.acquire()
-        if destaddrtupel in self.desttupels:
-            return True
-        self.desttupels.append(destaddrtupel)
-        self.mutex.release()
+        with self.mutex:
+            if destaddrtupel in self.desttupels:
+                return True
+            self.desttupels.append(destaddrtupel)
         threading.Thread(target=self._pinger, args=(destaddrtupel,), daemon=True).start()
         return True
 
     def del_desttupel(self, destaddrtupel):
         if self.connectsock.family == socket.AF_INET6:
             destaddrtupel = (convert_ip4_to_6(destaddrtupel[0]), destaddrtupel[1])
-        self.mutex.acquire()
-        try:
-            self.desttupels.remove(destaddrtupel)
-        except Exception:
-            pass
-        self.mutex.release()
+        with self.mutex:
+            try:
+                self.desttupels.remove(destaddrtupel)
+            except Exception:
+                pass
         return True
 
     # makes client reachable by server by (just by udp?)
     def _pinger(self, destaddrtupel):
         try:
             while self.active:
-                self.mutex.acquire()
-                if destaddrtupel not in self.desttupels:
-                    self.mutex.release()
-                    break
-                self.mutex.release()
+                with self.mutex:
+                    if destaddrtupel not in self.desttupels:
+                        break
                 self.srcsock.sendto(scn_pingstruct, destaddrtupel)
                 time.sleep(self.interval)
         except Exception as exc:
             logging.info(exc)
             # error: cleanup
-            self.mutex.acquire()
-            try:
-                self.desttupels.remove(destaddrtupel)
-            except Exception:
-                pass
-            self.mutex.release()
+            with self.mutex:
+                try:
+                    self.desttupels.remove(destaddrtupel)
+                except Exception:
+                    pass
         # no cleanup needed (if no exception) because a) closed or b) already removed
 
     # sub __init__ thread

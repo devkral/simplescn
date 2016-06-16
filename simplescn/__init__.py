@@ -67,7 +67,7 @@ class VALMITMError(VALError):
 
 resp_st = \
 {
-    "status":"", # ok/error
+    "status": "", # ok/error
     "result": None,
     "error": None
 }

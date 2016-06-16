@@ -15,7 +15,6 @@ import ssl
 
 
 from simplescn import config, InvalidLoadSizeError, InvalidLoadLevelError
-from simplescn.config import file_family
 
 from simplescn.tools import generate_certs, init_config_folder, dhash, scnauth_server, traverser_dropper, scnparse_url
 from simplescn.tools.checks import check_certs, check_hash, check_local, check_name, check_updated_certs
@@ -146,7 +145,7 @@ class server(commonscn):
     @classify_private
     def check_brokencerts(self, _address, _port, _name, certhashlist, newhash):
         """ func: connect to check if requester has broken certs """
-        update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traversefunc=lambda x:self.traverse.send((_address, _port), x))
+        update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traversefunc=lambda ownaddr:self.traverse.send((_address, _port), ownaddr))
         if update_list in [None, []]:
             return
 

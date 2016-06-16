@@ -12,7 +12,7 @@ from http.client import HTTPSConnection
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
 
-from simplescn.tools import badnamechars, dhash, default_sslcont
+from simplescn.tools import badnamechars, dhash, default_sslcont, ip_to_ipv6
 
 def check_reference(_reference):
     if _reference is None:
@@ -174,15 +174,21 @@ cert_update_header = \
     "Authorization": 'scn {}',
     "Connection": 'keep-alive'
 }
-
+cert_update_header_close = \
+{
+    "User-Agent": "simplescn/1.0 (update-cert)",
+    "Authorization": 'scn {}',
+    "Connection": 'close'
+}
 # can't use SCNConnection here. creates a cycle
 def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=config.default_timeout, connect_timeout=config.connect_timeout, traversefunc=None):
     update_list = []
     if None in [_address, _port]:
         logging.error("address or port empty")
         return None
+    addr = ip_to_ipv6(_address)
     cont = default_sslcont()
-    con = HTTPSConnection(_address, _port, context=cont, timeout=connect_timeout)
+    con = HTTPSConnection(addr, _port, context=cont, timeout=connect_timeout)
     try:
         con.connect()
     except (ConnectionRefusedError, socket.timeout):
@@ -195,7 +201,7 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=con
         con.sock.settimeout(connect_timeout)
         for count in range(0, config.traverse_retries):
             try:
-                con.sock.connect((_address, _port))
+                con.sock.connect((addr, _port))
                 break
             except Exception:
                 pass
@@ -207,8 +213,12 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=con
     if newhash and newhash != oldhash:
         return None
     oldsslcont = con.sock.context
-    for _hash, _security in certhashlist:
-        con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
+    stopnum = len(certhashlist)-1
+    for countitem, (_hash, _security) in enumerate(certhashlist):
+        if stopnum==countitem:
+            con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header_close)
+        else:
+            con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
         con.sock = con.sock.unwrap()
         con.sock = cont.wrap_socket(con.sock, server_side=False)
         con.sock.do_handshake()
