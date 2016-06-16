@@ -22,7 +22,7 @@ from simplescn.config import isself, file_family
 
 from simplescn.tools import dhash, safe_mdecode, default_sslcont
 from simplescn.tools.checks import check_name, check_hash, check_security, \
-check_typename, check_reference, check_reference_type
+check_typename, check_reference, check_reference_type, check_local
 
 # for config
 def parsepath(inp):
@@ -498,7 +498,14 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
         except:
             self.server_close()
             raise
-        
+
+    def verify_request(self, request, client_address):
+        if self.RequestHandlerClass.onlylocal:
+             if self.address_family != file_family or \
+                    not check_local(client_address[0]):
+                return False
+        return True
+    
     def get_request(self):
         con, addr = self.socket.accept()
         if self.use_unix:
@@ -582,7 +589,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
         self.client_address = client_address
         self.server = server
         # set variable is_local
-        self.is_local = self.server.address_family != file_family or check_local(self.client_address[0])
+        self.is_local = self.server.address_family == file_family or check_local(self.client_address[0])
         # if onlylocal is True: return if not local
         if self.onlylocal and not self.is_local:
             return
