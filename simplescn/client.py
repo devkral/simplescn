@@ -155,9 +155,7 @@ class client_server(commonscn):
             port: port number
             wrappedport: port is not shown/is not traversable (but can be wrapped)
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
-        if obdict.get("clientaddress") is None:
-            return False, "bug: clientaddress is None"
-        if check_local(obdict.get("clientaddress")[0]):
+        if check_local(obdict["clientaddress"][0]):
             with self.wlock:
                 wrappedport = obdict.get("wrappedport", None)
                 # activates wrappedport if unspecified
@@ -177,9 +175,7 @@ class client_server(commonscn):
         """ func: delete a service
             return: success or error
             name: service name """
-        if not obdict.get("clientaddress"):
-            return False, "bug: clientaddress is None"
-        if check_local(obdict.get("clientaddress")[0]):
+        if check_local(obdict["clientaddress"][0]):
             with self.wlock:
                 if obdict["name"] in self.spmap:
                     del self.spmap[obdict["name"]]
@@ -217,9 +213,9 @@ class client_server(commonscn):
             return False, "Service not available"
         _port = obdict.get("destport", None)
         if not _port:
-            _port = obdict.get("clientaddress")[1]
+            _port = obdict["clientaddress"][1]
         travaddr = ('', _port)
-        destaddr = (obdict.get("clientaddress")[0], _port)
+        destaddr = (obdict["clientaddress"][0], _port)
         threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr), daemon=True).start()
         return True, serviceob[0]
 
