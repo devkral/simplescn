@@ -22,13 +22,6 @@ from simplescn.tools.checks import check_certs, check_hash, check_local, check_n
 from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, loglevel_converter
 
-server_broadcast_header = \
-{
-    "User-Agent": "simplescn/1.0 (broadcast)",
-    "Authorization": 'scn {}',
-    "Connection": 'keep-alive' # keep-alive is set by server (and client?)
-}
-
 @generate_validactions_deco
 class server(commonscn):
     # replace not add (multi instance)
@@ -177,18 +170,22 @@ class server(commonscn):
             return False, "invalid_name"
         if obdict["client_certhash"] is None:
             return False, "no_cert"
-
+        if obdict["clientaddress"][0][:7] == "::ffff:":
+            caddress = (obdict["clientaddress"][0][7:], obdict["clientaddress"][1])
+        else:
+            caddress = obdict["clientaddress"]
         clientcerthash = obdict["client_certhash"]
-        ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
+        ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
         if not ret[0]:
-            ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1]), "destaddr": "{}-{}".format(obdict["clientaddress"][0], obdict["port"])})
+            # '' = serveraddress
+            ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1]), "destaddr": "{}-{}".format(caddress[0], obdict["port"])})
             if not ret[0]:
                 return ret
-            ret = self.check_register((obdict["clientaddress"][0], obdict["port"]), clientcerthash)
+            ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
             if not ret[0]:
                 return False, "unreachable client"
             ret[1] = "registered_traversal"
-        elif check_local(obdict["clientaddress"][0]):
+        elif check_local(caddress[0]):
             ret[1] = "registered_traversal"
         self.changeip_lock.acquire(False)
         update_time = int(time.time())
@@ -199,7 +196,7 @@ class server(commonscn):
             self.nhipmap[obdict["name"]][clientcerthash] = {"security": "valid"}
         # when certificate has a compromised flag (!=valid) stop register process
         if self.nhipmap[obdict["name"]][clientcerthash].get("security", "valid") == "valid":
-            self.nhipmap[obdict["name"]][clientcerthash]["address"] = obdict["clientaddress"][0]
+            self.nhipmap[obdict["name"]][clientcerthash]["address"] = caddress[0]
             self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
             self.nhipmap[obdict["name"]][clientcerthash]["updatetime"] = update_time
             self.nhipmap[obdict["name"]][clientcerthash]["security"] = "valid"
@@ -207,7 +204,7 @@ class server(commonscn):
         self.changeip_lock.release()
 
         # update broken certs afterwards
-        threading.Thread(target=self.check_brokencerts, args=(obdict["clientaddress"][0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True).start()
+        threading.Thread(target=self.check_brokencerts, args=(caddress[0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True).start()
 
         # notify that change happened
         self.nhipmap_cond.set()
@@ -300,7 +297,7 @@ def gen_server_handler(_links, stimeout, etimeout):
                 jsonnized = json.dumps(gen_result(result, success))
             except Exception as exc:
                 generror = generate_error(exc)
-                if not config.debug_mode or not check_local(self.client_address2[0]):
+                if not config.debug_mode or not self.is_local:
                     # don't show stacktrace if not permitted and not in debug mode
                     if "stacktrace" in generror:
                         del generror["stacktrace"]
@@ -340,6 +337,7 @@ def gen_server_handler(_links, stimeout, etimeout):
 class server_init(object):
     config_path = None
     links = None
+    active = True
 
     def __init__(self, **kwargs):
         self.links = {}
@@ -396,6 +394,9 @@ class server_init(object):
             srcaddr = self.links["hserver"].socket.getsockname()
             self.links["server_server"].traverse = traverser_dropper(srcaddr)
     def quit(self):
+        if not self.active:
+            return
+        self.active = False
         self.links["hserver"].server_close()
     def show(self):
         ret = dict()

@@ -24,15 +24,7 @@ from simplescn._client_admin import client_admin
 from simplescn._client_safe import client_safe
 from simplescn.scnrequest import requester
 
-#VALMITMError
 
-
-reference_header = \
-{
-    "User-Agent": "simplescn/1.0 (client)",
-    "Authorization": 'scn {}',
-    "Connection": 'keep-alive' # keep-alive is set by server (and client?)
-}
 @generate_validactions_deco
 class client_client(client_admin, client_safe):
     name = None
@@ -212,7 +204,8 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
     class client_handler(commonscnhandler):
         """ client handler """
         server_version = 'simplescn/1.0 (client)'
-        handle_remote = remote
+        # set onlylocal variable if remote is deactivated
+        onlylocal = not remote
         links = _links
         server_timeout = stimeout
         etablished_timeout = etimeout
@@ -249,11 +242,6 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     self.send_error(400, "invalid action - client")
                     return
                 gaction = getattr(self.links["client"], action)
-                if not self.handle_remote and \
-                    self.server.address_family != file_family and \
-                    not check_local(self.client_address2[0]):
-                    self.send_error(403, "no permission - client")
-                    return
                 if check_classify(gaction, "admin"):
                     #if self.client_cert is None:
                     #    self.send_error(403, "no permission (no certrewrap) - admin")
@@ -282,7 +270,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 if not response[0]:
                     error = response[1]
                     generror = generate_error(error)
-                    if not config.debug_mode or (self.server.address_family != file_family and not check_local(self.client_address2[0])):
+                    if not config.debug_mode or (self.server.address_family != file_family and not check_local(self.client_address[0])):
                         # don't show stacktrace if not permitted and not in debug mode
                         if "stacktrace" in generror:
                             del generror["stacktrace"]
@@ -325,7 +313,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     jsonnized = json.dumps(gen_result(response[1], response[0]))
                 except Exception as exc:
                     generror = generate_error(exc)
-                    if not config.debug_mode or self.server.address_family != file_family or not check_local(self.client_address2[0]):
+                    if not config.debug_mode or self.server.address_family != file_family or not check_local(self.client_address[0]):
                         # don't show stacktrace if not permitted and not in debug mode
                         if "stacktrace" in generror:
                             del generror["stacktrace"]
@@ -380,7 +368,7 @@ class client_init(object):
     config_root = None
     plugins_config = None
     links = None
-    run = True # necessary for some runmethods
+    active = True
 
     def __init__(self, **kwargs):
         self.links = {}
@@ -472,11 +460,14 @@ class client_init(object):
                 self.links["cserver_unix"] = http_server(rpath, _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=5, use_unix=True)
                 self.links["cserver_unix"].serve_forever_nonblock()
             if not handle_remote and not kwargs.get("noip", False):
-                self.links["cserver_ip"] = http_server(("::1", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs["server_timeout"])
+                self.links["cserver_ip"] = http_server(("", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs["server_timeout"])
                 self.links["cserver_ip"].serve_forever_nonblock()
 
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
     def quit(self):
+        if not self.active:
+            return
+        self.active = False
         self.links["hserver"].server_close()
         if "client_ip" in self.links:
             self.links["client_ip"].server_close()

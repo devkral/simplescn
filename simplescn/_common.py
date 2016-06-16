@@ -18,7 +18,7 @@ import socketserver
 
 
 from simplescn import config, pwcallmethod
-from simplescn.config import isself
+from simplescn.config import isself, file_family
 
 from simplescn.tools import dhash, safe_mdecode, default_sslcont
 from simplescn.tools.checks import check_name, check_hash, check_security, \
@@ -555,12 +555,13 @@ class commonscn(object):
 class commonscnhandler(BaseHTTPRequestHandler):
     links = None
     sys_version = "" # would say python xy, no need and maybe security hole
+    # for keep-alive
+    default_request_version = "HTTP/1.1"
     auth_info = None
     client_cert = None
     client_certhash = None
     # replaced by function not init
     alreadyrewrapped = False
-    client_address2 = None
     links = None
     
     rfile = None
@@ -568,6 +569,28 @@ class commonscnhandler(BaseHTTPRequestHandler):
     connection = None
     etablished_timeout = config.default_timeout
     server_timeout = config.server_timeout
+
+    # disconnects any client which doesn't run local
+    onlylocal = False
+    # signals that connection is local
+    is_local = False
+
+    def __init__(self, request, client_address, server):
+        """ overwritten StreamRequestHandler __init__
+            for is_local and quicker closing """
+        self.request = request
+        self.client_address = client_address
+        self.server = server
+        # set variable is_local
+        self.is_local = self.server.address_family != file_family or check_local(self.client_address[0])
+        # if onlylocal is True: return if not local
+        if self.onlylocal and not self.is_local:
+            return
+        self.setup()
+        try:
+            self.handle()
+        finally:
+            self.finish()
 
     def scn_send_answer(self, status, body=None, mime="application/json", message=None, docache=False, dokeepalive=None):
         if message:
@@ -584,7 +607,8 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             if dokeepalive is None and status == 200:
                 dokeepalive = True
-        if dokeepalive:
+        # if connection is closed don't set keep-alive
+        if dokeepalive and not self.close_connection:
             self.send_header('Connection', 'keep-alive')
         else:
             self.send_header('Connection', 'close')
@@ -607,10 +631,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.auth_info = safe_mdecode(_auth, "application/json; charset=utf-8")
         else:
             self.auth_info = None
-        if self.client_address[0][:7] == "::ffff:":
-            self.client_address2 = (self.client_address[0][7:], self.client_address[1])
-        else:
-            self.client_address2 = (self.client_address[0], self.client_address[1])
         # hack around not transmitted client cert
         _rewrapcert = self.headers.get("X-certrewrap", None)
         _origcert = self.headers.get("X-original_cert", None)
@@ -659,7 +679,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
         if obdict is None:
             self.scn_send_answer(400, message="bad arguments")
             return None
-        obdict["clientaddress"] = self.client_address2
+        obdict["clientaddress"] = self.client_address
         obdict["client_cert"] = self.client_cert
         obdict["client_certhash"] = self.client_certhash
         obdict["headers"] = self.headers

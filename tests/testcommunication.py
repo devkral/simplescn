@@ -59,6 +59,9 @@ class TestCommunication(unittest.TestCase):
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
+        cls.client.quit()
+        cls.client2.quit()
+        cls.server.quit()
         shutil.rmtree(cls.temptestdir)
         shutil.rmtree(cls.temptestdir2)
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst

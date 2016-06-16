@@ -24,8 +24,8 @@ def pwcallmethod_realm(realm):
 reference_header = \
 {
     "User-Agent": "simplescn/1.0",
-    "Authorization": 'scn {}',
-    "Connection": 'keep-alive' # keep-alive is set by server (and client?)
+    "Authorization": 'scn {}'
+    #"Connection": 'keep-alive' # dokeepalive cares
 }
 
 strip_headers = ["Connection", "Host", "Accept-Encoding", \
@@ -198,6 +198,10 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
     if kwargs.get("originalcert", None):
         sendheaders["X-original_cert"] = kwargs.get("originalcert")
 
+    if kwargs.get("keepalive", True):
+        sendheaders["Connection"] = 'keep-alive'
+    else:
+        sendheaders["Connection"] = 'close'
     #start connection
     con.putrequest("POST", path)
     for key, value in sendheaders.items():
@@ -263,6 +267,7 @@ def do_request(addr_or_con, path, body=None, headers=None, **kwargs):
                 * originalcert: send original cert (maybe removed)
                 * connect_timeout: timeout for connecting
                 * timeout: timeout if connection is etablished
+                * keepalive: keep server connection alive
                 * forceport: True: raise if no port is given, False: use server port in that case
             special:
                 * certcontext: specify certcontext used
@@ -287,7 +292,7 @@ def do_request(addr_or_con, path, body=None, headers=None, **kwargs):
 
 def do_request_simple(addr_or_con, path, body=None, headers=None, **kwargs):
     """ autoclose connection """
-    ret = do_request(addr_or_con, path, body=body, headers=headers, **kwargs)
+    ret = do_request(addr_or_con, path, body=body, headers=headers, keepalive=False, **kwargs)
     if ret[0]:
         ret[0].close()
     return ret[1:]
