@@ -204,8 +204,8 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
     class client_handler(commonscnhandler):
         """ client handler """
         server_version = 'simplescn/1.0 (client)'
-        # set onlylocal variable if remote is deactivated
-        onlylocal = not remote
+        # set onlylocal variable if remote is deactivated and not server
+        onlylocal = not remote and not server
         links = _links
         server_timeout = stimeout
         etablished_timeout = etimeout
