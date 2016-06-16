@@ -1,6 +1,6 @@
 
-
-## 0.2
+use create_connection with source_address instead of using socket direct for traversal
+document behaviour of '' (beeing a wildcard for 0.0.0.0, ::)
 
 ## 0.3
 * improve tests
