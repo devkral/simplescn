@@ -18,6 +18,9 @@ from simplescn._decos import check_args_deco, classify_local, classify_accessabl
 
 @generate_validactions_deco
 class client_safe(object, metaclass=abc.ABCMeta):
+    @property
+    def validactions(self):
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
@@ -212,7 +215,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         _ha = self.gethash(obdict)
         if not _ha[0]:
             return _ha
-        _hadict = cast(dict, _ha[1])
+        _hadict = _ha[1]
         if _hadict.get("hash") == self.cert_hash:
             return True, {"localname": isself, "hash": self.cert_hash, "cert": _hadict["cert"]}
         hasho = self.hashdb.get(_hadict["hash"])

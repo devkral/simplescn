@@ -10,7 +10,6 @@ import socket
 import threading
 import json
 import logging
-from typing import cast
 
 from simplescn import config, VALError, AuthNeeded, AddressFail
 from simplescn.config import isself, file_family

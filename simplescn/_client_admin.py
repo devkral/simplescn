@@ -16,6 +16,9 @@ from simplescn._decos import classify_admin, classify_local, check_args_deco, cl
 
 @generate_validactions_deco
 class client_admin(object, metaclass=abc.ABCMeta):
+    @property
+    def validactions(self):
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
