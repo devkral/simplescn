@@ -12,11 +12,10 @@ import threading
 import signal
 import json
 
-# don't load installed module if executed directly
+# don't load different module
 if __name__ == "__main__":
-    _tpath = os.path.realpath(os.path.dirname(__file__))
-    _tpath = os.path.dirname(_tpath)
-    sys.path.insert(0, _tpath)
+    ownpath = os.path.dirname(os.path.realpath(__file__))
+    sys.path.insert(0, os.path.dirname(ownpath))
 
 from simplescn import config
 from simplescn._common import scnparse_args, loglevel_converter

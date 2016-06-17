@@ -7,11 +7,10 @@ import shlex
 import sys
 import os
 
-# don't load installed module if executed directly
+# don't load different module
 if __name__ == "__main__":
-    _tpath = os.path.realpath(os.path.dirname(__file__))
-    _tpath = os.path.dirname(_tpath)
-    sys.path.insert(0, _tpath)
+    ownpath = os.path.dirname(os.path.realpath(__file__))
+    sys.path.insert(0, os.path.dirname(ownpath))
 
 from simplescn.scnrequest import do_request_simple, pwcallmethod_realm
 
