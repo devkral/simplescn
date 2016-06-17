@@ -8,7 +8,6 @@
 * better code quality
 
 * tests for wrap, traversal, massimport
-* validate that no serious problems happen if service traversal fails
 * scnrequest, check_certs create_connection can open a unix socket, use tcp sockets instead
 * ipv4, ipv6 compatibility checks
 * resolv ipv4 addresses in ipv6 format

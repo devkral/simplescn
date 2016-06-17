@@ -209,7 +209,7 @@ class server(commonscn):
         self.nhipmap_cond.set()
         return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
 
-    @check_args_deco({"destaddr": str})
+    @check_args_deco({"destaddr": str}) #, optional={"port": int}
     @classify_accessable
     def open_traversal(self, obdict: dict):
         """ func: open traversal connection

@@ -325,6 +325,7 @@ def try_traverse(srcaddr, destaddr, connect_timeout=config.connect_timeout, retr
     try:
         sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         sock.settimeout(connect_timeout)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(srcaddr)
         for count in range(0, retries):
             try:

@@ -203,21 +203,20 @@ class client_server(commonscn):
         else:
             return True, -1
 
-    @check_args_deco({"name": str}, optional={"destport": int})
+    @check_args_deco({"name": str})
     #@classify_accessable
     def traverse_service(self, obdict):
         """ func: get the port of a service
             return: portnumber or negative for invisibleport
-            name: servicename
-            destaddr: destination address """
+            name: servicename """
         serviceob = self.spmap.get(obdict["name"], tuple())
         if not bool(serviceob) or not serviceob[1]:
             return False, "Service not available"
-        _port = obdict.get("destport", None)
-        if not _port:
-            _port = obdict["clientaddress"][1]
-        travaddr = ('', _port)
-        destaddr = (obdict["clientaddress"][0], _port)
+        #_port = obdict.get("destport", None)
+        #if not _port:
+        #    _port = obdict["clientaddress"][1]
+        travaddr = ('', serviceob[0])
+        destaddr = obdict["clientaddress"] #(obdict["clientaddress"][0], _port)
         if try_traverse(travaddr, destaddr, connect_timeout=self.links["kwargs"]["connect_timeout"], retries=config.traverse_retries):
             return True, serviceob[0]
         else:
