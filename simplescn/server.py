@@ -66,7 +66,7 @@ class server(commonscn):
         self.timeout = d["timeout"]
         self.connect_timeout = d["connect_timeout"]
         self.priority = int(d["priority"])
-        self.cert_hash = d["certhash"]
+        self.cert_hash = d["cert_hash"]
         self.name = d["name"]
         self.message = d["message"]
         self.links = d["links"]
@@ -383,7 +383,7 @@ class server_init(object):
         else:
             port = config.server_port
 
-        serverd = {"name": _name, "certhash": dhash(pub_cert), "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
+        serverd = {"name": _name, "cert_hash": dhash(pub_cert), "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
         self.links["server_server"] = server(serverd)
 
         self.links["hserver"] = http_server(("", port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=kwargs["server_timeout"])
@@ -398,9 +398,9 @@ class server_init(object):
         self.links["hserver"].server_close()
     def show(self):
         ret = dict()
-        _r = self.links.get("hserver", None)
-        if _r:
-            ret["hserver"] = _r.server_name, _r.server_port
+        ret["cert_hash"] = self.links["server_server"].cert_hash
+        _r = self.links["hserver"]
+        ret["hserver"] = _r.server_name, _r.server_port
         return ret
 
     def serve_forever_block(self):
@@ -422,7 +422,8 @@ default_server_args = {
     "server_timeout": [str(config.server_timeout), int, "<int>: set timeout for servercomponent"],
     "timeout": [str(config.default_timeout), int, "<int>: set default timeout (etablished connections)"],
     "loglevel": [str(config.default_loglevel), loglevel_converter, "<int/str>: loglevel"],
-    "notraversal": ["False", parsebool, "<bool>: disable traversal"]}
+    "notraversal": ["False", parsebool, "<bool>: disable traversal"],
+    "nopid": ["False", parsebool, "<bool>: deactivate pid"]}
 
 def server_paramhelp():
     _temp = "# parameters\n"

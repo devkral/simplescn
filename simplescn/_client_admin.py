@@ -310,7 +310,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return True
 
     # TODO: test
-    @check_args_deco({"sourceaddress": str, "sourcehash": str, "entities": list, "hashes": list})
+    @check_args_deco({"sourceaddress": str, "sourcehash": str}, optional={"entities": list, "hashes": list})
     @classify_admin
     @classify_accessable
     def massimporter(self, obdict: dict):
@@ -319,14 +319,17 @@ class client_admin(object, metaclass=abc.ABCMeta):
             sourceaddress: address of source (client)
             sourcehash: hash of source
             entities: list with entities to import (imports hashes below), None for all
-            hashes: list with hashes to import (imports references below) """
+            hashes: list with hashes to import (imports references below), None for all """
         #listhashes = obdict.get("hashes")
         listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", forcehash=obdict.get("sourcehash"))
         _imp_ent = obdict.get("entities")
         _imp_hash = obdict.get("hashes")
         for _name, _hash, _type, _priority, _security, _certreferenceid in listall:
-            if _imp_ent is not None and _name not in _imp_ent and _hash not in _imp_hash:
+            if _imp_ent is not None and _name not in _imp_ent:
                 continue
+            if _imp_hash is not None and _hash not in _imp_hash:
+                continue
+
             if not self.hashdb.exists(_name):
                 self.hashdb.addentity(_name)
             if self.hashdb.exists(_name, _hash):

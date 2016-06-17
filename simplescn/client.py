@@ -135,7 +135,7 @@ class client_server(commonscn):
         self.name = dcserver["name"]
         self.message = dcserver["message"]
         self.priority = dcserver["priority"]
-        self.cert_hash = dcserver["certhash"]
+        self.cert_hash = dcserver["cert_hash"]
         self.cache["dumpservices"] = json.dumps(gen_result({}, True))
         self.update_cache()
         self.validactions.update(self.cache.keys())
@@ -465,7 +465,7 @@ class client_init(object):
             port = int(_name[1])
         else:
             port = config.client_port
-        clientserverdict = {"name": _name[0], "certhash": dhash(pub_cert),
+        clientserverdict = {"name": _name[0], "cert_hash": dhash(pub_cert),
                             "priority": kwargs.get("priority"), "message": _message}
         self.links["client_server"] = client_server(clientserverdict)
         # use timeout argument of BaseServer
@@ -496,8 +496,10 @@ class client_init(object):
             self.links["client_unix"].server_close()
     def show(self):
         ret = dict()
+        ret["cert_hash"] = self.links["client_client"].cert_hash
         _r = self.links["hserver"]
         ret["hserver"] = _r.server_name, _r.server_port
+        
         _r = self.links.get("cserver_ip", None)
         if _r:
             ret["cserver_ip"] = _r.server_name, _r.server_port
@@ -533,7 +535,8 @@ default_client_args = \
     "config": [config.default_configdir, parsepath, "<dir>: path to config dir"],
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
-    "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"]
+    "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
+    "nopid": ["False", parsebool, "<bool>: deactivate pid"]
 }
 
 def client_paramhelp():

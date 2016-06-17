@@ -77,6 +77,11 @@ def cmdcom(argv=sys.argv[1:]):
     from simplescn.cmdcom import _init_method_main
     return _init_method_main(argv)
 
+def cmdmassimport(argv=sys.argv[1:]):
+    """ wrapper for cmdmassimport """
+    from simplescn.massimport import cmdmassimport
+    return cmdmassimport(argv)
+
 _is_init_already = False
 def _init_scn():
     """ initialize once and only in mainthread """
@@ -94,9 +99,9 @@ def _init_method_main(argv=sys.argv[1:]):
             toexe(argv[1:])
         else:
             print("Not available", file=sys.stderr)
-            print("Available: client, server, hashpw, cmdcom", file=sys.stderr)
+            print("Available: client, server, hashpw, cmdcom, cmdmassimport", file=sys.stderr)
     else:
-        print("Available: client, server, hashpw, cmdcom", file=sys.stderr)
+        print("Available: client, server, hashpw, cmdcom, cmdmassimport", file=sys.stderr)
 
 if __name__ == "__main__":
     _init_method_main()

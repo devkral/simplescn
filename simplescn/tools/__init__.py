@@ -116,6 +116,8 @@ def init_config_folder(_dir, prefix):
 badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"
 # no .:- to differ name from ip address
 badnamechars += ".:"
+# list seperator (cmd)
+badnamechars += ";"
 
 def normalize_name(_name, maxlength=config.max_namelength):
     if _name is None:

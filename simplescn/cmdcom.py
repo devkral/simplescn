@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
 from simplescn.scnrequest import do_request_simple, pwcallmethod_realm
 
-def cmdloop(ip, use_unix=False):
+def cmdloop(ip, use_unix=False, forcehash=None):
     while True:
         inp = input("Enter command:\n")
         body = {}
@@ -24,7 +24,7 @@ def cmdloop(ip, use_unix=False):
                 body[splitted[0]] = splitted[1]
         command = body.pop("command", "show")
         try:
-            ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod_realm, use_unix=use_unix)
+            ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod_realm, use_unix=use_unix, forcehash=forcehash)
             print(ret)
         except Exception as exc:
             print(exc, file=sys.stderr)
@@ -70,16 +70,19 @@ def _test(argv, use_unix):
     c = client(doreturn=True)
     running_instances.append(c)
     t = c.show()
-    s = server(doreturn=True)
+    s = server([], doreturn=True)
+    t2 = s.show()
     running_instances.append(s)
     print("client ip", t.get("cserver_ip", None))
     print("client unix",  t.get("cserver_unix", None))
-    print("client server", t.get("hserver", None))
-    print("server", "::1-{}".format(s.links.get("hserver").server_port))
+    print("client server", t.get("hserver"))
+    print("client hash", t.get("cert_hash"))
+    print("server", "::1-{}".format(t2.get("hserver")))
+    print("server hash", t2.get("cert_hash"))
     if use_unix:
-        cmdloop(t.get("cserver_unix"), use_unix=True)
+        cmdloop(t.get("cserver_unix"), use_unix=True, forcehash=t.get("cert_hash"))
     else:
-        cmdloop("::1-{}".format(t.get("cserver_ip")[1]))
+        cmdloop("::1-{}".format(t.get("cserver_ip")[1]), forcehash=t.get("cert_hash"))
 
 def test(argv=sys.argv[1:]):
     _test(argv, False)
