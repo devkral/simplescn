@@ -195,6 +195,7 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=con
         if not traversefunc:
             logging.warning("Connection failed")
             return None
+        # try_traverse does not work here, scnreqest creates loop
         con.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         con.sock.bind(('', 0))
         traversefunc(("", con.sock.getsockname()[1]))

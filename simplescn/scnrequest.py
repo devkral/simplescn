@@ -8,7 +8,7 @@ from simplescn import config
 from simplescn.config import isself
 
 from simplescn.tools import default_sslcont, scnparse_url, \
-safe_mdecode, encode_bo, \
+safe_mdecode, encode_bo, try_traverse, \
 dhash, create_certhashheader, scnauth_client
 
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError, pwcallmethod
@@ -90,17 +90,10 @@ class SCNConnection(client.HTTPSConnection):
                 retserv = do_request(trav, "/server/open_traversal", {"destaddr": _host}, keepalive=True)
                 contrav.close()
                 if retserv[1]:
-                    self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-                    self.sock.bind(('', _sport))
-                    self.sock.settimeout(self.kwargs.get("connect_timeout", config.connect_timeout))
-                    for count in range(0, self.kwargs.get("traverse_retries", config.traverse_retries)):
-                        try:
-                            self.sock.connect(_host)
-                            break
-                        except Exception:
-                            pass
-                    else:
-                        self.sock = None
+                    contimeout = self.kwargs.get("connect_timeout", config.connect_timeout)
+                    retries = self.kwargs.get("traverse_retries", config.traverse_retries)
+                    self.sock = try_traverse(('', _sport), _host, connect_timeout=contimeout, retries=retries)
+                    if not self.sock:
                         return
             # set options for ip
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)

@@ -12,17 +12,11 @@ import threading
 import signal
 import json
 
-
+# don't load installed module if executed directly
 if __name__ == "__main__":
     _tpath = os.path.realpath(os.path.dirname(__file__))
     _tpath = os.path.dirname(_tpath)
-    if _tpath not in sys.path:
-        sys.path.insert(0, _tpath)
-
-#if __name__ == "__main__":
-#    _tpath = os.path.realpath(os.path.dirname(sys.modules[__name__].__file__))
-#    _tpath = os.path.dirname(_tpath)
-#    sys.path.insert(0, _tpath)
+    sys.path.insert(0, _tpath)
 
 from simplescn import config
 from simplescn._common import scnparse_args, loglevel_converter
@@ -32,7 +26,7 @@ running_instances = []
 def _signal_handler(_signal, frame):
     """ handles signals; shutdown properly """
     for elem in running_instances:
-       elem.quit()
+        elem.quit()
     logging.shutdown()
     sys.exit(0)
 
@@ -44,12 +38,11 @@ def server(argv=sys.argv[1:], doreturn=False):
     os.makedirs(kwargs["config"], 0o750, True)
     server_instance = server_init(**kwargs)
     if doreturn:
-        server_instance.serve_forever_nonblock()
         return server_instance
     else:
         running_instances.append(server_instance)
         print(json.dumps(server_instance.show()))
-        server_instance.serve_forever_block()
+        server_instance.join()
 
 def client(argv=sys.argv[1:], doreturn=False):
     """ client """
@@ -59,12 +52,11 @@ def client(argv=sys.argv[1:], doreturn=False):
     os.makedirs(kwargs["config"], 0o750, True)
     client_instance = client_init(**kwargs)
     if doreturn:
-        client_instance.serve_forever_nonblock()
         return client_instance
     else:
         running_instances.append(client_instance)
         print(json.dumps(client_instance.show()))
-        client_instance.serve_forever_block()
+        client_instance.join()
 
 def hashpw(argv=sys.argv[1:]):
     """ create pw hash for *pwhash """
@@ -84,7 +76,7 @@ def cmdcom(argv=sys.argv[1:]):
     from simplescn.cmdcom import _init_method_main
     return _init_method_main(argv)
 
-def cmdmassimport(argv=sys.argv[1:]):
+def cmd_massimport(argv=sys.argv[1:]):
     """ wrapper for cmdmassimport """
     from simplescn.massimport import cmdmassimport
     return cmdmassimport(argv)
@@ -106,9 +98,9 @@ def _init_method_main(argv=sys.argv[1:]):
             toexe(argv[1:])
         else:
             print("Not available", file=sys.stderr)
-            print("Available: client, server, hashpw, cmdcom, cmdmassimport", file=sys.stderr)
+            print("Available: client, server, hashpw, cmdcom, cmd_massimport", file=sys.stderr)
     else:
-        print("Available: client, server, hashpw, cmdcom, cmdmassimport", file=sys.stderr)
+        print("Available: client, server, hashpw, cmdcom, cmd_massimport", file=sys.stderr)
 
 if __name__ == "__main__":
     _init_method_main()

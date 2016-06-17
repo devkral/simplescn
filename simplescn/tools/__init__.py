@@ -321,18 +321,20 @@ scn_nostruct = struct.pack(">c511x", b"y")
 
 #port size, address
 addrstrformat = ">HH508s"
-# not needed as far but keep it for future
-def traverser_request(_srcaddrtupel, _dstaddrtupel, _contupel):
-    if ":" in _dstaddrtupel[0]:
-        _socktype = socket.AF_INET6
-    else:
-        _socktype = socket.AF_INET
-    _udpsock = socket.socket(_socktype, socket.SOCK_DGRAM)
-    _udpsock.bind(_srcaddrtupel)
-    binaddr = bytes(_contupel[0], "utf-8")
-    construct = struct.pack(addrstrformat, _contupel[1], len(binaddr), binaddr)
-    for elem in range(0, 3):
-        _udpsock.sendto(construct, _dstaddrtupel)
+def try_traverse(srcaddr, destaddr, connect_timeout=config.connect_timeout, retries=config.traverse_retries):
+    try:
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        sock.settimeout(connect_timeout)
+        sock.bind(srcaddr)
+        for count in range(0, retries):
+            try:
+                sock.connect(destaddr)
+                return sock
+            except socket.timeout:
+                pass
+    except Exception as exc:
+        logging.info(exc)
+    return None
 
 class traverser_dropper(object):
     _srcaddrtupel = None

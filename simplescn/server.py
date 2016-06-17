@@ -14,9 +14,9 @@ import logging
 import ssl
 
 
-from simplescn import config, InvalidLoadSizeError, InvalidLoadLevelError
+from simplescn import config, InvalidLoadSizeError, InvalidLoadLevelError, pwcallmethod
 
-from simplescn.tools import generate_certs, init_config_folder, dhash, scnauth_server, traverser_dropper, scnparse_url
+from simplescn.tools import generate_certs, init_config_folder, dhash, scnauth_server, traverser_dropper, scnparse_url, default_sslcont
 from simplescn.tools.checks import check_certs, check_hash, check_local, check_name, check_updated_certs
 from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, loglevel_converter
@@ -385,12 +385,18 @@ class server_init(object):
 
         serverd = {"name": _name, "cert_hash": dhash(pub_cert), "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
         self.links["server_server"] = server(serverd)
+        
+        sslcont = default_sslcont()
+        sslcont.load_cert_chain( _spath+"_cert.pub",  _spath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
 
-        self.links["hserver"] = http_server(("", port), _spath+"_cert", self.links["handler"], "Enter server certificate pw", timeout=kwargs["server_timeout"])
+        self.links["hserver"] = http_server(("", port), sslcont, self.links["handler"])
+
         if not kwargs["notraversal"]:
             self.links["server_server"].capabilities.append("traversal")
             srcaddr = self.links["hserver"].socket.getsockname()
             self.links["server_server"].traverse = traverser_dropper(srcaddr)
+
+        self.links["hserver"].serve_forever_nonblock()
     def quit(self):
         if not self.active:
             return
@@ -402,13 +408,8 @@ class server_init(object):
         _r = self.links["hserver"]
         ret["hserver"] = _r.server_name, _r.server_port
         return ret
-
-    def serve_forever_block(self):
-        self.links["hserver"].serve_forever()
-
-    def serve_forever_nonblock(self):
-        sthread = threading.Thread(target=self.serve_forever_block, daemon=True)
-        sthread.start()
+    def join(self):
+        self.links["hserver"].serve_join()
 
 #### don't base on sqlite as it increases complexity and needed libs
 

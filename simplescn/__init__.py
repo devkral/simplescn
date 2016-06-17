@@ -5,16 +5,6 @@ load parameters, stuff
 license: MIT, see LICENSE.txt
 """
 
-import os
-import sys
-from getpass import getpass
-
-
-sharedir = os.path.dirname(os.path.realpath(__file__))
-# append to pathes
-if sharedir not in sys.path:
-    sys.path.insert(0, sharedir)
-
 #__all__ = ["simplescn.tools", "AuthNeeded", "AddressError"]
 #__all__ += ["EnforcedPortError", "AddressEmptyError", "AddressInvalidError"]
 #__all__ += ["InvalidLoadError"]
@@ -75,6 +65,7 @@ resp_st = \
 
 
 def inp_passw_cmd(msg):
+    from getpass import getpass
     return getpass(msg+":\n")
 pwcallmethodinst = inp_passw_cmd
 

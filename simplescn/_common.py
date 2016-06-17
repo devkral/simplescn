@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler
 import socketserver
 
 
-from simplescn import config, pwcallmethod
+from simplescn import config
 from simplescn.config import isself, file_family
 
 from simplescn.tools import dhash, safe_mdecode, default_sslcont
@@ -462,10 +462,12 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     sslcont = None
     rawsock = None
     timeout = None
+    _listenthread = None
     use_unix = False
 
-    def __init__(self, _address, certfpath, _handler, pwmsg, timeout=config.default_timeout, use_unix=False):
+    def __init__(self, _address, sslcont, _handler, use_unix=False):
         self.use_unix = use_unix
+        self.sslcont = sslcont
         
         if self.use_unix:
             self.address_family = socket.AF_UNIX
@@ -477,7 +479,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
         else:
             self.address_family = socket.AF_INET6
             self.allow_reuse_address = 1
-        self.timeout = timeout
+        self.timeout = _handler.server_timeout
         socketserver.TCPServer.__init__(self, _address, _handler, False)
         if not self.use_unix:
             try:
@@ -488,8 +490,6 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 pass
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        self.sslcont = default_sslcont()
-        self.sslcont.load_cert_chain(certfpath+".pub", certfpath+".priv", lambda: bytes(pwcallmethod(pwmsg), "utf-8"))
         self.socket = self.sslcont.wrap_socket(self.socket)
 
         try:
@@ -526,8 +526,11 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
             self.server_port = port
 
     def serve_forever_nonblock(self):
-        threading.Thread(target=self.serve_forever, daemon=True).start()
+        self._listenthread = threading.Thread(target=self.serve_forever, daemon=True)
+        self._listenthread.start()
 
+    def serve_join(self):
+        self._listenthread.join()
 
 class commonscn(object):
     # replace not add elsewise bugs in multi instance situation

@@ -11,12 +11,13 @@ import threading
 import json
 import logging
 
-from simplescn import config, VALError, AuthNeeded, AddressError
+from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
+from simplescn.tools import default_sslcont, try_traverse
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter
 
 
-from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper, traverser_dropper
+from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import client_admin
@@ -112,20 +113,23 @@ class client_client(client_admin, client_safe):
 class client_server(commonscn):
     spmap = None
     scn_type = "client"
+    links = None
     # replace commonscn capabilities
     capabilities = None
-    
+
+    wlock = None
+
     @property
     def validactions(self):
         raise NotImplementedError
-    
-    wlock = None
+
     def __init__(self, dcserver):
         commonscn.__init__(self)
         self.capabilities = ["basic", "client", "wrap", "traversal"]
         # init here (multi instance situation)
         self.spmap = {}
         self.wlock = threading.Lock()
+        self.links = dcserver["links"]
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
             logging.info("Name empty")
             dcserver["name"] = "<noname>"
@@ -139,8 +143,6 @@ class client_server(commonscn):
         self.cache["dumpservices"] = json.dumps(gen_result({}, True))
         self.update_cache()
         self.validactions.update(self.cache.keys())
-        srcaddr = self.links["hserver"].socket.getsockname()
-        self.traverse = traverser_dropper(srcaddr)
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
@@ -216,8 +218,10 @@ class client_server(commonscn):
             _port = obdict["clientaddress"][1]
         travaddr = ('', _port)
         destaddr = (obdict["clientaddress"][0], _port)
-        threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr), daemon=True).start()
-        return True, serviceob[0]
+        if try_traverse(travaddr, destaddr, connect_timeout=self.links["kwargs"]["connect_timeout"], retries=config.traverse_retries):
+            return True, serviceob[0]
+        else:
+            return False, "Traversal could not opened"
 
 
 def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False):
@@ -465,26 +469,39 @@ class client_init(object):
             port = int(_name[1])
         else:
             port = config.client_port
-        clientserverdict = {"name": _name[0], "cert_hash": dhash(pub_cert),
-                            "priority": kwargs.get("priority"), "message": _message}
-        self.links["client_server"] = client_server(clientserverdict)
-        # use timeout argument of BaseServer
+        sslcont = default_sslcont()
+        sslcont.load_cert_chain( _cpath+"_cert.pub",  _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
+        
         if handle_remote:
             self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=True, remote=True)
         else:
             self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=False, remote=False)
-        self.links["hserver"] = http_server(("", port), _cpath+"_cert", self.links["shandler"], "Enter client certificate pw", timeout=kwargs.get("server_timeout"))
+        self.links["hserver"] = http_server(("", port), sslcont, self.links["shandler"])
+        
         if not handle_remote or (not kwargs.get("nounix") and file_family):
             self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=False, client=True, remote=False)
             if file_family is not None:
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
-                self.links["cserver_unix"] = http_server(rpath, _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=5, use_unix=True)
-                self.links["cserver_unix"].serve_forever_nonblock()
+                self.links["cserver_unix"] = http_server(rpath, sslcont, self.links["chandler"], use_unix=True)
             if not handle_remote and not kwargs.get("noip", False):
-                self.links["cserver_ip"] = http_server(("", port), _cpath+"_cert", self.links["chandler"], "Enter client certificate pw", timeout=kwargs["server_timeout"])
+                self.links["cserver_ip"] = http_server(("", port), sslcont, self.links["chandler"])
                 self.links["cserver_ip"].serve_forever_nonblock()
 
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
+        clientserverdict = {"name": _name[0], "cert_hash": dhash(pub_cert),
+                            "priority": kwargs.get("priority"), "message": _message, "links": self.links}
+
+        self.links["client_server"] = client_server(clientserverdict)
+
+        self.links["hserver"].serve_forever_nonblock()
+        if "cserver_unix" in self.links:
+            self.links["cserver_unix"].serve_forever_nonblock()
+        if "cserver_ip" in self.links:
+            self.links["cserver_ip"].serve_forever_nonblock()
+
+    def join(self):
+        self.links["hserver"].serve_join()
+
     def quit(self):
         if not self.active:
             return
@@ -494,12 +511,12 @@ class client_init(object):
             self.links["client_ip"].server_close()
         if "client_unix" in self.links:
             self.links["client_unix"].server_close()
+
     def show(self):
         ret = dict()
-        ret["cert_hash"] = self.links["client_client"].cert_hash
+        ret["cert_hash"] = self.links["client"].cert_hash
         _r = self.links["hserver"]
         ret["hserver"] = _r.server_name, _r.server_port
-        
         _r = self.links.get("cserver_ip", None)
         if _r:
             ret["cserver_ip"] = _r.server_name, _r.server_port
@@ -509,11 +526,6 @@ class client_init(object):
         if _r:
             ret["cserver_unix"] = _r.server_name
         return ret
-    def serve_forever_block(self):
-        self.links["hserver"].serve_forever()
-
-    def serve_forever_nonblock(self):
-        threading.Thread(target=self.serve_forever_block, daemon=True).start()
 
 #specified seperately because of chicken egg problem
 #"config":default_configdir
@@ -544,5 +556,3 @@ def client_paramhelp():
     for _key, elem in sorted(default_client_args.items(), key=lambda x: x[0]):
         temp_doc += "  * key: {}, default: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return temp_doc
-
-
