@@ -1,10 +1,18 @@
 
-use create_connection with source_address instead of using socket direct for traversal
-document behaviour of '' (beeing a wildcard for 0.0.0.0, ::)
+
 
 ## 0.3
+* mass import (done)
+* holepunching for services (done)
 * improve tests
-* default pwhandler for different environments (e.g. kivy, gtk, windows, tk)
 * better code quality
-* mass import
-* holepunching for services
+
+* tests for wrap, traversal, massimport
+* validate that no serious problems happen if service traversal fails
+* scnrequest, check_certs create_connection can open a unix socket, use tcp sockets instead
+* ipv4, ipv6 compatibility checks
+* resolv ipv4 addresses in ipv6 format
+
+## future
+* default pwhandler for different environments (e.g. kivy, gtk, windows, tk)
+* check if traversal request succeeded

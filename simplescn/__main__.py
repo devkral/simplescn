@@ -12,10 +12,17 @@ import threading
 import signal
 import json
 
+
 if __name__ == "__main__":
-    _tpath = os.path.realpath(os.path.dirname(sys.modules[__name__].__file__))
+    _tpath = os.path.realpath(os.path.dirname(__file__))
     _tpath = os.path.dirname(_tpath)
-    sys.path.insert(0, _tpath)
+    if _tpath not in sys.path:
+        sys.path.insert(0, _tpath)
+
+#if __name__ == "__main__":
+#    _tpath = os.path.realpath(os.path.dirname(sys.modules[__name__].__file__))
+#    _tpath = os.path.dirname(_tpath)
+#    sys.path.insert(0, _tpath)
 
 from simplescn import config
 from simplescn._common import scnparse_args, loglevel_converter
