@@ -16,7 +16,6 @@ import re
 import threading
 import json
 
-import psutil
 
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -116,6 +115,7 @@ def init_config_folder(_dir, prefix):
 ## pidlock ##
 
 def get_pidlock(rundir, name):
+    import psutil
     path = os.path.join(rundir, name)
     pid = None
     try:

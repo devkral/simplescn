@@ -9,9 +9,10 @@ Features:
 * simple portmapper, easy to integrate in other applications
 
 Dependencies:
+* python >=3.5
 * python-cryptography (python3 version) (pip: cryptography)
-* python3
-* optional: markdown (pip: markdown)(for more beautiful help)
+* psutil (pip: psutil) (for pid lock, not needed with "nolock" option)
+* optional: markdown (pip: markdown) (for more beautiful help)
 
 # Security:
 
