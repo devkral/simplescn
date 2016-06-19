@@ -16,7 +16,8 @@ import ssl
 
 from simplescn import config, InvalidLoadSizeError, InvalidLoadLevelError, pwcallmethod
 
-from simplescn.tools import generate_certs, init_config_folder, dhash, scnauth_server, traverser_dropper, scnparse_url, default_sslcont
+from simplescn.tools import generate_certs, init_config_folder, \
+dhash, scnauth_server, traverser_dropper, scnparse_url, default_sslcont, get_pidlock
 from simplescn.tools.checks import check_certs, check_hash, check_local, check_name, check_updated_certs
 from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, loglevel_converter
@@ -336,6 +337,27 @@ class server_init(object):
     config_path = None
     links = None
     active = True
+    pidpath = None
+
+    @classmethod
+    def create(cls, **kwargs):
+        if not kwargs["nolock"]:
+            # port
+            pidpath = get_pidlock(kwargs["run"], "{}-simplescn-server.lck".format(kwargs["port"]))
+            if not pidpath:
+                return None
+        else:
+            pidpath = None
+        ret = cls(**kwargs)
+        ret.pidpath = pidpath
+        return ret
+    
+    def __del__(self):
+        if self.pidpath:
+            try:
+                os.remove(self.pidpath)
+            except Exception:
+                pass
 
     def __init__(self, **kwargs):
         self.links = {}
@@ -424,7 +446,7 @@ default_server_args = {
     "timeout": [str(config.default_timeout), int, "<int>: set default timeout (etablished connections)"],
     "loglevel": [str(config.default_loglevel), loglevel_converter, "<int/str>: loglevel"],
     "notraversal": ["False", parsebool, "<bool>: disable traversal"],
-    "nopid": ["False", parsebool, "<bool>: deactivate pid"]}
+    "nolock": ["False", parsebool, "<bool>: deactivate port lock"]}
 
 def server_paramhelp():
     _temp = "# parameters\n"

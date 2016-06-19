@@ -16,6 +16,8 @@ import re
 import threading
 import json
 
+import psutil
+
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
@@ -111,6 +113,31 @@ def init_config_folder(_dir, prefix):
         with open("{}_message.txt".format(_path), "w") as writeo:
             writeo.write("<message>")
 
+## pidlock ##
+
+def get_pidlock(rundir, name):
+    path = os.path.join(rundir, name)
+    pid = None
+    try:
+        with open(path, "r") as ro:
+            pid = int(ro.read())
+    except Exception:
+        pid = None
+    if pid and os.getpid() != pid and psutil.pid_exists(pid):
+        return None
+    try:
+        with open(path, "w") as wo:
+            wo.write(str(os.getpid()))
+    except Exception:
+        return None
+    try:
+        with open(path, "r") as ro:
+            pid = int(ro.read())
+    except Exception:
+        pid = None
+    if os.getpid() == pid:
+        return path
+    return None
 ##### etc ######
 
 badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"

@@ -13,11 +13,11 @@ import logging
 
 from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
-from simplescn.tools import default_sslcont, try_traverse
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter
 
 
-from simplescn.tools import generate_certs, init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
+from simplescn.tools import default_sslcont, try_traverse, get_pidlock, generate_certs, \
+init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import client_admin
@@ -393,6 +393,26 @@ class client_init(object):
     plugins_config = None
     links = None
     active = True
+    pidpath = None
+
+    @classmethod
+    def create(cls, **kwargs):
+        if not kwargs["nolock"]:
+            pidpath = get_pidlock(kwargs["run"], "{}-simplescn-client.lck".format(os.getuid()))
+            if not pidpath:
+                return None
+        else:
+            pidpath = None
+        ret = cls(**kwargs)
+        ret.pidpath = pidpath
+        return ret
+    
+    def __del__(self):
+        if self.pidpath:
+            try:
+                os.remove(self.pidpath)
+            except Exception:
+                pass
 
     def __init__(self, **kwargs):
         self.links = {}
@@ -547,7 +567,7 @@ default_client_args = \
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
     "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
-    "nopid": ["False", parsebool, "<bool>: deactivate pid"]
+    "nolock": ["False", parsebool, "<bool>: deactivate pid lock"]
 }
 
 def client_paramhelp():

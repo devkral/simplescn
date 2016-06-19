@@ -35,8 +35,8 @@ def server(argv=sys.argv[1:], doreturn=False):
     from simplescn.server import server_paramhelp, default_server_args, server_init
     kwargs = scnparse_args(argv, server_paramhelp, default_server_args)
     os.makedirs(kwargs["config"], 0o750, True)
-    server_instance = server_init(**kwargs)
-    if doreturn:
+    server_instance = server_init.create(**kwargs)
+    if doreturn or not server_instance:
         return server_instance
     else:
         running_instances.append(server_instance)
@@ -49,8 +49,8 @@ def client(argv=sys.argv[1:], doreturn=False):
     from simplescn.client import client_paramhelp, default_client_args, client_init
     kwargs = scnparse_args(argv, client_paramhelp, default_client_args)
     os.makedirs(kwargs["config"], 0o750, True)
-    client_instance = client_init(**kwargs)
-    if doreturn:
+    client_instance = client_init.create(**kwargs)
+    if doreturn or not client_instance:
         return client_instance
     else:
         running_instances.append(client_instance)
