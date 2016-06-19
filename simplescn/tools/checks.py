@@ -12,7 +12,7 @@ from http.client import HTTPSConnection
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
 
-from simplescn.tools import badnamechars, dhash, default_sslcont, ip_to_ipv6
+from simplescn.tools import badnamechars, dhash, default_sslcont, url_to_ipv6
 
 def check_reference(_reference):
     if _reference is None:
@@ -186,7 +186,7 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=con
     if None in [_address, _port]:
         logging.error("address or port empty")
         return None
-    addr = ip_to_ipv6(_address)
+    addr, _port = url_to_ipv6(_address, _port)
     cont = default_sslcont()
     con = HTTPSConnection(addr, _port, context=cont, timeout=connect_timeout)
     try:

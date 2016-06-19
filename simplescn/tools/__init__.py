@@ -181,14 +181,11 @@ def scnparse_url(url, force_port=False):
         return (url, config.server_port)
     raise EnforcedPortError
 
-# ipurl don't include port information
-# if ipurl contains alphanumeric address or ipv6 address it will returned unchanged
-_reparseipv4 = re.compile("^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$")
-def ip_to_ipv6(ipurl):
-    _urlre = _reparseipv4.match(ipurl)
-    if _urlre is not None:
-        return "::ffff:{}".format(ipurl)
-    return ipurl
+def url_to_ipv6(url, port):
+    ret = socket.getaddrinfo(url, port, socket.AF_INET6, socket.SOCK_STREAM, flags=socket.AI_V4MAPPED)
+    if len(ret) == 0:
+        return None
+    return ret[0][4][:2]
 
 authrequest_struct = \
 {
@@ -366,8 +363,8 @@ class traverser_dropper(object):
             return False
 
     def send(self, _dsttupel, _contupel, timeout=None):
-        _dstaddr = (ip_to_ipv6(_dsttupel[0]), _dsttupel[1])
-        _conaddr = (ip_to_ipv6(_contupel[0]), _dsttupel[1])
+        _dstaddr = url_to_ipv6(*_dsttupel)
+        _conaddr = url_to_ipv6(*_contupel)
         binaddr = bytes(_conaddr[0], "utf-8")
         construct = struct.pack(addrstrformat, _conaddr[1], len(binaddr), binaddr)
         for elem in range(0, 3):

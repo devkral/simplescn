@@ -9,7 +9,7 @@ from simplescn.config import isself
 
 from simplescn.tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, \
-dhash, create_certhashheader, scnauth_client
+dhash, create_certhashheader, scnauth_client, url_to_ipv6
 
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError, pwcallmethod
 from simplescn._common import gen_result, check_result
@@ -60,6 +60,7 @@ class SCNConnection(client.HTTPSConnection):
     def __init__(self, host, **kwargs):
         # don't implement highlevel stuff here, needed by traversal
         self.kwargs = kwargs
+        # init port with 0
         super().__init__(host, 0, None)
         self._context = self.kwargs.get("certcontext", default_sslcont())
         self._check_hostname = None
@@ -68,15 +69,19 @@ class SCNConnection(client.HTTPSConnection):
     
     def connect(self):
         """Connect to the host and port specified in __init__."""
-        
         if self.kwargs.get("use_unix"):
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self.sock.connect(self.host)
         else:
             _host = scnparse_url(self.host, force_port=self.kwargs.get("forceport", False))
+            _host = url_to_ipv6(*_host)
+            contimeout = self.kwargs.get("connect_timeout", config.connect_timeout)
+            etimeout = self.kwargs.get("timeout", config.default_timeout)
+            self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            self.sock.settimeout(contimeout)
+            #self.sock.bind(('', 0))
             try:
-                self.sock = self._create_connection(
-                _host, self.kwargs.get("connect_timeout", config.connect_timeout), self.source_address)
+                self.sock.connect(_host)
             except (ConnectionRefusedError, socket.timeout):
                 _kwargs = self.kwargs.copy()
                 _kwargs["use_unix"] = False
@@ -90,7 +95,6 @@ class SCNConnection(client.HTTPSConnection):
                 retserv = do_request(trav, "/server/open_traversal", {"destaddr": _host}, keepalive=True)
                 contrav.close()
                 if retserv[1]:
-                    contimeout = self.kwargs.get("connect_timeout", config.connect_timeout)
                     retries = self.kwargs.get("traverse_retries", config.traverse_retries)
                     self.sock = try_traverse(('', _sport), _host, connect_timeout=contimeout, retries=retries)
                     if not self.sock:
@@ -98,7 +102,7 @@ class SCNConnection(client.HTTPSConnection):
             # set options for ip
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         # set options for all
-        self.sock.settimeout(self.kwargs.get("timeout", config.default_timeout))
+        self.sock.settimeout(etimeout)
         self.sock = self._context.wrap_socket(self.sock, server_side=False)
         self.sock.do_handshake()
         self._check_cert()
