@@ -17,13 +17,6 @@ import threading
 import json
 
 
-from cryptography import x509
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
-
-
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
 from simplescn import AddressError, AddressEmptyError, EnforcedPortError
@@ -35,6 +28,11 @@ from simplescn import AddressError, AddressEmptyError, EnforcedPortError
 ##### init ######
 
 def generate_certs(_path):
+    from cryptography import x509
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
     _passphrase = pwcallmethod(config.pwcertgen_prompt)
     if _passphrase is not None and not isinstance(_passphrase, str):
         logging.error("passphrase not str, None")

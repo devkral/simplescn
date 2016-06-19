@@ -10,9 +10,9 @@ Features:
 
 Dependencies:
 * python >=3.5
-* python-cryptography (python3 version) (pip: cryptography)
-* psutil (pip: psutil) (for pid lock, not needed with "nolock" option)
-* optional: markdown (pip: markdown) (for more beautiful help)
+* python-cryptography (not needed with working certs)
+* python-psutil (for pid lock, not needed with "nolock" option)
+* optional: python-markdown (for more beautiful help)
 
 # Security:
 
