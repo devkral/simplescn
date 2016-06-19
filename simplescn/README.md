@@ -14,6 +14,8 @@ Dependencies:
 * python-psutil (for pid lock, not needed with "nolock" option)
 * optional: python-markdown (for more beautiful help)
 
+cryptography and psutil are install requirements for setuptools
+
 # Security:
 
 Man in the middle attacks are possible if:

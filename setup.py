@@ -9,7 +9,11 @@ from setuptools import setup
 
 
 entry_points = {"console_scripts": []}
-install_requirements = ["cryptography>=1.1", "psutil"]
+install_requirements = []
+# for certificate generation
+install_requirements += ["cryptography>=1.1"]
+# for pidlock
+install_requirements += ["psutil"]
 
 entry_points["console_scripts"].append('scnmain = simplescn.__main__:_init_method_main')
 entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:_init_method_main')
