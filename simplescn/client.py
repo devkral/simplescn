@@ -206,8 +206,8 @@ class client_server(commonscn):
     @check_args_deco({"name": str})
     #@classify_accessable
     def traverse_service(self, obdict):
-        """ func: get the port of a service
-            return: portnumber or negative for invisibleport
+        """ func: traverse to the port of a service
+            return: portnumber or error
             name: servicename """
         serviceob = self.spmap.get(obdict["name"], tuple())
         if not bool(serviceob) or not serviceob[1]:
