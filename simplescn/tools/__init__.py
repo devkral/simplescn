@@ -156,15 +156,6 @@ def gen_sslcont(path):
     return sslcont
 
 
-# returns url or ipv6 address unchanged, return converted ipv4 address
-# only address, without port
-#re_check_ip6 = re.compile("[0-9:]+")
-_recheckip4 = re.compile("[0-9.]+")
-def convert_ip4_to_6(address):
-    if _recheckip4.match(address):
-        return "::ffff:{}".format(address)
-    else:
-        return address
 
 _reparseurl = re.compile("(.*)-([0-9]+)$")
 def scnparse_url(url, force_port=False):
@@ -364,7 +355,13 @@ class traverser_dropper(object):
 
     def send(self, _dsttupel, _contupel, timeout=None):
         _dstaddr = url_to_ipv6(*_dsttupel)
+        if not _dstaddr:
+            logging.error("Destination host could not resolved")
+            return
         _conaddr = url_to_ipv6(*_contupel)
+        if not _conaddr:
+            logging.error("Source host could not resolved")
+            return
         binaddr = bytes(_conaddr[0], "utf-8")
         construct = struct.pack(addrstrformat, _conaddr[1], len(binaddr), binaddr)
         for elem in range(0, 3):
@@ -393,8 +390,10 @@ class traverser_helper(object):
         threading.Thread(target=self._connecter, daemon=True).start()
 
     def add_desttupel(self, destaddrtupel):
-        if self.connectsock.family == socket.AF_INET6:
-            destaddrtupel = (convert_ip4_to_6(destaddrtupel[0]), destaddrtupel[1])
+        destaddrtupel = url_to_ipv6(*destaddrtupel)
+        if not destaddrtupel:
+            logging.error("Destination host could not resolved")
+            return
         with self.mutex:
             if destaddrtupel in self.desttupels:
                 return True
@@ -403,8 +402,10 @@ class traverser_helper(object):
         return True
 
     def del_desttupel(self, destaddrtupel):
-        if self.connectsock.family == socket.AF_INET6:
-            destaddrtupel = (convert_ip4_to_6(destaddrtupel[0]), destaddrtupel[1])
+        destaddrtupel = url_to_ipv6(*destaddrtupel)
+        if not destaddrtupel:
+            logging.error("Destination host could not resolved")
+            return
         with self.mutex:
             try:
                 self.desttupels.remove(destaddrtupel)
@@ -443,9 +444,8 @@ class traverser_helper(object):
                 port = unpstru[0]
                 addr = unpstru[2][:unpstru[1]]
                 try:
-                    if self.connectsock.family == socket.AF_INET6:
-                        addr = convert_ip4_to_6(addr)
-                    self.connectsock.connect((addr, port))
+                    addrn = url_to_ipv6(addr, port)
+                    self.connectsock.connect(addrn)
                     self.srcsock.sendto(scn_yesstruct, requesteraddress)
                 except Exception as exc:
                     self.srcsock.sendto(scn_nostruct, requesteraddress)

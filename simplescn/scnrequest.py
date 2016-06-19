@@ -3,6 +3,7 @@ from http import client
 import socket
 import json
 import ssl
+import logging
 
 from simplescn import config
 from simplescn.config import isself
@@ -75,6 +76,9 @@ class SCNConnection(client.HTTPSConnection):
         else:
             _host = scnparse_url(self.host, force_port=self.kwargs.get("forceport", False))
             _host = url_to_ipv6(*_host)
+            if not _host:
+                logging.error("Host could not resolved")
+                return
             contimeout = self.kwargs.get("connect_timeout", config.connect_timeout)
             etimeout = self.kwargs.get("timeout", config.default_timeout)
             self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
