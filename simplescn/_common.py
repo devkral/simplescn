@@ -22,7 +22,7 @@ from simplescn.config import isself, file_family
 
 from simplescn.tools import dhash, safe_mdecode, default_sslcont
 from simplescn.tools.checks import check_name, check_hash, check_security, \
-check_typename, check_reference, check_reference_type, check_local
+check_typename, check_reference, check_reference_type, check_local, check_trustpermission
 
 # for config
 def parsepath(inp):
@@ -54,7 +54,9 @@ def connecttodb(func):
         self.lock.release()
         return temp
     return funcwrap
-class certhash_db(object):
+
+
+class permissionhash_db(object):
     db_path = None
     lock = None
 
@@ -62,6 +64,96 @@ class certhash_db(object):
         import sqlite3
         self.db_path = dbpath
         self.lock = threading.Lock()
+        try:
+            con = sqlite3.connect(self.db_path)
+        except Exception as exc:
+            logging.error(exc)
+            return
+        self.lock.acquire()
+        try:
+            con.execute('''CREATE TABLE if not exists certperms(certhash TEXT, permission TEXT, PRIMARY KEY(certhash,permission));''')
+            con.commit()
+        except Exception as exc:
+            con.rollback()
+            logging.error(exc)
+        con.close()
+        self.lock.release()
+
+    @connecttodb
+    def add(self, certhash, permission, dbcon=None) -> bool:
+        """ add or update, permissions as  list """
+        if not check_hash(certhash):
+            logging.error("hash contains invalid characters: %s", certhash)
+            return False
+        if not check_trustpermission(permission):
+            logging.error("not a valid permission: %s", permission)
+            return False
+        cur = dbcon.cursor()
+        cur.execute('''INSERT OR UPDATE certhash INTO certperms(certhash,permission) VALUES(?,?);''', (certhash, permission))
+        dbcon.commit()
+        return True
+
+    @connecttodb
+    def delete(self, certhash, permission=None, dbcon=None) -> bool:
+        """ delete permission(s) for certhash """
+        if not check_hash(certhash):
+            logging.error("hash contains invalid characters: %s", certhash)
+            return False
+        if not check_trustpermission(permission):
+            logging.error("not a valid permission: %s", permission)
+            return False
+        cur = dbcon.cursor()
+        if permission:
+            cur.execute('''SELECT permission FROM certperms WHERE certhash=? and permission=?;''', (certhash,permission))
+        else:
+            cur.execute('''SELECT permission FROM certperms WHERE certhash=?;''', (certhash,))
+        ret = cur.fetchone()
+        if ret is None:
+            return True
+        if permission:
+            cur.execute('''DELETE FROM certperms WHERE certhash=? and permission=?;''', (certhash, permission))
+        else:
+            cur.execute('''DELETE FROM certperms WHERE certhash=?;''', (certhash,))
+        dbcon.commit()
+        return True
+
+    @connecttodb
+    def get(self, certhash, permission=None, dbcon=None) -> list:
+        """ get permissions as list """
+        if not check_hash(certhash):
+            logging.error("hash contains invalid characters: %s", certhash)
+            return False
+        if not check_trustpermission(permission):
+            logging.error("not a valid permission: %s", permission)
+            return False
+        cur = dbcon.cursor()
+        if permission:
+            cur.execute('''SELECT permission FROM certperms WHERE certhash=? and permission=?;''', (certhash, permission))
+        else:
+            cur.execute('''SELECT permission FROM certperms WHERE certhash=?;''', (certhash,))
+        ret = cur.fetchall()
+        if ret is None:
+            return []
+        return [elem[0] for elem in ret]
+    
+    @connecttodb
+    def list(self, dbcon=None) -> list:
+        """ list certhash,permission as list """
+        cur = dbcon.cursor()
+        cur.execute('''SELECT certhash,permission FROM certperms;''')
+        ret = cur.fetchall()
+        if ret is None:
+            return []
+        return ret
+
+class certhash_db(object):
+    db_path = None
+    lock = None
+
+    def __init__(self, dbpath):
+        import sqlite3
+        self.db_path = dbpath
+        self.lock = threading.RLock()
         try:
             con = sqlite3.connect(self.db_path)
         except Exception as exc:
@@ -82,21 +174,21 @@ class certhash_db(object):
         self.lock.release()
 
     @connecttodb
-    def addentity(self, _name, dbcon=None):
+    def addentity(self, _name, dbcon=None) -> bool:
+        if not check_name(_name):
+            logging.info("name contains invalid elements")
+            return False
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is not None:
             logging.info("name exist: %s", _name)
-            return False
-        if not check_name(_name):
-            logging.info("name contains invalid elements")
             return False
         cur.execute('''INSERT INTO certs(name,certhash) values (?,'default');''', (_name,))
         dbcon.commit()
         return True
 
     @connecttodb
-    def delentity(self, _name, dbcon=None):
+    def delentity(self, _name, dbcon=None) -> bool:
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
@@ -107,7 +199,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def renameentity(self, _name, _newname, dbcon=None):
+    def renameentity(self, _name, _newname, dbcon=None) -> bool:
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
@@ -122,7 +214,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def addhash(self, _name, _certhash, nodetype="unknown", priority=20, security="valid", dbcon=None):
+    def addhash(self, _name, _certhash, nodetype="unknown", priority=20, security="valid", dbcon=None) -> bool:
         if _name is None:
             logging.error("name None")
         if nodetype is None:
@@ -154,7 +246,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def movehash(self, _certhash, _newname, dbcon=None):
+    def movehash(self, _certhash, _newname, dbcon=None) -> bool:
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
         if cur.fetchone() is None:
@@ -170,7 +262,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def changetype(self, _certhash, _type, dbcon=None):
+    def changetype(self, _certhash, _type, dbcon=None) -> bool:
         if not check_typename(_type, config.max_typelength):
             logging.info("type contains invalid characters or is too long (maxlen: %s): %s", config.max_typelength, _type)
             return False
@@ -187,7 +279,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def changepriority(self, _certhash, _priority, dbcon=None):
+    def changepriority(self, _certhash, _priority, dbcon=None) -> bool:
         #convert str to int and fail if either no integer in string format
         # or datatype is something else except int
         if isinstance(_priority, str) and not _priority.isdecimal():
@@ -214,7 +306,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def changesecurity(self, _certhash, _security, dbcon=None):
+    def changesecurity(self, _certhash, _security, dbcon=None) -> bool:
         if not check_hash(_certhash):
             logging.info("hash contains invalid characters: %s", _certhash)
             return False
@@ -230,7 +322,7 @@ class certhash_db(object):
         dbcon.commit()
         return True
 
-    def updatehash(self, _certhash, certtype=None, priority=None, security=None):
+    def updatehash(self, _certhash, certtype=None, priority=None, security=None) -> bool:
         if certtype is not None:
             if not self.changetype(_certhash, certtype):
                 return False
@@ -242,7 +334,7 @@ class certhash_db(object):
                 return False
 
     @connecttodb
-    def delhash(self, _certhash, dbcon=None):
+    def delhash(self, _certhash, dbcon=None) -> bool:
         if _certhash == "default":
             logging.error("tried to delete reserved hash 'default'")
             return False
@@ -256,7 +348,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def get(self, _certhash, dbcon=None):
+    def get(self, _certhash, dbcon=None) -> tuple:
         if _certhash is None:
             return None
         if not check_hash(_certhash):
@@ -271,7 +363,7 @@ class certhash_db(object):
         return ret
 
     @connecttodb
-    def listhashes(self, _name, _nodetype=None, dbcon=None):
+    def listhashes(self, _name, _nodetype=None, dbcon=None) -> list:
         #if check_name(_name) == False:
         #    return None
         cur = dbcon.cursor()
@@ -286,7 +378,7 @@ class certhash_db(object):
         #    return out
 
     @connecttodb
-    def listnodenames(self, _nodetype=None, dbcon=None):
+    def listnodenames(self, _nodetype=None, dbcon=None) -> list:
         cur = dbcon.cursor()
         if _nodetype is None:
             cur.execute('''SELECT DISTINCT name FROM certs ORDER BY name ASC;''')
@@ -294,22 +386,22 @@ class certhash_db(object):
             cur.execute('''SELECT DISTINCT name FROM certs WHERE type=? ORDER BY name ASC;''', (_nodetype,))
         out = cur.fetchall()
         if out is None:
-            return None
+            return []
         else:
             return [elem[0] for elem in out]
 
     @connecttodb
-    def listnodenametypes(self, dbcon=None):
+    def listnodenametypes(self, dbcon=None) -> list:
         cur = dbcon.cursor()
         cur.execute('''SELECT DISTINCT name,type FROM certs ORDER BY name ASC;''')
-        return cur.fetchall()
-        #if out is None:
-        #    return None
-        #else:
-        #    return out
+        out = cur.fetchall()
+        if out is None:
+            return []
+        else:
+            return out
 
     @connecttodb
-    def listnodeall(self, _nodetype=None, dbcon=None):
+    def listnodeall(self, _nodetype=None, dbcon=None) -> list:
         cur = dbcon.cursor()
         if _nodetype is None:
             cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs ORDER BY priority DESC;''')
@@ -321,7 +413,7 @@ class certhash_db(object):
         else:
             return out
 
-    def certhash_as_name(self, _certhash):
+    def certhash_as_name(self, _certhash) -> tuple:
         ret = self.get(_certhash)
         if ret is None:
             return None
@@ -329,7 +421,7 @@ class certhash_db(object):
             return ret[0]
 
     @connecttodb
-    def exist(self, _name, _hash=None, dbcon=None):
+    def exist(self, _name, _hash=None, dbcon=None) -> bool:
         cur = dbcon.cursor()
         if _hash is None:
             cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
@@ -358,7 +450,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def delreference(self, _certreferenceid, _reference, dbcon=None):
+    def delreference(self, _certreferenceid, _reference, dbcon=None) -> bool:
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
@@ -369,7 +461,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def updatereference(self, _certreferenceid, _reference, _newreference, _newreftype, dbcon=None):
+    def updatereference(self, _certreferenceid, _reference, _newreference, _newreftype, dbcon=None) -> bool:
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
@@ -404,7 +496,7 @@ class certhash_db(object):
             return out
 
     @connecttodb
-    def movereferences(self, _oldrefid, _newrefid, dbcon=None):
+    def movereferences(self, _oldrefid, _newrefid, dbcon=None) -> bool:
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_oldrefid,))
         if cur.fetchone() is None:
@@ -419,7 +511,7 @@ class certhash_db(object):
         return True
 
     @connecttodb
-    def copyreferences(self, oldrefid, newrefid, dbcon=None):
+    def copyreferences(self, oldrefid, newrefid, dbcon=None) -> bool:
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (oldrefid,))
         if cur.fetchone() is None:
@@ -468,7 +560,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def __init__(self, _address, sslcont, _handler, use_unix=False):
         self.use_unix = use_unix
         self.sslcont = sslcont
-        
+
         if self.use_unix:
             self.address_family = socket.AF_UNIX
             try:

@@ -14,6 +14,8 @@ from simplescn.config import isself
 
 from simplescn.tools import badnamechars, dhash, default_sslcont, url_to_ipv6
 
+allowed_permissions = {"gettrust"} #, "admin"}
+
 def check_reference(_reference):
     if _reference is None:
         return False
@@ -82,6 +84,14 @@ def check_typename(_type, maxlength=config.max_typelength):
     if _type == isself:
         return False
     return True
+
+
+def check_trustpermission(_type):
+    if _type is None:
+        return False
+    if _type in allowed_permissions:
+        return True
+    return False
 
 def check_conftype(_value, _converter):
     try:

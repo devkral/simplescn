@@ -13,7 +13,7 @@ import logging
 
 from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
-from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter
+from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter, permissionhash_db
 
 
 from simplescn.tools import default_sslcont, try_traverse, get_pidlock, generate_certs, \
@@ -30,6 +30,7 @@ class client_client(client_admin, client_safe):
     name = None
     cert_hash = None
     hashdb = None
+    trusteddb = None
     links = None
     scntraverse_helper = None
     brokencerts = None
@@ -49,9 +50,9 @@ class client_client(client_admin, client_safe):
         self.name = name
         self.cert_hash = pub_cert_hash
         self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
+        self.trusteddb = permissionhash_db(os.path.join(self.links["config_root"], "trusteddb.sqlite"))
         self.brokencerts = []
         self.requester = requester(ownhash=self.cert_hash, hashdb=self.hashdb, certcontext=self.links["hserver"].sslcont)
-        
 
         self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.udpsrcsock.settimeout(None)
@@ -187,6 +188,21 @@ class client_server(commonscn):
 
     ### management section - end ###
 
+    @check_args_deco({"hash": str})
+    @classify_accessable
+    @classify_local
+    def trust(self, obdict: dict):
+        if not self.links["kwargs"].get("trustforall", False):
+            if not "client_certhash" in obdict:
+                return False, "no certhash"
+            if len(self.links["client"].trusteddb.get(obdict.get(obdict["client_certhash"], "gettrust"))) == 0:
+                return False, "No permission"
+        hasho = self.links["client"].hashdb.get(obdict.get("hash"))
+        if hasho:
+            return True, {"trust": hasho[3]}
+        else:
+            return True, {"trust": "unknown"}
+
     @check_args_deco({"name": str})
     @classify_local
     @classify_accessable
@@ -204,7 +220,7 @@ class client_server(commonscn):
             return True, -1
 
     @check_args_deco({"name": str})
-    #@classify_accessable
+    @classify_accessable
     def traverse_service(self, obdict):
         """ func: traverse to the port of a service
             return: portnumber or error
@@ -567,6 +583,7 @@ default_client_args = \
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
     "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
+    "trustall": ["False", parsebool, "<bool>: everyone can access hashdb results"],
     "nolock": ["False", parsebool, "<bool>: deactivate pid lock"]
 }
 

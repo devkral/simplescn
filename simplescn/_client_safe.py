@@ -224,6 +224,23 @@ class client_safe(object, metaclass=abc.ABCMeta):
         else:
             return True, {"hash": _hadict["hash"], "cert": _hadict["cert"]}
 
+
+    @check_args_deco({"hash": str}, optional={"address": str})
+    @classify_accessable
+    def trust(self,  obdict: dict):
+        """ func: retrieve info of node
+            return: info section
+            address: remote node url (default: own client) """
+        if obdict.get("address") is not None:
+            _addr = obdict["address"]
+            _forcehash = obdict.get("forcehash")
+            del obdict["address"]
+        else:
+            _forcehash = self.cert_hash
+            _addr = "::1-{}".format(self.links["hserver"].server_port)
+        ret = self.do_request(_addr, "/server/trust", body={"hash": hash}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
+        return ret
+
     @check_args_deco({"server": str})
     @classify_accessable
     def listnames(self, obdict: dict):

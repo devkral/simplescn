@@ -445,6 +445,7 @@ default_server_args = {
     "server_timeout": [str(config.server_timeout), int, "<int>: set timeout for servercomponent"],
     "timeout": [str(config.default_timeout), int, "<int>: set default timeout (etablished connections)"],
     "loglevel": [str(config.default_loglevel), loglevel_converter, "<int/str>: loglevel"],
+    "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "notraversal": ["False", parsebool, "<bool>: disable traversal"],
     "nolock": ["False", parsebool, "<bool>: deactivate port lock"]}
 
