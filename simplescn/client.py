@@ -126,11 +126,18 @@ class client_server(commonscn):
 
     def __init__(self, dcserver):
         commonscn.__init__(self)
-        self.capabilities = ["basic", "client", "wrap", "traversal"]
         # init here (multi instance situation)
         self.spmap = {}
         self.wlock = threading.Lock()
         self.links = dcserver["links"]
+        self.capabilities = ["basic", "client", "trust"]
+        if not self.links["kwargs"].get("nowrap", False):
+            self.capabilities.append("wrap")
+        if not self.links["kwargs"].get("notraversal", False):
+            self.capabilities.append("traversal")
+        if self.links["kwargs"].get("trustforall", False):
+            self.capabilities.append("trustforall")
+
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
             logging.info("Name empty")
             dcserver["name"] = "<noname>"
@@ -225,6 +232,8 @@ class client_server(commonscn):
         """ func: traverse to the port of a service
             return: portnumber or error
             name: servicename """
+        if not self.links["kwargs"]["notraversal"]:
+            return False, "traversal disabled"
         serviceob = self.spmap.get(obdict["name"], tuple())
         if not bool(serviceob) or not serviceob[1]:
             return False, "Service not available"
@@ -239,7 +248,7 @@ class client_server(commonscn):
             return False, "Traversal could not opened"
 
 
-def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False):
+def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False, nowrap=False):
     """ create handler with: links, server_timeout, default_timeout, ... """
     class client_handler(commonscnhandler):
         """ client handler """
@@ -261,6 +270,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             sockd = None
             for addr in ["::1", "127.0.0.1"]:
                 try:
+                    # handles udp, tcp, ipv6, ipv4 so use this instead own solution
                     sockd = socket.create_connection((addr, port), self.links["kwargs"].get("connect_timeout"))
                     break
                 except Exception as e:
@@ -273,6 +283,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
             redout.run()
             rw_socket(sockd, self.connection)
+
         if client:
             def handle_client(self, action):
                 """ access to client_client """
@@ -383,7 +394,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             else:
                 resource = splitted[0]
                 sub = splitted[1]
-            if resource == "wrap":
+            if resource == "wrap" and not nowrap:
                 if not self.links["auth_server"].verify("server", self.auth_info):
                     authreq = self.links["auth_server"].request_auth("server")
                     ob = bytes(json.dumps(authreq), "utf-8")
@@ -508,13 +519,13 @@ class client_init(object):
         sslcont.load_cert_chain( _cpath+"_cert.pub",  _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
         
         if handle_remote:
-            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=True, remote=True)
+            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=True, remote=True, nowrap=kwargs.get("nowrap", False))
         else:
-            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=False, remote=False)
+            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=False, remote=False, nowrap=kwargs.get("nowrap", False))
         self.links["hserver"] = http_server(("", port), sslcont, self.links["shandler"])
         
         if not handle_remote or (not kwargs.get("nounix") and file_family):
-            self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=False, client=True, remote=False)
+            self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=False, client=True, remote=False, nowrap=True)
             if file_family is not None:
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
                 self.links["cserver_unix"] = http_server(rpath, sslcont, self.links["chandler"], use_unix=True)
@@ -583,8 +594,10 @@ default_client_args = \
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
     "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
-    "trustall": ["False", parsebool, "<bool>: everyone can access hashdb results"],
-    "nolock": ["False", parsebool, "<bool>: deactivate pid lock"]
+    "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb results"],
+    "nolock": ["False", parsebool, "<bool>: deactivate pid lock"],
+    "nowrap": ["False", parsebool, "<bool>: deactivate wrap"],
+    "notraverse": ["False", parsebool, "<bool>: deactivate traversal"]
 }
 
 def client_paramhelp():

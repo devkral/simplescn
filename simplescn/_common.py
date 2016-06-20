@@ -593,7 +593,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
     def verify_request(self, request, client_address):
         if self.RequestHandlerClass.onlylocal:
-             if self.address_family != file_family or \
+             if self.address_family != file_family and \
                     not check_local(client_address[0]):
                 return False
         return True
