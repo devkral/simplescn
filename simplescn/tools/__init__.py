@@ -209,8 +209,7 @@ authrequest_struct = \
 {
     "algo": None,
     "nonce": None,
-    "timestamp": None,
-    "realm": None
+    "timestamp": None
 }
 
 auth_struct = \
@@ -222,59 +221,46 @@ auth_struct = \
 class scnauth_server(object):
     request_expire_time = None # in secs
     # auth realms
-    realms = None
+    nonce = None
+    salted_pw = None
     hash_algorithm = None
     serverpubcert_hash = None
 
     def __init__(self, serverpubcert_hash, hash_algorithm=config.DEFAULT_HASHALGORITHM, request_expire_time=config.auth_request_expire_time):
-        self.realms = {}
         self.hash_algorithm = hash_algorithm
         self.serverpubcert_hash = serverpubcert_hash
         self.request_expire_time = request_expire_time
 
-    def request_auth(self, realm):
-        if realm not in self.realms:
-            logging.error("Not a valid realm: %s", realm)
+    def request_auth(self):
         rauth = {}
         rauth["algo"] = self.hash_algorithm
         # send server time, client time should not be used because timeouts are on serverside
-        rauth["timestamp"] = str(int(time.time()))
-        rauth["realm"] = realm
-        rauth["hash"] = self.serverpubcert_hash
-        rauth["nonce"] = self.realms[realm][1]
+        rauth["timestamp"] = int(time.time())
+        rauth["nonce"] = self.nonce
         return rauth
 
-    def verify(self, realm, authdict):
-        if realm not in self.realms or self.realms[realm] is None:
+    def verify(self, authdict):
+        # if not active
+        if not self.salted_pw:
             return True
         if not isinstance(authdict, dict):
             logging.warning("authdict is no dict")
             return False
-        if realm not in authdict:
-            #always the case if getting pwrequest
-            if len(authdict) > 0:
-                logging.debug("realm not in transmitted authdict")
+        if len(authdict) == 0:
             return False
-        if not isinstance(authdict[realm], dict):
-            logging.warning("authdicts realm is no dict")
-            return False
-        if not isinstance(authdict[realm].get("timestamp", None), str):
+        if not isinstance(authdict.get("timestamp", None), int):
             logging.warning("no timestamp")
             return False
-        if not authdict[realm].get("timestamp", "").isdecimal():
-            logging.warning("Timestamp not a number")
+        if authdict["timestamp"] < int(time.time()) - self.request_expire_time:
             return False
-        timestamp = int(authdict[realm].get("timestamp"))
-        if timestamp < int(time.time()) - self.request_expire_time:
-            return False
-        if dhash(authdict[realm].get("timestamp"), self.hash_algorithm, prehash=self.realms[realm][0]) == authdict[realm]["auth"]:
+        if dhash(bytes(authdict["timestamp"]), self.hash_algorithm, prehash=self.salted_pw) == authdict.get("auth"):
             return True
         return False
 
-    def init_realm(self, realm, pwhash):
+    def init(self, pwhash):
         # internal salt for memory protection+nonce
-        nonce = os.urandom(config.salt_size).hex()
-        self.realms[realm] = (dhash((pwhash, realm, nonce, self.serverpubcert_hash), self.hash_algorithm), nonce)
+        self.nonce = os.urandom(config.salt_size).hex()
+        self.salted_pw = dhash((pwhash, self.nonce, self.serverpubcert_hash), self.hash_algorithm)
 
 class scnauth_client(object):
     # save credentials
@@ -283,53 +269,40 @@ class scnauth_client(object):
         self.save_auth = {}
 
     # wrap in dictionary with {realm: return value}
-    def auth(self, pw, authreq_ob, serverpubcert_hash=None, saveid=None):
-        realm = authreq_ob.get("realm")
+    def auth(self, pw, authreq_ob, serverpubcert_hash, saveid=None):
         algo = authreq_ob.get("algo")
-        if None in [realm, algo, pw] or pw == "":
+        if None in [algo, pw] or pw == "":
             return None
-        pre = dhash((dhash(pw, algo), realm), algo)
+        pre = dhash(pw, algo)
         if saveid is not None:
-            if saveid not in self.save_auth:
-                self.save_auth[saveid] = {}
-            self.save_auth[saveid][realm] = (pre, algo)
+            self.save_auth[saveid] = (pre, algo)
         return self.asauth(pre, authreq_ob, serverpubcert_hash)
 
     # wrap in dictionary with {realm: return value}
     def asauth(self, pre, authreq_ob, pubcert_hash):
         if pre is None:
             return None
-        if not pubcert_hash:
-            pubcert_hash = authreq_ob.get("hash")
-        if not pubcert_hash:
-            return None
         dauth = auth_struct.copy()
         dauth["timestamp"] = authreq_ob["timestamp"]
-        dauth["auth"] = dhash((authreq_ob["nonce"], pubcert_hash, authreq_ob["timestamp"]), authreq_ob["algo"], prehash=pre)
+        print(dauth["timestamp"])
+        dauth["auth"] = dhash((authreq_ob["nonce"], pubcert_hash, bytes(dauth["timestamp"])), authreq_ob["algo"], prehash=pre)
         return dauth
 
-    def saveauth(self, pw, saveid, realm, algo=config.DEFAULT_HASHALGORITHM):
-        pre = dhash((dhash(pw, algo), realm), algo)
+    def saveauth(self, pw, saveid, algo=config.DEFAULT_HASHALGORITHM):
+        pre = dhash(pw, algo)
         if saveid not in self.save_auth:
             self.save_auth[saveid] = {}
-        self.save_auth[saveid][realm] = (pre, algo)
+        self.save_auth[saveid] = (pre, algo)
 
-    def delauth(self, saveid, realm=None):
+    def delauth(self, saveid):
         if saveid not in self.save_auth:
             return
-        if realm is None:
-            del self.save_auth[saveid]
-            return
-        if realm not in self.save_auth[saveid]:
-            return
-        del self.save_auth[saveid][realm]
+        del self.save_auth[saveid]
 
     def reauth(self, saveid, authreq_ob, pubcert_hash):
         if saveid not in self.save_auth:
             return None
-        if authreq_ob.get("realm") not in self.save_auth[saveid]:
-            return None
-        pre, _hashalgo = self.save_auth[saveid][authreq_ob["realm"]]
+        pre, _hashalgo = self.save_auth[saveid]
         if "algo" not in authreq_ob:
             authreq_ob["algo"] = _hashalgo
         return self.asauth(pre, authreq_ob, pubcert_hash)

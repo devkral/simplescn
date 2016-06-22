@@ -274,8 +274,8 @@ def gen_server_handler(_links, stimeout, etimeout):
             if action not in self.links["server_server"].validactions:
                 self.scn_send_answer(400, message="invalid action - server")
                 return
-            if not self.links["auth_server"].verify("server", self.auth_info):
-                authreq = self.links["auth_server"].request_auth("server")
+            if not self.links["auth_server"].verify(self.auth_info):
+                authreq = self.links["auth_server"].request_auth()
                 ob = bytes(json.dumps(authreq), "utf-8")
                 self.scn_send_answer(401, body=ob, docache=False)
                 return
@@ -378,13 +378,13 @@ class server_init(object):
             if not check_hash(kwargs["spwhash"]):
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"][0])
             else:
-                self.links["auth_server"].init_realm("server", kwargs["spwhash"][0])
+                self.links["auth_server"].init(kwargs["spwhash"][0])
         elif bool(kwargs["spwfile"]):
             with open(kwargs["spwfile"], "r") as op:
                 pw = op.readline()
                 if pw[-1] == "\n":
                     pw = pw[:-1]
-                self.links["auth_server"].init_realm("server", dhash(pw))
+                self.links["auth_server"].init(dhash(pw))
 
         _message = None
         _name = None

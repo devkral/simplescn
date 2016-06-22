@@ -12,7 +12,8 @@ if __name__ == "__main__":
     ownpath = os.path.dirname(os.path.realpath(__file__))
     sys.path.insert(0, os.path.dirname(ownpath))
 
-from simplescn.scnrequest import do_request_simple, pwcallmethod_realm
+from simplescn import pwcallmethod
+from simplescn.scnrequest import do_request_simple
 
 def cmdloop(ip, use_unix=False, forcehash=None):
     while True:
@@ -24,7 +25,7 @@ def cmdloop(ip, use_unix=False, forcehash=None):
                 body[splitted[0]] = splitted[1]
         command = body.pop("command", "show")
         #try:
-        ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod_realm, use_unix=use_unix, forcehash=forcehash)
+        ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod, use_unix=use_unix, forcehash=forcehash)
         print(ret)
         #except Exception as exc:
         #    print(exc, file=sys.stderr)

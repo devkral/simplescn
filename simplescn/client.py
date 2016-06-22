@@ -333,8 +333,8 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 if action not in self.links["client_server"].validactions:
                     self.scn_send_answer(400, message="invalid action - server", docache=False)
                     return
-                if not self.links["auth_server"].verify("server", self.auth_info):
-                    authreq = self.links["auth_server"].request_auth("server")
+                if not self.links["auth_server"].verify(self.auth_info):
+                    authreq = self.links["auth_server"].request_auth()
                     ob = bytes(json.dumps(authreq), "utf-8")
                     self.cleanup_stale_data(config.max_serverrequest_size)
                     self.scn_send_answer(401, body=ob, docache=False)
@@ -388,7 +388,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 sub = splitted[1]
             if resource == "wrap" and not nowrap:
                 if not self.links["auth_server"].verify("server", self.auth_info):
-                    authreq = self.links["auth_server"].request_auth("server")
+                    authreq = self.links["auth_server"].request_auth()
                     ob = bytes(json.dumps(authreq), "utf-8")
                     self.cleanup_stale_data(config.max_serverrequest_size)
                     self.scn_send_answer(401, body=ob, docache=False)
@@ -437,7 +437,6 @@ class client_init(object):
         self.links = {}
         self.links["config_root"] = kwargs.get("config")
         self.links["kwargs"] = kwargs
-        handle_remote = False
         _cpath = os.path.join(self.links["config_root"], "client")
         init_config_folder(self.links["config_root"], "client")
 

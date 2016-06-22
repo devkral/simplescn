@@ -12,14 +12,11 @@ from simplescn.tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, \
 dhash, create_certhashheader, scnauth_client, url_to_ipv6
 
-from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError, pwcallmethod
+from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
 from simplescn._common import gen_result, check_result
 
 
 auth_instance = scnauth_client()
-
-def pwcallmethod_realm(realm):
-    return pwcallmethod(config.pwrealm_prompt.format(realm=realm))
 
 
 reference_header = \
@@ -30,7 +27,7 @@ reference_header = \
 }
 
 strip_headers = ["Connection", "Host", "Accept-Encoding", \
-"Content-Length", "User-Agent", "X-certrewrap"]
+"Content-Length", "User-Agent", "X-certrewrap", "X-SCN-Authorization"]
 
 class requester(object):
     saved_kwargs = None
@@ -160,20 +157,14 @@ def init_body_headers(body, headers):
 
 
 
-def authorization(pwhandler, reqob, serverhash, headers):
+def authorization(pwhashed, reqob, serverhash, sendheaders):
     """ handles auth, headers arg will be changed """
     if not isinstance(reqob, dict):
         return False
-    realm = reqob.get("realm")
-    pw = pwhandler(realm)
-    if not pw:
+    if not pwhashed:
         return False
-    auth_parsed = json.loads(headers.get("Authorization", "scn {}").split(" ", 1)[1])
-    if realm == "server":
-        auth_parsed[realm] = auth_instance.auth(pw, reqob)
-    else:
-        auth_parsed[realm] = auth_instance.auth(pw, reqob, serverhash) #, serverhash)
-    headers["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n", ""))
+    auth_parsed = auth_instance.asauth(pwhashed, reqob, serverhash) #, serverhash)
+    sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n", ""))
     return True
 
 # return connection, success, body, certtupel
@@ -207,8 +198,9 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
         sendheaders["Connection"] = 'keep-alive'
     else:
         sendheaders["Connection"] = 'close'
-
-    print(sendheaders.get("Authorization"))
+    if kwargs.get("X-SCN-Authorization", None):
+        sendheaders["X-SCN-Authorization"] = kwargs["X-SCN-Authorization"]
+        del kwargs["X-SCN-Authorization"]
     #start connection
     con.putrequest("POST", path)
     for key, value in sendheaders.items():
@@ -234,13 +226,18 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
             con.close()
             return None, False, "pwrequest has no content length", con.certtupel
         readob = response.read(int(response.getheader("Content-Length")))
-        if callable(kwargs.get("pwhandler", None)):
-            reqob = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
-            if authorization(kwargs["pwhandler"], reqob, con.certtupel[1], sendheaders):
-                print(con.certtupel[1])
+        reqob = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
+        if headers and headers.get("X-SCN-Authorization", None):
+            if authorization(headers["X-SCN-Authorization"], reqob, con.certtupel[1], sendheaders):
                 return _do_request(con, path, body=body, \
                     headers=sendheaders, kwargs=kwargs)
-        raise AuthNeeded(con, str(readob, "utf-8"), con.certtupel[1])
+        elif callable(kwargs.get("pwhandler", None)):
+            pw = kwargs.get("pwhandler")(config.pwrealm_prompt)
+            if pw:
+                kwargs["X-SCN-Authorization"] = dhash(pw, reqob.get("algo")) 
+                return _do_request(con, path, body=body, \
+                    headers=sendheaders, kwargs=kwargs)
+        raise AuthNeeded(con, str(readob, "utf-8"))
     else:
         if response.status == 200:
             success = True
@@ -281,8 +278,10 @@ def do_request(addr_or_con, path, body=None, headers=None, **kwargs):
                 * certcontext: specify certcontext used
                 * ownhash: own hash
                 * pwhandler: method for handling pws
+                * X-SCN-Authorization: dhashed pw (transmitted)
         headers:
             * Authorization: scn pw auth format
+            * X-SCN-Authorization: dhashed pw (try to auth)
         throws:
             * AddressError: address was incorrect
             * AddressEmptyError: address was empty
