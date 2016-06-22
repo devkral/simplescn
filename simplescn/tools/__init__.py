@@ -71,8 +71,10 @@ def generate_certs(_path):
     pubcert = cert.public_bytes(serialization.Encoding.PEM)
     with open("{}.priv".format(_path), 'wb') as writeout:
         writeout.write(privkey)
+    os.chmod("{}.priv".format(_path), 0o600)
     with open("{}.pub".format(_path), 'wb') as writeout:
         writeout.write(pubcert)
+    os.chmod("{}.pub".format(_path), 0o600)
     return True
 
 def init_config_folder(_dir, prefix):

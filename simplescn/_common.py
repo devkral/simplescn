@@ -66,6 +66,7 @@ class permissionhash_db(object):
         self.lock = threading.Lock()
         try:
             con = sqlite3.connect(self.db_path)
+            os.chmod(self.db_path, 0o600)
         except Exception as exc:
             logging.error(exc)
             return
@@ -169,6 +170,7 @@ class certhash_db(object):
         self.lock = threading.RLock()
         try:
             con = sqlite3.connect(self.db_path)
+            os.chmod(self.db_path, 0o600)
         except Exception as exc:
             logging.error(exc)
             return
