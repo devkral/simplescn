@@ -30,7 +30,6 @@ class client_client(client_admin, client_safe):
     name = None
     cert_hash = None
     hashdb = None
-    trusteddb = None
     links = None
     scntraverse_helper = None
     brokencerts = None
@@ -50,7 +49,6 @@ class client_client(client_admin, client_safe):
         self.name = name
         self.cert_hash = pub_cert_hash
         self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
-        self.trusteddb = permissionhash_db(os.path.join(self.links["config_root"], "trusteddb.sqlite"))
         self.brokencerts = []
         self.requester = requester(ownhash=self.cert_hash, hashdb=self.hashdb, certcontext=self.links["hserver"].sslcont)
 
@@ -201,8 +199,8 @@ class client_server(commonscn):
     def trust(self, obdict: dict):
         if not self.links["kwargs"].get("trustforall", False):
             if not "client_certhash" in obdict:
-                return False, "no certhash"
-            if len(self.links["client"].trusteddb.get(obdict.get(obdict["client_certhash"], "gettrust"))) == 0:
+                return False, "no certificate sent"
+            if not self.links["trusteddb"].exist(obdict.get("client_certhash"), "gettrust"):
                 return False, "No permission"
         hasho = self.links["client"].hashdb.get(obdict.get("hash"))
         if hasho:
@@ -288,25 +286,19 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             def handle_client(self, action):
                 """ access to client_client """
                 if action not in self.links["client"].validactions:
-                    print(self.links["client"].validactions)
-                    
                     self.send_error(400, "invalid action - client")
                     return
-                gaction = getattr(self.links["client"], action)
-                if check_classify(gaction, "admin"):
-                    #if self.client_cert is None:
-                    #    self.send_error(403, "no permission (no certrewrap) - admin")
-                    #    return
-                    if "admin" in self.links["auth_server"].realms:
-                        realm = "admin"
+                if remote:
+                    gaction = getattr(self.links["client"], action)
+                    if check_classify(gaction, "admin"):
+                        ret = self.links["trusteddb"].exist(self.client_certhash, "admin")
                     else:
-                        realm = "client"
-                else:
-                    realm = "client"
-                if not self.links["auth_server"].verify(realm, self.auth_info):
-                    authreq = self.links["auth_server"].request_auth(realm)
-                    ob = bytes(json.dumps(authreq), "utf-8")
-                    self.scn_send_answer(401, body=ob, docache=False)
+                        ret = self.links["trusteddb"].exist(self.client_certhash, "client")
+                    if not ret:
+                        self.send_error(400, "no permission - client")
+                        return
+                elif not remote and not check_local(self.client_address[0]):
+                    self.send_error(400, "no permission - client")
                     return
                 self.connection.settimeout(self.etablished_timeout)
                 obdict = self.parse_body()
@@ -315,7 +307,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 try:
                     response = self.links["client"].access_dict(action, obdict)
                 except AuthNeeded as exc:
-                    self.scn_send_answer(401, body=exc.reqob, mime="application/json", docache=False)
+                    self.scn_send_answer(401, body=bytes(exc.reqob, "utf-8", errors="ignore"), mime="application/json", docache=False)
                     return
 
                 if not response[0]:
@@ -457,35 +449,8 @@ class client_init(object):
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         #self.links["auth_client"] = scnauth_client()
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
-        if kwargs.get("cpwhash"):
-            if not check_hash(kwargs.get("cpwhash")):
-                logging.error("hashtest failed for cpwhash, cpwhash: %s", kwargs.get("cpwhash"))
-            else:
-                # ensure that password is set when allowing remote access
-                if kwargs.get("remote"):
-                    handle_remote = True
-                self.links["auth_server"].init_realm("client", kwargs.get("cpwhash"))
-        elif kwargs.get("cpwfile"):
-            # ensure that password is set when allowing remote access
-            if kwargs.get("remote"):
-                handle_remote = True
-            with open(kwargs["cpwfile"][0], "r") as op:
-                pw = op.readline()
-                if pw[-1] == "\n":
-                    pw = pw[:-1]
-                self.links["auth_server"].init_realm("client", dhash(pw))
+        self.links["trusteddb"] = permissionhash_db(os.path.join(self.links["config_root"], "trusteddb.sqlite"))
 
-        if kwargs.get("apwhash"):
-            if not check_hash(kwargs.get("apwhash")):
-                logging.error("hashtest failed for apwhash, apwhash: %s", kwargs.get("apwhash"))
-            else:
-                self.links["auth_server"].init_realm("admin", kwargs.get("apwhash"))
-        elif bool(kwargs["apwfile"]):
-            with open(kwargs["apwfile"], "r") as op:
-                pw = op.readline()
-                if pw[-1] == "\n":
-                    pw = pw[:-1]
-                self.links["auth_server"].init_realm("admin", dhash(pw))
         if bool(kwargs.get("spwhash")):
             if not check_hash(kwargs.get("spwhash")):
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs.get("spwhash"))
@@ -516,20 +481,20 @@ class client_init(object):
         else:
             port = config.client_port
         sslcont = default_sslcont()
-        sslcont.load_cert_chain( _cpath+"_cert.pub",  _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
+        sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
         
-        if handle_remote:
+        if kwargs.get("remote", False):
             self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=True, remote=True, nowrap=kwargs.get("nowrap", False))
         else:
             self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=False, remote=False, nowrap=kwargs.get("nowrap", False))
         self.links["hserver"] = http_server(("", port), sslcont, self.links["shandler"])
         
-        if not handle_remote or (not kwargs.get("nounix") and file_family):
+        if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):
             self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=False, client=True, remote=False, nowrap=True)
             if file_family is not None:
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
                 self.links["cserver_unix"] = http_server(rpath, sslcont, self.links["chandler"], use_unix=True)
-            if not handle_remote and not kwargs.get("noip", False):
+            if not kwargs.get("noip", False):
                 self.links["cserver_ip"] = http_server(("", port), sslcont, self.links["chandler"])
                 self.links["cserver_ip"].serve_forever_nonblock()
 
@@ -577,13 +542,9 @@ class client_init(object):
 #"config":default_configdir
 default_client_args = \
 {
-    "cpwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than cpw (needed for remote control), lowercase"],
-    "cpwfile": ["", str, "<pw>: password file (needed for remote control)"],
-    "apwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than apw, lowercase"],
-    "apwfile": ["", str, "<pw>: password file"],
     "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
     "spwfile": ["", str, "<pw>: password file"],
-    "remote" : ["False", bool, "<bool>: remote reachable (not only localhost) (needs cpwhash/file)"],
+    "remote" : ["False", parsebool, "<bool>: remote reachable (not only localhost) (needs cpwhash/file)"],
     "priority": [str(config.default_priority), int, "<int>: set client priority"],
     "connect_timeout": [str(config.connect_timeout), int, "<int>: set timeout for connecting"],
     "server_timeout": [str(config.server_timeout), int, "<int>: set timeout for servercomponent"],
@@ -594,10 +555,10 @@ default_client_args = \
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
     "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
-    "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb results"],
-    "nolock": ["False", parsebool, "<bool>: deactivate pid lock"],
-    "nowrap": ["False", parsebool, "<bool>: deactivate wrap"],
-    "notraverse": ["False", parsebool, "<bool>: deactivate traversal"]
+    "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb security"],
+    "nolock": ["False", parsebool, "<bool>: disable pid lock"],
+    "nowrap": ["False", parsebool, "<bool>: disable wrap"],
+    "notraverse": ["False", parsebool, "<bool>: disable traversal"]
 }
 
 def client_paramhelp():

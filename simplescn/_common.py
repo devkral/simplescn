@@ -122,12 +122,12 @@ class permissionhash_db(object):
         """ get permissions as list """
         if not check_hash(certhash):
             logging.error("hash contains invalid characters: %s", certhash)
-            return False
-        if not check_trustpermission(permission):
-            logging.error("not a valid permission: %s", permission)
-            return False
+            return None
         cur = dbcon.cursor()
         if permission:
+            if not check_trustpermission(permission):
+                logging.error("not a valid permission: %s", permission)
+                return None
             cur.execute('''SELECT permission FROM certperms WHERE certhash=? and permission=?;''', (certhash, permission))
         else:
             cur.execute('''SELECT permission FROM certperms WHERE certhash=?;''', (certhash,))
@@ -135,7 +135,20 @@ class permissionhash_db(object):
         if ret is None:
             return []
         return [elem[0] for elem in ret]
-    
+
+    @connecttodb
+    def exist(self, certhash, permission, dbcon=None) -> bool:
+        """ exist permission for certhash """
+        if not check_hash(certhash):
+            logging.error("hash contains invalid characters: %s", certhash)
+            return False
+        if not check_trustpermission(permission):
+            logging.error("not a valid permission: %s", permission)
+            return False
+        cur = dbcon.cursor()
+        cur.execute('''SELECT permission FROM certperms WHERE certhash=? and permission=?;''', (certhash, permission))
+        return cur.fetchone() is not None
+
     @connecttodb
     def list(self, dbcon=None) -> list:
         """ list certhash,permission as list """

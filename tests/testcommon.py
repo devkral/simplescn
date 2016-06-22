@@ -23,7 +23,7 @@ class TestGenerateError(unittest.TestCase):
         self.assertDictEqual(_common.generate_error(None), {"msg": "unknown", "type":"unknown"})
     def test_stack(self):
         try:
-            raise(simplescn.AddressInvalidFail)
+            raise(simplescn.AddressInvalidError)
         except Exception as e:
             try:
                 raise(e)
@@ -31,7 +31,7 @@ class TestGenerateError(unittest.TestCase):
                 ec = _common.generate_error(a)
                 self.assertIn("msg", ec)
                 self.assertIn("type", ec)
-                self.assertEqual(ec.get("type"), "AddressInvalidFail")
+                self.assertEqual(ec.get("type"), "AddressInvalidError")
                 self.assertIn("stacktrace", ec)
     def test_string(self):
         self.assertDictEqual(_common.generate_error("teststring"), {"msg": "teststring", "type":""})

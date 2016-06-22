@@ -23,11 +23,11 @@ def cmdloop(ip, use_unix=False, forcehash=None):
             if len(splitted) == 2:
                 body[splitted[0]] = splitted[1]
         command = body.pop("command", "show")
-        try:
-            ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod_realm, use_unix=use_unix, forcehash=forcehash)
-            print(ret)
-        except Exception as exc:
-            print(exc, file=sys.stderr)
+        #try:
+        ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod_realm, use_unix=use_unix, forcehash=forcehash)
+        print(ret)
+        #except Exception as exc:
+        #    print(exc, file=sys.stderr)
 
 
 def _single(argv, use_unix):

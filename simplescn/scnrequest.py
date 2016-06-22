@@ -19,7 +19,7 @@ from simplescn._common import gen_result, check_result
 auth_instance = scnauth_client()
 
 def pwcallmethod_realm(realm):
-    return pwcallmethod(config.pwrealm_prompt.format(realm=realm))()
+    return pwcallmethod(config.pwrealm_prompt.format(realm=realm))
 
 
 reference_header = \
@@ -160,7 +160,7 @@ def init_body_headers(body, headers):
 
 
 
-def authorisation(pwhandler, reqob, serverhash, headers):
+def authorization(pwhandler, reqob, serverhash, headers):
     """ handles auth, headers arg will be changed """
     if not isinstance(reqob, dict):
         return False
@@ -169,7 +169,10 @@ def authorisation(pwhandler, reqob, serverhash, headers):
     if not pw:
         return False
     auth_parsed = json.loads(headers.get("Authorization", "scn {}").split(" ", 1)[1])
-    auth_parsed[realm] = auth_instance.auth(pw, reqob, serverhash) #, serverhash)
+    if realm == "server":
+        auth_parsed[realm] = auth_instance.auth(pw, reqob)
+    else:
+        auth_parsed[realm] = auth_instance.auth(pw, reqob, serverhash) #, serverhash)
     headers["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n", ""))
     return True
 
@@ -204,6 +207,8 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
         sendheaders["Connection"] = 'keep-alive'
     else:
         sendheaders["Connection"] = 'close'
+
+    print(sendheaders.get("Authorization"))
     #start connection
     con.putrequest("POST", path)
     for key, value in sendheaders.items():
@@ -231,10 +236,11 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
         readob = response.read(int(response.getheader("Content-Length")))
         if callable(kwargs.get("pwhandler", None)):
             reqob = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
-            if authorisation(kwargs["pwhandler"], reqob, con.certtupel[1], sendheaders):
-                return do_request(con, path, body=body, \
-                    headers=sendheaders, **kwargs)
-        raise AuthNeeded(con, str(readob, "utf-8"))
+            if authorization(kwargs["pwhandler"], reqob, con.certtupel[1], sendheaders):
+                print(con.certtupel[1])
+                return _do_request(con, path, body=body, \
+                    headers=sendheaders, kwargs=kwargs)
+        raise AuthNeeded(con, str(readob, "utf-8"), con.certtupel[1])
     else:
         if response.status == 200:
             success = True

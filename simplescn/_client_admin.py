@@ -27,11 +27,6 @@ class client_admin(object, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def trusteddb(self):
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
     def links(self):
         raise NotImplementedError
 
@@ -321,7 +316,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         """ func: add certhash to trusteddb
             return: success or error
             certhash: certhash of trusted """
-        return self.trusteddb.add(obdict.get("certhash"), "gettrust")
+        return self.links["trusteddb"].add(obdict.get("certhash"), "gettrust")
  
     @check_args_deco({"certhash": str})
     @classify_admin
@@ -330,7 +325,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         """ func: delete certhash from trusteddb
             return: success or error
             certhash: certhash of trusted """
-        return self.trusteddb.delete(obdict.get("certhash"), "gettrust")
+        return self.links["trusteddb"].delete(obdict.get("certhash"), "gettrust")
 
     # TODO: test
     @check_args_deco({"sourceaddress": str, "sourcehash": str}, optional={"entities": list, "hashes": list})

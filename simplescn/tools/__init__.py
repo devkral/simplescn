@@ -238,6 +238,7 @@ class scnauth_server(object):
         # send server time, client time should not be used because timeouts are on serverside
         rauth["timestamp"] = str(int(time.time()))
         rauth["realm"] = realm
+        rauth["hash"] = self.serverpubcert_hash
         rauth["nonce"] = self.realms[realm][1]
         return rauth
 
@@ -280,7 +281,7 @@ class scnauth_client(object):
         self.save_auth = {}
 
     # wrap in dictionary with {realm: return value}
-    def auth(self, pw, authreq_ob, serverpubcert_hash, saveid=None):
+    def auth(self, pw, authreq_ob, serverpubcert_hash=None, saveid=None):
         realm = authreq_ob.get("realm")
         algo = authreq_ob.get("algo")
         if None in [realm, algo, pw] or pw == "":
@@ -295,6 +296,10 @@ class scnauth_client(object):
     # wrap in dictionary with {realm: return value}
     def asauth(self, pre, authreq_ob, pubcert_hash):
         if pre is None:
+            return None
+        if not pubcert_hash:
+            pubcert_hash = authreq_ob.get("hash")
+        if not pubcert_hash:
             return None
         dauth = auth_struct.copy()
         dauth["timestamp"] = authreq_ob["timestamp"]

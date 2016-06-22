@@ -14,7 +14,7 @@ from simplescn.config import isself
 
 from simplescn.tools import badnamechars, dhash, default_sslcont, url_to_ipv6
 
-allowed_permissions = {"gettrust"} #, "admin"}
+allowed_permissions = {"gettrust", "admin", "client"}
 
 def check_reference(_reference):
     if _reference is None:

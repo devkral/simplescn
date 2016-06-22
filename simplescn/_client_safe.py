@@ -302,7 +302,8 @@ class client_safe(object, metaclass=abc.ABCMeta):
         else:
             _forcehash = self.cert_hash
             _addr = "::1-{}".format(self.links["hserver"].server_port)
-        return self.do_request(_addr, "/server/prioty", body={}, headers=obdict.get("headers"), forcehash=_forcehash, forceport=True)
+        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation")}
+        return self.do_request(_addr, "/server/prioty", body={}, headers=_headers, forcehash=_forcehash, forceport=True)
 
     @check_args_deco({"server": str, "name": str, "hash": str})
     @classify_accessable
@@ -316,7 +317,8 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if not temp[0]:
             return temp
         temp[1]["forcehash"] = obdict.get("hash")
-        return self.prioty_direct({"address":"{address}-{port}".format(**temp[1])})
+        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation")}
+        return self.prioty_direct({"address":"{address}-{port}".format(**temp[1]), "headers":_headers})
 
     @check_args_deco({"address": str, "hash": str}, optional={"security": str})
     @classify_accessable
@@ -332,7 +334,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             if obdict.get("security", "valid") != "valid":
                 return False, "Error: own client is marked not valid"
         # only use forcehash if requested elsewise handle hash mismatch later
-        prioty_ret = self.prioty_direct({"address": obdict["address"], "forcehash": obdict.get("forcehash")})
+        prioty_ret = self.prioty_direct({"address": obdict["address"], "headers":obdict.get("headers"), "forcehash": obdict.get("forcehash")})
         if not prioty_ret[0]:
             return prioty_ret
         # don't query if hash is from client itself
