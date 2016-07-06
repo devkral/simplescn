@@ -146,7 +146,7 @@ class client_server(commonscn):
         self.message = dcserver["message"]
         self.priority = dcserver["priority"]
         self.cert_hash = dcserver["cert_hash"]
-        self.cache["dumpservices"] = json.dumps(gen_result({}, True))
+        self.cache["dumpservices"] = json.dumps({})
         self.update_cache()
         self.validactions.update(self.cache.keys())
     ### the primary way to add or remove a service
@@ -170,7 +170,7 @@ class client_server(commonscn):
                 if wrappedport is None:
                     wrappedport = obdict.get("post", False)
                 self.spmap[obdict.get("name")] = (obdict.get("port"), wrappedport, obdict.get("post", False))
-                self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True))
+                self.cache["dumpservices"] = json.dumps(self.spmap)
                 #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             return True
         return False, "no permission"
@@ -312,18 +312,17 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
 
                 if not response[0]:
                     error = response[1]
-                    generror = generate_error(error)
-                    if not config.debug_mode or (self.server.address_family != file_family and not check_local(self.client_address[0])):
-                        # don't show stacktrace if not permitted and not in debug mode
-                        if "stacktrace" in generror:
-                            del generror["stacktrace"]
-                        # with harden mode do not show errormessage
-                        if config.harden_mode and not isinstance(error, (AddressError, VALError)):
-                            generror = generate_error("unknown")
-                    resultob = gen_result(generror, False)
+                    # with harden mode do not show errormessage
+                    if config.harden_mode and not isinstance(error, (AddressError, VALError)):
+                        resultob = generate_error("unknown")
+                    else:
+                        shallstack = config.debug_mode and \
+                            (self.server.address_family != file_family or check_local(self.client_address[0])) \
+                            and isinstance(error, (AddressError, VALError))
+                        resultob = generate_error(error, shallstack)
                     status = 500
                 else:
-                    resultob = gen_result(response[1], True)
+                    resultob = gen_result(response[1])
                     status = 200
                 jsonnized = bytes(json.dumps(resultob), "utf-8")
                 self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
@@ -353,22 +352,19 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 try:
                     func = getattr(self.links["client_server"], action)
                     response = func(obdict)
-                    jsonnized = json.dumps(gen_result(response[1], response[0]))
+                    jsonnized = json.dumps(response[1])
                 except Exception as exc:
-                    generror = generate_error(exc)
-                    if not config.debug_mode or self.server.address_family != file_family or not check_local(self.client_address[0]):
-                        # don't show stacktrace if not permitted and not in debug mode
-                        if "stacktrace" in generror:
-                            del generror["stacktrace"]
                     # with harden mode do not show errormessage
                     if config.harden_mode and not isinstance(exc, (AddressError, VALError)):
                         generror = generate_error("unknown")
-                    ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
+                    else:
+                        shallstack = config.debug_mode and \
+                            (self.server.address_family != file_family or check_local(self.client_address[0])) \
+                            and isinstance(exc, (AddressError, VALError))
+                        generror = generate_error(exc, shallstack)
+                    ob = bytes(json.dumps(generror), "utf-8")
                     self.scn_send_answer(500, body=ob, mime="application/json")
                     return
-                if jsonnized is None:
-                    jsonnized = json.dumps(gen_result(generate_error("jsonized None"), False))
-                    response[0] = False
                 ob = bytes(jsonnized, "utf-8")
                 if not response[0]:
                     self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
@@ -494,8 +490,8 @@ class client_init(object):
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
                 self.links["cserver_unix"] = http_server(rpath, sslcont, self.links["chandler"], use_unix=True)
             if not kwargs.get("noip", False):
-                self.links["cserver_ip"] = http_server(("", port), sslcont, self.links["chandler"])
-                self.links["cserver_ip"].serve_forever_nonblock()
+                self.links["cserver_ip"] = http_server(("::1", port), sslcont, self.links["chandler"])
+                self.links["cserver_ip4"] = http_server(("::ffff:127.0.0.1", self.links["cserver_ip"].server_port), sslcont, self.links["chandler"])
 
         self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
         clientserverdict = {"name": _name[0], "cert_hash": dhash(pub_cert),
@@ -508,6 +504,9 @@ class client_init(object):
             self.links["cserver_unix"].serve_forever_nonblock()
         if "cserver_ip" in self.links:
             self.links["cserver_ip"].serve_forever_nonblock()
+        if "cserver_ip4" in self.links:
+            self.links["cserver_ip4"].serve_forever_nonblock()
+
 
     def join(self):
         self.links["hserver"].serve_join()

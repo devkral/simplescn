@@ -23,7 +23,7 @@ def cmdloop(ip, use_unix=False, forcehash=None):
             splitted = elem.split("=", 1)
             if len(splitted) == 2:
                 body[splitted[0]] = splitted[1]
-        command = body.pop("command", "show")
+        command = body.pop("action", "show")
         #try:
         ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod, use_unix=use_unix, forcehash=forcehash)
         print(ret)

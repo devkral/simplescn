@@ -9,7 +9,6 @@ import unittest
 import logging
 import shutil
 import json
-from urllib import parse
 
 import simplescn
 from simplescn import config
@@ -77,54 +76,45 @@ class TestAuth(unittest.TestCase):
         cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.authserver = tools.scnauth_server(cls.hashserver)
         cls.authclient = tools.scnauth_client()
-        cls.authserver.init_realm("server", tools.dhash(cls.pwserver))
-        cls.authserver.init_realm("admin", tools.dhash(cls.pwadmin))
+        cls.authserver.init(tools.dhash(cls.pwserver))
     
     def test_construct_correct(self):
-        serverra=self.authserver.request_auth("server")
-        self.assertEqual(serverra.get("realm"), "server")
+        serverra=self.authserver.request_auth()
         self.assertEqual(serverra.get("algo"), config.DEFAULT_HASHALGORITHM)
-        self.assertEqual(serverra.get("nonce"), self.authserver.realms["server"][1])
+        self.assertEqual(serverra.get("nonce"), self.authserver.nonce)
         self.assertIn("timestamp", serverra)
         clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver)
         self.assertEqual(clienta.get("timestamp"), serverra.get("timestamp"))
-        self.assertIn("auth", clienta)
+        #self.assertIn("auth", clienta)
         
     def test_verisuccess(self):
-        serverra = self.authserver.request_auth("server")
-        clienta = {"server":self.authclient.auth(self.pwserver, serverra, self.hashserver)}
-        self.assertTrue(self.authserver.verify("server", clienta))
-    
-    def test_veriwrongdomain(self):
-        serverra = self.authserver.request_auth("server")
-        clienta = {"server":self.authclient.auth(self.pwadmin, serverra, self.hashserver)}
-        self.assertFalse(self.authserver.verify("server", clienta))
-        clienta["admin"] = self.authclient.auth(self.pwserver, serverra, self.hashserver)
-        self.assertFalse(self.authserver.verify("server", clienta))
-    
+        serverra = self.authserver.request_auth()
+        clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver)
+        self.assertTrue(self.authserver.verify(clienta))
+
     def test_verifalse(self):
-        serverra = self.authserver.request_auth("server")
-        clienta = {"server":self.authclient.auth(self.pwinvalid, serverra, self.hashserver)}
-        self.assertFalse(self.authserver.verify("server", clienta))
-        clienta = {"server":self.authclient.auth(self.pwserver, serverra, self.hashserver_wrong)}
-        self.assertFalse(self.authserver.verify("server", clienta))
+        serverra = self.authserver.request_auth()
+        clienta = self.authclient.auth(self.pwinvalid, serverra, self.hashserver)
+        self.assertFalse(self.authserver.verify(clienta))
+        clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver_wrong)
+        self.assertFalse(self.authserver.verify(clienta))
     
     def test_reauth(self):
-        serverra = self.authserver.request_auth("server")
+        serverra = self.authserver.request_auth()
         self.assertIsNone(self.authclient.reauth("123", serverra, self.hashserver))
-        clienta = {"server":self.authclient.auth(self.pwserver, serverra, self.hashserver, "123")}
-        clienta2 = {"server":self.authclient.reauth("123", serverra, self.hashserver)}
+        clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver, "123")
+        clienta2 = self.authclient.reauth("123", serverra, self.hashserver)
         self.assertIsNone(self.authclient.reauth("d2s3", serverra, self.hashserver))
-        self.assertTrue(self.authserver.verify("server", clienta2))
+        self.assertTrue(self.authserver.verify(clienta2))
         self.assertEqual(clienta, clienta2)
         
         # delete 
-        self.authclient.delauth("123", "server")
+        self.authclient.delauth("123")
         self.assertIsNone(self.authclient.reauth("123", serverra, self.hashserver))
         
         # manually add
-        self.authclient.saveauth(self.pwserver, "123", "server")
-        self.assertEqual(clienta, {"server":self.authclient.reauth("123", serverra, self.hashserver)})
+        self.authclient.saveauth(self.pwserver, "123")
+        self.assertEqual(clienta, self.authclient.reauth("123", serverra, self.hashserver))
 
 
 class Test_safe_mdecode(unittest.TestCase):
@@ -135,30 +125,38 @@ class Test_safe_mdecode(unittest.TestCase):
         cls.pwclient = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
         
-        cls._testseq_json1 = json.dumps({"action": "show", "auth": {"server":cls.pwserver, "client":cls.pwclient}})
+        cls._testseq_json1 = json.dumps({"action": "show", "headers": {"X-SCN-Authorization": tools.dhash(cls.pwserver)}})
     
     def test_valid_json(self):
         result = tools.safe_mdecode(self._testseq_json1, "application/json")
+        self.assertIn("action", result)
         self.assertEqual(result["action"], "show")
-        self.assertEqual(result["auth"]["server"], self.pwserver)
-        self.assertEqual(result["auth"]["client"], self.pwclient)
+        self.assertIn("headers", result)
+        self.assertIn("X-SCN-Authorization", result["headers"])
+        self.assertEqual(result["headers"]["X-SCN-Authorization"], tools.dhash(self.pwserver))
     
     def test_valid_convert(self):
         result = tools.safe_mdecode(bytes(self._testseq_json1, "utf-8"), "application/json")
+        self.assertIn("action", result)
         self.assertEqual(result["action"], "show")
-        self.assertEqual(result["auth"]["server"], self.pwserver)
-        self.assertEqual(result["auth"]["client"], self.pwclient)
+        self.assertIn("headers", result)
+        self.assertIn("X-SCN-Authorization", result["headers"])
+        self.assertEqual(result["headers"]["X-SCN-Authorization"], tools.dhash(self.pwserver))
         
         result = tools.safe_mdecode(bytes(self._testseq_json1, "iso8859_8"), "application/json", "iso8859_8")
+        self.assertIn("action", result)
         self.assertEqual(result["action"], "show")
-        self.assertEqual(result["auth"]["server"], self.pwserver)
-        self.assertEqual(result["auth"]["client"], self.pwclient)
+        self.assertIn("headers", result)
+        self.assertIn("X-SCN-Authorization", result["headers"])
+        self.assertEqual(result["headers"]["X-SCN-Authorization"], tools.dhash(self.pwserver))
         
         
         result = tools.safe_mdecode(bytes(self._testseq_json1, "iso8859_8"), "application/json; charset=iso8859_8")
+        self.assertIn("action", result)
         self.assertEqual(result["action"], "show")
-        self.assertEqual(result["auth"]["server"], self.pwserver)
-        self.assertEqual(result["auth"]["client"], self.pwclient)
+        self.assertIn("headers", result)
+        self.assertIn("X-SCN-Authorization", result["headers"])
+        self.assertEqual(result["headers"]["X-SCN-Authorization"], tools.dhash(self.pwserver))
 
     def test_errors(self):
         with self.assertLogs(level=logging.ERROR):

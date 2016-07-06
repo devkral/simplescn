@@ -302,7 +302,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         else:
             _forcehash = self.cert_hash
             _addr = "::1-{}".format(self.links["hserver"].server_port)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation")}
+        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.do_request(_addr, "/server/prioty", body={}, headers=_headers, forcehash=_forcehash, forceport=True)
 
     @check_args_deco({"server": str, "name": str, "hash": str})
@@ -317,7 +317,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if not temp[0]:
             return temp
         temp[1]["forcehash"] = obdict.get("hash")
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation")}
+        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.prioty_direct({"address":"{address}-{port}".format(**temp[1]), "headers":_headers})
 
     @check_args_deco({"address": str, "hash": str}, optional={"security": str})

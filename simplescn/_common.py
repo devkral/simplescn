@@ -664,9 +664,9 @@ class commonscn(object):
 
     def update_cache(self):
         with self.update_cache_lock:
-            self.cache["cap"] = json.dumps(gen_result({"caps": self.capabilities}, True))
-            self.cache["info"] = json.dumps(gen_result({"type": self.scn_type, "name": self.name, "message":self.message}, True))
-            self.cache["prioty"] = json.dumps(gen_result({"priority": self.priority, "type": self.scn_type}, True))
+            self.cache["cap"] = json.dumps({"caps": self.capabilities})
+            self.cache["info"] = json.dumps({"type": self.scn_type, "name": self.name, "message":self.message})
+            self.cache["prioty"] = json.dumps({"priority": self.priority, "type": self.scn_type})
 
 
 class commonscnhandler(BaseHTTPRequestHandler):
@@ -856,7 +856,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
 
 
 
-def generate_error(err):
+def generate_error(err, nostack=False):
     error = {"msg": "unknown", "type": "unknown"}
     if err is None:
         return error
@@ -865,34 +865,18 @@ def generate_error(err):
         error["type"] = ""
     else:
         error["type"] = type(err).__name__
-        if hasattr(err, "__traceback__"):
-            error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "") #[3]
-        elif sys.exc_info()[2] is not None:
-            error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
+        if not nostack:
+            if hasattr(err, "__traceback__"):
+                error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "") #[3]
+            elif sys.exc_info()[2] is not None:
+                error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
     return error # json.dumps(error)
 
-def gen_result(res, status):
+def gen_result(res):
     """ generate result """
-    stdict = {}
-    if status:
-        stdict["status"] = "ok"
-        stdict["result"] = res
-    else:
-        stdict["status"] = "error"
-        stdict["error"] = res
-    return stdict
-
-def check_result(obdict, status):
-    """ is result valid """
-    if obdict is None:
-        return False
-    if "status" not in obdict:
-        return False
-    if status and "result" not in obdict:
-        return False
-    if not status and "error" not in obdict:
-        return False
-    return True
+    if isinstance(res, str):
+        return {"text": res}
+    return res
 
 ### logging ###
 

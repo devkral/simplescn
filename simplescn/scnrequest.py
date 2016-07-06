@@ -204,6 +204,8 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
     #start connection
     con.putrequest("POST", path)
     for key, value in sendheaders.items():
+        #if not isinstance(value, (bytes, str)):
+        #    raise TypeError("{} of header {} not supported: {}".format(type(value), key, value))
         con.putheader(key, value)
 
     con.endheaders()
@@ -248,18 +250,15 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
             readob = response.read(int(response.getheader("Content-Length")))
             conth = response.getheader("Content-Type", "application/json")
             if conth.split(";")[0].strip().rstrip() in ["text/plain", "text/html"]:
-                obdict = gen_result(encode_bo(readob, conth), success)
+                obdict = gen_result(encode_bo(readob, conth))
             else:
                 obdict = safe_mdecode(readob, conth)
             if not check_result(obdict, success):
                 con.close()
                 return None, False, "error parsing request\n{}".format(readob), con.certtupel
         else:
-            obdict = gen_result(response.reason, success)
-        if success:
-            return con, True, obdict["result"], con.certtupel
-        else:
-            return con, False, obdict["error"], con.certtupel
+            obdict = gen_result(response.reason)
+        return con, success, obdict, con.certtupel
 
 def do_request(addr_or_con, path, body=None, headers=None, **kwargs):
     """ func: use this method to communicate with clients/servers

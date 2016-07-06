@@ -138,7 +138,7 @@ def check_args(_moddict, requires=None, optional=None, error=None):
         requires = {}
     if not optional:
         optional = {}
-    if not error:
+    if error is None:
         error = []
     search = set()
     if not isinstance(requires, dict):
@@ -164,9 +164,9 @@ def check_args(_moddict, requires=None, optional=None, error=None):
         if _type is list and isinstance(_moddict[argname], tuple):
             _moddict[argname] = list(_moddict[argname])
             continue
-        # strip array and try again (limitation of www-parser)
-        if not _type in (tuple, list) and isinstance(_moddict[argname], (tuple, list)):
-            _moddict[argname] = _moddict[argname][0]
+        # strip array and try again (limitation of www-parser) (not needed anymore)
+        # if not _type in (tuple, list) and isinstance(_moddict[argname], (tuple, list)):
+        #    _moddict[argname] = _moddict[argname][0]
         # is a number given as string?
         if _type is int and isinstance(_moddict[argname], str) and _moddict[argname].strip().rstrip().isdecimal():
             _moddict[argname] = int(_moddict[argname])

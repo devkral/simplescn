@@ -106,9 +106,9 @@ class server(commonscn):
                 if len(self.nhipmap[_name]) == 0:
                     del self.nhipmap[_name]
             ### don't annote list with "map" dict structure on serverside (overhead)
-            self.cache["dumpnames"] = json.dumps(gen_result(dump, True))
-            self.cache["num_nodes"] = json.dumps(gen_result(count, True))
-            self.cache["update_time"] = json.dumps(gen_result(int(time.time()), True))
+            self.cache["dumpnames"] = json.dumps(dump)
+            self.cache["num_nodes"] = json.dumps(count)
+            self.cache["update_time"] = json.dumps(int(time.time()))
             self.changeip_lock.release()
             self.nhipmap_cond.clear()
             self.load_balance(count)
@@ -293,17 +293,16 @@ def gen_server_handler(_links, stimeout, etimeout):
             try:
                 func = getattr(self.links["server_server"], action)
                 success, result = func(obdict)[:2]
-                jsonnized = json.dumps(gen_result(result, success))
+                jsonnized = json.dumps(gen_result(result))
             except Exception as exc:
-                generror = generate_error(exc)
-                if not config.debug_mode or not self.is_local:
-                    # don't show stacktrace if not permitted and not in debug mode
-                    if "stacktrace" in generror:
-                        del generror["stacktrace"]
-                    # with harden mode do not show errormessage
-                    if config.harden_mode:
-                        generror = generate_error("unknown")
-                ob = bytes(json.dumps(gen_result(generror, False)), "utf-8")
+                # with harden mode do not show errormessage
+                if config.harden_mode:
+                    generror = generate_error("unknown")
+                else:
+                    shallstack = config.debug_mode and \
+                        (check_local(self.client_address[0]))
+                    generror = generate_error(exc, shallstack)
+                ob = bytes(json.dumps(generror), "utf-8")
                 self.scn_send_answer(500, body=ob, mime="application/json", docache=False)
                 return
             ob = bytes(jsonnized, "utf-8")

@@ -106,7 +106,10 @@ def check_args_deco(requires=None, optional=None):
         def get_args(self, obdict):
             error = []
             if not check_args(obdict, requires, optional, error=error):
-                return False, "check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), isself, self.cert_hash
+                if len(error) == 2:
+                    return False, "check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), isself, self.cert_hash
+                else:
+                    raise(TypeError("check_args failed ({})+error broken: {}".format(func.__name__, error)))
             resp = func(self, obdict)
             if resp is None:
                 return False, "bug: no return value in function {}".format(type(func).__name__), isself, self.cert_hash

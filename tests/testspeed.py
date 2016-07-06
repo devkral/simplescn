@@ -7,10 +7,9 @@ import unittest
 import logging
 import shutil
 import timeit
-from threading import Thread
 
 import simplescn
-from simplescn import config
+#from simplescn import config
 from simplescn import tools
 import simplescn.__main__
 
@@ -24,9 +23,9 @@ def shimrun(cmd, *args):
 class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
     temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
-    param_server = ["--config={}".format(temptestdir), "--port={}".format(0)]
-    param_client = ["--config={}".format(temptestdir), "--nocmd"]
-    param_client2 = ["--config={}".format(temptestdir2), "--nocmd"]
+    param_server = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--nounix", "--noip"]
+    param_client = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--nounix", "--noip"]
+    param_client2 = ["--config={}".format(temptestdir2), "--port=0", "--nolock", "--nounix", "--noip"]
     
     #client = None
     #server = None
@@ -65,13 +64,14 @@ class TestCommunication(unittest.TestCase):
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
     
     
-    def test_speed(self):
-        fun = lambda :self.client.links["client"].access_main("register", server="::1")
+    def test_regspeed(self):
+        fun = lambda :self.client.links["client"].access_main("register", server="::1-{}".format(self.server_port))
         ret = timeit.timeit(fun, number=30)
         self.assertLess(ret, 2)
     
-        fun2 = lambda :self.client.links["client"].access_main("cap", server="::1")
-        ret2 = timeit.timeit(fun, number=30)
+    def test_capspeed(self):
+        fun2 = lambda :self.client.links["client"].access_main("cap", server="::1-{}".format(self.server_port))
+        ret2 = timeit.timeit(fun2, number=30)
         self.assertLess(ret2, 2)
 
 if __name__ == "__main__":
