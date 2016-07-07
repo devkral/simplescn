@@ -184,13 +184,9 @@ cert_update_header = \
     "Authorization": 'scn {}',
     "Connection": 'keep-alive'
 }
-cert_update_header_close = \
-{
-    "User-Agent": "simplescn/1.0 (update-cert)",
-    "Authorization": 'scn {}',
-    "Connection": 'close'
-}
+
 # can't use SCNConnection here. creates a cycle
+# timeouts are better than close; they are dynamically adjusted
 def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=config.default_timeout, connect_timeout=config.connect_timeout, traversefunc=None):
     update_list = []
     if None in [_address, _port]:

@@ -3,23 +3,24 @@
 
 ## 0.3
 * mass import (done)
-* holepunching for services (done)
+* holepunching for services (done, deactivated)
 * improve tests
 * better code quality
 
 * tests for wrap, traversal, massimport
 * ipv4, ipv6 compatibility checks
 * resolve ipv4 addresses in ipv6 format (done)
-* remove stupid pw check it allows server to overtake control over client (half done)
-* fix exposing crypted pw of client to server
-* idea for next gen pw check: mix pw with client_certhash and timestamp, server offers timestamp and mixed pw certhash
+* remove stupid pw check it allows server to overtake control over client connections (done)
+* fix exposing crypted pw of client to server (done)
 * remote access to client only with trusteddb (done)
-* add uncrypted unix socket server for client
-* maybe re-add some sort of protection for local sockets
+* maybe re-add some sort of protection for local sockets (done)
+* WARNING::server.py:152::check_brokencerts::[Errno 104] Connection reset by peer
 
-##
-* improve pw stuff (maybe remove it for non server components (replaced by certhashes))
 
+# features:
+* cert hash based protection
+* improved pw stuff
+* unix sockets
 
 ## future
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)

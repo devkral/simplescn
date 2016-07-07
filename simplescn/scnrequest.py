@@ -222,7 +222,7 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
             con.close()
             raise VALMITMError()
     if response.status == 401:
-        if not response.headers.get("Content-Length", "").strip().rstrip().isdigit():
+        if not response.headers.get("Content-Length", "").isdigit():
             con.close()
             return None, False, "pwrequest has no content length", con.certtupel
         readob = response.read(int(response.getheader("Content-Length")))
@@ -244,7 +244,7 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
         else:
             success = False
 
-        if response.getheader("Content-Length", "").strip().rstrip().isdigit():
+        if response.getheader("Content-Length", "").isdigit():
             readob = response.read(int(response.getheader("Content-Length")))
             conth = response.getheader("Content-Type", "application/json")
             if conth.split(";")[0].strip().rstrip() in ["text/plain", "text/html"]:
