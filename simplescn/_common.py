@@ -876,6 +876,8 @@ def gen_result(res):
     """ generate result """
     if isinstance(res, str):
         return {"text": res}
+    elif isinstance(res, bool):
+        return {"text": str(bool)}
     return res
 
 ### logging ###

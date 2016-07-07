@@ -13,8 +13,8 @@ if __name__ == "__main__":
     ownpath = os.path.dirname(os.path.realpath(__file__))
     sys.path.insert(0, os.path.dirname(ownpath))
 
-from simplescn import config
-from simplescn.scnrequest import do_request, pwcallmethod_realm
+from simplescn import config, pwcallmethod
+from simplescn.scnrequest import do_request
 from simplescn._common import scnparse_args, parsepath
 
 def massparse(inp):
@@ -37,7 +37,7 @@ def _getclientcon(addr, configdir=config.default_configdir, forcehash=None):
         _hash = c.show()["cert_hash"]
     else:
         _hash = None
-    ret = do_request(addr, "/client/show", {}, pwhandler=pwcallmethod_realm, forcehash=_hash)
+    ret = do_request(addr, "/client/show", {}, pwhandler=lambda:pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
     if not ret[0] or not ret[1]:
         raise(Exception("Invalid client"))
     return ret[0], ret[2]
@@ -56,7 +56,7 @@ def cmdmassimport(argv=sys.argv[1:]):
         return
     con_or_addr, _hash = _getclientcon(kwargs["address"], kwargs["config"], forcehash=_hash)
     ret = massimport(con_or_addr, saddr, shash, kwargs["listentities"], \
-        kwargs["listhashes"], pwhandler=pwcallmethod_realm, forcehash=_hash)
+        kwargs["listhashes"], pwhandler=lambda :pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
     print(ret)
 
 massimport_args = \

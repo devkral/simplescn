@@ -12,7 +12,7 @@ import abc
 
 from simplescn import EnforcedPortError
 from simplescn.config import isself
-from simplescn.tools import dhash, scnparse_url, default_sslcont
+from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict
 from simplescn.tools.checks import check_updated_certs, check_local, check_args
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
 
@@ -99,7 +99,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         "listen": self.links["hserver"].server_address,
         "port": self.links["hserver"].server_port}
 
-    @check_args_deco({"name": str, "port": int}, optional={"client": str})
+    @check_args_deco({"name": str, "port": int}, optional={"client": str, "invisibleport": bool, "post": bool})
     @classify_accessable
     def registerservice(self, obdict: dict):
         """ func: register service (second way)
@@ -109,10 +109,14 @@ class client_safe(object, metaclass=abc.ABCMeta):
             invisibleport: port is not shown (but can wrap)
             post: send http post request with certificate in header to service
             client: LOCAL client url (default: own client) """
+
+        senddict = extract_senddict(obdict, "name", "port")
+        senddict["invisibleport"] = obdict.get("invisibleport", False)
+        senddict["post"] = obdict.get("post", False)
         if obdict.get("client") is not None:
-            return self.do_request(obdict.get("client"), "/server/registerservice", obdict, forcehash=obdict.get("forecehash", None))
+            return self.do_request(obdict.get("client"), "/server/registerservice", senddict, forcehash=obdict.get("forecehash", None))
         else:
-            return self.do_request("::1-{}".format(self.links["hserver"].server_port), "/server/registerservice", obdict, forcehash=self.cert_hash)
+            return self.do_request("::1-{}".format(self.links["hserver"].server_port), "/server/registerservice", senddict, forcehash=self.cert_hash)
 
     @check_args_deco({"name": str}, optional={"client": str})
     @classify_accessable
@@ -121,10 +125,11 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: success or error
             name: service name
             client: LOCAL client url (default: own client) """
+        senddict = extract_senddict(obdict, "name")
         if obdict.get("client") is not None:
-            return self.do_request(obdict.get("client"), "/server/delservice", obdict, forcehash=obdict.get("forecehash", None))
+            return self.do_request(obdict.get("client"), "/server/delservice", senddict, forcehash=obdict.get("forecehash", None))
         else:
-            return self.do_request("::1-{}".format(self.links["hserver"].server_port), "/server/delservice", obdict, forcehash=self.cert_hash)
+            return self.do_request("::1-{}".format(self.links["hserver"].server_port), "/server/delservice", senddict, forcehash=self.cert_hash)
 
     @check_args_deco({"name": str}, optional={"client": str})
     @classify_accessable
@@ -133,14 +138,14 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: port of service
             name: service name
             client: client url (default: own client) """
+        senddict = extract_senddict(obdict, "name")
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
-            del obdict["client"]
             _forcehash = obdict.get("forcehash")
         else:
             _forcehash = self.cert_hash
-            client_addr = "::1-{}".format(self.links["server"].server_port)
-        return self.do_request(client_addr, "/server/getservice", body={}, headers=obdict.get("headers"), forcehash=_forcehash)
+            client_addr = "::1-{}".format(self.links["hserver"].server_port)
+        return self.do_request(client_addr, "/server/getservice", body=senddict, headers=obdict.get("headers"), forcehash=_forcehash)
 
     @check_args_deco(optional={"client": str})
     @classify_accessable
@@ -169,7 +174,8 @@ class client_safe(object, metaclass=abc.ABCMeta):
             server: server url
             name: client name
             hash: client hash """
-        _getret = self.do_request(obdict["server"], "/server/get", body={"hash": obdict.get("hash"), "name": obdict.get("name")}, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
+        senddict = extract_senddict(obdict, "hash", "name")
+        _getret = self.do_request(obdict["server"], "/server/get",senddict, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
         if not _getret[0] or not check_args(_getret[1], {"address": str, "port": int}):
             return _getret
         if _getret[1].get("port", 0) < 1:
@@ -234,7 +240,6 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash")
-            del obdict["address"]
         else:
             _forcehash = self.cert_hash
             _addr = "::1-{}".format(self.links["hserver"].server_port)
@@ -267,7 +272,6 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash")
-            del obdict["address"]
         else:
             _forcehash = self.cert_hash
             _addr = "::1-{}".format(self.links["hserver"].server_port)
@@ -283,7 +287,6 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash")
-            del obdict["address"]
         else:
             _addr = "::1-{}".format(self.links["hserver"].server_port)
             _forcehash = self.cert_hash
@@ -297,7 +300,6 @@ class client_safe(object, metaclass=abc.ABCMeta):
             address: remote node url (default: own client) """
         if obdict.get("address") is not None:
             _addr = obdict["address"]
-            del obdict["address"]
             _forcehash = obdict.get("forcehash")
         else:
             _forcehash = self.cert_hash
@@ -334,7 +336,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             if obdict.get("security", "valid") != "valid":
                 return False, "Error: own client is marked not valid"
         # only use forcehash if requested elsewise handle hash mismatch later
-        prioty_ret = self.prioty_direct({"address": obdict["address"], "headers":obdict.get("headers"), "forcehash": obdict.get("forcehash")})
+        prioty_ret = self.prioty_direct({"address": obdict["address"], "headers":obdict.get("headers", {}), "forcehash": obdict.get("forcehash")})
         if not prioty_ret[0]:
             return prioty_ret
         # don't query if hash is from client itself
@@ -397,7 +399,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         else:
             _forcehash = None
         newaddress = "{address}-{port}".format(**get_ret[1])
-        direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "forcehash":_forcehash, "security": get_ret[1].get("security", "valid")})
+        direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "headers": obdict.get("headers", {}), "forcehash":_forcehash, "security": get_ret[1].get("security", "valid")})
         # return new hash in hash field
         if direct_ret[0]:
             direct_ret[1]["hash"] = direct_ret[3]

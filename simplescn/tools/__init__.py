@@ -207,13 +207,14 @@ def url_to_ipv6(url, port):
 
 authrequest_struct = \
 {
-    "algo": None,
+    "salgo": None,
     "nonce": None,
     "timestamp": None
 }
 
 auth_struct = \
 {
+    "cnonce": None,
     "auth": None,
     "timestamp": None
 }
@@ -236,7 +237,7 @@ class scnauth_server(object):
         rauth["algo"] = self.hash_algorithm
         # send server time, client time should not be used because timeouts are on serverside
         rauth["timestamp"] = int(time.time())
-        rauth["nonce"] = self.nonce
+        rauth["snonce"] = self.nonce
         return rauth
 
     def verify(self, authdict):
@@ -248,44 +249,73 @@ class scnauth_server(object):
             return False
         if len(authdict) == 0:
             return False
-        if not isinstance(authdict.get("timestamp", None), int):
+        _cnonce = authdict.get("cnonce", None)
+        if not isinstance(_cnonce, str):
+            logging.warning("no cnonce")
+            return False
+        _auth = authdict.get("auth", None)
+        if not isinstance(_auth, str):
+            logging.warning("no auth")
+            return False
+        _timestamp = authdict.get("timestamp", None)
+        if not isinstance(_timestamp, int):
             logging.warning("no timestamp")
             return False
-        if authdict["timestamp"] < int(time.time()) - self.request_expire_time:
+        if _timestamp < int(time.time()) - self.request_expire_time:
             return False
-        if dhash(bytes(authdict["timestamp"]), self.hash_algorithm, prehash=self.salted_pw) == authdict.get("auth"):
+        # don't use bytes() for int; it creates a big array
+        if dhash((_cnonce, str(_timestamp)), algo=self.hash_algorithm, prehash=self.salted_pw) == _auth:
             return True
         return False
 
     def init(self, pwhash):
         # internal salt for memory protection+nonce
         self.nonce = os.urandom(config.salt_size).hex()
-        self.salted_pw = dhash((pwhash, self.nonce, self.serverpubcert_hash), self.hash_algorithm)
+        self.salted_pw = dhash((pwhash, self.serverpubcert_hash, self.nonce), algo=self.hash_algorithm)
 
+def scn_hashedpw_auth(hashedpw, authreq_ob, serverhash):
+    if hashedpw in ["", None] or not authreq_ob.get("algo", None) or not authreq_ob.get("snonce", None):
+        return None
+    dauth = auth_struct.copy()
+    dauth["timestamp"] = authreq_ob["timestamp"]
+    dauth["cnonce"] = os.urandom(config.salt_size).hex()
+    # = salted_pw
+    dauth["auth"] = dhash((hashedpw, serverhash, authreq_ob["snonce"]), algo=authreq_ob["algo"])
+    # = output for verify
+    # dont use bytes for int, it creates a giant array
+    dauth["auth"] = dhash((dauth["cnonce"], str(dauth["timestamp"])), algo=authreq_ob["algo"], prehash=dauth["auth"])
+    return dauth
+
+
+def extract_senddict(obdict, *args):
+    tmp = {}
+    for key in args:
+        tmp[key] = obdict.get(key, None)
+    return tmp
+
+"""
 class scnauth_client(object):
     # save credentials
     save_auth = None
     def __init__(self):
         self.save_auth = {}
 
-    # wrap in dictionary with {realm: return value}
     def auth(self, pw, authreq_ob, serverpubcert_hash, saveid=None):
         algo = authreq_ob.get("algo")
         if None in [algo, pw] or pw == "":
             return None
-        pre = dhash(pw, algo)
+        pre = dhash(pw, algo=algo)
         if saveid is not None:
             self.save_auth[saveid] = (pre, algo)
         return self.asauth(pre, authreq_ob, serverpubcert_hash)
 
     # wrap in dictionary with {realm: return value}
     def asauth(self, pre, authreq_ob, pubcert_hash):
-        if pre is None:
+        if pre is None or not authreq_ob.get("algo", None) or not authreq_ob.get("nonce", None):
             return None
         dauth = auth_struct.copy()
         dauth["timestamp"] = authreq_ob["timestamp"]
-        print(dauth["timestamp"])
-        dauth["auth"] = dhash((authreq_ob["nonce"], pubcert_hash, bytes(dauth["timestamp"])), authreq_ob["algo"], prehash=pre)
+        dauth["auth"] = dhash((authreq_ob["nonce"], pubcert_hash, bytes(dauth["timestamp"])), algo=authreq_ob["algo"], prehash=pre)
         return dauth
 
     def saveauth(self, pw, saveid, algo=config.DEFAULT_HASHALGORITHM):
@@ -306,7 +336,7 @@ class scnauth_client(object):
         if "algo" not in authreq_ob:
             authreq_ob["algo"] = _hashalgo
         return self.asauth(pre, authreq_ob, pubcert_hash)
-
+"""
 
 scn_pingstruct = struct.pack(">c511x", b"p")
 scn_yesstruct = struct.pack(">c511x", b"y")
@@ -468,10 +498,12 @@ def dhash(oblist, algo=config.DEFAULT_HASHALGORITHM, prehash=""):
         logging.error("Hashalgorithm not available: %s", algo)
         return None
     if not isinstance(oblist, (list, tuple)):
-        oblist = [oblist,]
+        oblist2 = [oblist]
+    else:
+        oblist2 = oblist
     hasher = hashlib.new(algo)
     ret = prehash
-    for ob in oblist:
+    for ob in oblist2:
         tmp = hasher.copy()
         tmp.update(bytes(ret, "utf-8"))
         if isinstance(ob, bytes):

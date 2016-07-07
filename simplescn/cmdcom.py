@@ -17,15 +17,15 @@ from simplescn.scnrequest import do_request_simple
 
 def cmdloop(ip, use_unix=False, forcehash=None):
     while True:
-        inp = input("Enter command:\n")
+        inp = input("Enter action:\n")
         body = {}
         for elem in shlex.split(inp):
             splitted = elem.split("=", 1)
             if len(splitted) == 2:
                 body[splitted[0]] = splitted[1]
-        command = body.pop("action", "show")
+        action = body.pop("action", "show")
         #try:
-        ret = do_request_simple(ip, "/client/{}".format(command), body, pwhandler=pwcallmethod, use_unix=use_unix, forcehash=forcehash)
+        ret = do_request_simple(ip, "/client/{}".format(action), body, pwhandler=pwcallmethod, use_unix=use_unix, forcehash=forcehash)
         print(ret)
         #except Exception as exc:
         #    print(exc, file=sys.stderr)

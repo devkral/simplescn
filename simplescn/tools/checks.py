@@ -224,12 +224,8 @@ def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=con
     if newhash and newhash != oldhash:
         return None
     oldsslcont = con.sock.context
-    stopnum = len(certhashlist)-1
-    for countitem, (_hash, _security) in enumerate(certhashlist):
-        if stopnum==countitem:
-            con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header_close)
-        else:
-            con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
+    for _hash, _security in certhashlist:
+        con.request("POST", "/usebroken/{hash}".format(hash=_hash), headers=cert_update_header)
         con.sock = con.sock.unwrap()
         con.sock = cont.wrap_socket(con.sock, server_side=False)
         con.sock.do_handshake()

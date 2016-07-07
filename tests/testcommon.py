@@ -75,46 +75,31 @@ class TestAuth(unittest.TestCase):
         cls.pwadmin = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.authserver = tools.scnauth_server(cls.hashserver)
-        cls.authclient = tools.scnauth_client()
+        #cls.authclient = tools.scnauth_client()
         cls.authserver.init(tools.dhash(cls.pwserver))
     
     def test_construct_correct(self):
-        serverra=self.authserver.request_auth()
+        serverra = self.authserver.request_auth()
         self.assertEqual(serverra.get("algo"), config.DEFAULT_HASHALGORITHM)
-        self.assertEqual(serverra.get("nonce"), self.authserver.nonce)
+        self.assertEqual(serverra.get("snonce"), self.authserver.nonce)
         self.assertIn("timestamp", serverra)
-        clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver)
+        clienta = tools.scn_hashedpw_auth(tools.dhash(self.pwserver), serverra, self.hashserver)
         self.assertEqual(clienta.get("timestamp"), serverra.get("timestamp"))
+        self.assertIn("cnonce", clienta)
+        
         #self.assertIn("auth", clienta)
         
     def test_verisuccess(self):
         serverra = self.authserver.request_auth()
-        clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver)
+        clienta = tools.scn_hashedpw_auth(tools.dhash(self.pwserver), serverra, self.hashserver)
         self.assertTrue(self.authserver.verify(clienta))
 
     def test_verifalse(self):
         serverra = self.authserver.request_auth()
-        clienta = self.authclient.auth(self.pwinvalid, serverra, self.hashserver)
+        clienta = tools.scn_hashedpw_auth(tools.dhash(self.pwinvalid), serverra, self.hashserver)
         self.assertFalse(self.authserver.verify(clienta))
-        clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver_wrong)
+        clienta = tools.scn_hashedpw_auth(tools.dhash(self.pwserver), serverra, self.hashserver_wrong)
         self.assertFalse(self.authserver.verify(clienta))
-    
-    def test_reauth(self):
-        serverra = self.authserver.request_auth()
-        self.assertIsNone(self.authclient.reauth("123", serverra, self.hashserver))
-        clienta = self.authclient.auth(self.pwserver, serverra, self.hashserver, "123")
-        clienta2 = self.authclient.reauth("123", serverra, self.hashserver)
-        self.assertIsNone(self.authclient.reauth("d2s3", serverra, self.hashserver))
-        self.assertTrue(self.authserver.verify(clienta2))
-        self.assertEqual(clienta, clienta2)
-        
-        # delete 
-        self.authclient.delauth("123")
-        self.assertIsNone(self.authclient.reauth("123", serverra, self.hashserver))
-        
-        # manually add
-        self.authclient.saveauth(self.pwserver, "123")
-        self.assertEqual(clienta, self.authclient.reauth("123", serverra, self.hashserver))
 
 
 class Test_safe_mdecode(unittest.TestCase):

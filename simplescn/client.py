@@ -89,6 +89,7 @@ class client_client(client_admin, client_safe):
             except AuthNeeded as exc:
                 raise exc
             except Exception as exc:
+                #raise(exc)
                 return False, exc #.with_traceback(sys.last_traceback)
         else:
             return False, "not in validactions", isself, self.cert_hash
@@ -172,7 +173,7 @@ class client_server(commonscn):
                 self.spmap[obdict.get("name")] = (obdict.get("port"), wrappedport, obdict.get("post", False))
                 self.cache["dumpservices"] = json.dumps(self.spmap)
                 #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
-            return True
+            return True, "ok"
         return False, "no permission"
 
     # don't annote list with "map" dict structure on serverside (overhead)
@@ -187,8 +188,8 @@ class client_server(commonscn):
             with self.wlock:
                 if obdict["name"] in self.spmap:
                     del self.spmap[obdict["name"]]
-                    self.cache["dumpservices"] = json.dumps(gen_result(self.spmap, True)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
-            return True
+                    self.cache["dumpservices"] = json.dumps(gen_result(self.spmap)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
+            return True, "ok"
         return False, "no permission"
 
     ### management section - end ###
@@ -204,9 +205,9 @@ class client_server(commonscn):
                 return False, "No permission"
         hasho = self.links["client"].hashdb.get(obdict.get("hash"))
         if hasho:
-            return True, {"trust": hasho[3]}
+            return True, hasho[3]
         else:
-            return True, {"trust": "unknown"}
+            return True, "unknown"
 
     @check_args_deco({"name": str})
     @classify_local
@@ -225,7 +226,7 @@ class client_server(commonscn):
             return True, -1
 
     @check_args_deco({"name": str})
-    @classify_accessable
+    #@classify_accessable
     def traverse_service(self, obdict):
         """ func: traverse to the port of a service
             return: portnumber or error
@@ -350,6 +351,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 if obdict is None:
                     return None
                 try:
+                    # no complicated checks here
                     func = getattr(self.links["client_server"], action)
                     response = func(obdict)
                     jsonnized = json.dumps(response[1])
@@ -399,6 +401,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             elif client and resource == "client":
                 self.handle_client(sub)
             else:
+                print(resource, server,  client)
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
             self.connection.settimeout(self.server_timeout)
     return client_handler

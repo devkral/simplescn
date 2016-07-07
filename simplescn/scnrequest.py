@@ -10,13 +10,11 @@ from simplescn.config import isself
 
 from simplescn.tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, \
-dhash, create_certhashheader, scnauth_client, url_to_ipv6
+dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6
 
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
-from simplescn._common import gen_result, check_result
+from simplescn._common import gen_result
 
-
-auth_instance = scnauth_client()
 
 
 reference_header = \
@@ -163,8 +161,8 @@ def authorization(pwhashed, reqob, serverhash, sendheaders):
         return False
     if not pwhashed:
         return False
-    auth_parsed = auth_instance.asauth(pwhashed, reqob, serverhash) #, serverhash)
-    sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed).replace("\n", ""))
+    auth_parsed = scn_hashedpw_auth(pwhashed, reqob, serverhash) #, serverhash)
+    sendheaders["Authorization"] = "scn {}".format(json.dumps(auth_parsed))
     return True
 
 # return connection, success, body, certtupel
@@ -253,9 +251,9 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
                 obdict = gen_result(encode_bo(readob, conth))
             else:
                 obdict = safe_mdecode(readob, conth)
-            if not check_result(obdict, success):
-                con.close()
-                return None, False, "error parsing request\n{}".format(readob), con.certtupel
+            #if not isinstance(obdict, dict):
+            #    con.close()
+            #    return None, False, "error parsing request\n{}".format(readob), con.certtupel
         else:
             obdict = gen_result(response.reason)
         return con, success, obdict, con.certtupel

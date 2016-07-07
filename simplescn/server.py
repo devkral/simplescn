@@ -146,7 +146,11 @@ class server(commonscn):
     @classify_private
     def check_brokencerts(self, _address, _port, _name, certhashlist, newhash):
         """ func: connect to check if requester has broken certs """
-        update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traversefunc=lambda ownaddr:self.traverse.send((_address, _port), ownaddr))
+        try:
+            update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traversefunc=lambda ownaddr:self.traverse.send((_address, _port), ownaddr))
+        except Exception as exc:
+            logging.warning(exc)
+            update_list = []
         if update_list in [None, []]:
             return
 
@@ -418,6 +422,7 @@ class server_init(object):
             self.links["server_server"].traverse = traverser_dropper(srcaddr)
 
         self.links["hserver"].serve_forever_nonblock()
+
     def quit(self):
         if not self.active:
             return
