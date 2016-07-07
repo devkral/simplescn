@@ -6,7 +6,6 @@ license: MIT, see LICENSE.txt
 
 import ssl
 import socket
-import logging
 import abc
 
 
@@ -15,6 +14,7 @@ from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict
 from simplescn.tools.checks import check_updated_certs, check_local, check_args
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
+from simplescn._common import generate_error
 
 @generate_validactions_deco
 class client_safe(object, metaclass=abc.ABCMeta):
@@ -194,7 +194,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: hash, certificate (stripped = scn compatible)
             address: node url """
         if obdict["address"] in ["", " ", None]:
-            return False, "address is empty"
+            return False, generate_error("address is empty")
         try:
             cont = default_sslcont()
             _addr = scnparse_url(obdict["address"], force_port=False)
@@ -203,14 +203,14 @@ class client_safe(object, metaclass=abc.ABCMeta):
             pcert = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True)).strip().rstrip()
             return True, {"hash": dhash(pcert), "cert": pcert}
         except ssl.SSLError:
-            return False, "server speaks no tls 1.2"
+            return False, generate_error("server speaks no tls 1.2")
         except ConnectionRefusedError:
-            return False, "server does not exist"
+            return False, generate_error("server does not exist")
         except EnforcedPortError as exc:
-            return False, exc.msg
+            return False, generate_error(exc, False)
         except Exception as exc:
-            logging.error(exc)
-            return False, exc
+            #logging.error(exc)
+            return False, generate_error(exc, True)
 
     @check_args_deco({"address": str})
     @classify_accessable
@@ -415,7 +415,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             hash: node certificate hash """
         out = self.hashdb.get(obdict["hash"])
         if out is None:
-            return False, "Not in db"
+            return False, generate_error("Not in db", False)
         ret = \
         {
             "name": out[0],
@@ -492,7 +492,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             _hash = obdict.get("hash")
             _tref = self.hashdb.get(_hash)
             if _tref is None:
-                return False, "certhash does not exist: {}".format(_hash)
+                return False, generate_error("certhash does not exist: {}".format(_hash))
             _tref = _tref[4]
         else:
             _tref = obdict.get("certreferenceid")
@@ -510,6 +510,6 @@ class client_safe(object, metaclass=abc.ABCMeta):
             reference: reference """
         temp = self.hashdb.findbyref(obdict["reference"])
         if temp is None:
-            return False, "reference does not exist: {}".format(obdict["reference"])
+            return False, generate_error("reference does not exist: {}".format(obdict["reference"]))
         return True, {"items":temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
 

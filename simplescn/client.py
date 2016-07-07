@@ -85,7 +85,7 @@ class client_client(client_admin, client_safe):
                 return False, "actions: 'private functions not allowed in access", isself, self.cert_hash
             #with self.client_lock: # not needed, use sqlite's intern locking mechanic
             try:
-                return getattr(self, action)(obdict)
+                return gaction(obdict)
             except AuthNeeded as exc:
                 raise exc
             except Exception as exc:
@@ -287,7 +287,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             def handle_client(self, action):
                 """ access to client_client """
                 if action not in self.links["client"].validactions:
-                    self.send_error(400, "invalid action - client")
+                    self.scn_send_answer(400, message="invalid action - client", docache=True)
                     return
                 if remote:
                     gaction = getattr(self.links["client"], action)
@@ -331,7 +331,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             def handle_server(self, action):
                 """ access to client_server """
                 if action not in self.links["client_server"].validactions:
-                    self.scn_send_answer(400, message="invalid action - server", docache=False)
+                    self.scn_send_answer(400, message="invalid action - server", docache=True)
                     return
                 if not self.links["auth_server"].verify(self.auth_info):
                     authreq = self.links["auth_server"].request_auth()
@@ -401,7 +401,6 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             elif client and resource == "client":
                 self.handle_client(sub)
             else:
-                print(resource, server,  client)
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
             self.connection.settimeout(self.server_timeout)
     return client_handler

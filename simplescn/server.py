@@ -135,12 +135,12 @@ class server(commonscn):
         try:
             _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2).strip().rstrip()
         except ConnectionRefusedError:
-            return [False, "use_traversal"]
+            return False, "use_traversal"
         except ssl.SSLError:
-            return [False, "use_traversal"]
+            return False, "use_traversal"
         if dhash(_cert) != _hash:
-            return [False, "hash_mismatch"]
-        return [True, "registered_ip"]
+            return False, "hash_mismatch"
+        return True, "registered_ip"
 
     # private: don't include
     @classify_private
@@ -171,9 +171,9 @@ class server(commonscn):
             port: listen port of client
             update: list with compromised hashes (includes reason=security) """
         if not check_name(obdict["name"]):
-            return False, "invalid_name"
+            return False, generate_error("invalid_name", False)
         if obdict["client_certhash"] is None:
-            return False, "no_cert"
+            return False, generate_error("no_cert", False)
         if obdict["clientaddress"][0][:7] == "::ffff:":
             caddress = (obdict["clientaddress"][0][7:], obdict["clientaddress"][1])
         else:
@@ -187,10 +187,12 @@ class server(commonscn):
                 return ret
             ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
             if not ret[0]:
-                return False, "unreachable client"
-            ret[1] = "registered_traversal"
+                return False, generate_error("unreachable client", False)
+            mode = "registered_traversal"
         elif check_local(caddress[0]):
-            ret[1] = "registered_traversal"
+            mode = "registered_traversal"
+        else:
+            mode = "registered_ip"
         self.changeip_lock.acquire(False)
         update_time = int(time.time())
         if obdict["name"] not in self.nhipmap:
@@ -204,7 +206,7 @@ class server(commonscn):
             self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
             self.nhipmap[obdict["name"]][clientcerthash]["updatetime"] = update_time
             self.nhipmap[obdict["name"]][clientcerthash]["security"] = "valid"
-            self.nhipmap[obdict["name"]][clientcerthash]["traverse"] = ret[1] == "registered_traversal"
+            self.nhipmap[obdict["name"]][clientcerthash]["traverse"] = mode == "registered_traversal"
         self.changeip_lock.release()
 
         # update broken certs afterwards
@@ -212,7 +214,7 @@ class server(commonscn):
 
         # notify that change happened
         self.nhipmap_cond.set()
-        return True, {"mode": ret[1], "traverse": ret[1] == "registered_traversal"}
+        return True, {"mode": mode, "traverse": mode == "registered_traversal"}
 
     @check_args_deco({"destaddr": str}) #, optional={"port": int}
     @classify_accessable
@@ -221,11 +223,11 @@ class server(commonscn):
             return: traverse_address (=remote own address)
             destaddr: destination address """
         if self.traverse is None:
-            return False, "no traversal possible"
+            return False, generate_error("no traversal possible", False)
         try:
             destaddr = scnparse_url(obdict.get("destaddr"), True)
         except Exception:
-            return False, "destaddr invalid"
+            return False, generate_error("destaddr invalid", False)
         travaddr = obdict.get("clientaddress") #(obdict["clientaddress"][0], travport)
         threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr), daemon=True).start()
         return True, {"traverse_address": travaddr}
@@ -247,9 +249,9 @@ class server(commonscn):
             hash: client hash
             autotraverse: open traversal when necessary (default: False) """
         if obdict["name"] not in self.nhipmap:
-            return False, "name not exist"
+            return False, generate_error("name not exist", False)
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
-            return False, "hash not exist"
+            return False, generate_error("hash not exist", False)
         _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
         if _obj.get("security", "") != "valid":
             _usecurity, _uname, _uhash = _obj.get("security"), _obj["name"], _obj["hash"]

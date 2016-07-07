@@ -5,6 +5,22 @@ from simplescn.config import isself
 from simplescn._common import generate_error
 from simplescn.tools.checks import check_args
 
+#def generate_permissionactions_deco(DecoClass):
+#    DecoClass.validactions_admin = set()
+#    DecoClass.validactions_normal = set()
+#    for key, value in DecoClass.__dict__.items():
+#        if not callable(value) or key[0] == "_":
+#            continue
+#        tClassify = getattr(value, "classify", None)
+#        if not tClassify:
+#            continue
+#        if "accessable" in tClassify:
+#            if "admin" in tClassify:
+#                DecoClass.validactions_admin.add(key)
+#            else:
+#                DecoClass.validactions_normal.add(key)
+#    return DecoClass
+
 def generate_validactions_deco(DecoClass):
     DecoClass.validactions = set()
     for key, value in DecoClass.__dict__.items():
@@ -23,6 +39,7 @@ def classify_admin(func):
         func.classify = set()
     func.classify.add("admin")
     return func
+
 # signals that method only access internal methods and send no requests (e.g. do_request)
 def classify_local(func):
     if not hasattr(func, "classify"):
@@ -107,19 +124,19 @@ def check_args_deco(requires=None, optional=None):
             error = []
             if not check_args(obdict, requires, optional, error=error):
                 if len(error) == 2:
-                    return False, "check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), isself, self.cert_hash
+                    return False, generate_error("check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), False), isself, self.cert_hash
                 else:
                     raise(TypeError("check_args failed ({})+error broken: {}".format(func.__name__, error)))
             resp = func(self, obdict)
             if resp is None:
-                return False, "bug: no return value in function {}".format(type(func).__name__), isself, self.cert_hash
+                return False, generate_error("bug: no return value in function {}".format(type(func).__name__), False), isself, self.cert_hash
             if isinstance(resp, bool) or len(resp) == 1:
                 if not isinstance(resp, bool):
                     resp = resp[0]
                 if resp:
-                    return True, "{} finished successfully".format(func.__name__), isself, self.cert_hash
+                    return True, "{} succeeded".format(func.__name__), isself, self.cert_hash
                 else:
-                    return False, "{} failed".format(func.__name__), isself, self.cert_hash
+                    return False, generate_error("{} failed".format(func.__name__), False), isself, self.cert_hash
             elif len(resp) == 2:
                 return resp[0], resp[1], isself, self.cert_hash
             else:

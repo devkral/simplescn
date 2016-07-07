@@ -23,9 +23,9 @@ def shimrun(cmd, *args):
 class TestCommunication(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
     temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
-    param_server = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--nounix", "--noip"]
-    param_client = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--nounix", "--noip"]
-    param_client2 = ["--config={}".format(temptestdir2), "--port=0", "--nolock", "--nounix", "--noip"]
+    param_server = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
+    param_client = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
+    param_client2 = ["--config={}".format(temptestdir2), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
     
     #client = None
     #server = None
