@@ -91,7 +91,7 @@ class SCNConnection(client.HTTPSConnection):
                 contrav = SCNConnection(trav, **_kwargs)
                 contrav.connect()
                 _sport = contrav.sock.getsockname()[1]
-                retserv = do_request(trav, "/server/open_traversal", {"destaddr": _host}, keepalive=True)
+                retserv = do_request(trav, "/server/open_traversal", {"destaddr": _host}, {}, keepalive=True)
                 contrav.close()
                 if retserv[1]:
                     retries = self.kwargs.get("traverse_retries", config.traverse_retries)

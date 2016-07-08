@@ -229,7 +229,7 @@ class server(commonscn):
         except Exception:
             return False, generate_error("destaddr invalid", False)
         travaddr = obdict.get("clientaddress") #(obdict["clientaddress"][0], travport)
-        threading.Thread(target=self.traverse.send_thread, args=(travaddr, destaddr), daemon=True).start()
+        threading.Thread(target=self.traverse.send, args=(travaddr, destaddr), daemon=True).start()
         return True, {"traverse_address": travaddr}
 
     @check_args_deco()

@@ -41,18 +41,19 @@ def connecttodb(func):
     def funcwrap(self, *args, **kwargs):
         temp = None
         with self.lock:
-            try:
-                dbcon = sqlite3.connect(self.db_path)
-                kwargs["dbcon"] = dbcon
-                temp = func(self, *args, **kwargs)
-                dbcon.close()
-            except Exception as exc:
-                st = "{} (dbfile: {})".format(exc, self.db_path)
-                if hasattr(exc, "__traceback__"):
-                    st = "{}\n\n{}".format(st, "".join(traceback.format_tb(exc.__traceback__)).replace("\\n", ""))
-                elif sys.exc_info()[2] is not None:
-                    st = "{}\n\n{}".format(st, "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", ""))
-                logging.error("%s\n%s", st, type(func).__name__)
+            #try:
+            dbcon = sqlite3.connect(self.db_path)
+            kwargs["dbcon"] = dbcon
+            temp = func(self, *args, **kwargs)
+            dbcon.close()
+            #except Exception as exc:
+            #    st = "{} (dbfile: {})".format(exc, self.db_path)
+            #    if hasattr(exc, "__traceback__"):
+            #        st = "{}\n\n{}".format(st, "".join(traceback.format_tb(exc.__traceback__)).replace("\\n", ""))
+            #    elif sys.exc_info()[2] is not None:
+            #        st = "{}\n\n{}".format(st, "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", ""))
+            #    logging.error("%s\n%s", st, type(func).__name__)
+            #    raise exc
         return temp
     return funcwrap
 

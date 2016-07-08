@@ -199,7 +199,9 @@ def scnparse_url(url, force_port=False):
         return (url, config.server_port)
     raise EnforcedPortError
 
-def url_to_ipv6(url, port):
+def url_to_ipv6(url: str, port: int):
+    if url == "":
+        return None
     ret = socket.getaddrinfo(url, port, socket.AF_INET6, socket.SOCK_STREAM, flags=socket.AI_V4MAPPED)
     if len(ret) == 0:
         return None
@@ -406,8 +408,6 @@ class traverser_dropper(object):
         else:
             return True
 
-    def send_thread(self, _dsttupel, _contupel):
-        self.send(_dsttupel, _contupel, None)
 
 
 

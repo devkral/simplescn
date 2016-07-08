@@ -6,7 +6,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import unittest
 import shutil
 import timeit
+import time
 import threading
+#import logging
 from http.server import BaseHTTPRequestHandler
 from http.client import HTTPSConnection
 
@@ -21,10 +23,17 @@ avg = 0.3
 parallelnum = 20
 maxtime = 1.01
 
+printresults = False
 
 def stubconnect(addr, _port):
     con = HTTPSConnection(addr, _port, context=tools.default_sslcont())
     con.request("POST", "/just/stub", body=b"'{}'", headers={"Content-Type": "application/json"})
+    resp = con.getresponse()
+    resp.read(int(resp.getheader("Content-Length")))
+
+def stubconnect_invalid(addr, _port):
+    con = HTTPSConnection(addr, _port, context=tools.default_sslcont())
+    con.request("CONNECT", "/just/stub", body=b"'{}'", headers={"Content-Type": "application/json"})
     resp = con.getresponse()
     resp.read(int(resp.getheader("Content-Length")))
 
@@ -55,6 +64,7 @@ class TestSpeed(unittest.TestCase):
     param_client = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--port=0"]
     #param_client2 = ["--config={}".format(temptestdir2), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
     referencestuff = None
+    referencestuffinvalid = None
     
     # needed to run ONCE; setUpModule runs async
     @classmethod
@@ -91,6 +101,7 @@ class TestSpeed(unittest.TestCase):
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
+        time.sleep(4)
         cls.client.quit()
         cls.server.quit()
         cls.testserver.server_close()
@@ -98,22 +109,27 @@ class TestSpeed(unittest.TestCase):
         #shutil.rmtree(cls.temptestdir2)
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
         print(cls.referencestuff)
-    
+        print(cls.referencestuffinvalid)
+
     def test_regspeed(self):
         fun = lambda :self.client.links["client"].access_dict("register", {"server": self.server_addressscn})
         ret = timeit.timeit(fun, number=avgtestnum)
+        if printresults:
+            print("test_regspeed", ret/avgtestnum)
         self.assertLess(ret/avgtestnum, avg)
 
-    #def test_regspeed_parallel(self):
-    #    counter = [0, parallelnum]
-    #    bar = threading.Semaphore(1)
-    #    fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("register", {"server": self.server_addressscn}))
-    #    ret = timeit.timeit(fun, number=parallelnum)
-    #    self.assertLess(ret, maxtime)
+    def test_regspeed_parallel(self):
+        counter = [0, parallelnum]
+        bar = threading.Semaphore(1)
+        fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("register", {"server": self.server_addressscn}))
+        ret = timeit.timeit(fun, number=parallelnum)
+        self.assertLess(ret, maxtime)
     
     def test_show(self):
         fun = lambda :self.client.links["client"].access_dict("show", {})
         ret = timeit.timeit(fun, number=avgtestnum)
+        if printresults:
+            print("test_show", ret/avgtestnum)
         self.assertLess(ret/avgtestnum, avg)
 
     def test_show_parallel(self):
@@ -124,50 +140,73 @@ class TestSpeed(unittest.TestCase):
         self.assertLess(ret, maxtime)
 
     def test_capspeed(self):
-        fun2 = lambda :self.client.links["client"].access_dict("cap", {"server": self.server_addressscn})
-        ret2 = timeit.timeit(fun2, number=avgtestnum)
-        self.assertLess(ret2/avgtestnum, avg)
+        fun = lambda :self.client.links["client"].access_dict("cap", {"server": self.server_addressscn})
+        ret = timeit.timeit(fun, number=avgtestnum)
+        if printresults:
+            print("test_capspeed", ret/avgtestnum)
+        self.assertLess(ret/avgtestnum, avg)
+    
+    def test_capspeed_parallel(self):
+        counter = [0, parallelnum]
+        bar = threading.Semaphore(1)
+        fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("cap", {}))
+        ret = timeit.timeit(fun, number=parallelnum)
+        self.assertLess(ret, maxtime)
 
     def test_invalspeed(self):
-        fun2 = lambda :self.client.links["client"].access_dict("ksksks", {"server": self.server_addressscn})
-        ret2 = timeit.timeit(fun2, number=avgtestnum)
-        self.assertLess(ret2/avgtestnum, avg)
+        fun = lambda :self.client.links["client"].access_dict("ksksks", {"server": self.server_addressscn})
+        ret = timeit.timeit(fun, number=avgtestnum)
+        if printresults:
+            print("test_invalspeed", ret/avgtestnum)
+        self.assertLess(ret/avgtestnum, avg)
 
     def test_connectspeedshow(self):
-        fun2 = lambda : scnrequest.do_request_simple("::1-{}".format(self.client_port2), "/client/show", {}, {})
-        ret2 = timeit.timeit(fun2, number=avgtestnum)
-        self.assertLess(ret2/avgtestnum, avg)
+        fun = lambda : scnrequest.do_request_simple("::1-{}".format(self.client_port2), "/client/show", {}, {})
+        ret = timeit.timeit(fun, number=avgtestnum)
+        if printresults:
+            print("test_connectspeedshow", ret/avgtestnum)
+        self.assertLess(ret/avgtestnum, avg)
 
 
     def test_connectspeedinvalid(self):
-        fun2 = lambda : scnrequest.do_request_simple("::1-{}".format(self.client_port2), "/client/teststubnotvalid", {}, {})
-        ret2 = timeit.timeit(fun2, number=avgtestnum)
-        self.assertLess(ret2/avgtestnum, avg)
+        fun = lambda : scnrequest.do_request_simple("::1-{}".format(self.client_port2), "/client/teststubnotvalid", {}, {})
+        ret = timeit.timeit(fun, number=avgtestnum)
+        if printresults:
+            print("test_connectspeedinvalid", ret/avgtestnum)
+        self.assertLess(ret/avgtestnum, avg)
 
     def test_connectspeedinvalid_parallel(self):
         counter = [0, parallelnum]
         bar = threading.Semaphore(1)
-        fun2 = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.client_port2), "/client/teststubnotvalid", {}, {}))
-        ret2 = timeit.timeit(fun2, number=parallelnum)
-        self.assertLess(ret2, maxtime)
+        fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.client_port2), "/client/teststubnotvalidparallel", {}, {}))
+        ret = timeit.timeit(fun, number=parallelnum)
+        self.assertLess(ret, maxtime)
 
     def test_connecttestserver(self):
-        fun2 = lambda : scnrequest.do_request_simple("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {})
-        ret2 = timeit.timeit(fun2, number=avgtestnum)
-        self.assertLess(ret2/avgtestnum, avg)
+        fun = lambda : scnrequest.do_request_simple("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {})
+        ret = timeit.timeit(fun, number=avgtestnum)
+        if printresults:
+            print("test_connecttestserver", ret/avgtestnum)
+        self.assertLess(ret/avgtestnum, avg)
     
     def test_connecttestserver_parallel(self):
         counter = [0, parallelnum]
         bar = threading.Semaphore(1)
-        fun2 = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {}))
-        ret2 = timeit.timeit(fun2, number=parallelnum)
-        self.assertLess(ret2, maxtime)
+        fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {}))
+        ret = timeit.timeit(fun, number=parallelnum)
+        self.assertLess(ret, maxtime)
 
     def test_connecttestserver_withstub(self):
-        fun2 = lambda : stubconnect("::1", self.test_server_port)
-        ret2 = timeit.timeit(fun2, number=avgtestnum)
-        self.assertLess(ret2/avgtestnum, avg)
-        self.referencestuff = "Reference server with stub: {}".format(ret2/avgtestnum)
+        fun = lambda : stubconnect("::1", self.test_server_port)
+        ret = timeit.timeit(fun, number=avgtestnum)
+        TestSpeed.referencestuff = "Reference server with stub: {}".format(ret/avgtestnum)
+        self.assertLess(ret/avgtestnum, avg)
+
+    def test_connecttestserver_withstubinvalid(self):
+        fun = lambda : stubconnect_invalid("::1", self.test_server_port)
+        ret = timeit.timeit(fun, number=avgtestnum)
+        TestSpeed.referencestuffinvalid = "Reference server with invalid stub: {}".format(ret/avgtestnum)
+        self.assertLess(ret/avgtestnum, avg)
 
 
 if __name__ == "__main__":
