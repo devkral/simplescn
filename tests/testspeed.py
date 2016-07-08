@@ -41,6 +41,7 @@ def _threaded_bar(func, threadsem, args, kwargs):
     func(*args, **kwargs)
     threadsem.release()
 
+# FIXME: doesn't block correctly
 def threaded_bar(func, threadsem, counter, args=(), kwargs={}):
     threadsem.acquire(False)
     threading.Thread(target=_threaded_bar, args=(func, threadsem, args, kwargs), daemon=True).start()
