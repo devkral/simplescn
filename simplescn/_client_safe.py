@@ -290,7 +290,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         else:
             _addr = "::1-{}".format(self.links["hserver"].server_port)
             _forcehash = self.cert_hash
-        return self.do_request(_addr, "/server/cap", body={}, headers=obdict.get("headers"), forceport=True, forcehash=_forcehash)
+        return self.do_request(_addr, "/server/cap", body={}, headers=obdict.get("headers", {}), forceport=True, forcehash=_forcehash)
 
     @check_args_deco(optional={"address": str})
     @classify_accessable

@@ -414,9 +414,9 @@ class server_init(object):
         self.links["server_server"] = server(serverd)
         
         sslcont = default_sslcont()
-        sslcont.load_cert_chain( _spath+"_cert.pub",  _spath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
+        sslcont.load_cert_chain( _spath+"_cert.pub",  _spath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
 
-        self.links["hserver"] = http_server(("", port), sslcont, self.links["handler"])
+        self.links["hserver"] = http_server(("::", port), sslcont, self.links["handler"])
 
         if not kwargs["notraversal"]:
             self.links["server_server"].capabilities.append("traversal")

@@ -13,7 +13,7 @@ safe_mdecode, encode_bo, try_traverse, \
 dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6
 
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
-from simplescn._common import gen_result
+from simplescn._common import gen_result, generate_error
 
 
 
@@ -167,11 +167,11 @@ def authorization(pwhashed, reqob, serverhash, sendheaders):
 
 # return connection, success, body, certtupel
 # certtupel is None if no
-def _do_request(addr_or_con, path, body, headers, kwargs):
+def _do_request(addr_or_con, path, body, headers, kwargs) -> (SCNConnection, bool, dict, tuple):
     """ func: main part for communication, use wrapper instead """
-
     sendbody, sendheaders = init_body_headers(body, headers)
-
+    if sendbody is None:
+        return None, False, generate_error("no body"), (isself, kwargs.get("ownhash", None), None)
     if isinstance(addr_or_con, SCNConnection):
         con = addr_or_con
     else:
@@ -179,7 +179,7 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
     if con.sock is None:
         con.connect()
     if con.sock is None:
-        return None, False, "Could not open connection", (isself, kwargs.get("ownhash", None), None)
+        return None, False, generate_error("Could not open connection"), (isself, kwargs.get("ownhash", None), None)
 
     if kwargs.get("sendclientcert", False):
         if kwargs.get("certcontext", None) and kwargs.get("ownhash", None):
@@ -187,7 +187,7 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
             sendheaders["X-certrewrap"] = _header
         else:
             con.close()
-            return None, False, "missing: certcontext or ownhash", con.certtupel
+            return None, False, generate_error("missing: certcontext or ownhash"), con.certtupel
 
     if kwargs.get("originalcert", None):
         sendheaders["X-original_cert"] = kwargs.get("originalcert")
@@ -215,7 +215,7 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
     if kwargs.get("sendclientcert", False):
         if _random != response.getheader("X-certrewrap", ""):
             con.close()
-            return None, False, "rewrapped cert secret does not match", con.certtupel
+            return None, False, generate_error("rewrapped cert secret does not match", False), con.certtupel
 
     if kwargs.get("sendclientcert", False):
         if _random != response.getheader("X-certrewrap", ""):
@@ -224,7 +224,7 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
     if response.status == 401:
         if not response.headers.get("Content-Length", "").isdigit():
             con.close()
-            return None, False, "pwrequest has no content length", con.certtupel
+            return None, False, generate_error("pwrequest has no content length", False), con.certtupel
         readob = response.read(int(response.getheader("Content-Length")))
         reqob = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
         if headers and headers.get("X-SCN-Authorization", None):
@@ -247,10 +247,10 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
         if response.getheader("Content-Length", "").isdigit():
             readob = response.read(int(response.getheader("Content-Length")))
             conth = response.getheader("Content-Type", "application/json")
-            if conth.split(";")[0].strip().rstrip() in ["text/plain", "text/html"]:
-                obdict = gen_result(encode_bo(readob, conth))
-            else:
+            if conth.split(";")[0].strip().rstrip() == "application/json":
                 obdict = safe_mdecode(readob, conth)
+            else:
+                obdict = gen_result(encode_bo(readob, conth))
             #if not isinstance(obdict, dict):
             #    con.close()
             #    return None, False, "error parsing request\n{}".format(readob), con.certtupel
@@ -258,7 +258,7 @@ def _do_request(addr_or_con, path, body, headers, kwargs):
             obdict = gen_result(response.reason)
         return con, success, obdict, con.certtupel
 
-def do_request(addr_or_con, path, body=None, headers=None, **kwargs):
+def do_request(addr_or_con, path: str, body: dict, headers: dict, **kwargs):
     """ func: use this method to communicate with clients/servers
         kwargs:
             options:
@@ -294,7 +294,7 @@ def do_request(addr_or_con, path, body=None, headers=None, **kwargs):
     else:
         return ret
 
-def do_request_simple(addr_or_con, path, body=None, headers=None, **kwargs):
+def do_request_simple(addr_or_con, path: str, body: dict, headers: dict, **kwargs):
     """ autoclose connection """
     ret = do_request(addr_or_con, path, body=body, headers=headers, keepalive=False, **kwargs)
     if ret[0]:

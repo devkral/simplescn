@@ -40,18 +40,19 @@ def connecttodb(func):
     import sqlite3
     def funcwrap(self, *args, **kwargs):
         temp = None
-        self.lock.acquire()
-        try:
-            dbcon = sqlite3.connect(self.db_path)
-            kwargs["dbcon"] = dbcon
-            temp = func(self, *args, **kwargs)
-            dbcon.close()
-        except Exception as exc:
-            st = str(exc)
-            if "tb_frame" in exc.__dict__:
-                st = "{}\n\n{}".format(st, traceback.format_tb(exc))
-            logging.error("%s\n%s", st, type(func).__name__)
-        self.lock.release()
+        with self.lock:
+            try:
+                dbcon = sqlite3.connect(self.db_path)
+                kwargs["dbcon"] = dbcon
+                temp = func(self, *args, **kwargs)
+                dbcon.close()
+            except Exception as exc:
+                st = "{} (dbfile: {})".format(exc, self.db_path)
+                if hasattr(exc, "__traceback__"):
+                    st = "{}\n\n{}".format(st, "".join(traceback.format_tb(exc.__traceback__)).replace("\\n", ""))
+                elif sys.exc_info()[2] is not None:
+                    st = "{}\n\n{}".format(st, "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", ""))
+                logging.error("%s\n%s", st, type(func).__name__)
         return temp
     return funcwrap
 

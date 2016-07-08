@@ -24,7 +24,7 @@ max_namelength = 64
 ## password prompts:
 pwcertgen_prompt = "(optional) Enter passphrase for encrypting key"
 pwrealm_prompt = "Please enter server password"
-pw_prompt = "Please enter password"
+pwdecrypt_prompt = "Please enter password to unlock key"
 
 ## timeouts ##
 # time out for auth requests

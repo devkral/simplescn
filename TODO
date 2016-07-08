@@ -15,12 +15,13 @@
 * remote access to client only with trusteddb (done)
 * maybe re-add some sort of protection for local sockets (done)
 * WARNING::server.py:152::check_brokencerts::[Errno 104] Connection reset by peer
-
+* fix broken test (test_register_parallel) (caused by a most probably very nasty bug)
 
 # features:
 * cert hash based protection
 * improved pw stuff
 * unix sockets
+* advanced url support (by using getaddrinfo, causes a small slowdown on clientside)
 
 ## future
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)

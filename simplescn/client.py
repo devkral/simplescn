@@ -352,8 +352,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     return None
                 try:
                     # no complicated checks here
-                    func = getattr(self.links["client_server"], action)
-                    response = func(obdict)
+                    response = getattr(self.links["client_server"], action)(obdict)
                     jsonnized = json.dumps(response[1])
                 except Exception as exc:
                     # with harden mode do not show errormessage
@@ -452,13 +451,13 @@ class client_init(object):
             if not check_hash(kwargs.get("spwhash")):
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs.get("spwhash"))
             else:
-                self.links["auth_server"].init_realm("server", kwargs.get("spwhash"))
+                self.links["auth_server"].init(kwargs.get("spwhash"))
         elif bool(kwargs.get("spwfile")):
             with open(kwargs["spwfile"], "r") as op:
                 pw = op.readline()
                 if pw[-1] == "\n":
                     pw = pw[:-1]
-                self.links["auth_server"].init_realm("server", dhash(pw))
+                self.links["auth_server"].init(dhash(pw))
 
         with open(_cpath+"_name.txt", 'r') as readclient:
             _name = readclient.readline().strip().rstrip() # remove \n
@@ -478,13 +477,13 @@ class client_init(object):
         else:
             port = config.client_port
         sslcont = default_sslcont()
-        sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod("Enter server certificate pw"), "utf-8"))
+        sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
         
         if kwargs.get("remote", False):
             self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=True, remote=True, nowrap=kwargs.get("nowrap", False))
         else:
             self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=False, remote=False, nowrap=kwargs.get("nowrap", False))
-        self.links["hserver"] = http_server(("", port), sslcont, self.links["shandler"])
+        self.links["hserver"] = http_server(("::", port), sslcont, self.links["shandler"])
         
         if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):
             self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=False, client=True, remote=False, nowrap=True)
@@ -518,10 +517,12 @@ class client_init(object):
             return
         self.active = False
         self.links["hserver"].server_close()
-        if "client_ip" in self.links:
-            self.links["client_ip"].server_close()
-        if "client_unix" in self.links:
-            self.links["client_unix"].server_close()
+        if "cserver_ip" in self.links:
+            self.links["cserver_ip"].server_close()
+        if "cserver_ip4" in self.links:
+            self.links["cserver_ip4"].server_close()
+        if "cserver_unix" in self.links:
+            self.links["cserver_unix"].server_close()
 
     def show(self):
         ret = dict()
