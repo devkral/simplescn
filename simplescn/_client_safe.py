@@ -95,9 +95,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
         """ func: show client stats
             return: client stats; port==0 means unixsockets """
         return True, {"name": self.name,
-                        "hash": self.cert_hash,
-                        "listen": self.links["hserver"].server_address,
-                        "port": self.links["hserver"].server_port}
+                      "hash": self.cert_hash,
+                      "listen": self.links["hserver"].server_address,
+                      "port": self.links["hserver"].server_port}
 
     @check_args_deco({"name": str, "port": int}, optional={"client": str, "invisibleport": bool, "post": bool})
     @classify_accessable

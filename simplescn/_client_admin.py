@@ -317,7 +317,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return: success or error
             certhash: certhash of trusted """
         return self.links["trusteddb"].add(obdict.get("certhash"), "gettrust")
- 
+
     @check_args_deco({"certhash": str})
     @classify_admin
     @classify_local
@@ -371,4 +371,3 @@ class client_admin(object, metaclass=abc.ABCMeta):
                     else:
                         self.hashdb.addreference(localref, _ref, _reftype)
         return True, "import finished"
-

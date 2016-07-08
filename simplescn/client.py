@@ -246,7 +246,6 @@ class client_server(commonscn):
         else:
             return False, "Traversal could not opened"
 
-
 def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False, nowrap=False):
     """ create handler with: links, server_timeout, default_timeout, ... """
     class client_handler(commonscnhandler):
@@ -257,7 +256,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
         links = _links
         server_timeout = stimeout
         etablished_timeout = etimeout
-        
+
         def handle_wrap(self, servicename):
             """ wrap service """
             service = self.links["client_server"].spmap.get(servicename, None)
