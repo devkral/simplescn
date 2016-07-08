@@ -107,7 +107,7 @@ class permissionhash_db(object):
             return False
         cur = dbcon.cursor()
         if permission:
-            cur.execute('''SELECT permission FROM certperms WHERE certhash=? and permission=?;''', (certhash,permission))
+            cur.execute('''SELECT permission FROM certperms WHERE certhash=? and permission=?;''', (certhash, permission))
         else:
             cur.execute('''SELECT permission FROM certperms WHERE certhash=?;''', (certhash,))
         ret = cur.fetchone()
@@ -615,7 +615,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
 #                    not check_local(client_address[0]):
 #                return False
 #        return True
-    
+
     def get_request(self):
         con, addr = self.socket.accept()
         if self.use_unix:
@@ -684,7 +684,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
     # replaced by function not init
     alreadyrewrapped = False
     links = None
-    
     rfile = None
     wfile = None
     connection = None
@@ -956,5 +955,3 @@ def scnparse_args(arg_list, _funchelp, default_args):
                 if tparam[0] in default_args:
                     new_arglist[tparam[0]] = default_args[tparam[0]][1](tparam[1])
     return new_arglist
-
-

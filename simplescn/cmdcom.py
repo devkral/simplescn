@@ -75,7 +75,7 @@ def _test(argv, use_unix):
     t2 = s.show()
     running_instances.append(s)
     print("client ip", t.get("cserver_ip", None))
-    print("client unix",  t.get("cserver_unix", None))
+    print("client unix", t.get("cserver_unix", None))
     print("client server", t.get("hserver"))
     print("client hash", t.get("cert_hash"))
     print("server", "::1-{}".format(t2.get("hserver")))

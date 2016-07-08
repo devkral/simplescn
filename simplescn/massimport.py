@@ -37,9 +37,9 @@ def _getclientcon(addr, configdir=config.default_configdir, forcehash=None):
         _hash = c.show()["cert_hash"]
     else:
         _hash = None
-    ret = do_request(addr, "/client/show", {}, {}, pwhandler=lambda:pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
+    ret = do_request(addr, "/client/show", {}, {}, pwhandler=lambda: pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
     if not ret[0] or not ret[1]:
-        raise(Exception("Invalid client"))
+        raise Exception("Invalid client")
     return ret[0], ret[2]
 
 def cmdmassimport(argv=sys.argv[1:]):
@@ -56,13 +56,13 @@ def cmdmassimport(argv=sys.argv[1:]):
         return
     con_or_addr, _hash = _getclientcon(kwargs["address"], kwargs["config"], forcehash=_hash)
     ret = massimport(con_or_addr, saddr, shash, kwargs["listentities"], \
-        kwargs["listhashes"], pwhandler=lambda :pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
+        kwargs["listhashes"], pwhandler=lambda: pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
     print(ret)
 
 massimport_args = \
 {
-#    "cpwhash": ["", str, "<lowercase hash>: sha256 hash of pw for auth"],
-#    "cpwfile": ["", str, "<pw>: password file (needed for remote control)"],
+    #"cpwhash": ["", str, "<lowercase hash>: sha256 hash of pw for auth"],
+    #"cpwfile": ["", str, "<pw>: password file (needed for remote control)"],
     "forcehash": ["", str, "<lowercase hash>: hash of client"],
     "address": ["", str, "<lowercase hash>: address of target client (copied to)"],
     "sourceaddr": ["", str, "<lowercase hash>: address of source client"],

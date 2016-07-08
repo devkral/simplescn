@@ -154,7 +154,7 @@ class client_server(commonscn):
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
 
-    @check_args_deco({"name": str, "port": int}, optional={"wrappedport": bool,"post": bool})
+    @check_args_deco({"name": str, "port": int}, optional={"wrappedport": bool, "post": bool})
     @classify_local
     @classify_accessable
     def registerservice(self, obdict):
@@ -513,6 +513,7 @@ class client_init(object):
         self.links["hserver"].serve_join()
 
     def quit(self):
+        # server may need some time to cleanup, elsewise strange exceptions appear
         if not self.active:
             return
         self.active = False

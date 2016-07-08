@@ -72,8 +72,8 @@ def hashpw(argv=sys.argv[1:]):
 
 def cmdcom(argv=sys.argv[1:]):
     """ wrapper for cmdcom """
-    from simplescn.cmdcom import _init_method_main
-    return _init_method_main(argv)
+    from simplescn.cmdcom import _init_method_main as init_cmdcom
+    return init_cmdcom(argv)
 
 def cmd_massimport(argv=sys.argv[1:]):
     """ wrapper for cmdmassimport """

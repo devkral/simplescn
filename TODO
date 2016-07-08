@@ -4,7 +4,7 @@
 ## 0.3
 * mass import (done)
 * holepunching for services (done, deactivated)
-* improve tests
+* improve tests (done)
 * better code quality
 
 * tests for wrap, traversal, massimport
@@ -14,8 +14,6 @@
 * fix exposing crypted pw of client to server (done)
 * remote access to client only with trusteddb (done)
 * maybe re-add some sort of protection for local sockets (done)
-* WARNING::server.py:152::check_brokencerts::[Errno 104] Connection reset by peer
-* fix broken test (test_register_parallel) (caused by a most probably very nasty bug)
 
 # features:
 * cert hash based protection

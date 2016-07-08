@@ -55,7 +55,6 @@ class VALHashError(VALError):
 class VALMITMError(VALError):
     msg = 'MITM-attack suspected: nonce missing or check failed'
 
-
 def inp_passw_cmd(msg):
     from getpass import getpass
     return getpass(msg+":\n")
@@ -64,4 +63,3 @@ pwcallmethodinst = inp_passw_cmd
 # returns pw or ""
 def pwcallmethod(msg):
     return pwcallmethodinst(msg)
-

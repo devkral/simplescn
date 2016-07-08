@@ -41,7 +41,6 @@ def _threaded_bar(func, threadsem, args, kwargs):
     func(*args, **kwargs)
     threadsem.release()
 
-# FIXME: doesn't block correctly
 def threaded_bar(func, threadsem, counter, args=(), kwargs={}):
     threadsem.acquire(False)
     threading.Thread(target=_threaded_bar, args=(func, threadsem, args, kwargs), daemon=True).start()
@@ -102,7 +101,8 @@ class TestSpeed(unittest.TestCase):
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
-        time.sleep(4)
+        # server side needs some time to cleanup, elswise strange exceptions happen
+        time.sleep(3)
         cls.client.quit()
         cls.server.quit()
         cls.testserver.server_close()

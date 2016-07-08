@@ -95,9 +95,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
         """ func: show client stats
             return: client stats; port==0 means unixsockets """
         return True, {"name": self.name,
-        "hash": self.cert_hash,
-        "listen": self.links["hserver"].server_address,
-        "port": self.links["hserver"].server_port}
+                        "hash": self.cert_hash,
+                        "listen": self.links["hserver"].server_address,
+                        "port": self.links["hserver"].server_port}
 
     @check_args_deco({"name": str, "port": int}, optional={"client": str, "invisibleport": bool, "post": bool})
     @classify_accessable
@@ -175,7 +175,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             name: client name
             hash: client hash """
         senddict = extract_senddict(obdict, "hash", "name")
-        _getret = self.do_request(obdict["server"], "/server/get",senddict, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
+        _getret = self.do_request(obdict["server"], "/server/get", senddict, headers=obdict.get("headers"), forcehash=obdict.get("forcehash"))
         if not _getret[0] or not check_args(_getret[1], {"address": str, "port": int}):
             return _getret
         if _getret[1].get("port", 0) < 1:
@@ -199,8 +199,8 @@ class client_safe(object, metaclass=abc.ABCMeta):
             cont = default_sslcont()
             _addr = scnparse_url(obdict["address"], force_port=False)
             sock = socket.create_connection(_addr)
-            sock = cont.wrap_socket(sock, server_side=False)
-            pcert = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True)).strip().rstrip()
+            sslsock = cont.wrap_socket(sock, server_side=False)
+            pcert = ssl.DER_cert_to_PEM_cert(sslsock.getpeercert(True)).strip().rstrip()
             return True, {"hash": dhash(pcert), "cert": pcert}
         except ssl.SSLError:
             return False, generate_error("server speaks no tls 1.2")
@@ -233,7 +233,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
 
     @check_args_deco({"hash": str}, optional={"address": str})
     @classify_accessable
-    def trust(self,  obdict: dict):
+    def trust(self, obdict: dict):
         """ func: retrieve info of node
             return: info section
             address: remote node url (default: own client) """
@@ -512,4 +512,3 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if temp is None:
             return False, generate_error("reference does not exist: {}".format(obdict["reference"]))
         return True, {"items":temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
-

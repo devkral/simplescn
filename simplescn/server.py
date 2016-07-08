@@ -381,9 +381,9 @@ class server_init(object):
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
         if bool(kwargs["spwhash"]):
             if not check_hash(kwargs["spwhash"]):
-                logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"][0])
+                logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"])
             else:
-                self.links["auth_server"].init(kwargs["spwhash"][0])
+                self.links["auth_server"].init(kwargs["spwhash"])
         elif bool(kwargs["spwfile"]):
             with open(kwargs["spwfile"], "r") as op:
                 pw = op.readline()
@@ -400,7 +400,7 @@ class server_init(object):
         if None in [pub_cert, _name, _message]:
             raise Exception("missing")
         _name = _name.split("/")
-        if len(_name) > 2 or not check_name(_name[0]):
+        if len(_name) > 2 or not check_name(_name):
             logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _spath + "_name")
 
         if kwargs["port"] > -1:
@@ -426,10 +426,12 @@ class server_init(object):
         self.links["hserver"].serve_forever_nonblock()
 
     def quit(self):
+        # server may need some time to cleanup, elsewise strange exceptions appear
         if not self.active:
             return
         self.active = False
         self.links["hserver"].server_close()
+
     def show(self):
         ret = dict()
         ret["cert_hash"] = self.links["server_server"].cert_hash
