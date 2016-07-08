@@ -5,21 +5,17 @@
 * mass import (done)
 * holepunching for services (done, deactivated)
 * improve tests (done)
-* better code quality
 
-* tests for wrap, traversal, massimport
-* ipv4, ipv6 compatibility checks
 * resolve ipv4 addresses in ipv6 format (done)
 * remove stupid pw check it allows server to overtake control over client connections (done)
 * fix exposing crypted pw of client to server (done)
 * remote access to client only with trusteddb (done)
 * maybe re-add some sort of protection for local sockets (done)
 
-# features:
-* cert hash based protection
-* improved pw stuff
-* unix sockets
-* advanced url support (by using getaddrinfo, causes a small slowdown on clientside)
+## 0.4
+* tests for wrap, traversal, massimport
+* ipv4, ipv6 compatibility checks
+
 
 ## future
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)

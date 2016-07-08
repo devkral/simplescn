@@ -116,7 +116,6 @@ class client_server(commonscn):
     links = None
     # replace commonscn capabilities
     capabilities = None
-
     wlock = None
 
     @property
@@ -226,7 +225,7 @@ class client_server(commonscn):
             return True, -1
 
     @check_args_deco({"name": str})
-    #@classify_accessable
+    @classify_accessable
     def traverse_service(self, obdict):
         """ func: traverse to the port of a service
             return: portnumber or error
@@ -558,8 +557,8 @@ default_client_args = \
     "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
     "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb security"],
     "nolock": ["False", parsebool, "<bool>: disable pid lock"],
-    "nowrap": ["False", parsebool, "<bool>: disable wrap"],
-    "notraverse": ["False", parsebool, "<bool>: disable traversal"]
+    "nowrap": ["True", parsebool, "<bool>: disable wrap"],
+    "notraverse": ["True", parsebool, "<bool>: disable traversal"]
 }
 
 def client_paramhelp():
