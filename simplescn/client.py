@@ -197,6 +197,10 @@ class client_server(commonscn):
     @classify_accessable
     @classify_local
     def trust(self, obdict: dict):
+        """ func: (remote) trust (security level) of client for hash (only accessable for gettrust member)
+            return: security trust level
+            hash: hash for which trust should be retrieved
+        """
         if not self.links["kwargs"].get("trustforall", False):
             if not "client_certhash" in obdict:
                 return False, "no certificate sent"
