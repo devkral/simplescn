@@ -1,4 +1,9 @@
-
+# 0.4
+## bug fixes
+* crash in register can lead to pinger fail
+* fix warning in tests
+## changes
+* move stuff to tools
 
 # 0.3
 ## important bugfixes

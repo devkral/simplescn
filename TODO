@@ -12,7 +12,7 @@
 * remote access to client only with trusteddb (done)
 * maybe re-add some sort of protection for local sockets (done)
 
-## 0.4
+## 0.5
 * tests for wrap, traversal, massimport
 * ipv4, ipv6 compatibility checks
 
