@@ -6,7 +6,6 @@ license: MIT, see LICENSE.txt
 
 import os
 import sys
-import traceback
 import threading
 import logging
 import json
@@ -20,7 +19,7 @@ import socketserver
 from simplescn import config
 from simplescn.config import isself, file_family
 
-from simplescn.tools import dhash, safe_mdecode, default_sslcont
+from simplescn.tools import dhash, safe_mdecode, default_sslcont, loglevel_converter
 from simplescn.tools.checks import check_name, check_hash, check_security, \
 check_typename, check_reference, check_reference_type, check_local, check_trustpermission
 
@@ -856,62 +855,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.scn_send_answer(401, body=ob, docache=False)
             return False
         return True
-
-
-
-def generate_error(err, nostack=False):
-    error = {"msg": "unknown", "type": "unknown"}
-    if err is None:
-        return error
-    error["msg"] = str(err)
-    if isinstance(err, str):
-        error["type"] = ""
-    else:
-        error["type"] = type(err).__name__
-        if not nostack:
-            if hasattr(err, "__traceback__"):
-                error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "") #[3]
-            elif sys.exc_info()[2] is not None:
-                error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
-    return error # json.dumps(error)
-
-def gen_result(res):
-    """ generate result """
-    if isinstance(res, str):
-        return {"text": res}
-    elif isinstance(res, bool):
-        return {"text": str(bool)}
-    return res
-
-### logging ###
-
-def logcheck(ret, level=logging.DEBUG):
-    if ret[0]:
-        return True
-    else:
-        if level != 0: # = logging.DEBUG
-            try:
-                fn, lno, func, sinfo = logging.root.findCaller(False)
-            except ValueError: # fails on some interpreters
-                fn, lno, func, sinfo = "(unknown file)", 0, "(unknown function)", None
-            sinfo = ret[1].get("stacktrace", None)
-            message = ret[1].get("msg", "")
-            if message == "":
-                message = "{levelname}:{line}:{funcname}: crashed".format(levelname=logging.getLevelName(level), line=lno, funcname=func)
-            record = logging.root.makeRecord(logging.root.name, level, fn, lno, message, [], None, func, None, sinfo)
-            logging.root.handle(record)
-        return False
-
-
-def loglevel_converter(loglevel):
-    if isinstance(loglevel, int):
-        return loglevel
-    elif not loglevel.isdigit():
-        if hasattr(logging, loglevel) and isinstance(getattr(logging, loglevel), int):
-            return getattr(logging, loglevel)
-        raise TypeError("invalid loglevel")
-    else:
-        return int(loglevel)
 
 
 

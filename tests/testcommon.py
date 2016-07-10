@@ -12,14 +12,13 @@ import json
 
 import simplescn
 from simplescn import config
-from simplescn import _common
 from simplescn import tools
 from simplescn.tools import checks
 
 
 class TestGenerateError(unittest.TestCase):
     def test_None(self):
-        self.assertDictEqual(_common.generate_error(None), {"msg": "unknown", "type":"unknown"})
+        self.assertDictEqual(tools.generate_error(None), {"msg": "unknown", "type":"unknown"})
     def test_stack(self):
         try:
             raise(simplescn.AddressInvalidError)
@@ -27,13 +26,13 @@ class TestGenerateError(unittest.TestCase):
             try:
                 raise(e)
             except Exception as a:
-                ec = _common.generate_error(a)
+                ec = tools.generate_error(a)
                 self.assertIn("msg", ec)
                 self.assertIn("type", ec)
                 self.assertEqual(ec.get("type"), "AddressInvalidError")
                 self.assertIn("stacktrace", ec)
     def test_string(self):
-        self.assertDictEqual(_common.generate_error("teststring"), {"msg": "teststring", "type":""})
+        self.assertDictEqual(tools.generate_error("teststring"), {"msg": "teststring", "type":""})
 
 class TestGenerateCerts(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_certs")

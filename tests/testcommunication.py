@@ -1,10 +1,12 @@
 #! /usr/bin/env python3
-import sys, os
+import sys
+import os
 # fix import
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 import unittest
 import shutil
+import time
 
 import simplescn
 from simplescn import tools
@@ -56,6 +58,8 @@ class TestCommunication(unittest.TestCase):
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
+        # server side needs some time to cleanup, elswise strange exceptions happen
+        time.sleep(3)
         cls.client.quit()
         cls.client2.quit()
         cls.server.quit()

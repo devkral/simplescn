@@ -10,10 +10,9 @@ from simplescn.config import isself
 
 from simplescn.tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, \
-dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6
+dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6, gen_result, generate_error
 
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
-from simplescn._common import gen_result, generate_error
 
 
 

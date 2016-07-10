@@ -2,7 +2,7 @@
 #import typing
 
 from simplescn.config import isself
-from simplescn._common import generate_error
+from simplescn.tools import generate_error
 from simplescn.tools.checks import check_args
 
 #def generate_permissionactions_deco(DecoClass):

@@ -13,7 +13,8 @@ import logging
 
 from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
-from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, generate_error, gen_result, certhash_db, loglevel_converter, permissionhash_db
+from simplescn.tools import generate_error, gen_result
+from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, certhash_db, loglevel_converter, permissionhash_db
 
 
 from simplescn.tools import default_sslcont, try_traverse, get_pidlock, generate_certs, \

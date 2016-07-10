@@ -11,10 +11,9 @@ import abc
 
 from simplescn import EnforcedPortError
 from simplescn.config import isself
-from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict
+from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error
 from simplescn.tools.checks import check_updated_certs, check_local, check_args
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
-from simplescn._common import generate_error
 
 @generate_validactions_deco
 class client_safe(object, metaclass=abc.ABCMeta):
@@ -75,17 +74,14 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: success or error
             server: address of server """
         _srvaddr = None
-        if "hserver" in self.links:
-            serversock = self.links["hserver"].socket
-        else:
-            return False, "cannot register without servercomponent"
+        server_port = self.links["hserver"].server_port
         _srvaddr = scnparse_url(obdict.get("server"))
-        if _srvaddr:
-            self.scntraverse_helper.add_desttupel(_srvaddr)
-        ret = self.do_request(obdict.get("server"), "/server/register", body={"name": self.name, "port": serversock.getsockname()[1], "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True, forcehash=obdict.get("forcehash"))
+        if not _srvaddr:
+            return False, generate_error("not a valid server", False)
+        ret = self.do_request(obdict.get("server"), "/server/register", body={"name": self.name, "port": server_port, "update": self.brokencerts}, headers=obdict.get("headers"), sendclientcert=True, forcehash=obdict.get("forcehash"))
 
-        if _srvaddr and (not ret[0] or ret[1].get("traverse", False)):
-            self.scntraverse_helper.del_desttupel(_srvaddr)
+        if ret[0] and ret[1].get("traverse", False):
+            self.scntraverse_helper.add_desttupel(_srvaddr)
         return ret
 
     @check_args_deco()
