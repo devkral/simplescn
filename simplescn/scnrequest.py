@@ -112,6 +112,7 @@ class SCNConnection(client.HTTPSConnection):
         hashpcert = dhash(pcert)
         if self.kwargs.get("forcehash", None):
             if self.kwargs["forcehash"] != hashpcert:
+                self.sock.close()
                 raise VALHashError()
         if hashpcert == self.kwargs.get("ownhash", None):
             validated_name = isself
@@ -122,6 +123,7 @@ class SCNConnection(client.HTTPSConnection):
             if hashob:
                 validated_name = (hashob[0], hashob[3]) #name, security
                 if validated_name[0] == isself:
+                    self.sock.close()
                     raise VALNameError()
             else:
                 validated_name = None
@@ -225,6 +227,7 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
     con.putrequest("POST", path)
     for key, value in sendheaders.items():
         #if not isinstance(value, (bytes, str)):
+        #    con.close()
         #    raise TypeError("{} of header {} not supported: {}".format(type(value), key, value))
         con.putheader(key, value)
 

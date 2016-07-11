@@ -8,6 +8,7 @@ import shutil
 import timeit
 import time
 import threading
+import compileall
 #import logging
 from http.server import BaseHTTPRequestHandler
 from http.client import HTTPSConnection
@@ -23,7 +24,7 @@ avg = 0.3
 parallelnum = 20
 maxtime = 1.01
 
-printresults = True
+printresults = False
 
 def stubconnect(addr, _port):
     con = HTTPSConnection(addr, _port, context=tools.default_sslcont())
@@ -65,10 +66,11 @@ class TestSpeed(unittest.TestCase):
     #param_client2 = ["--config={}".format(temptestdir2), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
     referencestuff = None
     referencestuffinvalid = None
-    
+
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
+        compileall.compile_dir(os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "simplescn"))
         if os.path.isdir(cls.temptestdir):
             shutil.rmtree(cls.temptestdir)
         #if os.path.isdir(cls.temptestdir2):
