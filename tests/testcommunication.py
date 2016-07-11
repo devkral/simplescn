@@ -119,6 +119,16 @@ class TestCommunication(unittest.TestCase):
         services_ret = self.client.links["client"].access_dict("getservice", {"name": "test"})
         self.assertEqual(services_ret[0], False)
 
+    def test_services_remote(self):
+        services_reg = self.client2.links["client"].access_dict("registerservice", {"client": "::1-{}".format(self.client_port), "name": "test", "port": 666})
+        self.assertEqual(services_reg[0], True, services_reg[1])
+        services_ret = self.client.links["client"].access_dict("getservice", {"client": "::1-{}".format(self.client_port), "name": "test"})
+        self.assertEqual(services_ret[0], True, services_ret[1])
+        services_del = self.client.links["client"].access_dict("delservice", {"client": "::1-{}".format(self.client_port), "name": "test"})
+        self.assertEqual(services_del[0], True, services_del[1])
+        services_ret = self.client.links["client"].access_dict("getservice", {"client": "::1-{}".format(self.client_port), "name": "test"})
+        self.assertEqual(services_ret[0], False)
+
     def test_rename(self):
         change = self.client.links["client"].access_dict("changemsg", {"message": "newtestmessage"})
         self.assertEqual(change[0], True, change[1])

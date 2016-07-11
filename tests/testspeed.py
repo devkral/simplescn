@@ -23,7 +23,7 @@ avg = 0.3
 parallelnum = 20
 maxtime = 1.01
 
-printresults = False
+printresults = True
 
 def stubconnect(addr, _port):
     con = HTTPSConnection(addr, _port, context=tools.default_sslcont())
@@ -61,7 +61,7 @@ class TestSpeed(unittest.TestCase):
     temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
     #temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
     param_server = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
-    param_client = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--port=0"]
+    param_client = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7", "--nounix"]
     #param_client2 = ["--config={}".format(temptestdir2), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
     referencestuff = None
     referencestuffinvalid = None
@@ -82,7 +82,9 @@ class TestSpeed(unittest.TestCase):
         cls.client_port = cls.client.links["hserver"].server_port
         cls.client_port2 = cls.client.links["cserver_ip"].server_port
         cls.name = cls.client.links["client"].name
-        
+
+        #cls.client2 = simplescn.__main__.client(cls.param_client2, doreturn=True)
+
         sslcont = tools.default_sslcont()
         _cpath = os.path.join(cls.temptestdir, "client")
         sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv")
@@ -104,6 +106,7 @@ class TestSpeed(unittest.TestCase):
         # server side needs some time to cleanup, elswise strange exceptions happen
         time.sleep(4)
         cls.client.quit()
+        #cls.client2.quit()
         cls.server.quit()
         cls.testserver.server_close()
         shutil.rmtree(cls.temptestdir)
@@ -129,7 +132,7 @@ class TestSpeed(unittest.TestCase):
         self.assertLess(ret, maxtime)
 
     def test_show(self):
-        fun = lambda :self.client.links["client"].access_dict("show", {})
+        fun = lambda: self.client.links["client"].access_dict("show", {})
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
             print("test_show", ret/avgtestnum)
@@ -145,7 +148,7 @@ class TestSpeed(unittest.TestCase):
         self.assertLess(ret, maxtime)
 
     def test_capspeed(self):
-        fun = lambda :self.client.links["client"].access_dict("cap", {"server": self.server_addressscn})
+        fun = lambda :self.client.links["client"].access_dict("cap", {"address": self.server_addressscn})
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
             print("test_capspeed", ret/avgtestnum)
@@ -154,21 +157,21 @@ class TestSpeed(unittest.TestCase):
     def test_capspeed_parallel(self):
         counter = [0, parallelnum]
         bar = threading.Semaphore(1)
-        fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("cap", {}))
+        fun = lambda: threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("cap", {"address": self.server_addressscn}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
             print("test_capspeed_parallel", ret)
         self.assertLess(ret, maxtime)
 
-    def test_invalspeed(self):
-        fun = lambda :self.client.links["client"].access_dict("ksksks", {"server": self.server_addressscn})
+    def test_invalspeedlocal(self):
+        fun = lambda: self.client.links["client"].access_dict("ksksks", {"server": self.server_addressscn})
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
-            print("test_invalspeed", ret/avgtestnum)
+            print("test_invalspeedlocal", ret/avgtestnum)
         self.assertLess(ret/avgtestnum, avg)
 
     def test_connectspeedshow(self):
-        fun = lambda : scnrequest.do_request_simple("::1-{}".format(self.client_port2), "/client/show", {}, {})
+        fun = lambda: scnrequest.do_request_simple("::1-{}".format(self.client_port2), "/client/show", {}, {})
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
             print("test_connectspeedshow", ret/avgtestnum)

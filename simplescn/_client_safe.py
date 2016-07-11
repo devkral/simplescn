@@ -108,17 +108,18 @@ class client_safe(object, metaclass=abc.ABCMeta):
             wrappedport: port is not shown/is not traversable (but can be wrapped)
             post: send http post request with certificate in header to service
             client: LOCAL client url (default: own client) """
-        if obdict.get("client") is not None:
-            client_addr = obdict["client"]
-            _forcehash = obdict.get("forcehash", None)
-        else:
-            _forcehash = self.certtupel[1]
-            client_addr = "::1-{}".format(self.links["hserver"].server_port)
         senddict = extract_senddict(obdict, "name", "port")
         senddict["wrappedport"] = obdict.get("wrappedport", False)
         senddict["post"] = obdict.get("post", False)
         _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(client_addr, "/server/registerservice", senddict, _headers, forcehash=_forcehash)
+        if obdict.get("client") is not None:
+            client_addr = obdict["client"]
+            _forcehash = obdict.get("forcehash", None)
+            return self.do_request(client_addr, "/server/registerservice", senddict, _headers, forcehash=_forcehash)
+        else:
+            # access direct (more speed+no pwcheck)
+            senddict["clientaddress"] = ("::1", 0)
+            return self.links["client_server"].registerservice(senddict)
 
     @check_args_deco({"name": str}, optional={"client": str})
     @classify_accessable
@@ -129,14 +130,15 @@ class client_safe(object, metaclass=abc.ABCMeta):
             forcehash: enforce node with hash==forcehash
             client: LOCAL client url (default: own client) """
         senddict = extract_senddict(obdict, "name")
+        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
+            return self.do_request(client_addr, "/server/delservice", senddict, _headers, forcehash=_forcehash)
         else:
-            _forcehash = self.certtupel[1]
-            client_addr = "::1-{}".format(self.links["hserver"].server_port)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(client_addr, "/server/delservice", senddict, _headers, forcehash=_forcehash)
+            # access direct (more speed+no pwcheck)
+            senddict["clientaddress"] = ("::1", 0)
+            return self.links["client_server"].delservice(senddict)
 
     @check_args_deco({"name": str}, optional={"client": str})
     @classify_accessable
@@ -147,14 +149,14 @@ class client_safe(object, metaclass=abc.ABCMeta):
             forcehash: enforce node with hash==forcehash
             client: client url (default: own client) """
         senddict = extract_senddict(obdict, "name")
+        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
+            return self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash)
         else:
-            _forcehash = self.certtupel[1]
-            client_addr = "::1-{}".format(self.links["hserver"].server_port)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash)
+            # access direct (more speed+no pwcheck)
+            return self.links["client_server"].getservice(senddict)
 
     @check_args_deco(optional={"client": str})
     @classify_accessable
@@ -163,15 +165,14 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return port, service pairs
             forcehash: enforce node with hash==forcehash
             client: client url (default: own client) """
+        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
-            del obdict["client"]
+            _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, forcehash=_forcehash)
         else:
-            _forcehash = self.certtupel[1]
-            client_addr = "::1-{}".format(self.links["hserver"].server_port)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, forceport=True, forcehash=_forcehash)
+            # access direct (more speed+no pwcheck)
+            _tservices = True, self.links["client_server"].spmap, self.certtupel
         if not _tservices[0]:
             return _tservices
         out = sorted(_tservices[1].items(), key=lambda t: t[0])
@@ -233,7 +234,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             forcehash: enforce node with hash==forcehash
             address: remote node url """
         _addr = obdict["address"]
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.do_request(_addr, "/server/trust", {"hash": hash}, _headers, forceport=True, forcehash=obdict.get("forcehash", None))
 
     @check_args_deco({"server": str})
@@ -243,7 +244,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: sorted list of client names with additional informations
             forcehash: enforce node with hash==forcehash
             server: server url """
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         _tnames = self.do_request(obdict["server"], "/server/dumpnames", {}, _headers, forcehash=obdict.get("forcehash", None))
         if not _tnames[0]:
             return _tnames
@@ -262,14 +263,15 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: info section
             forcehash: enforce node with hash==forcehash
             address: remote node url (default: own client) """
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("address") is not None:
             _addr = obdict["address"]
-            _forcehash = obdict.get("forcehash")
+            _forcehash = obdict.get("forcehash", None)
+            return self.do_request(_addr, "/server/info", {}, _headers, forcehash=_forcehash)
         else:
-            _forcehash = self.certtupel[1]
-            _addr = "::1-{}".format(self.links["hserver"].server_port)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(_addr, "/server/info", {}, _headers, forceport=True, forcehash=_forcehash)
+            # access direct (more speed+no pwcheck)
+            _cstemp = self.links["client_server"]
+            return True, {"type": _cstemp.scn_type, "name": _cstemp.name, "message": _cstemp.message}, self.certtupel
 
     @check_args_deco(optional={"address": str})
     @classify_accessable
@@ -278,14 +280,15 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: info section
             forcehash: enforce node with hash==forcehash
             address: remote node url (default: own client) """
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("address") is not None:
             _addr = obdict["address"]
-            _forcehash = obdict.get("forcehash")
+            _forcehash = obdict.get("forcehash", None)
+            return self.do_request(_addr, "/server/cap", {}, _headers, forcehash=_forcehash)
         else:
-            _forcehash = self.certtupel[1]
-            _addr = "::1-{}".format(self.links["hserver"].server_port)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(_addr, "/server/cap", {}, _headers, forceport=True, forcehash=_forcehash)
+            # access direct (more speed+no pwcheck)
+            _cstemp = self.links["client_server"]
+            return True, {"caps": _cstemp.capabilities}, self.certtupel
 
     @check_args_deco(optional={"address": str})
     @classify_accessable
@@ -294,14 +297,16 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: info section
             forcehash: enforce node with hash==forcehash
             address: remote node url (default: own client) """
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash")
+            return self.do_request(_addr, "/server/prioty", {}, _headers, forcehash=_forcehash, forceport=True)
         else:
-            _forcehash = self.certtupel[1]
-            _addr = "::1-{}".format(self.links["hserver"].server_port)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(_addr, "/server/prioty", {}, _headers, forcehash=_forcehash, forceport=True)
+            # access direct (more speed+no pwcheck)
+            _cstemp = self.links["client_server"]
+            return True, {"priority": _cstemp.priority, "type": _cstemp.scn_type}, self.certtupel
+
 
     @check_args_deco({"server": str, "name": str, "hash": str})
     @classify_accessable
@@ -315,7 +320,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if not temp[0]:
             return temp
         temp[1]["forcehash"] = obdict.get("hash")
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.prioty_direct({"address":"{address}-{port}".format(**temp[1]), "headers":_headers})
 
     @check_args_deco({"address": str, "hash": str}, optional={"security": str})
@@ -399,7 +404,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         else:
             _forcehash = None
         newaddress = "{address}-{port}".format(**get_ret[1])
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "headers": _headers, "forcehash":_forcehash, "security": get_ret[1].get("security", "valid")})
         # return new hash in hash field
         if direct_ret[0]:
@@ -452,7 +457,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if temp is None:
             return False
         else:
-            return True, {"items":temp, "map": ["name", "type"]}
+            return True, {"items": temp, "map": ["name", "type"]}
 
     @check_args_deco(optional={"filter": str})
     @classify_local
@@ -465,7 +470,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if temp is None:
             return False
         else:
-            return True, {"items":temp, "map": ["name"]}
+            return True, {"items": temp, "map": ["name"]}
 
     @check_args_deco(optional={"filter": str})
     @classify_local
@@ -478,7 +483,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if temp is None:
             return False
         else:
-            return True, {"items":temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
+            return True, {"items": temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
 
     @check_args_deco(optional={"filter": str, "hash": str, "certreferenceid": int})
     @classify_local
@@ -512,4 +517,4 @@ class client_safe(object, metaclass=abc.ABCMeta):
         temp = self.hashdb.findbyref(obdict["reference"])
         if temp is None:
             return False, generate_error("reference does not exist: {}".format(obdict["reference"]))
-        return True, {"items":temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
+        return True, {"items": temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
