@@ -25,7 +25,9 @@ def cmdloop(ip, use_unix=False, forcehash=None):
                 body[splitted[0]] = splitted[1]
         action = body.pop("action", "show")
         #try:
-        ret = do_request_simple(ip, "/client/{}".format(action), body, {}, pwhandler=pwcallmethod, use_unix=use_unix, forcehash=forcehash)
+        ret = do_request_simple(ip, "/client/{}".format(action), body, {}, pwhandler=pwcallmethod, use_unix=use_unix, forcehash=forcehash, ownhash=forcehash)
+        if "origcertinfo" in ret[1]:
+            del ret[1]["origcertinfo"]
         print(ret)
         #except Exception as exc:
         #    print(exc, file=sys.stderr)

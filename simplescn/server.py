@@ -72,6 +72,7 @@ class server(commonscn):
         self.name = d["name"]
         self.message = d["message"]
         self.links = d["links"]
+        self.cache["dumpnames"] = json.dumps({})
         self.update_cache()
         self.validactions.update(self.cache.keys())
         self.load_balance(0)

@@ -281,7 +281,8 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
             #    return None, False, "error parsing request\n{}".format(readob), con.certtupel
         else:
             obdict = gen_result(response.reason)
-        if con.certtupel[1] is isself and "origcertinfo" in obdict:
+        # origcertinfo[0] is not isself, otherwise it isn't sent
+        if con.certtupel[0] is isself and "origcertinfo" in obdict:
             return con, success, obdict, obdict["origcertinfo"]
         else:
             return con, success, obdict, con.certtupel
