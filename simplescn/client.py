@@ -325,7 +325,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     if config.harden_mode and not isinstance(error, (AddressError, VALError)):
                         resultob = generate_error("unknown")
                     else:
-                        shallstack = not isinstance(exc, (AddressError, VALError)) and \
+                        shallstack = not isinstance(error, (AddressError, VALError)) and \
                                      config.debug_mode and \
                                      (self.server.address_family != file_family or check_local(self.client_address[0]))
                         resultob = generate_error(error, shallstack)
