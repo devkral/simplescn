@@ -752,7 +752,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.auth_info = None
         # hack around not transmitted client cert
         _rewrapcert = self.headers.get("X-certrewrap", None)
-        _origcert = self.headers.get("X-original_cert", None)
         if _rewrapcert is not None:
             cont = self.connection.context
             if not self.alreadyrewrapped:
@@ -764,13 +763,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.client_certhash = dhash(self.client_cert)
             if _rewrapcert.split(";")[0] != self.client_certhash:
                 return False
-            if _origcert and self.links.get("trusted_certhash", "") != "":
-                if _rewrapcert == self.links.get("trusted_certhash"):
-                    self.client_cert = _origcert
-                    self.client_certhash = dhash(_origcert)
-                else:
-                    logging.debug("rewrapcert incorrect")
-                    return False
             #self.rfile.close()
             #self.wfile.close()
             self.rfile = self.connection.makefile(mode='rb')

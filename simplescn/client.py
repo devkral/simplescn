@@ -354,7 +354,10 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 if action not in self.links["client_server"].validactions:
                     self.scn_send_answer(400, message="invalid action - server", docache=True)
                     return
-                if not self.links["auth_server"].verify(self.auth_info):
+
+                # allow own client to connect without pw in any case
+                if self.client_certhash != self.links["client_client"].certtupel[1] and \
+                   not self.links["auth_server"].verify(self.auth_info):
                     authreq = self.links["auth_server"].request_auth()
                     ob = bytes(json.dumps(authreq), "utf-8")
                     self.cleanup_stale_data(config.max_serverrequest_size)

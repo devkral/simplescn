@@ -61,6 +61,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @check_args_deco()
+    @classify_local
     @classify_accessable
     def help(self, obdict: dict):
         """ func: return help
