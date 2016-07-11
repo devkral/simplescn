@@ -174,7 +174,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if not _tservices[0]:
             return _tservices
         out = sorted(_tservices[1].items(), key=lambda t: t[0])
-        return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[3]
+        return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2]
 
     @check_args_deco({"server": str, "name": str, "hash": str})
     @classify_accessable
@@ -252,7 +252,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
                 out.append((name, _hash, _security, isself))
             else:
                 out.append((name, _hash, _security, self.hashdb.certhash_as_name(_hash)))
-        return _tnames[0], {"items": out, "map":["name", "hash", "security", "localname"]}, _tnames[3]
+        return _tnames[0], {"items": out, "map":["name", "hash", "security", "localname"]}, _tnames[2]
 
     @check_args_deco(optional={"address": str})
     @classify_accessable
@@ -321,7 +321,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
     @classify_accessable
     def check_direct(self, obdict: dict):
         """ func: check if a address is reachable; update local information when reachable
-            return: priority, type, certificate security; return [3] == new hash of client
+            return: priority, type, certificate security; return [2][1] == new hash of client
             address: node url
             hash: node certificate hash
             forcehash: enforce node with hash==forcehash
@@ -358,7 +358,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
                 # invalidate old
                 self.hashdb.changesecurity(obdict["hash"], obdict.get("security", "insecure"))
                 # create unverified new, if former state was valid and is not in db
-                newhashdbo = self.hashdb.get(prioty_ret[3])
+                newhashdbo = self.hashdb.get(prioty_ret[2][1])
                 if not newhashdbo:
                     self.hashdb.addhash(hashdbo[0], prioty_ret[2][1], hashdbo[1], hashdbo[2], "unverified")
                     newhashdbo = self.hashdb.get(prioty_ret[2][1])
