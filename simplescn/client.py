@@ -115,7 +115,10 @@ class client_client(client_admin, client_safe):
 
 @generate_validactions_deco
 class client_server(commonscn):
+    # only servicenames with ports for efficient json generation
     spmap = None
+    # meta data to servicename, not neccessary in spmap (at least in future)
+    spmap_meta = None
     scn_type = "client"
     links = None
     # replace commonscn capabilities
@@ -131,6 +134,7 @@ class client_server(commonscn):
         commonscn.__init__(self)
         # init here (multi instance situation)
         self.spmap = {}
+        self.spmap_meta = {}
         self.wlock = threading.Lock()
         self.links = dcserver["links"]
         self.capabilities = ["basic", "client", "trust"]
@@ -169,12 +173,16 @@ class client_server(commonscn):
             wrappedport: port is not shown/is not traversable (but can be wrapped)
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
         if check_local(obdict["clientaddress"][0]):
+            wrappedport = obdict.get("wrappedport", None)
+            # activates wrappedport if unspecified
+            if wrappedport is None:
+                wrappedport = obdict.get("post", False)
             with self.wlock:
-                wrappedport = obdict.get("wrappedport", None)
-                # activates wrappedport if unspecified
-                if wrappedport is None:
-                    wrappedport = obdict.get("post", False)
-                self.spmap[obdict.get("name")] = (obdict.get("port"), wrappedport, obdict.get("post", False))
+                self.spmap_meta[obdict["name"]] = (obdict.get("port"), wrappedport, obdict.get("post", False))
+                if not wrappedport:
+                    self.spmap[obdict["name"]] = obdict.get("port")
+                else:
+                    self.spmap[obdict["name"]] = -1
                 self.cache["dumpservices"] = json.dumps(self.spmap)
                 #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             return True, "ok"
@@ -190,6 +198,9 @@ class client_server(commonscn):
             name: service name """
         if check_local(obdict["clientaddress"][0]):
             with self.wlock:
+                if  obdict["name"] in self.spmap_meta:
+                    del self.spmap_meta[obdict["name"]]
+
                 if obdict["name"] in self.spmap:
                     del self.spmap[obdict["name"]]
                     self.cache["dumpservices"] = json.dumps(gen_result(self.spmap)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
@@ -222,9 +233,9 @@ class client_server(commonscn):
     @classify_accessable
     def getservice(self, obdict):
         """ func: get the port of a service
-            return: portnumber or negative for invisibleport
+            return: portnumber or negative for wrappedport
             name: servicename """
-        serviceob = self.spmap.get(obdict["name"], tuple())
+        serviceob = self.spmap_meta.get(obdict["name"], tuple())
         if not bool(serviceob):
             return False, "Service not available"
 
@@ -241,7 +252,7 @@ class client_server(commonscn):
             name: servicename """
         if not self.links["kwargs"]["notraversal"]:
             return False, "traversal disabled"
-        serviceob = self.spmap.get(obdict["name"], tuple())
+        serviceob = self.spmap_meta.get(obdict["name"], tuple())
         if not bool(serviceob) or not serviceob[1]:
             return False, "Service not available"
         #_port = obdict.get("destport", None)
