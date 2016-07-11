@@ -47,7 +47,7 @@ def check_local(addr):
 # DEFAULT_HASHALGORITHM_len for default hash algo
 # but None by default for validating hashes of other length
 def check_hash(hashstr, length=None):
-    if hashstr is None:
+    if hashstr in [None, ""]:
         return False
     if length and len(hashstr) != length:
         return False
