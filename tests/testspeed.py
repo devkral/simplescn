@@ -21,7 +21,7 @@ avgtestnum = 20
 avg = 0.3
 
 parallelnum = 20
-maxtime = 1.2
+maxtime = 1.01
 
 printresults = False
 
