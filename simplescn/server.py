@@ -411,7 +411,7 @@ class server_init(object):
         else:
             port = config.server_port
 
-        serverd = {"name": _name, "cert_hash": dhash(pub_cert), "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
+        serverd = {"name": _name[0], "cert_hash": dhash(pub_cert), "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
         self.links["server_server"] = server(serverd)
         
         sslcont = default_sslcont()
