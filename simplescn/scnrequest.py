@@ -51,7 +51,7 @@ class SCNConnection(client.HTTPSConnection):
     # None, hash, cert
     # isself, hash, cert
     # (name, security), hash, cert
-    certtupel = None
+    certtupel = (None, None, None)
     def __init__(self, host, **kwargs):
         # don't implement highlevel stuff here, needed by traversal
         self.kwargs = kwargs
