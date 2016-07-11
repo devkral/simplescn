@@ -166,8 +166,34 @@ def authorization(pwhashed, reqob, serverhash, sendheaders):
 
 # return connection, success, body, certtupel
 # certtupel is None if no
-def _do_request(addr_or_con, path, body, headers, kwargs) -> (SCNConnection, bool, dict, tuple):
-    """ func: main part for communication, use wrapper instead """
+def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNConnection, bool, dict, tuple):
+    """ func: use this method to communicate with clients/servers
+        kwargs:
+            options:
+                * use_unix: use unix sockets instead
+                * forcehash: force hash on other side
+                * sendclientcert: send own certhash to server, requires ownhash and certcontext
+                * connect_timeout: timeout for connecting
+                * timeout: timeout if connection is etablished
+                * keepalive: keep server connection alive
+                * forceport: True: raise if no port is given, False: use server port in that case
+            special:
+                * certcontext: specify certcontext used
+                * ownhash: own hash
+                * pwhandler: method for handling pws
+                * X-SCN-Authorization: dhashed pw (transmitted)
+        headers:
+            * Authorization: scn pw auth format
+            * X-SCN-Authorization: dhashed pw (try to auth)
+        throws:
+            * AddressError: address was incorrect
+            * AddressEmptyError: address was empty
+            * EnforcedPortError: no port was given (forceport)
+            * VALHashError: wrong hash (forcehash)
+            * VALNameError: isself is in db
+            * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)
+            * AuthNeeded: request Auth, contains con and authob (needed for auth)
+    """
     sendbody, sendheaders = init_body_headers(body, headers)
     if sendbody is None:
         return None, False, generate_error("no body"), (isself, kwargs.get("ownhash", None), None)
@@ -187,9 +213,6 @@ def _do_request(addr_or_con, path, body, headers, kwargs) -> (SCNConnection, boo
         else:
             con.close()
             return None, False, generate_error("missing: certcontext or ownhash"), con.certtupel
-
-    if kwargs.get("originalcert", None):
-        sendheaders["X-original_cert"] = kwargs.get("originalcert")
 
     if kwargs.get("keepalive", True):
         sendheaders["Connection"] = 'keep-alive'
@@ -228,13 +251,13 @@ def _do_request(addr_or_con, path, body, headers, kwargs) -> (SCNConnection, boo
         reqob = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
         if headers and headers.get("X-SCN-Authorization", None):
             if authorization(headers["X-SCN-Authorization"], reqob, con.certtupel[1], sendheaders):
-                return _do_request(con, path, body=body, \
+                return do_request(con, path, body=body, \
                     headers=sendheaders, kwargs=kwargs)
         elif callable(kwargs.get("pwhandler", None)):
             pw = kwargs.get("pwhandler")(config.pwrealm_prompt)
             if pw:
                 kwargs["X-SCN-Authorization"] = dhash(pw, reqob.get("algo")) 
-                return _do_request(con, path, body=body, \
+                return do_request(con, path, body=body, \
                     headers=sendheaders, kwargs=kwargs)
         raise AuthNeeded(con, str(readob, "utf-8"))
     else:
@@ -255,47 +278,15 @@ def _do_request(addr_or_con, path, body, headers, kwargs) -> (SCNConnection, boo
             #    return None, False, "error parsing request\n{}".format(readob), con.certtupel
         else:
             obdict = gen_result(response.reason)
-        return con, success, obdict, con.certtupel
+        if con.certtupel[1] is isself and "origcertinfo" in obdict:
+            return con, success, obdict, obdict["origcertinfo"]
+        else:
+            return con, success, obdict, con.certtupel
 
-def do_request(addr_or_con, path: str, body: dict, headers: dict, **kwargs):
-    """ func: use this method to communicate with clients/servers
-        kwargs:
-            options:
-                * use_unix: use unix sockets instead
-                * tense: (True) False: add certificate of communication partner
-                * forcehash: force hash on other side
-                * sendclientcert: send own certhash to server, requires ownhash and certcontext
-                * originalcert: send original cert (maybe removed)
-                * connect_timeout: timeout for connecting
-                * timeout: timeout if connection is etablished
-                * keepalive: keep server connection alive
-                * forceport: True: raise if no port is given, False: use server port in that case
-            special:
-                * certcontext: specify certcontext used
-                * ownhash: own hash
-                * pwhandler: method for handling pws
-                * X-SCN-Authorization: dhashed pw (transmitted)
-        headers:
-            * Authorization: scn pw auth format
-            * X-SCN-Authorization: dhashed pw (try to auth)
-        throws:
-            * AddressError: address was incorrect
-            * AddressEmptyError: address was empty
-            * EnforcedPortError: no port was given (forceport)
-            * VALHashError: wrong hash (forcehash)
-            * VALNameError: isself is in db
-            * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)
-            * AuthNeeded: request Auth, contains con and authob (needed for auth)
-    """
-    ret = _do_request(addr_or_con, path, body, headers, kwargs)
-    if kwargs.get("tense", True):
-        return ret[0], ret[1], ret[2], ret[3][0], ret[3][1]
-    else:
-        return ret
 
 def do_request_simple(addr_or_con, path: str, body: dict, headers: dict, **kwargs):
     """ autoclose connection """
-    ret = do_request(addr_or_con, path, body=body, headers=headers, keepalive=False, **kwargs)
+    ret = do_request(addr_or_con, path, body, headers, **kwargs)
     if ret[0]:
         ret[0].close()
-    return ret[1:]
+    return ret[1], ret[2], ret[3][0], ret[3][1]

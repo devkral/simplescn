@@ -1,3 +1,20 @@
+# 0.5
+## bugfixes
+* all headers were send to server in some methods
+* document parameters
+* fix missing stacktrace
+
+## changes
+* scnrequest can retrieve remote certificate from client instance
+* use classify_local
+* expose public certificate
+* access_dict can take function (speed improvements)
+* certtupel instead cert_hash (speed improvements (less copies) and needed for exposing certificate)
+* remove support for multiple classifier (not used) in check_classify (speed improvements)
+* change do_request return format
+* remove tense option
+* remove do_request_simple calls in client
+
 # 0.4
 ## bug fixes
 * crash in register can lead to pinger fail

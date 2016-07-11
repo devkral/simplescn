@@ -29,7 +29,7 @@ from simplescn.scnrequest import requester
 @generate_validactions_deco
 class client_client(client_admin, client_safe):
     name = None
-    cert_hash = None
+    certtupel = None
     hashdb = None
     links = None
     scntraverse_helper = None
@@ -41,17 +41,17 @@ class client_client(client_admin, client_safe):
     def validactions(self):
         raise NotImplementedError
 
-    def __init__(self, name: str, pub_cert_hash: str, _links: dict):
+    def __init__(self, name: str, certtupel: tuple, _links: dict):
         client_admin.__init__(self)
         client_safe.__init__(self)
         self.validactions.update(client_admin.validactions)
         self.validactions.update(client_safe.validactions)
         self.links = _links
         self.name = name
-        self.cert_hash = pub_cert_hash
+        self.certtupel = certtupel
         self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
         self.brokencerts = []
-        self.requester = requester(ownhash=self.cert_hash, hashdb=self.hashdb, certcontext=self.links["hserver"].sslcont)
+        self.requester = requester(ownhash=self.certtupel[1], hashdb=self.hashdb, certcontext=self.links["hserver"].sslcont)
 
         self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.udpsrcsock.settimeout(None)
@@ -73,30 +73,33 @@ class client_client(client_admin, client_safe):
     # return success, body, (name, security), hash
     # return success, body, isself, hash
     # return success, body, None, hash
-    def do_request(self, addr_or_con, path: str, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
+    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
         """ func: wrapper+ cache certcontext and ownhash """
-        return self.requester.do_request_simple(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
+        ret = self.requester.do_request(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
+        if ret[0] is not None:
+            ret[0].close()
+        return ret[1:]
 
     @classify_private
     def access_dict(self, action, obdict):
-        """ internal method to access functions """
-        if action in self.validactions:
+        """ method to access functions """
+        if callable(action):
+            gaction = action
+        elif action in self.validactions:
             gaction = getattr(self, action)
-            if check_classify(gaction, "private"):
-                return False, "actions: 'private functions not allowed in access", isself, self.cert_hash
-            #with self.client_lock: # not needed, use sqlite's intern locking mechanic
-            try:
-                return gaction(obdict)
-            except AuthNeeded as exc:
-                raise exc
-            except Exception as exc:
-                #raise(exc)
-                return False, exc #.with_traceback(sys.last_traceback)
         else:
-            return False, "not in validactions", isself, self.cert_hash
-    @classify_private
-    def access_main(self, action, **obdict):
-        return self.access_dict(action, obdict)
+            return False, "not in validactions", self.certtupel
+        if check_classify(gaction, "private"):
+            return False, "actions: 'private functions not allowed in access", self.certtupel
+        #with self.client_lock: # not needed, use sqlite's intern locking mechanic
+        try:
+            return gaction(obdict)
+        except AuthNeeded as exc:
+            raise exc
+        except Exception as exc:
+            #raise(exc)
+            return False, exc, self.certtupel #.with_traceback(sys.last_traceback)
+
     # help section
     def cmdhelp(self):
         out = "# commands\n"
@@ -118,6 +121,7 @@ class client_server(commonscn):
     # replace commonscn capabilities
     capabilities = None
     wlock = None
+    certtupel = None
 
     @property
     def validactions(self):
@@ -145,8 +149,8 @@ class client_server(commonscn):
             dcserver["message"] = "<empty>"
         self.name = dcserver["name"]
         self.message = dcserver["message"]
-        self.priority = dcserver["priority"]
-        self.cert_hash = dcserver["cert_hash"]
+        self.priority = self.links["kwargs"].get("priority")
+        self.certtupel = dcserver["certtupel"]
         self.cache["dumpservices"] = json.dumps({})
         self.update_cache()
         self.validactions.update(self.cache.keys())
@@ -292,8 +296,9 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 if action not in self.links["client"].validactions:
                     self.scn_send_answer(400, message="invalid action - client", docache=True)
                     return
+
+                gaction = getattr(self.links["client"], action)
                 if remote:
-                    gaction = getattr(self.links["client"], action)
                     if check_classify(gaction, "admin"):
                         ret = self.links["trusteddb"].exist(self.client_certhash, "admin")
                     else:
@@ -309,7 +314,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 if obdict is None:
                     return
                 try:
-                    response = self.links["client"].access_dict(action, obdict)
+                    response = self.links["client"].access_dict(gaction, obdict)
                 except AuthNeeded as exc:
                     self.scn_send_answer(401, body=bytes(exc.reqob, "utf-8", errors="ignore"), mime="application/json", docache=False)
                     return
@@ -320,14 +325,16 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     if config.harden_mode and not isinstance(error, (AddressError, VALError)):
                         resultob = generate_error("unknown")
                     else:
-                        shallstack = config.debug_mode and \
-                            (self.server.address_family != file_family or check_local(self.client_address[0])) \
-                            and isinstance(error, (AddressError, VALError))
+                        shallstack = not isinstance(exc, (AddressError, VALError)) and \
+                                     config.debug_mode and \
+                                     (self.server.address_family != file_family or check_local(self.client_address[0]))
                         resultob = generate_error(error, shallstack)
                     status = 500
                 else:
                     resultob = gen_result(response[1])
                     status = 200
+                if not check_classify(gaction, "local") and not response[2][0] is isself:
+                    resultob["origcertinfo"] = response[2]
                 jsonnized = bytes(json.dumps(resultob), "utf-8")
                 self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
         if server:
@@ -362,9 +369,9 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     if config.harden_mode and not isinstance(exc, (AddressError, VALError)):
                         generror = generate_error("unknown")
                     else:
-                        shallstack = config.debug_mode and \
-                            (self.server.address_family != file_family or check_local(self.client_address[0])) \
-                            and isinstance(exc, (AddressError, VALError))
+                        shallstack = not isinstance(exc, (AddressError, VALError)) and \
+                                     config.debug_mode and \
+                                     (self.server.address_family != file_family or check_local(self.client_address[0]))
                         generror = generate_error(exc, shallstack)
                     ob = bytes(json.dumps(generror), "utf-8")
                     self.scn_send_answer(500, body=ob, mime="application/json")
@@ -387,7 +394,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 resource = splitted[0]
                 sub = splitted[1]
             if resource == "wrap" and not nowrap:
-                if not self.links["auth_server"].verify("server", self.auth_info):
+                if not self.links["auth_server"].verify(self.auth_info):
                     authreq = self.links["auth_server"].request_auth()
                     ob = bytes(json.dumps(authreq), "utf-8")
                     self.cleanup_stale_data(config.max_serverrequest_size)
@@ -497,9 +504,9 @@ class client_init(object):
                 self.links["cserver_ip"] = http_server(("::1", port), sslcont, self.links["chandler"])
                 self.links["cserver_ip4"] = http_server(("::ffff:127.0.0.1", self.links["cserver_ip"].server_port), sslcont, self.links["chandler"])
 
-        self.links["client"] = client_client(_name[0], dhash(pub_cert), self.links)
-        clientserverdict = {"name": _name[0], "cert_hash": dhash(pub_cert),
-                            "priority": kwargs.get("priority"), "message": _message, "links": self.links}
+        certtupel = (isself, dhash(pub_cert), pub_cert)
+        self.links["client"] = client_client(_name[0], certtupel, self.links)
+        clientserverdict = {"name": _name[0], "certtupel": certtupel, "message": _message, "links": self.links}
 
         self.links["client_server"] = client_server(clientserverdict)
 
@@ -530,7 +537,7 @@ class client_init(object):
 
     def show(self):
         ret = dict()
-        ret["cert_hash"] = self.links["client"].cert_hash
+        ret["cert_hash"] = self.links["client"].certtupel[1]
         _r = self.links["hserver"]
         ret["hserver"] = _r.server_name, _r.server_port
         _r = self.links.get("cserver_ip", None)

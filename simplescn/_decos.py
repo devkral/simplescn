@@ -1,7 +1,6 @@
 
 #import typing
 
-from simplescn.config import isself
 from simplescn.tools import generate_error
 from simplescn.tools.checks import check_args
 
@@ -124,21 +123,21 @@ def check_args_deco(requires=None, optional=None):
             error = []
             if not check_args(obdict, requires, optional, error=error):
                 if len(error) == 2:
-                    return False, generate_error("check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), False), isself, self.cert_hash
+                    return False, generate_error("check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), False), self.certtupel
                 else:
                     raise(TypeError("check_args failed ({})+error broken: {}".format(func.__name__, error)))
             resp = func(self, obdict)
             if resp is None:
-                return False, generate_error("bug: no return value in function {}".format(type(func).__name__), False), isself, self.cert_hash
+                return False, generate_error("bug: no return value in function {}".format(type(func).__name__), False), self.certtupel
             if isinstance(resp, bool) or len(resp) == 1:
                 if not isinstance(resp, bool):
                     resp = resp[0]
                 if resp:
-                    return True, "{} succeeded".format(func.__name__), isself, self.cert_hash
+                    return True, "{} succeeded".format(func.__name__), self.certtupel
                 else:
-                    return False, generate_error("{} failed".format(func.__name__), False), isself, self.cert_hash
+                    return False, generate_error("{} failed".format(func.__name__), False), self.certtupel
             elif len(resp) == 2:
-                return resp[0], resp[1], isself, self.cert_hash
+                return resp[0], resp[1], self.certtupel
             else:
                 return resp
         get_args.requires = requires
@@ -149,18 +148,4 @@ def check_args_deco(requires=None, optional=None):
         return gen_doc_deco(get_args)
     return func_to_check
 
-
-def generate_error_deco(func):
-    def get_args(self, *args, **kwargs):
-        resp = func(self, *args, **kwargs)
-        if len(resp) == 4:
-            _name = resp[2]
-            _hash = resp[3]
-        else:
-            _name = isself
-            _hash = self.cert_hash
-        if not resp[0]:
-            return False, generate_error(resp[1]), _name, _hash
-        return resp
-    return get_args
 

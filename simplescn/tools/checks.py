@@ -105,8 +105,6 @@ def check_conftype(_value, _converter):
         return False
     return True
 
-
-
 def check_certs(path):
     privpath = "{}.priv".format(path)
     pubpath = "{}.pub".format(path)
@@ -120,13 +118,9 @@ def check_certs(path):
         logging.error(exc)
     return False
 
-
-def check_classify(func, perm):
-    if isinstance(perm, (list, set, tuple)):
-        for p in perm:
-            if not check_classify(func, p):
-                return False
-        return True
+# removed support for checking multiple classifier in one call
+# reason: huge speed improvements
+def check_classify(func, perm: str) -> bool:
     if not hasattr(func, "classify"):
         return False
     return perm in func.classify

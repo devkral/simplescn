@@ -648,7 +648,7 @@ class commonscn(object):
     priority = None
     name = None
     message = None
-    cert_hash = None
+    certtupel = None
     scn_type = "unknown"
     pluginmanager = None
     isactive = True

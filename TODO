@@ -1,9 +1,8 @@
 
 
-## 0.5
+## 0.6
 * tests for wrap, traversal, massimport
 * ipv4, ipv6 compatibility checks
-* remove tense, do_request_simple in basis
 
 ## future
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)

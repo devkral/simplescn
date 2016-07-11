@@ -10,6 +10,7 @@ import threading
 import logging
 import abc
 
+from simplescn.config import isself
 from simplescn.tools import dhash, generate_certs
 from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable, generate_validactions_deco
@@ -32,7 +33,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def cert_hash(self):
+    def certtupel(self):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -242,8 +243,8 @@ class client_admin(object, metaclass=abc.ABCMeta):
             sys.exit(1)
         with open(_cpath+".pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip()
-        self.links["client"].cert_hash = dhash(pub_cert)
-        self.links["client_server"].cert_hash = dhash(pub_cert)
+        self.links["client"].certtupel = (isself, dhash(pub_cert), pub_cert)
+        self.links["client_server"].certtupel = (isself, dhash(pub_cert), pub_cert)
         self.links["hserver"].shutdown()
         self.links["hserver"].socket.close()
         print("Keydestruction successful - Please restart process")
@@ -339,7 +340,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below), None for all """
         #listhashes = obdict.get("hashes")
-        listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", forcehash=obdict.get("sourcehash"))
+        listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", forcehash=obdict.get("sourcehash"))[1]
         _imp_ent = obdict.get("entities")
         _imp_hash = obdict.get("hashes")
         for _name, _hash, _type, _priority, _security, _certreferenceid in listall:

@@ -68,7 +68,7 @@ class server(commonscn):
         self.timeout = d["timeout"]
         self.connect_timeout = d["connect_timeout"]
         self.priority = int(d["priority"])
-        self.cert_hash = d["cert_hash"]
+        self.certtupel = d["certtupel"]
         self.name = d["name"]
         self.message = d["message"]
         self.links = d["links"]
@@ -411,7 +411,8 @@ class server_init(object):
         else:
             port = config.server_port
 
-        serverd = {"name": _name[0], "cert_hash": dhash(pub_cert), "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
+        certtupel = (config.isself, dhash(pub_cert), pub_cert)
+        serverd = {"name": _name[0], "certtupel": certtupel, "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
         self.links["server_server"] = server(serverd)
         
         sslcont = default_sslcont()
@@ -435,7 +436,7 @@ class server_init(object):
 
     def show(self):
         ret = dict()
-        ret["cert_hash"] = self.links["server_server"].cert_hash
+        ret["cert_hash"] = self.links["server_server"].certtupel[1]
         _r = self.links["hserver"]
         ret["hserver"] = _r.server_name, _r.server_port
         return ret

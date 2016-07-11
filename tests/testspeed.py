@@ -21,7 +21,7 @@ avgtestnum = 20
 avg = 0.3
 
 parallelnum = 20
-maxtime = 1.01
+maxtime = 1.2
 
 printresults = False
 
@@ -78,9 +78,9 @@ class TestSpeed(unittest.TestCase):
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         cls.client = simplescn.__main__.client(cls.param_client, doreturn=True)
-        cls.client_hash = cls.client.links["client"].cert_hash
-        cls.client_port = cls.client.links["hserver"].socket.getsockname()[1]
-        cls.client_port2 = cls.client.links["cserver_ip"].socket.getsockname()[1]
+        cls.client_hash = cls.client.links["client"].certtupel[1]
+        cls.client_port = cls.client.links["hserver"].server_port
+        cls.client_port2 = cls.client.links["cserver_ip"].server_port
         cls.name = cls.client.links["client"].name
         
         sslcont = tools.default_sslcont()
@@ -102,7 +102,7 @@ class TestSpeed(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         # server side needs some time to cleanup, elswise strange exceptions happen
-        time.sleep(3)
+        time.sleep(4)
         cls.client.quit()
         cls.server.quit()
         cls.testserver.server_close()
@@ -124,8 +124,10 @@ class TestSpeed(unittest.TestCase):
         bar = threading.Semaphore(1)
         fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("register", {"server": self.server_addressscn}))
         ret = timeit.timeit(fun, number=parallelnum)
+        if printresults:
+            print("test_regspeed_parallel", ret)
         self.assertLess(ret, maxtime)
-    
+
     def test_show(self):
         fun = lambda :self.client.links["client"].access_dict("show", {})
         ret = timeit.timeit(fun, number=avgtestnum)
@@ -138,6 +140,8 @@ class TestSpeed(unittest.TestCase):
         bar = threading.Semaphore(1)
         fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("show", {}))
         ret = timeit.timeit(fun, number=avgtestnum)
+        if printresults:
+            print("test_show_parallel", ret)
         self.assertLess(ret, maxtime)
 
     def test_capspeed(self):
@@ -152,6 +156,8 @@ class TestSpeed(unittest.TestCase):
         bar = threading.Semaphore(1)
         fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("cap", {}))
         ret = timeit.timeit(fun, number=parallelnum)
+        if printresults:
+            print("test_capspeed_parallel", ret)
         self.assertLess(ret, maxtime)
 
     def test_invalspeed(self):
@@ -181,6 +187,8 @@ class TestSpeed(unittest.TestCase):
         bar = threading.Semaphore(1)
         fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.client_port2), "/client/teststubnotvalidparallel", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
+        if printresults:
+            print("test_connectspeedivalid_parallel", ret)
         self.assertLess(ret, maxtime)
 
     def test_connecttestserver(self):
@@ -195,6 +203,8 @@ class TestSpeed(unittest.TestCase):
         bar = threading.Semaphore(1)
         fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
+        if printresults:
+            print("test_connecttestserver_parallel", ret)
         self.assertLess(ret, maxtime)
 
     def test_connecttestserver_withstub(self):
@@ -208,7 +218,6 @@ class TestSpeed(unittest.TestCase):
         ret = timeit.timeit(fun, number=avgtestnum)
         TestSpeed.referencestuffinvalid = "Reference server with invalid stub: {}".format(ret/avgtestnum)
         self.assertLess(ret/avgtestnum, avg)
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=0)
