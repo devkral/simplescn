@@ -1,21 +1,9 @@
 
 
-
-## 0.3
-* mass import (done)
-* holepunching for services (done, deactivated)
-* improve tests (done)
-
-* resolve ipv4 addresses in ipv6 format (done)
-* remove stupid pw check it allows server to overtake control over client connections (done)
-* fix exposing crypted pw of client to server (done)
-* remote access to client only with trusteddb (done)
-* maybe re-add some sort of protection for local sockets (done)
-
 ## 0.5
 * tests for wrap, traversal, massimport
 * ipv4, ipv6 compatibility checks
-
+* remove tense, do_request_simple in basis
 
 ## future
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)
