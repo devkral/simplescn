@@ -240,9 +240,9 @@ class client_server(commonscn):
             return False, "Service not available"
 
         if not serviceob[1]:
-            return True, serviceob[0]
+            return True, {"port": serviceob[0]}
         else:
-            return True, -1
+            return True, {"port": -1}
 
     @check_args_deco({"name": str})
     @classify_accessable
@@ -261,7 +261,7 @@ class client_server(commonscn):
         travaddr = ('', serviceob[0])
         destaddr = obdict["clientaddress"] #(obdict["clientaddress"][0], _port)
         if try_traverse(travaddr, destaddr, connect_timeout=self.links["kwargs"]["connect_timeout"], retries=config.traverse_retries):
-            return True, serviceob[0]
+            return True, {"port": serviceob[0]}
         else:
             return False, "Traversal could not opened"
 

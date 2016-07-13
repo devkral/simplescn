@@ -541,7 +541,7 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
             logging.info("Input empty")
             return None
         if enctype == "application/json":
-            return json.loads(string)
+            return gen_result(json.loads(string))
         else:
             logging.error("invalid parsing type: %s", enctype)
             return None
@@ -571,11 +571,12 @@ def generate_error(err, withstack=True):
 
 def gen_result(res):
     """ generate result """
-    if isinstance(res, str):
-        return {"text": res}
-    elif isinstance(res, bool):
-        return {"text": str(bool)}
-    return res
+    if isinstance(res, dict):
+        return res
+    #elif isinstance(res, bytes):
+    #    return {"text": str(res, "ascii", errors="ignore")}
+    else:
+        return {"text": str(res)}
 
 ### logging ###
 

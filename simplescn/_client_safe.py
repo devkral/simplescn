@@ -11,7 +11,7 @@ import abc
 
 from simplescn import EnforcedPortError
 from simplescn.config import isself
-from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error
+from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result
 from simplescn.tools.checks import check_updated_certs, check_local, check_args
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
 
@@ -119,7 +119,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
         else:
             # access direct (more speed+no pwcheck)
             senddict["clientaddress"] = ("::1", 0)
-            return self.links["client_server"].registerservice(senddict)
+            _cstemp = self.links["client_server"]
+            ret = _cstemp.registerservice(senddict)
+            return ret[0], gen_result(ret[1])
 
     @check_args_deco({"name": str}, optional={"client": str})
     @classify_accessable
@@ -138,7 +140,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
         else:
             # access direct (more speed+no pwcheck)
             senddict["clientaddress"] = ("::1", 0)
-            return self.links["client_server"].delservice(senddict)
+            _cstemp = self.links["client_server"]
+            ret = _cstemp.delservice(senddict)
+            return ret[0], gen_result(ret[1])
 
     @check_args_deco({"name": str}, optional={"client": str})
     @classify_accessable
@@ -156,7 +160,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash)
         else:
             # access direct (more speed+no pwcheck)
-            return self.links["client_server"].getservice(senddict)
+            _cstemp = self.links["client_server"]
+            ret = _cstemp.getservice(senddict)
+            return ret[0], gen_result(ret[1])
 
     @check_args_deco(optional={"client": str})
     @classify_accessable
