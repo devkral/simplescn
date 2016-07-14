@@ -615,24 +615,6 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     #                not check_local(client_address[0]):
     #            return False
     #    return True
-    def log_request(self, code='-', size='-'):
-        """Log an accepted request.
-        This is called by send_response().
-        """
-        if isinstance(code, http.HTTPStatus):
-            code = code.value
-        self.log_message('"%s" %s %s',
-                         self.requestline, str(code), str(size), logfunc=logging.debug)
-    def log_error(self, format, *args):
-        """Log an error. """
-        self.log_message(format, *args, logfunc=logging.error)
-
-    def log_message(self, format, *args, logfunc=logging.debug):
-        """Log an arbitrary message. """
-        logfunc("%s - - [%s] %s\n" %
-                         (self.address_string(),
-                          self.log_date_time_string(),
-                          format%args))
 
     def get_request(self):
         con, addr = self.socket.accept()
@@ -729,6 +711,25 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.handle()
         finally:
             self.finish()
+
+    def log_request(self, code='-', size='-'):
+        """Log an accepted request.
+        This is called by send_response().
+        """
+        if isinstance(code, http.HTTPStatus):
+            code = code.value
+        self.log_message('"%s" %s %s',
+                         self.requestline, str(code), str(size), logfunc=logging.debug)
+    def log_error(self, format, *args):
+        """Log an error. """
+        self.log_message(format, *args, logfunc=logging.error)
+
+    def log_message(self, format, *args, logfunc=logging.debug):
+        """Log an arbitrary message. """
+        logfunc("%s - - [%s] %s\n" %
+                         (self.address_string(),
+                          self.log_date_time_string(),
+                          format%args))
 
     def scn_send_answer(self, status, body=None, mime="application/json", message=None, docache=False, dokeepalive=None):
         if message:

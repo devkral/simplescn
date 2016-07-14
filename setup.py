@@ -21,7 +21,7 @@ entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:_init_meth
 
 # plugins imported by MANIFEST.in
 setup(name='simplescn',
-      version='0.5.10',
+      version='0.5.11',
       description='Simple communication nodes',
       author='Alexander K.',
       author_email='devkral@web.de',
