@@ -64,8 +64,11 @@ class SCNConnection(client.HTTPSConnection):
     
     def connect(self):
         """Connect to the host and port specified in __init__."""
+        etimeout = self.kwargs.get("timeout", config.default_timeout)
+        contimeout = self.kwargs.get("connect_timeout", config.connect_timeout)
         if self.kwargs.get("use_unix"):
             self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.sock.settimeout(contimeout)
             self.sock.connect(self.host)
         else:
             _host = scnparse_url(self.host, force_port=self.kwargs.get("forceport", False))
@@ -73,8 +76,6 @@ class SCNConnection(client.HTTPSConnection):
             if not _host:
                 logging.error("Host could not resolved")
                 return
-            contimeout = self.kwargs.get("connect_timeout", config.connect_timeout)
-            etimeout = self.kwargs.get("timeout", config.default_timeout)
             self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
             self.sock.settimeout(contimeout)
             #self.sock.bind(('', 0))

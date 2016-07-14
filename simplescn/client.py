@@ -317,7 +317,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     if not ret:
                         self.send_error(400, "no permission - client")
                         return
-                elif not remote and not check_local(self.client_address[0]):
+                elif not remote and self.server.socket.family != file_family and not check_local(self.client_address[0]):
                     self.send_error(400, "no permission - client")
                     return
                 self.connection.settimeout(self.etablished_timeout)
