@@ -278,6 +278,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
 
         def handle_wrap(self, servicename):
             """ wrap service """
+            self.cleanup_stale_data(2)
             service = self.links["client_server"].spmap.get(servicename, None)
             if service is None:
                 # send error
