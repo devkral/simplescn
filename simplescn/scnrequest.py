@@ -55,12 +55,15 @@ class SCNConnection(client.HTTPSConnection):
     def __init__(self, host, **kwargs):
         # don't implement highlevel stuff here, needed by traversal
         self.kwargs = kwargs
-        # init port with 0
+        # init port with 0 (prevents parsing of url)
         super().__init__(host, 0, None)
         self._context = self.kwargs.get("certcontext", default_sslcont())
         self._check_hostname = None
         # throw exception here
-        scnparse_url(self.host, force_port=kwargs.get("forceport", False))
+        if self.kwargs.get("use_unix", False):
+            logging.warning("use_unix used with forceport")
+        else:
+            self.host, self.port = scnparse_url(host, force_port=kwargs.get("forceport", False))
     
     def connect(self):
         """Connect to the host and port specified in __init__."""
@@ -71,8 +74,8 @@ class SCNConnection(client.HTTPSConnection):
             self.sock.settimeout(contimeout)
             self.sock.connect(self.host)
         else:
-            _host = scnparse_url(self.host, force_port=self.kwargs.get("forceport", False))
-            _host = url_to_ipv6(*_host)
+            #_host = scnparse_url(self.host, force_port=self.kwargs.get("forceport", False))
+            _host = url_to_ipv6(self.host, self.port)
             if not _host:
                 logging.error("Host could not resolved")
                 return
@@ -173,13 +176,13 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
     """ func: use this method to communicate with clients/servers
         kwargs:
             options:
-                * use_unix: use unix sockets instead
+                * use_unix: use unix sockets instead, overrides forceport
                 * forcehash: force hash on other side
                 * sendclientcert: send own certhash to server, requires ownhash and certcontext
                 * connect_timeout: timeout for connecting
                 * timeout: timeout if connection is etablished
                 * keepalive: keep server connection alive
-                * forceport: True: raise if no port is given, False: use server port in that case
+                * forceport: True: raise if no port is given, False: use server port in that case, not compatible with use_unix
             special:
                 * certcontext: specify certcontext used
                 * ownhash: own hash
