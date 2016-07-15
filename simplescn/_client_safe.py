@@ -12,18 +12,13 @@ import abc
 from simplescn import EnforcedPortError
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result
-from simplescn.tools.checks import check_updated_certs, check_local, check_args
+from simplescn.tools.checks import check_updated_certs, check_local, check_args, check_name
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
 
 @generate_validactions_deco
 class client_safe(object, metaclass=abc.ABCMeta):
     @property
     def validactions(self):
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def hashdb(self):
         raise NotImplementedError
 
     @property
@@ -57,7 +52,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
+    def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, closecon=True):
         raise NotImplementedError
 
     @check_args_deco()
@@ -97,7 +92,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
                       "listen": self.links["hserver"].server_address,
                       "port": self.links["hserver"].server_port}
 
-    @check_args_deco({"name": str, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool})
+    @check_args_deco({"name": str, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool,"forcehash": str})
     @classify_accessable
     def registerservice(self, obdict: dict):
         """ func: register service (second way)
@@ -123,7 +118,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             ret = _cstemp.registerservice(senddict)
             return ret[0], gen_result(ret[1])
 
-    @check_args_deco({"name": str}, optional={"client": str})
+    @check_args_deco({"name": str}, optional={"client": str, "forcehash": str})
     @classify_accessable
     def delservice(self, obdict: dict):
         """ func: delete service (second way)
@@ -144,7 +139,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             ret = _cstemp.delservice(senddict)
             return ret[0], gen_result(ret[1])
 
-    @check_args_deco({"name": str}, optional={"client": str})
+    @check_args_deco({"name": str}, optional={"client": str, "forcehash": str})
     @classify_accessable
     def getservice(self, obdict: dict):
         """ func: get port of a service
@@ -164,7 +159,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             ret = _cstemp.getservice(senddict)
             return ret[0], gen_result(ret[1])
 
-    @check_args_deco(optional={"client": str})
+    @check_args_deco(optional={"client": str, "forcehash": str})
     @classify_accessable
     def listservices(self, obdict: dict):
         """ func: list services with ports
@@ -184,7 +179,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         out = sorted(_tservices[1].items(), key=lambda t: t[0])
         return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2]
 
-    @check_args_deco({"server": str, "name": str, "hash": str})
+    @check_args_deco({"server": str, "name": str, "hash": str}, optional={"forcehash": str})
     @classify_accessable
     def get(self, obdict: dict):
         """ func: fetch client address from server
@@ -232,16 +227,33 @@ class client_safe(object, metaclass=abc.ABCMeta):
             #logging.error(exc)
             return False, generate_error(exc, True)
 
-    @check_args_deco({"hash": str, "address": str})
+    @check_args_deco({"hash": str, "address": str}, optional={"forcehash": str})
     @classify_accessable
     def trust(self, obdict: dict):
         """ func: retrieve trust info of node, use getlocal for local node
-            return: info section
+            return: wrapped socket
             forcehash: enforce node with hash==forcehash
             address: remote node url """
         _addr = obdict["address"]
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.do_request(_addr, "/server/trust", {"hash": hash}, _headers, forceport=True, forcehash=obdict.get("forcehash", None))
+
+    @check_args_deco({"address": str, "name": str}, optional={"forcehash": str})
+    @classify_accessable
+    def wrap(self, obdict: dict):
+        """ func: initiate wrap 
+            return: info section
+            name: service name
+            forcehash: enforce node with hash==forcehash
+            address: remote node url """
+        _addr = obdict["address"]
+        _name = obdict["name"]
+        if not check_name(_name):
+            return False, "not a valid service name"
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        return self.do_request(_addr, "/wrap/{}".format(_name), {}, _headers, forceport=True, closecon=False, forcehash=obdict.get("forcehash", None))
+        #SCNConnection
+        #obdict.get("socket")
 
     @check_args_deco({"server": str})
     @classify_accessable
@@ -259,7 +271,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             if _hash == self.certtupel[1]:
                 out.append((name, _hash, _security, isself))
             else:
-                out.append((name, _hash, _security, self.hashdb.certhash_as_name(_hash)))
+                out.append((name, _hash, _security, self.links["hashdb"].certhash_as_name(_hash)))
         return _tnames[0], {"items": out, "map":["name", "hash", "security", "localname"]}, _tnames[2]
 
     @check_args_deco(optional={"address": str})
@@ -354,7 +366,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict["hash"] == self.certtupel[1]:
             hashdbo = None
         else:
-            hashdbo = self.hashdb.get(obdict["hash"])
+            hashdbo = self.links["hashdb"].get(obdict["hash"])
         # handle hash mismatch
         if prioty_ret[2][1] != obdict["hash"] or obdict.get("security", "valid") != "valid":
             address, port = scnparse_url(obdict.get("address"), False)
@@ -368,22 +380,22 @@ class client_safe(object, metaclass=abc.ABCMeta):
             # is in db and was valid before
             if hashdbo and hashdbo[3] == "valid":
                 # invalidate old
-                self.hashdb.changesecurity(obdict["hash"], obdict.get("security", "insecure"))
+                self.links["hashdb"].changesecurity(obdict["hash"], obdict.get("security", "insecure"))
                 # create unverified new, if former state was valid and is not in db
-                newhashdbo = self.hashdb.get(prioty_ret[2][1])
+                newhashdbo = self.links["hashdb"].get(prioty_ret[2][1])
                 if not newhashdbo:
-                    self.hashdb.addhash(hashdbo[0], prioty_ret[2][1], hashdbo[1], hashdbo[2], "unverified")
-                    newhashdbo = self.hashdb.get(prioty_ret[2][1])
+                    self.links["hashdb"].addhash(hashdbo[0], prioty_ret[2][1], hashdbo[1], hashdbo[2], "unverified")
+                    newhashdbo = self.links["hashdb"].get(prioty_ret[2][1])
                 # copy references
-                self.hashdb.copyreferences(hashdbo[4], newhashdbo[4])
+                self.links["hashdb"].copyreferences(hashdbo[4], newhashdbo[4])
                 # replace hashdbo by newhashdbo
                 hashdbo = newhashdbo
         # add security field, init as unverified
         prioty_ret[1]["security"] = "unverified"
         if hashdbo:
             # is hashdbo/newhashdbo in db
-            self.hashdb.changepriority(prioty_ret[2][1], prioty_ret[1]["priority"])
-            self.hashdb.changetype(prioty_ret[2][1], prioty_ret[1]["type"])
+            self.links["hashdb"].changepriority(prioty_ret[2][1], prioty_ret[1]["priority"])
+            self.links["hashdb"].changetype(prioty_ret[2][1], prioty_ret[1]["type"])
             # return security of current hash
             prioty_ret[1]["security"] = hashdbo[3]
         elif obdict["hash"] == self.certtupel[1]:
@@ -425,7 +437,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         """ func: retrieve local information about hash (hashdb)
             return: local information about certificate hash
             hash: node certificate hash """
-        out = self.hashdb.get(obdict["hash"])
+        out = self.links["hashdb"].get(obdict["hash"])
         if out is None:
             return False, generate_error("Not in db", False)
         ret = \
@@ -447,7 +459,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             name: entity name
             filter: filter nodetype (server/client) (default: all) """
         _name = obdict.get("name")
-        temp = self.hashdb.listhashes(_name, obdict.get("filter", None))
+        temp = self.links["hashdb"].listhashes(_name, obdict.get("filter", None))
         if temp is None:
             return False
         else:
@@ -459,7 +471,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
     def listnodenametypes(self, obdict: dict):
         """ func: list entity names with type
             return: name, type list """
-        temp = self.hashdb.listnodenametypes()
+        temp = self.links["hashdb"].listnodenametypes()
         if temp is None:
             return False
         else:
@@ -472,7 +484,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         """ func: list entity names
             return: list entity names
             filter: filter nodetype (server/client) (default: all) """
-        temp = self.hashdb.listnodenames(obdict.get("filter", None))
+        temp = self.links["hashdb"].listnodenames(obdict.get("filter", None))
         if temp is None:
             return False
         else:
@@ -485,7 +497,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         """ func: list nodes with all informations
             return: list with nodes with all information
             filter: filter nodetype (server/client) (default: all) """
-        temp = self.hashdb.listnodeall(obdict.get("filter", None))
+        temp = self.links["hashdb"].listnodeall(obdict.get("filter", None))
         if temp is None:
             return False
         else:
@@ -502,13 +514,13 @@ class client_safe(object, metaclass=abc.ABCMeta):
             filter: filter reference type """
         if obdict.get("certreferenceid") is None:
             _hash = obdict.get("hash")
-            _tref = self.hashdb.get(_hash)
+            _tref = self.links["hashdb"].get(_hash)
             if _tref is None:
                 return False, generate_error("certhash does not exist: {}".format(_hash))
             _tref = _tref[4]
         else:
             _tref = obdict.get("certreferenceid")
-        temp = self.hashdb.getreferences(_tref, obdict.get("filter", None))
+        temp = self.links["hashdb"].getreferences(_tref, obdict.get("filter", None))
         if temp is None:
             return False
         return True, {"items": temp, "map": ["reference", "type"]}
@@ -520,7 +532,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         """ func:find nodes in hashdb by reference
             return: certhash with additional informations
             reference: reference """
-        temp = self.hashdb.findbyref(obdict["reference"])
+        temp = self.links["hashdb"].findbyref(obdict["reference"])
         if temp is None:
             return False, generate_error("reference does not exist: {}".format(obdict["reference"]))
         return True, {"items": temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}

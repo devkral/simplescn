@@ -125,13 +125,12 @@ class SCNConnection(client.HTTPSConnection):
             hashob = None
             if self.kwargs.get("hashdb", None):
                 hashob = self.kwargs["hashdb"].get(hashpcert)
+            validated_name = None
             if hashob:
                 validated_name = (hashob[0], hashob[3]) #name, security
                 if validated_name[0] == isself:
                     self.sock.close()
                     raise VALNameError()
-            else:
-                validated_name = None
         self.certtupel = (validated_name, hashpcert, pcert)
 
     def rewrap(self):

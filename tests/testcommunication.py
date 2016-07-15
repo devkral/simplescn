@@ -146,7 +146,7 @@ class TestCommunication(unittest.TestCase):
 
     def test_authviolation(self):
         obdict1 = {"message": "newtestmessage"}
-        unchanged1 = self.client.links["client"].do_request("::1-{}".format(self.client_port2), "/client/", body=obdict1, headers={}, sendclientcert=True, forceport=True)
+        unchanged1 = self.client.links["client"].do_request("::1-{}".format(self.client_port2), "/client/da", body=obdict1, headers={}, sendclientcert=True, forceport=True)
         self.assertEqual(unchanged1[0], False)
     
     def test_check_direct(self):

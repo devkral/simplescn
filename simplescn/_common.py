@@ -679,8 +679,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
     # for keep-alive
     default_request_version = "HTTP/1.1"
     auth_info = None
-    client_cert = None
-    client_certhash = None
+    certtupel = None
     # replaced by function not init
     alreadyrewrapped = False
     links = None
@@ -757,10 +756,10 @@ class commonscnhandler(BaseHTTPRequestHandler):
 
     def init_scn_stuff(self):
         useragent = self.headers.get("User-Agent", "")
-        if "simplescn" in useragent:
-            self.error_message_format = "%(code)d: %(message)s – %(explain)s"
-        else:
+        if "simplescn" not in useragent:
             logging.debug("unknown useragent: %s", useragent)
+        #    self.error_message_format = "%(code)d: %(message)s – %(explain)s"
+        #else:
 
         _auth = self.headers.get("Authorization", 'scn {}')
         method, _auth = _auth.split(" ", 1)
@@ -779,17 +778,24 @@ class commonscnhandler(BaseHTTPRequestHandler):
                 self.connection = self.connection.unwrap()
                 self.connection = cont.wrap_socket(self.connection, server_side=False)
                 self.alreadyrewrapped = True
-            self.client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
-            self.client_certhash = dhash(self.client_cert)
-            if _rewrapcert.split(";")[0] != self.client_certhash:
+            client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
+            client_certhash = dhash(client_cert)
+            if _rewrapcert.split(";")[0] != client_certhash:
                 return False
+            validated_name = None
+            if "hashdb" in self.links:
+                hashob = self.links["hashdb"].get(client_certhash)
+                if hashob:
+                    validated_name = (hashob[0], hashob[3]) #name, security
+                    if validated_name[0] == isself:
+                        return False
+            self.certtupel = (validated_name, client_certhash, client_cert)
             #self.rfile.close()
             #self.wfile.close()
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
         else:
-            self.client_cert = None
-            self.client_certhash = None
+            self.certtupel = (None, None, None)
         return True
 
     def cleanup_stale_data(self, maxchars=config.max_serverrequest_size):
@@ -811,8 +817,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.scn_send_answer(400, message="bad arguments")
             return None
         obdict["clientaddress"] = self.client_address
-        obdict["client_cert"] = self.client_cert
-        obdict["client_certhash"] = self.client_certhash
+        obdict["origcertinfo"] = self.certtupel
         obdict["headers"] = self.headers
         obdict["socket"] = self.connection
         return obdict
@@ -820,8 +825,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
     def handle_usebroken(self, sub):
         # invalidate as attacker can connect while switching
         self.alreadyrewrapped = False
-        self.client_cert = None
-        self.client_certhash = None
+        self.certtupel = (None, None, None)
         certfpath = os.path.join(self.links["config_root"], "broken", sub)
         if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
             cont = default_sslcont()
@@ -833,7 +837,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
-            self.scn_send_answer(200, message="brokencert successfull", docache=False, dokeepalive=True)
+            self.scn_send_answer(200, message="brokencert successful", docache=False, dokeepalive=True)
         else:
             oldsslcont = self.connection.context
             self.connection = self.connection.unwrap()

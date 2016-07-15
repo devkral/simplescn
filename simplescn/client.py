@@ -13,7 +13,7 @@ import logging
 
 from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
-from simplescn.tools import generate_error, gen_result
+from simplescn.tools import generate_error, gen_result, create_certhashheader
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, certhash_db, loglevel_converter, permissionhash_db
 
 
@@ -30,7 +30,6 @@ from simplescn.scnrequest import requester
 class client_client(client_admin, client_safe):
     name = None
     certtupel = None
-    hashdb = None
     links = None
     scntraverse_helper = None
     brokencerts = None
@@ -49,9 +48,8 @@ class client_client(client_admin, client_safe):
         self.links = _links
         self.name = name
         self.certtupel = certtupel
-        self.hashdb = certhash_db(os.path.join(self.links["config_root"], "certdb.sqlite"))
         self.brokencerts = []
-        self.requester = requester(ownhash=self.certtupel[1], hashdb=self.hashdb, certcontext=self.links["hserver"].sslcont)
+        self.requester = requester(ownhash=self.certtupel[1], hashdb=self.links["hashdb"], certcontext=self.links["hserver"].sslcont)
 
         self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.udpsrcsock.settimeout(None)
@@ -73,11 +71,15 @@ class client_client(client_admin, client_safe):
     # return success, body, (name, security), hash
     # return success, body, isself, hash
     # return success, body, None, hash
-    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
+    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, closecon=True):
         """ func: wrapper+ cache certcontext and ownhash """
         ret = self.requester.do_request(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
-        if ret[0] is not None:
-            ret[0].close()
+        # for wrapping
+        if ret[0]:
+            if closecon or not ret[1]:
+                ret[0].close()
+            else:
+                ret[2]["wrappedsocket"] = ret[0]
         return ret[1:]
 
     @classify_private
@@ -172,6 +174,8 @@ class client_server(commonscn):
             port: port number
             wrappedport: port is not shown/is not traversable (but can be wrapped)
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
+        if not check_name(obdict["name"]):
+            return False, "invalid service name"
         if check_local(obdict["clientaddress"][0]):
             wrappedport = obdict.get("wrappedport", None)
             # activates wrappedport if unspecified
@@ -218,11 +222,11 @@ class client_server(commonscn):
             hash: hash for which trust should be retrieved
         """
         if not self.links["kwargs"].get("trustforall", False):
-            if not "client_certhash" in obdict:
+            if not "origcertinfo" in obdict:
                 return False, "no certificate sent"
-            if not self.links["trusteddb"].exist(obdict.get("client_certhash"), "gettrust"):
+            if not self.links["trusteddb"].exist(obdict["origcertinfo"][1], "gettrust"):
                 return False, "No permission"
-        hasho = self.links["client"].hashdb.get(obdict.get("hash"))
+        hasho = self.links["client"].links["hashdb"].get(obdict.get("hash"))
         if hasho:
             return True, hasho[3]
         else:
@@ -235,8 +239,8 @@ class client_server(commonscn):
         """ func: get the port of a service
             return: portnumber or negative for wrappedport
             name: servicename """
-        serviceob = self.spmap_meta.get(obdict["name"], tuple())
-        if not bool(serviceob):
+        serviceob = self.spmap_meta.get(obdict["name"], None)
+        if not serviceob:
             return False, "Service not available"
 
         if not serviceob[1]:
@@ -252,9 +256,11 @@ class client_server(commonscn):
             name: servicename """
         if not self.links["kwargs"]["notraversal"]:
             return False, "traversal disabled"
-        serviceob = self.spmap_meta.get(obdict["name"], tuple())
-        if not bool(serviceob) or not serviceob[1]:
+        serviceob = self.spmap_meta.get(obdict["name"], None)
+        if not serviceob:
             return False, "Service not available"
+        if not serviceob[1]:
+            return False, "Service not traversable"
         #_port = obdict.get("destport", None)
         #if not _port:
         #    _port = obdict["clientaddress"][1]
@@ -278,6 +284,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
 
         def handle_wrap(self, servicename):
             """ wrap service """
+            self.close_connection = True
             self.cleanup_stale_data(2)
             service = self.links["client_server"].spmap.get(servicename, None)
             if service is None:
@@ -285,8 +292,9 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 self.scn_send_answer(404, message="service not available")
                 return
             port = service[0]
+            post = service[2]
             sockd = None
-            for addr in ["::1", "127.0.0.1"]:
+            for addr in ["::1", "::ffff:127.0.0.1"]:
                 try:
                     # handles udp, tcp, ipv6, ipv4 so use this instead own solution
                     sockd = socket.create_connection((addr, port), self.links["kwargs"].get("connect_timeout"))
@@ -297,7 +305,24 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             if sockd is None:
                 self.scn_send_answer(404, message="service not reachable")
                 return
-            sockd.settimeout(self.links["kwargs"].get("timeout"))
+            self.close_connection = True
+            sockd.settimeout(self.etablished_timeout)
+            if post:
+                # extract own context
+                cont = self.connection.context
+                # wrap socket to wrap
+                sockd = cont.wrap_socket(sockd, server_side=False)
+                _header, _random = create_certhashheader(self.links["client_client"].certtupel[1])
+                sendheaders = {"X-certrewrap": _header, "Connection": "close", "Content-Type": "application/json; charset=utf-8"}
+                jsonnized = bytes(json.dumps({"origcertinfo": self.certtupel}), "utf-8")
+                con = client.HTTPConnection("", 0)
+                con.sock = sockd
+                con.request("POST", "/wrap", jsonnized, sendheaders)
+                resp = con.getresponse()
+                if resp.status != 200:
+                    self.scn_send_answer(404, message="service speaks not scn post protocol")
+                    return
+            self.scn_send_answer(200, dokeepalive=False)
             redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
             redout.run()
             rw_socket(sockd, self.connection)
@@ -312,9 +337,9 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 gaction = getattr(self.links["client"], action)
                 if remote:
                     if check_classify(gaction, "admin"):
-                        ret = self.links["trusteddb"].exist(self.client_certhash, "admin")
+                        ret = self.links["trusteddb"].exist(self.certtupel[1], "admin")
                     else:
-                        ret = self.links["trusteddb"].exist(self.client_certhash, "client")
+                        ret = self.links["trusteddb"].exist(self.certtupel[1], "client")
                     if not ret:
                         self.send_error(400, "no permission - client")
                         return
@@ -331,7 +356,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     self.scn_send_answer(401, body=bytes(exc.reqob, "utf-8", errors="ignore"), mime="application/json", docache=False)
                     return
 
-                if not response[0]:
+                if response[0] is False:
                     error = response[1]
                     # with harden mode do not show errormessage
                     if config.harden_mode and not isinstance(error, (AddressError, VALError)):
@@ -347,8 +372,15 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     status = 200
                 if not check_classify(gaction, "local") and not response[2][0] is isself:
                     resultob["origcertinfo"] = response[2]
-                jsonnized = bytes(json.dumps(resultob), "utf-8")
+                if "wrappedsocket" in resultob:
+                    wrappedsocket = resultob.pop("wrappedsocket")
+                else:
+                    wrappedsocket = None
+                jsonnized = bytes(json.dumps(resultob), "utf-8") #, errors="ignore")
                 self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
+                if wrappedsocket:
+                    rw_socket(wrappedsocket, self.connection)
+
         if server:
             def handle_server(self, action):
                 """ access to client_server """
@@ -400,11 +432,10 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 self.connection.settimeout(self.server_timeout)
                 return
             splitted = self.path[1:].split("/", 1)
+            resource = splitted[0]
             if len(splitted) == 1:
-                resource = splitted[0]
                 sub = ""
             else:
-                resource = splitted[0]
                 sub = splitted[1]
             if resource == "wrap" and not nowrap:
                 if not self.links["auth_server"].verify(self.auth_info):
@@ -468,7 +499,9 @@ class client_init(object):
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         #self.links["auth_client"] = scnauth_client()
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
-        self.links["trusteddb"] = permissionhash_db(os.path.join(self.links["config_root"], "trusteddb.sqlite"))
+        self.links["trusteddb"] = permissionhash_db(os.path.join(self.links["config_root"], "trusteddb{}".format(config.dbending)))
+        self.links["hashdb"] = certhash_db(os.path.join(self.links["config_root"], "certdb{}".format(config.dbending)))
+
 
         if bool(kwargs.get("spwhash")):
             if not check_hash(kwargs.get("spwhash")):

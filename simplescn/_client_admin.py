@@ -23,11 +23,6 @@ class client_admin(object, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def hashdb(self):
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
     def links(self):
         raise NotImplementedError
 
@@ -37,7 +32,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def do_request(self, _addr_or_con, _path, body=None, headers=None, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False):
+    def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, closecon=True):
         raise NotImplementedError
 
     writeMsgLock = None
@@ -70,7 +65,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         """ func: add entity (=named group for hashes)
             return: success or erro
             name: entity name """
-        return self.hashdb.addentity(obdict["name"])
+        return self.links["hashdb"].addentity(obdict["name"])
 
     @check_args_deco({"name": str})
     @classify_admin
@@ -80,7 +75,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         """ func: delete entity (=named group for hashes)
             return: success or error
             name: entity name """
-        return self.hashdb.delentity(obdict["name"])
+        return self.links["hashdb"].delentity(obdict["name"])
 
     @check_args_deco({"name": str, "newname": str})
     @classify_admin
@@ -91,7 +86,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return success or error
             name: entity name
             newname: new entity name """
-        return self.hashdb.renameentity(obdict["name"], obdict["newname"])
+        return self.links["hashdb"].renameentity(obdict["name"], obdict["newname"])
 
     @check_args_deco({"name": str, "hash": str}, optional={"type": str, "priority": int})
     @classify_admin
@@ -107,7 +102,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         _type = obdict.get("type", "unknown")
         _priority = obdict.get("priority", 20)
         _name, _certhash = obdict["name"], obdict["hash"]
-        return self.hashdb.addhash(_name, _certhash, _type, _priority)
+        return self.links["hashdb"].addhash(_name, _certhash, _type, _priority)
 
     @check_args_deco({"hash": str})
     @classify_admin
@@ -117,7 +112,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         """ func: delete hash
             return: success or error
             hash: certificate hash (=part of entity) """
-        return self.hashdb.delhash(obdict["hash"])
+        return self.links["hashdb"].delhash(obdict["hash"])
 
     @check_args_deco({"hash": str, "security": str})
     @classify_admin
@@ -128,7 +123,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return: success or error
             hash: certificate hash (=part of entity)
             security: security level """
-        return self.hashdb.changesecurity(obdict["hash"], obdict["security"])
+        return self.links["hashdb"].changesecurity(obdict["hash"], obdict["security"])
 
     @check_args_deco({"hash": str, "newname": str})
     @classify_admin
@@ -139,23 +134,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return: success or error
             hash: certificate hash (=part of entity)
             newname: entity where hash should moved to """
-        return self.hashdb.movehash(obdict["hash"], obdict["newname"])
-
-    # don't expose to other plugins, at least not without question
-    # other plugins could check for insecure plugins
-    @check_args_deco()
-    @classify_admin
-    @classify_local
-    @classify_accessable
-    def listplugins(self, obdict: dict):
-        """ func: list plugins
-            return: plugins """
-        pluginm = self.links["client_server"].pluginmanager
-        out = sorted(pluginm.list_plugins().keys())
-        ret = []
-        for plugin in out:
-            ret.append((plugin, pluginm.plugin_is_active(plugin)))
-        return True, {"items": ret, "map": ["plugin", "state"]}
+        return self.links["hashdb"].movehash(obdict["hash"], obdict["newname"])
 
     @check_args_deco({"hash": str, "reference": str, "reftype": str})
     @classify_admin
@@ -167,15 +146,15 @@ class client_admin(object, metaclass=abc.ABCMeta):
             hash: certificate hash (=part of entity)
             reference: reference (=where to find node)
             reftype: reference type """
-        _name = self.hashdb.certhash_as_name(obdict["hash"])
+        _name = self.links["hashdb"].certhash_as_name(obdict["hash"])
         if _name is None:
             return False, "hash not in db: {}".format(obdict["hash"])
         if not check_reference(obdict["reference"]):
             return False, "reference invalid"
         if not check_reference_type(obdict["reftype"]):
             return False, "reference type invalid"
-        _tref = self.hashdb.get(obdict["hash"])
-        return self.hashdb.addreference(_tref[4], obdict["reference"], obdict["reftype"])
+        _tref = self.links["hashdb"].get(obdict["hash"])
+        return self.links["hashdb"].addreference(_tref[4], obdict["reference"], obdict["reftype"])
 
     @check_args_deco({"hash": str, "reference": str, "newreference": str, "newreftype": str})
     @classify_admin
@@ -192,10 +171,10 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return False, "reference invalid"
         if not check_reference_type(obdict["newreftype"]):
             return False, "reference type invalid"
-        _tref = self.hashdb.get(obdict["hash"])
+        _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
             return False, "hash not exist"
-        return self.hashdb.updatereference(_tref[4], obdict["reference"], obdict["newreference"], obdict["newreftype"])
+        return self.links["hashdb"].updatereference(_tref[4], obdict["reference"], obdict["newreference"], obdict["newreftype"])
 
     @check_args_deco({"hash": str, "reference": str})
     @classify_admin
@@ -206,10 +185,10 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return: success or error
             hash: certificate hash (=part of entity)
             reference: reference (=where to find node)"""
-        _tref = self.hashdb.get(obdict["hash"])
+        _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
             return False, "hash not exist"
-        return self.hashdb.delreference(_tref[4], obdict["reference"])
+        return self.links["hashdb"].delreference(_tref[4], obdict["reference"])
 
     @check_args_deco({"reason": str})
     @classify_admin
@@ -349,26 +328,26 @@ class client_admin(object, metaclass=abc.ABCMeta):
             if _imp_hash is not None and _hash not in _imp_hash:
                 continue
 
-            if not self.hashdb.exists(_name):
-                self.hashdb.addentity(_name)
-            if self.hashdb.exists(_name, _hash):
+            if not self.links["hashdb"].exists(_name):
+                self.links["hashdb"].addentity(_name)
+            if self.links["hashdb"].exists(_name, _hash):
                 pass
-                #self.hashdb.updatehash(_hash, _type, _priority, _security)
-            elif self.hashdb.get(_hash) is not None:
+                #self.links["hashdb"].updatehash(_hash, _type, _priority, _security)
+            elif self.links["hashdb"].get(_hash) is not None:
                 pass
             else:
-                self.hashdb.addhash(_name, _hash, _type, _priority, _security)
-            localref = self.hashdb.get(_hash)
+                self.links["hashdb"].addhash(_name, _hash, _type, _priority, _security)
+            localref = self.links["hashdb"].get(_hash)
             if localref is None:
                 return False, "could not write entry"
             else:
                 localref = localref[4]
-            localreferences = self.hashdb.getreferences(localref)
+            localreferences = self.links["hashdb"].getreferences(localref)
             _retreferences = self.do_request(obdict.get("client"), "/client/getreferences", {"hash":_hash})
             if _retreferences[0]:
                 for _ref, _reftype in _retreferences[1]["items"]:
                     if (_ref, _reftype) in localreferences:
                         pass
                     else:
-                        self.hashdb.addreference(localref, _ref, _reftype)
+                        self.links["hashdb"].addreference(localref, _ref, _reftype)
         return True, "import finished"

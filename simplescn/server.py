@@ -174,13 +174,13 @@ class server(commonscn):
             update: list with compromised hashes (includes reason=security) """
         if not check_name(obdict["name"]):
             return False, generate_error("invalid_name", False)
-        if obdict["client_certhash"] is None:
+        if obdict["origcertinfo"][1] is None:
             return False, generate_error("no_cert", False)
         if obdict["clientaddress"][0][:7] == "::ffff:":
             caddress = (obdict["clientaddress"][0][7:], obdict["clientaddress"][1])
         else:
             caddress = obdict["clientaddress"]
-        clientcerthash = obdict["client_certhash"]
+        clientcerthash = obdict["origcertinfo"][1]
         ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
         if not ret[0]:
             # '' = serveraddress

@@ -21,6 +21,9 @@ max_serverrequest_size = 4000
 max_typelength = 15
 max_namelength = 64
 
+## dbending
+dbending = ".sqlite"
+
 ## password prompts:
 pwcertgen_prompt = "(optional) Enter passphrase for encrypting key"
 pwrealm_prompt = "Please enter server password"
