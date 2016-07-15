@@ -61,7 +61,8 @@ class SCNConnection(client.HTTPSConnection):
         self._check_hostname = None
         # throw exception here
         if self.kwargs.get("use_unix", False):
-            logging.warning("use_unix used with forceport")
+            if self.kwargs.get("forceport", False):
+                logging.warning("use_unix used with forceport")
         else:
             self.host, self.port = scnparse_url(host, force_port=kwargs.get("forceport", False))
     
