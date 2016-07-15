@@ -726,7 +726,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args, logfunc=logging.debug):
         """Log an arbitrary message. """
-        logfunc("%s - - [%s] %s\n" %
+        logfunc("%s - - [%s] %s" %
                          (self.address_string(),
                           self.log_date_time_string(),
                           format%args))
