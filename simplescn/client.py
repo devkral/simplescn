@@ -313,7 +313,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 # wrap socket to wrap
                 sockd = cont.wrap_socket(sockd, server_side=False)
                 _header, _random = create_certhashheader(self.links["client_client"].certtupel[1])
-                sendheaders = {"X-certrewrap": _header, "Connection": "close", "Content-Type": "application/json; charset=utf-8"}
+                sendheaders = {"X-certrewrap": _header, "Connection": "keep-alive", "Content-Type": "application/json; charset=utf-8"}
                 jsonnized = bytes(json.dumps({"origcertinfo": self.certtupel}), "utf-8")
                 con = client.HTTPConnection("", 0)
                 con.sock = sockd
