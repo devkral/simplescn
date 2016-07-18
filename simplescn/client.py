@@ -18,7 +18,7 @@ from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler,
 
 
 from simplescn.tools import default_sslcont, try_traverse, get_pidlock, generate_certs, \
-init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
+init_config_folder, dhash, rw_link, scnauth_server, traverser_helper
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import client_admin
@@ -71,15 +71,16 @@ class client_client(client_admin, client_safe):
     # return success, body, (name, security), hash
     # return success, body, isself, hash
     # return success, body, None, hash
-    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, closecon=True):
+    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
         """ func: wrapper+ cache certcontext and ownhash """
-        ret = self.requester.do_request(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, forcetraverse=forcetraverse, sendclientcert=sendclientcert)
+        ret = self.requester.do_request(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, sendclientcert=sendclientcert, keepalive=not closecon)
         # for wrapping
         if ret[0]:
             if closecon or not ret[1]:
                 ret[0].close()
             else:
-                ret[2]["wrappedsocket"] = ret[0]
+                ret[2]["wrappedsocket"] = ret[0].sock
+                ret[0].sock = None
         return ret[1:]
 
     @classify_private
@@ -284,9 +285,12 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
 
         def handle_wrap(self, servicename):
             """ wrap service """
-            self.close_connection = True
+            if self.certtupel is None:
+                # send error
+                self.scn_send_answer(400, message="no certtupel")
+                return
             self.cleanup_stale_data(2)
-            service = self.links["client_server"].spmap.get(servicename, None)
+            service = self.links["client_server"].spmap_meta.get(servicename, None)
             if service is None:
                 # send error
                 self.scn_send_answer(404, message="service not available")
@@ -305,8 +309,6 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             if sockd is None:
                 self.scn_send_answer(404, message="service not reachable")
                 return
-            self.close_connection = True
-            sockd.settimeout(self.etablished_timeout)
             if post:
                 # extract own context
                 cont = self.connection.context
@@ -320,12 +322,13 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 con.request("POST", "/wrap", jsonnized, sendheaders)
                 resp = con.getresponse()
                 if resp.status != 200:
-                    self.scn_send_answer(404, message="service speaks not scn post protocol")
+                    self.scn_send_answer(400, message="service speaks not scn post protocol")
                     return
-            self.scn_send_answer(200, dokeepalive=False)
-            redout = threading.Thread(target=rw_socket, args=(self.connection, sockd), daemon=True)
-            redout.run()
-            rw_socket(sockd, self.connection)
+            sockd.settimeout(self.etablished_timeout)
+            self.scn_send_answer(200, body=bytes(json.dumps({"port":port}), "utf-8"), mime="application/json", docache=False, dokeepalive=True)
+            self.wfile.flush()
+            rw_link(self.connection, sockd)
+            self.close_connection = True
 
         if client:
             def handle_client(self, action):
@@ -377,9 +380,11 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 else:
                     wrappedsocket = None
                 jsonnized = bytes(json.dumps(resultob), "utf-8") #, errors="ignore")
-                self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False)
+                self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False, dokeepalive=True)
                 if wrappedsocket:
-                    rw_socket(wrappedsocket, self.connection)
+                    #self.wfile.flush()
+                    rw_link(wrappedsocket, self.connection)
+                    self.close_connection = True
 
         if server:
             def handle_server(self, action):

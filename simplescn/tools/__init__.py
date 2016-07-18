@@ -618,10 +618,14 @@ def rw_socket(sockr, sockw):
                 break
             else:
                 sockw.sendall(ret)
-        except (socket.timeout, BrokenPipeError):
+        except (socket.timeout, BrokenPipeError, TimeoutError):
             sockw.close()
             sockr.close()
             break
         except Exception as exc:
             logging.error(exc)
             break
+
+def rw_link(sock1, sock2):
+    threading.Thread(target=rw_socket, args=(sock1, sock2))
+    rw_socket(sock2, sock1)

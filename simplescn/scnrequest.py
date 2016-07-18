@@ -177,12 +177,12 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
         kwargs:
             options:
                 * use_unix: use unix sockets instead, overrides forceport
-                * forcehash: force hash on other side
                 * sendclientcert: send own certhash to server, requires ownhash and certcontext
                 * connect_timeout: timeout for connecting
                 * timeout: timeout if connection is etablished
                 * keepalive: keep server connection alive
                 * forceport: True: raise if no port is given, False: use server port in that case, not compatible with use_unix
+                * forcehash: force hash on other side
             special:
                 * certcontext: specify certcontext used
                 * ownhash: own hash

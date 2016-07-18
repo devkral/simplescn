@@ -52,7 +52,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, closecon=True):
+    def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
         raise NotImplementedError
 
     @check_args_deco()
@@ -86,7 +86,8 @@ class client_safe(object, metaclass=abc.ABCMeta):
     @classify_accessable
     def show(self, obdict: dict):
         """ func: show client stats
-            return: client stats; port==0 -> unixsockets are used """
+            return: client stats """
+            #; port==0 -> unixsockets are used, not True for hserver
         return True, {"name": self.name,
                       "hash": self.certtupel[1],
                       "listen": self.links["hserver"].server_address,
@@ -231,7 +232,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
     @classify_accessable
     def trust(self, obdict: dict):
         """ func: retrieve trust info of node, use getlocal for local node
-            return: wrapped socket
+            return: security info of node by remote client
             forcehash: enforce node with hash==forcehash
             address: remote node url """
         _addr = obdict["address"]
@@ -242,7 +243,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
     @classify_accessable
     def wrap(self, obdict: dict):
         """ func: initiate wrap 
-            return: info section
+            return: wrapped socket
             name: service name
             forcehash: enforce node with hash==forcehash
             address: remote node url """
@@ -251,9 +252,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if not check_name(_name):
             return False, "not a valid service name"
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(_addr, "/wrap/{}".format(_name), {}, _headers, forceport=True, closecon=False, forcehash=obdict.get("forcehash", None))
-        #SCNConnection
-        #obdict.get("socket")
+        return self.do_request(_addr, "/wrap/{}".format(_name), {}, _headers, forceport=True, closecon=False, sendclientcert=True, forcehash=obdict.get("forcehash", None))
 
     @check_args_deco({"server": str})
     @classify_accessable

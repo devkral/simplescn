@@ -32,7 +32,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, forcetraverse=False, sendclientcert=False, closecon=True):
+    def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
         raise NotImplementedError
 
     writeMsgLock = None

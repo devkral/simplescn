@@ -743,10 +743,12 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
         if not docache:
             self.send_header("Cache-Control", "no-cache")
-            if dokeepalive is None and status == 200:
+            # if connection is closed don't set keep-alive implicit
+            # don't break wrap implicit
+            if dokeepalive is None and status == 200 and not self.close_connection:
                 dokeepalive = True
-        # if connection is closed don't set keep-alive
-        if dokeepalive and not self.close_connection:
+        
+        if dokeepalive:
             self.send_header('Connection', 'keep-alive')
         else:
             self.send_header('Connection', 'close')
