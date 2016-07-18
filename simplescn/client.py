@@ -18,7 +18,7 @@ from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler,
 
 
 from simplescn.tools import default_sslcont, try_traverse, get_pidlock, generate_certs, \
-init_config_folder, dhash, rw_link, scnauth_server, traverser_helper
+init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import client_admin
@@ -297,37 +297,37 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 return
             port = service[0]
             post = service[2]
-            sockd = None
+            wrappedsocket = None
             for addr in ["::1", "::ffff:127.0.0.1"]:
                 try:
                     # handles udp, tcp, ipv6, ipv4 so use this instead own solution
-                    sockd = socket.create_connection((addr, port), self.links["kwargs"].get("connect_timeout"))
+                    wrappedsocket = socket.create_connection((addr, port), self.links["kwargs"].get("connect_timeout"))
                     break
                 except Exception as e:
                     logging.debug(e)
-                    sockd = None
-            if sockd is None:
+                    wrappedsocket = None
+            if wrappedsocket is None:
                 self.scn_send_answer(404, message="service not reachable")
                 return
             if post:
                 # extract own context
                 cont = self.connection.context
                 # wrap socket to wrap
-                sockd = cont.wrap_socket(sockd, server_side=False)
+                wrappedsocket = cont.wrap_socket(wrappedsocket, server_side=False)
                 _header, _random = create_certhashheader(self.links["client_client"].certtupel[1])
-                sendheaders = {"X-certrewrap": _header, "Connection": "keep-alive", "Content-Type": "application/json; charset=utf-8"}
+                _sendheaders = {"X-certrewrap": _header, "Connection": "keep-alive", "Content-Type": "application/json; charset=utf-8"}
                 jsonnized = bytes(json.dumps({"origcertinfo": self.certtupel}), "utf-8")
                 con = client.HTTPConnection("", 0)
-                con.sock = sockd
-                con.request("POST", "/wrap", jsonnized, sendheaders)
+                con.sock = wrappedsocket
+                con.request("POST", "/wrap", jsonnized, _sendheaders)
                 resp = con.getresponse()
                 if resp.status != 200:
                     self.scn_send_answer(400, message="service speaks not scn post protocol")
                     return
-            sockd.settimeout(self.etablished_timeout)
+            wrappedsocket.settimeout(self.etablished_timeout)
             self.scn_send_answer(200, body=bytes(json.dumps({"port":port}), "utf-8"), mime="application/json", docache=False, dokeepalive=True)
             self.wfile.flush()
-            rw_link(self.connection, sockd)
+            rw_socket(self.connection, wrappedsocket, self.etablished_timeout)
             self.close_connection = True
 
         if client:
@@ -382,8 +382,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 jsonnized = bytes(json.dumps(resultob), "utf-8") #, errors="ignore")
                 self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False, dokeepalive=True)
                 if wrappedsocket:
-                    #self.wfile.flush()
-                    rw_link(wrappedsocket, self.connection)
+                    rw_socket(self.connection, wrappedsocket, self.etablished_timeout)
                     self.close_connection = True
 
         if server:
