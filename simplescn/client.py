@@ -10,10 +10,12 @@ import socket
 import threading
 import json
 import logging
+from http import client
 
 from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
-from simplescn.tools import generate_error, gen_result, create_certhashheader
+from simplescn.tools import generate_error, gen_result
+#, create_certhashheader
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, certhash_db, loglevel_converter, permissionhash_db
 
 
@@ -272,13 +274,13 @@ class client_server(commonscn):
         else:
             return False, "Traversal could not opened"
 
-def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, remote=False, nowrap=False):
+def gen_client_handler(_links, stimeout, etimeout, hasserver=False, hasclient=False, remote=False, nowrap=False):
     """ create handler with: links, server_timeout, default_timeout, ... """
     class client_handler(commonscnhandler):
         """ client handler """
         server_version = 'simplescn/1.0 (client)'
         # set onlylocal variable if remote is deactivated and not server
-        onlylocal = not remote and not server
+        onlylocal = not remote and not hasserver
         links = _links
         server_timeout = stimeout
         etablished_timeout = etimeout
@@ -298,10 +300,12 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             port = service[0]
             post = service[2]
             wrappedsocket = None
+            _waddr = None
             for addr in ["::1", "::ffff:127.0.0.1"]:
                 try:
                     # handles udp, tcp, ipv6, ipv4 so use this instead own solution
                     wrappedsocket = socket.create_connection((addr, port), self.links["kwargs"].get("connect_timeout"))
+                    _waddr = addr.replace("::ffff:", "")
                     break
                 except Exception as e:
                     logging.debug(e)
@@ -310,18 +314,29 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                 self.scn_send_answer(404, message="service not reachable")
                 return
             if post:
+                # create_certhashheader not needed only localhost
+                #_header, _random = create_certhashheader(self.links["client_client"].certtupel[1])
+                #"X-certrewrap": _header,
+                
+                jsonnized = bytes(json.dumps({"origcertinfo": self.certtupel}), "utf-8")
+                # feed with real values for server
+                con = client.HTTPConnection(_waddr, port)
+                con.sock = wrappedsocket
+                con.putrequest("POST", "/wrap")
+                con.putheader("Connection", "keep-alive")
+                con.putheader("Content-Type", "application/json; charset=utf-8")
+                con.putheader("Content-Length", str(len(jsonnized)))
+                con.endheaders()
                 # extract own context
                 cont = self.connection.context
                 # wrap socket to wrap
-                wrappedsocket = cont.wrap_socket(wrappedsocket, server_side=False)
-                _header, _random = create_certhashheader(self.links["client_client"].certtupel[1])
-                _sendheaders = {"X-certrewrap": _header, "Connection": "keep-alive", "Content-Type": "application/json; charset=utf-8"}
-                jsonnized = bytes(json.dumps({"origcertinfo": self.certtupel}), "utf-8")
-                con = client.HTTPConnection("", 0)
-                con.sock = wrappedsocket
-                con.request("POST", "/wrap", jsonnized, _sendheaders)
+                con.sock = cont.wrap_socket(con.sock, server_side=True)
+                con.send(jsonnized)
                 resp = con.getresponse()
-                if resp.status != 200:
+                resp.read(0)
+                wrappedsocket = con.sock
+                con.sock = None
+                if resp.status != 200 or wrappedsocket is None:
                     self.scn_send_answer(400, message="service speaks not scn post protocol")
                     return
             wrappedsocket.settimeout(self.etablished_timeout)
@@ -330,7 +345,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             rw_socket(self.connection, wrappedsocket, self.etablished_timeout)
             self.close_connection = True
 
-        if client:
+        if hasclient:
             def handle_client(self, action):
                 """ access to client_client """
                 if action not in self.links["client"].validactions:
@@ -385,7 +400,7 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
                     rw_socket(self.connection, wrappedsocket, self.etablished_timeout)
                     self.close_connection = True
 
-        if server:
+        if hasserver:
             def handle_server(self, action):
                 """ access to client_server """
                 if action not in self.links["client_server"].validactions:
@@ -453,9 +468,9 @@ def gen_client_handler(_links, stimeout, etimeout, server=False, client=False, r
             elif resource == "usebroken":
                 # for invalidating and updating, don't use connection afterwards
                 self.handle_usebroken(sub)
-            elif server and resource == "server":
+            elif hasserver and resource == "server":
                 self.handle_server(sub)
-            elif client and resource == "client":
+            elif hasclient and resource == "client":
                 self.handle_client(sub)
             else:
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
@@ -540,13 +555,13 @@ class client_init(object):
         sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
         
         if kwargs.get("remote", False):
-            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=True, remote=True, nowrap=kwargs.get("nowrap", False))
+            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), hasserver=True, hasclient=True, remote=True, nowrap=kwargs.get("nowrap", False))
         else:
-            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=True, client=False, remote=False, nowrap=kwargs.get("nowrap", False))
+            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), hasserver=True, hasclient=False, remote=False, nowrap=kwargs.get("nowrap", False))
         self.links["hserver"] = http_server(("::", port), sslcont, self.links["shandler"])
         
         if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):
-            self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), server=False, client=True, remote=False, nowrap=True)
+            self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), hasserver=False, hasclient=True, remote=False, nowrap=True)
             if file_family is not None:
                 rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
                 self.links["cserver_unix"] = http_server(rpath, sslcont, self.links["chandler"], use_unix=True)

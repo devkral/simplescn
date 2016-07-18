@@ -16,7 +16,7 @@ import hashlib
 import re
 import threading
 import json
-import select
+import selectors
 
 
 from simplescn import config, pwcallmethod
@@ -609,21 +609,29 @@ def loglevel_converter(loglevel):
     else:
         return int(loglevel)
 
+
+
 def rw_socket(sockr, sockw, timeout=None):
+    sfsel = selectors.DefaultSelector()
     sockets = {sockr.fileno(): sockw, sockw.fileno(): sockr}
     active = True
+    sockr.setblocking(False)
+    sfsel.register(sockr, selectors.EVENT_READ)
+    sockw.setblocking(False)
+    sfsel.register(sockw, selectors.EVENT_READ)
     while active:
         try:
-            inpl, outl, excl = select.select([sockw, sockr], [], [], timeout)
-            for soc in inpl:
-                ret = soc.recv(config.default_buffer_size)
+            inpl = sfsel.select(timeout)
+            for soc, evnt in inpl:
+                ret = soc.fileobj.recv(config.default_buffer_size)
                 if ret == b"":
                     active = False
+                    sfsel.close()
                     sockw.close()
                     sockr.close()
                     break
                 else:
-                    sockets[soc.fileno()].sendall(ret)
+                    sockets[soc.fd].sendall(ret)
         except (socket.timeout, BrokenPipeError, TimeoutError):
             sockw.close()
             sockr.close()
