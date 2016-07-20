@@ -314,57 +314,11 @@ def scn_hashedpw_auth(hashedpw, authreq_ob, serverhash):
     dauth["auth"] = dhash((dauth["cnonce"], str(dauth["timestamp"])), algo=authreq_ob["algo"], prehash=dauth["auth"])
     return dauth
 
-
 def extract_senddict(obdict, *args):
     tmp = {}
     for key in args:
         tmp[key] = obdict.get(key, None)
     return tmp
-
-"""
-class scnauth_client(object):
-    # save credentials
-    save_auth = None
-    def __init__(self):
-        self.save_auth = {}
-
-    def auth(self, pw, authreq_ob, serverpubcert_hash, saveid=None):
-        algo = authreq_ob.get("algo")
-        if None in [algo, pw] or pw == "":
-            return None
-        pre = dhash(pw, algo=algo)
-        if saveid is not None:
-            self.save_auth[saveid] = (pre, algo)
-        return self.asauth(pre, authreq_ob, serverpubcert_hash)
-
-    # wrap in dictionary with {realm: return value}
-    def asauth(self, pre, authreq_ob, pubcert_hash):
-        if pre is None or not authreq_ob.get("algo", None) or not authreq_ob.get("nonce", None):
-            return None
-        dauth = auth_struct.copy()
-        dauth["timestamp"] = authreq_ob["timestamp"]
-        dauth["auth"] = dhash((authreq_ob["nonce"], pubcert_hash, bytes(dauth["timestamp"])), algo=authreq_ob["algo"], prehash=pre)
-        return dauth
-
-    def saveauth(self, pw, saveid, algo=config.DEFAULT_HASHALGORITHM):
-        pre = dhash(pw, algo)
-        if saveid not in self.save_auth:
-            self.save_auth[saveid] = {}
-        self.save_auth[saveid] = (pre, algo)
-
-    def delauth(self, saveid):
-        if saveid not in self.save_auth:
-            return
-        del self.save_auth[saveid]
-
-    def reauth(self, saveid, authreq_ob, pubcert_hash):
-        if saveid not in self.save_auth:
-            return None
-        pre, _hashalgo = self.save_auth[saveid]
-        if "algo" not in authreq_ob:
-            authreq_ob["algo"] = _hashalgo
-        return self.asauth(pre, authreq_ob, pubcert_hash)
-"""
 
 scn_pingstruct = struct.pack(">c511x", b"p")
 scn_yesstruct = struct.pack(">c511x", b"y")
@@ -433,9 +387,6 @@ class traverser_dropper(object):
             return self.check(timeout)
         else:
             return True
-
-
-
 
 class traverser_helper(object):
     desttupels = None
@@ -664,3 +615,33 @@ def rw_socket(sockr, sockw, timeout=None):
             logging.error(exc)
             break
 
+## for finding local simplescn client ##
+
+def parselocalclient(path, useipv6=True, scnformat=True):
+    """ returns addrinfo, use_unix or None used by getlocalclient() """
+    try:
+        with open(path, "r") as rob:
+            pjson = json.load(rob)
+        if os.path.exists(pjson.get("cserver_unix", None)):
+            return pjson.get("cserver_unix"), True
+        if useipv6 and "cserver_ip" in pjson:
+            soc = socket.create_connection(pjson.get("cserver_ip"), 3)
+            if not soc:
+                return None
+            return "-".join(pjson.get("cserver_ip")), False
+        elif "cserver_ip4" in pjson:
+            soc = socket.create_connection(pjson.get("cserver_ip4"), 3)
+            if not soc:
+                return None
+            return "-".join(pjson.get("cserver_ip4")), False
+    except Exception as exc:
+        logging.warning(exc)
+    return None
+
+def getlocalclient(useipv6=True):
+    """ returns addrinfo, use_unix or None; use parselocalclient """
+    import tempfile
+    p = os.path.join(tempfile.gettempdir(), "{}-simplescn-client.info".format(os.getuid()))
+    if os.path.exists(p):
+        return parselocalclient(p, useipv6)
+    return None
