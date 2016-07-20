@@ -617,14 +617,16 @@ def rw_socket(sockr, sockw, timeout=None):
 
 ## for finding local simplescn client ##
 
-def parselocalclient(path, useipv6=True, scnformat=True):
-    """ returns addrinfo, use_unix or None used by getlocalclient() """
+def parselocalclient(path, extractipv6=True):
+    """ parse simplescn info file; used by getlocalclient()
+        extractipv6: extract ipv6 address
+        returns: address, use_unix, cert_hash or None """
     try:
         with open(path, "r") as rob:
             pjson = json.load(rob)
         if os.path.exists(pjson.get("cserver_unix", None)):
             return pjson.get("cserver_unix"), True
-        if useipv6 and "cserver_ip" in pjson:
+        if extractipv6 and "cserver_ip" in pjson:
             soc = socket.create_connection(pjson.get("cserver_ip"), 3)
             if not soc:
                 return None
@@ -638,10 +640,12 @@ def parselocalclient(path, useipv6=True, scnformat=True):
         logging.warning(exc)
     return None
 
-def getlocalclient(useipv6=True):
-    """ returns addrinfo, use_unix or None; use parselocalclient """
+def getlocalclient(extractipv6=True):
+    """ parse simplescn info file at default position; use parselocalclient()
+        extractipv6: extract ipv6 address
+        returns: address, use_unix, cert_hash or None """
     import tempfile
     p = os.path.join(tempfile.gettempdir(), "{}-simplescn-client.info".format(os.getuid()))
     if os.path.exists(p):
-        return parselocalclient(p, useipv6)
+        return parselocalclient(p, extractipv6)
     return None
