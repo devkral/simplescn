@@ -93,7 +93,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
                       "listen": self.links["hserver"].server_address,
                       "port": self.links["hserver"].server_port}
 
-    @check_args_deco({"name": str, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool,"forcehash": str})
+    @check_args_deco({"name": str, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool, "hidden": bool,"forcehash": str})
     @classify_accessable
     def registerservice(self, obdict: dict):
         """ func: register service (second way)
@@ -101,7 +101,8 @@ class client_safe(object, metaclass=abc.ABCMeta):
             name: service name
             port: port number
             forcehash: enforce node with hash==forcehash
-            wrappedport: port is not shown/is not traversable (but can be wrapped)
+            wrappedport: port is masked/is not traversable (but can be wrapped)
+            hidden: port and servicename are not listed (default: False)
             post: send http post request with certificate in header to service
             client: LOCAL client url (default: own client) """
         senddict = extract_senddict(obdict, "name", "port")
@@ -190,7 +191,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             name: client name
             hash: client hash """
         senddict = extract_senddict(obdict, "hash", "name")
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         _getret = self.do_request(obdict["server"], "/server/get", senddict, _headers, forcehash=obdict.get("forcehash"))
         if not _getret[0] or not check_args(_getret[1], {"address": str, "port": int}):
             return _getret

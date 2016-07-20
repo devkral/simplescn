@@ -12,7 +12,7 @@ import abc
 
 from simplescn.config import isself
 from simplescn.tools import dhash, generate_certs
-from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security
+from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security, check_hash, check_trustpermission
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable, generate_validactions_deco
 
 @generate_validactions_deco
@@ -200,6 +200,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             reason: reason (=security level) for invalidating cert"""
         if not check_security(obdict.get("reason")) or obdict.get("reason") == "valid":
             return False, "wrong reason"
+        self.delperm({"hash": self.certtupel[1]})
         _cpath = os.path.join(self.links["config_root"], "client_cert")
         if os.path.isfile(_cpath+".pub"):
             with open(_cpath+".pub", "r") as readob:
@@ -289,23 +290,45 @@ class client_admin(object, metaclass=abc.ABCMeta):
             self.links["client_server"].update_cache()
             return True
 
-    @check_args_deco({"certhash": str})
+    @check_args_deco({"hash": str, "permission": str})
     @classify_admin
     @classify_local
-    def addtrust(self, obdict):
-        """ func: add certhash to trusteddb
+    def addperm(self, obdict):
+        """ func: add permissions for certhash to permsdb
             return: success or error
-            certhash: certhash of trusted """
-        return self.links["trusteddb"].add(obdict.get("certhash"), "gettrust")
+            hash: certhash of trusted
+            permission: which permission """
+        if not check_hash(obdict["hash"]):
+            return False, "invalid hash"
+        if not check_trustpermission(obdict["permission"]):
+            return False, "invalid permission"
+        return self.links["permsdb"].add(obdict["hash"], obdict["permission"])
 
-    @check_args_deco({"certhash": str})
+    @check_args_deco({"hash": str}, optional={"permission": str})
     @classify_admin
     @classify_local
-    def deltrust(self, obdict):
-        """ func: delete certhash from trusteddb
+    def delperm(self, obdict):
+        """ func: delete permission(s) certhash from permsdb
             return: success or error
-            certhash: certhash of trusted """
-        return self.links["trusteddb"].delete(obdict.get("certhash"), "gettrust")
+            hash: certhash of trusted
+            permission: which permission (default: None=all) """
+        if not check_hash(obdict["hash"]):
+            return False, "invalid hash"
+        return self.links["permsdb"].delete(obdict["hash"], obdict.get("permission", None))
+
+    @check_args_deco({"hash": str})
+    @classify_admin
+    @classify_local
+    def getperm(self, obdict):
+        """ func: get permissions certhash from permsdb
+            return: list permissions of certhash
+            hash: certhash of trusted """
+        if not check_hash(obdict["hash"]):
+            return False, "invalid hash"
+        ret = self.links["permsdb"].get(obdict["hash"])
+        if ret is None:
+            return False, "retrieving permission(s) failed"
+        return True, {"items": ret, "map":["permission"]}
 
     # TODO: test
     @check_args_deco({"sourceaddress": str, "sourcehash": str}, optional={"entities": list, "hashes": list})

@@ -128,7 +128,8 @@ def get_pidlock(rundir, name):
     if pid and os.getpid() != pid and psutil.pid_exists(pid):
         return None
     try:
-        with open(path, "w") as wo:
+        fdob = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+        with open(fdob, "w", closefd=True) as wo:
             wo.write(str(os.getpid()))
     except Exception:
         return None
@@ -140,6 +141,29 @@ def get_pidlock(rundir, name):
     if os.getpid() == pid:
         return path
     return None
+
+## file object handler for e.g.representing port ##
+class fobject_handler(object):
+    filepath = None
+    def __init__(self, path, msg):
+        self.filepath = path
+        fdob = os.open(self.filepath, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+        with open(fdob, "w") as ob:
+            ob.write(msg)
+    def __del__(self):
+        try:
+            os.remove(self.filepath)
+        except Exception as exc:
+            logging.warning(exc)
+    @classmethod
+    def create(cls, path, msg):
+        ret = None
+        try:
+            ret = cls(path, msg)
+        except Exception as exc:
+            logging.warning(exc)
+        return ret
+
 ##### etc ######
 
 badnamechars = " \\$&?\0'%\"\n\r\t\b\x1A\x7F<>/"

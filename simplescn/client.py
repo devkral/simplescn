@@ -14,7 +14,7 @@ from http import client
 
 from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
-from simplescn.tools import generate_error, gen_result
+from simplescn.tools import generate_error, gen_result, fobject_handler
 #, create_certhashheader
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, certhash_db, loglevel_converter, permissionhash_db
 
@@ -122,7 +122,7 @@ class client_client(client_admin, client_safe):
 class client_server(commonscn):
     # only servicenames with ports for efficient json generation
     spmap = None
-    # meta data to servicename, not neccessary in spmap (at least in future)
+    # meta data to servicename, not neccessary in spmap (hidden)
     spmap_meta = None
     scn_type = "client"
     links = None
@@ -167,7 +167,7 @@ class client_server(commonscn):
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
 
-    @check_args_deco({"name": str, "port": int}, optional={"wrappedport": bool, "post": bool})
+    @check_args_deco({"name": str, "port": int}, optional={"wrappedport": bool, "post": bool, "hidden": bool})
     @classify_local
     @classify_accessable
     def registerservice(self, obdict):
@@ -175,7 +175,8 @@ class client_server(commonscn):
             return: success or error
             name: service name
             port: port number
-            wrappedport: port is not shown/is not traversable (but can be wrapped)
+            wrappedport: port is masked/is not traversable (but can be wrapped)
+            hidden: port and servicename are not listed (default: False)
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
         if not check_name(obdict["name"]):
             return False, "invalid service name"
@@ -186,10 +187,14 @@ class client_server(commonscn):
                 wrappedport = obdict.get("post", False)
             with self.wlock:
                 self.spmap_meta[obdict["name"]] = (obdict.get("port"), wrappedport, obdict.get("post", False))
-                if not wrappedport:
-                    self.spmap[obdict["name"]] = obdict.get("port")
+                if obdict.get("hidden", False) and \
+                   obdict.get("port") in self.spmap[obdict["name"]]:
+                    del self.spmap[obdict["name"]]
                 else:
-                    self.spmap[obdict["name"]] = -1
+                    if not wrappedport:
+                        self.spmap[obdict["name"]] = obdict.get("port")
+                    else:
+                        self.spmap[obdict["name"]] = -1
                 self.cache["dumpservices"] = json.dumps(self.spmap)
                 #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
             return True, "ok"
@@ -227,7 +232,7 @@ class client_server(commonscn):
         if not self.links["kwargs"].get("trustforall", False):
             if not "origcertinfo" in obdict:
                 return False, "no certificate sent"
-            if not self.links["trusteddb"].exist(obdict["origcertinfo"][1], "gettrust"):
+            if not self.links["permsdb"].exist(obdict["origcertinfo"][1], "gettrust"):
                 return False, "No permission"
         hasho = self.links["client"].links["hashdb"].get(obdict.get("hash"))
         if hasho:
@@ -355,9 +360,9 @@ def gen_client_handler(_links, stimeout, etimeout, hasserver=False, hasclient=Fa
                 gaction = getattr(self.links["client"], action)
                 if remote:
                     if check_classify(gaction, "admin"):
-                        ret = self.links["trusteddb"].exist(self.certtupel[1], "admin")
+                        ret = self.links["permsdb"].exist(self.certtupel[1], "admin")
                     else:
-                        ret = self.links["trusteddb"].exist(self.certtupel[1], "client")
+                        ret = self.links["permsdb"].exist(self.certtupel[1], "client")
                     if not ret:
                         self.send_error(400, "no permission - client")
                         return
@@ -518,7 +523,7 @@ class client_init(object):
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         #self.links["auth_client"] = scnauth_client()
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
-        self.links["trusteddb"] = permissionhash_db(os.path.join(self.links["config_root"], "trusteddb{}".format(config.dbending)))
+        self.links["permsdb"] = permissionhash_db(os.path.join(self.links["config_root"], "permsdb{}".format(config.dbending)))
         self.links["hashdb"] = certhash_db(os.path.join(self.links["config_root"], "certdb{}".format(config.dbending)))
 
 
@@ -582,7 +587,8 @@ class client_init(object):
             self.links["cserver_ip"].serve_forever_nonblock()
         if "cserver_ip4" in self.links:
             self.links["cserver_ip4"].serve_forever_nonblock()
-
+        infoobpath = os.path.join(kwargs["run"], "{}-simplescn-client.info".format(os.getuid()))
+        self.links["clientinfohandler"] = fobject_handler(infoobpath, json.dumps(self.show()))
 
     def join(self):
         self.links["hserver"].serve_join()
@@ -634,7 +640,7 @@ default_client_args = \
     "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
     "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb security"],
     "nolock": ["False", parsebool, "<bool>: disable pid lock"],
-    "nowrap": ["True", parsebool, "<bool>: disable wrap"],
+    "nowrap": ["False", parsebool, "<bool>: disable wrap"],
     "notraverse": ["True", parsebool, "<bool>: disable traversal"]
 }
 

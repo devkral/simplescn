@@ -102,7 +102,7 @@ class permissionhash_db(object):
         if not check_hash(certhash):
             logging.error("hash contains invalid characters: %s", certhash)
             return False
-        if not check_trustpermission(permission):
+        if permission is not None and not check_trustpermission(permission):
             logging.error("not a valid permission: %s", permission)
             return False
         cur = dbcon.cursor()
@@ -603,6 +603,8 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
         try:
             self.server_bind()
+            if self.use_unix:
+                os.chmod(_address, 0o660)
             self.server_activate()
         except:
             self.server_close()
