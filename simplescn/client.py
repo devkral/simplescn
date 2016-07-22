@@ -331,7 +331,7 @@ def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, n
                 # feed with real values for server
                 con = client.HTTPConnection(_waddr, port)
                 con.sock = wrappedsocket
-                con.putrequest("POST", "/wrap")
+                con.putrequest("POST", "/wrapping")
                 con.putheader("Connection", "keep-alive")
                 con.putheader("Content-Type", "application/json; charset=utf-8")
                 con.putheader("Content-Length", str(len(jsonnized)))

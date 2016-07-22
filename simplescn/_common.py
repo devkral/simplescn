@@ -604,7 +604,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
         try:
             self.server_bind()
             if self.use_unix:
-                os.chmod(_address, 0o660)
+                os.chmod(_address, 0o600)
             self.server_activate()
         except:
             self.server_close()
