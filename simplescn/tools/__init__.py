@@ -19,13 +19,9 @@ import json
 import selectors
 import shutil
 
-
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
 from simplescn import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
-
-
-
 
 
 ##### init ######
@@ -144,6 +140,7 @@ def get_pidlock(rundir, name):
     return None
 
 ## file object handler for e.g.representing port ##
+## fails deleting old stuff
 class fobject_handler(object):
     filepath = None
     def __init__(self, path, msg, mode):
@@ -152,7 +149,7 @@ class fobject_handler(object):
         if os.path.exists(self.filepath):
             self.cleanup()
         fdob = os.open(self.filepath, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
-        with open(fdob, "w") as ob:
+        with open(fdob, "w", closefd=True) as ob:
             ob.write(msg)
     def __del__(self):
         self.cleanup()
@@ -170,9 +167,17 @@ class fobject_handler(object):
             logging.warning(exc)
         return ret
 
+def writemsg(path, msg, mode=0o400):
+    try:
+        fdob = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
+        with open(fdob, "w", closefd=True) as ob:
+            ob.write(msg)
+    except Exception as exc:
+        logging.info(exc)
+
 class secdir_handler(object):
     filepath = None
-    pidlock = None
+    pidpath = None
     #secret = None
     def __init__(self, path, mode):
         self.filepath = path
@@ -180,7 +185,7 @@ class secdir_handler(object):
         if os.path.exists(self.filepath):
             self.cleanup()
         #self.secret = str(os.urandom(config.token_size).hex())
-        os.makedirs(self.filepath, mode=mode, exist_ok=True)
+        os.makedirs(self.filepath, mode=mode, exist_ok=False)
 
     def __del__(self):
         self.cleanup()
@@ -191,18 +196,24 @@ class secdir_handler(object):
                 shutil.rmtree(self.filepath)
             except Exception as exc:
                 logging.warning(exc)
+
     @classmethod
     def create(cls, path, mode=0o700):
+        # check if other instance is running
+        if os.path.exists(path):
+            pidpath = get_pidlock(path, "lock")
+            if not pidpath:
+                return None
         ret = None
         try:
             ret = cls(path, mode)
         except Exception as exc:
             logging.warning(exc)
             return None
-        ret.pidlock = get_pidlock(path, "lock")
-        if ret.pidlock is None:
+        # regenerate lock
+        pidpath = get_pidlock(path, "lock")
+        if pidpath is None:
             ret.filepath = None
-            del ret
             return None
         #try:
         #    fdob = os.open(os.path.join(path, "secret"), os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
@@ -635,8 +646,6 @@ def loglevel_converter(loglevel):
     else:
         return int(loglevel)
 
-
-
 def rw_socket(sockr, sockw, timeout=None):
     sfsel = selectors.DefaultSelector()
     sockets = {sockr.fileno(): sockw, sockw.fileno(): sockr}
@@ -691,12 +700,11 @@ def parselocalclient(path, extractipv6=True):
         logging.warning(exc)
     return None
 
-def getlocalclient(extractipv6=True):
+def getlocalclient(extractipv6=True, rundir=config.default_runpath):
     """ parse simplescn info file at default position; use parselocalclient()
         extractipv6: extract ipv6 address
         returns: address, use_unix, cert_hash or None """
-    import tempfile
-    p = os.path.join(tempfile.gettempdir(), "{}-simplescn-client.info".format(os.getuid()))
+    p = os.path.join(rundir, "{}-simplescn-client".format(os.getuid()), "info")
     if os.path.exists(p):
         return parselocalclient(p, extractipv6)
     return None

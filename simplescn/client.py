@@ -14,13 +14,11 @@ from http import client
 
 from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
-from simplescn.tools import generate_error, gen_result, fobject_handler
 #, create_certhashheader
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, certhash_db, loglevel_converter, permissionhash_db
-
-
 from simplescn.tools import default_sslcont, try_traverse, secdir_handler, generate_certs, \
-init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
+init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper, \
+generate_error, gen_result, writemsg
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import client_admin
@@ -280,7 +278,7 @@ class client_server(commonscn):
             return False, "Traversal could not opened"
 
 def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
-    localnocert = _links["kwargs"].get("localnocert", False)
+    checklocalcert = _links["kwargs"].get("checklocalcert", False)
     """ create handler with: links, server_timeout, default_timeout, ... """
     class client_handler(commonscnhandler):
         """ client handler """
@@ -359,10 +357,12 @@ def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, n
                     return
 
                 gaction = getattr(self.links["client"], action)
-                if not remote and self.server.socket.family != file_family and not check_local(self.client_address[0]):
+                # remote==False but attempt to connect from outside
+                if not remote and not self.is_local:
                     self.send_error(400, "no permission - client")
                     return
-                if not localnocert and self.server.socket.family != file_family and not check_local(self.client_address[0]):
+                # check if checklocalcert or connection is local
+                if checklocalcert or not self.is_local:
                     if check_classify(gaction, "admin"):
                         ret = self.links["permsdb"].exist(self.certtupel[1], "admin")
                     else:
@@ -487,30 +487,33 @@ class client_init(object):
     config_root = None
     links = None
     active = True
-    secdir = None
+    secdirinst = None
 
     @classmethod
     def create(cls, **kwargs):
-        secdirpath = os.path.join(kwargs["run"], "{}-simplescn-client".format(os.getuid()))
-        secdir = secdir_handler.create(secdirpath, 0o700)
-        if not secdir:
-            logging.info("Client already runs in same user profile or permission problems")
-            return None
-        ret = cls(secdir, **kwargs)
-        ret.secdir = secdir
+        if not kwargs.get("nolock", False):
+            secdirpath = os.path.join(kwargs["run"], "{}-simplescn-client".format(os.getuid()))
+            secdirinst = secdir_handler.create(secdirpath, 0o700)
+            if not secdirinst:
+                logging.info("Client already active (same user, rundirectory) or permission problems")
+                return None
+        else:
+            secdirinst = None
+        ret = cls(secdirinst, **kwargs)
+        cls.secdirinst = secdirinst
         return ret
     
     def __del__(self):
-        try:
-           del self.secdir
-        except Exception:
-            pass
+        if self.links:
+            try:
+                del self.secdirinst
+            except Exception:
+                pass
 
-    def __init__(self, secdirob, **kwargs):
+    def __init__(self, secdirinst, **kwargs):
         self.links = {}
         self.links["config_root"] = kwargs.get("config")
         self.links["kwargs"] = kwargs
-        self.links["secdirob"] = secdirob
         _cpath = os.path.join(self.links["config_root"], "client")
         init_config_folder(self.links["config_root"], "client")
 
@@ -559,14 +562,15 @@ class client_init(object):
         
         if kwargs.get("remote", False):
             self.links["shandler"] = gen_client_handler(self.links, hasserver=True, hasclient=True, remote=True, nowrap=kwargs.get("nowrap", False))
+            kwargs["noip"] = True
         else:
             self.links["shandler"] = gen_client_handler(self.links,  hasserver=True, hasclient=False, remote=False, nowrap=kwargs.get("nowrap", False))
         self.links["hserver"] = http_server(("::", port), sslcont, self.links["shandler"])
-        
+
         if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):
             self.links["chandler"] = gen_client_handler(self.links, hasserver=False, hasclient=True, remote=False, nowrap=True)
-            if file_family is not None:
-                rpath = os.path.join(secdirob.filepath, "unix")
+            if file_family is not None and secdirinst:
+                rpath = os.path.join(secdirinst.filepath, "socket")
                 self.links["cserver_unix"] = http_server(rpath, sslcont, self.links["chandler"], use_unix=True)
             if not kwargs.get("noip", False):
                 self.links["cserver_ip"] = http_server(("::1", port), sslcont, self.links["chandler"])
@@ -585,8 +589,9 @@ class client_init(object):
             self.links["cserver_ip"].serve_forever_nonblock()
         if "cserver_ip4" in self.links:
             self.links["cserver_ip4"].serve_forever_nonblock()
-        infoobpath = os.path.join(kwargs["run"], "{}-simplescn-client.{}".format(os.getuid(), "{}"))
-        self.links["clientinfohandler"] = fobject_handler(infoobpath.format("info"), json.dumps(self.show()), 0o400)
+        if secdirinst:
+            infoobpath = os.path.join(secdirinst.filepath, "info")
+            writemsg(infoobpath, json.dumps(self.show()), 0o400)
 
     def join(self):
         self.links["hserver"].serve_join()
@@ -603,6 +608,10 @@ class client_init(object):
             self.links["cserver_ip4"].server_close()
         if "cserver_unix" in self.links:
             self.links["cserver_unix"].server_close()
+        if self.secdirinst:
+            self.secdirinst.cleanup()
+            self.secdirinst.filepath = None
+
     def show(self):
         ret = dict()
         ret["cert_hash"] = self.links["client"].certtupel[1]
@@ -611,12 +620,19 @@ class client_init(object):
         _r = self.links.get("cserver_ip", None)
         if _r:
             ret["cserver_ip"] = _r.server_name, _r.server_port
-        else:
+        elif self.links["kwargs"].get("remote", False):
             ret["cserver_ip"] = ret["hserver"]
         _r = self.links.get("cserver_unix", None)
         if _r:
             ret["cserver_unix"] = _r.server_name
         return ret
+
+if config.file_family:
+    default_nounix = "False"
+    default_noip = "True"
+else:
+    default_nounix = "True"
+    default_noip = "False"
 
 #specified seperately because of chicken egg problem
 #"config":default_configdir
@@ -624,7 +640,7 @@ default_client_args = \
 {
     "spwhash": ["", str, "<lowercase hash>: sha256 hash of pw, higher preference than spw, lowercase"],
     "spwfile": ["", str, "<pw>: password file"],
-    "remote" : ["False", parsebool, "<bool>: remote reachable (not only localhost) (needs cpwhash/file)"],
+    "remote" : ["False", parsebool, "<bool>: remote reachable (not only localhost) (needs cpwhash/file), disables client httpserver"],
     "priority": [str(config.default_priority), int, "<int>: set client priority"],
     "connect_timeout": [str(config.connect_timeout), int, "<int>: set timeout for connecting"],
     "server_timeout": [str(config.server_timeout), int, "<int>: set timeout for servercomponent"],
@@ -633,13 +649,13 @@ default_client_args = \
     "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""],
     "config": [config.default_configdir, parsepath, "<dir>: path to config dir"],
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
-    "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
-    "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
+    "nounix": [default_nounix, parsebool, "<bool>: deactivate unix socket client server"],
+    "noip": [default_noip, parsebool, "<bool>: deactivate ip socket client server"],
     "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb security"],
-    "nofullinfo": ["False", parsebool, "<bool>: don't create info file with full info"],
     "nowrap": ["False", parsebool, "<bool>: disable wrap"],
-    "localnocert": ["True", parsebool, "<bool>: no cert required for local clients"],
-    "notraverse": ["True", parsebool, "<bool>: disable traversal"]
+    "checklocalcert": ["False", parsebool, "<bool>: require certificate for local connections"],
+    "notraverse": ["True", parsebool, "<bool>: disable traversal"],
+    "nolock": ["False", parsebool, "<bool>: deactivate port lock+unix socket+info"]
 }
 
 def client_paramhelp():

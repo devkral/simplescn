@@ -352,6 +352,7 @@ class server_init(object):
             # port
             pidpath = get_pidlock(kwargs["run"], "{}-simplescn-server.lck".format(kwargs["port"]))
             if not pidpath:
+                logging.info("Server already active or permission problems")
                 return None
         else:
             pidpath = None

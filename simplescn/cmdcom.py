@@ -14,6 +14,7 @@ if __name__ == "__main__":
 
 from simplescn import pwcallmethod
 from simplescn.scnrequest import do_request_simple
+from simplescn.tools import getlocalclient
 
 def cmdloop(ip, use_unix=False, forcehash=None):
     while True:
@@ -33,40 +34,57 @@ def cmdloop(ip, use_unix=False, forcehash=None):
         #    print(exc, file=sys.stderr)
 
 
-def _single(argv, use_unix):
+def _single(address, use_unix, argv):
+    command = argv[1]
     if len(argv) >= 2:
-        url = argv[1]
-        command = argv[2]
-        if len(argv) >= 3:
-            stuff = argv[3]
-        else:
-            stuff = input()
-        headers = {"Content-Type": "application/json; charset=utf-8"}
-        ret = do_request_simple(url, "/client/{}".format(command), stuff, headers, use_unix=use_unix)
-        print(ret)
+        stuff = argv[2]
     else:
-        print("Usage: single <url> <command>", file=sys.stderr)
+        stuff = input()
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    ret = do_request_simple(address, "/client/{}".format(command), stuff, headers, use_unix=use_unix)
+    print(ret)
 
 
 def single(argv=sys.argv[1:]):
-    _single(argv, False)
+    if len(argv) < 1:
+        print("Usage: single <command>", file=sys.stderr)
+        return
+    ret = getlocalclient()
+    if ret:
+        _single(ret[0], ret[1], argv)
+    else:
+        print("Error: client is not active or uses different run-directory", file=sys.stderr)
+
+def single_ip(argv=sys.argv[1:]):
+    if len(argv) < 2:
+        print("Usage: single_ip <url> <command>", file=sys.stderr)
+    else:
+        _single(argv[0], False, argv[1:])
 
 def single_unix(argv=sys.argv[1:]):
-    _single(argv, True)
-
-
-def _loop(argv, use_unix):
-    if len(argv) >= 1:
-        url = argv[0]
-        cmdloop(url, use_unix)
+    if len(argv) < 2:
+        print("Usage: single_ip <path> <command>", file=sys.stderr)
     else:
-        print("Usage: loop <url>", file=sys.stderr)
+        _single(argv[0], True, argv[1:])
 
 def loop(argv=sys.argv[1:]):
-    _loop(argv, False)
+    ret = getlocalclient()
+    if ret:
+        cmdloop(*ret)
+    else:
+        print("Error: client is not active or uses different run-directory", file=sys.stderr)
+
+def loop_ip(argv=sys.argv[1:]):
+    if len(argv) < 1:
+        print("Usage: loop_ip <url>", file=sys.stderr)
+    else:
+         cmdloop(argv[0], False)
 
 def loop_unix(argv=sys.argv[1:]):
-    _loop(argv, True)
+    if len(argv) < 2:
+        print("Usage: loop_unix <path>", file=sys.stderr)
+    else:
+         cmdloop(argv[0], True)
 
 def _test(argv, use_unix):
     from simplescn.__main__ import client, server, running_instances
@@ -87,7 +105,7 @@ def _test(argv, use_unix):
     else:
         cmdloop("::1-{}".format(t.get("cserver_ip")[1]), forcehash=t.get("cert_hash"))
 
-def test(argv=sys.argv[1:]):
+def test_ip(argv=sys.argv[1:]):
     _test(argv, False)
 
 def test_unix(argv=sys.argv[1:]):
@@ -100,9 +118,9 @@ def _init_method_main(argv=sys.argv[1:]):
         if callable(toexe):
             toexe(argv[1:])
         else:
-            print("Available: single, test, test_unix, loop", file=sys.stderr)
+            print("Available: single{ip,unix,-}, loop{ip,unix,-}, test{ip,unix}}", file=sys.stderr)
     else:
-        print("Available: single, test, test_unix, loop", file=sys.stderr)
+        print("Available: single{ip,unix,-}, loop{ip,unix,-}, test{ip,unix}}", file=sys.stderr)
 
 if __name__ == "__main__":
     _init_method_main()
