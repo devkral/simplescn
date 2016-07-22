@@ -148,6 +148,9 @@ class fobject_handler(object):
     filepath = None
     def __init__(self, path, msg, mode):
         self.filepath = path
+        # cleanup old
+        if os.path.exists(self.filepath):
+            self.cleanup()
         fdob = os.open(self.filepath, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
         with open(fdob, "w") as ob:
             ob.write(msg)
@@ -173,6 +176,9 @@ class secdir_handler(object):
     #secret = None
     def __init__(self, path, mode):
         self.filepath = path
+        # cleanup old
+        if os.path.exists(self.filepath):
+            self.cleanup()
         #self.secret = str(os.urandom(config.token_size).hex())
         os.makedirs(self.filepath, mode=mode, exist_ok=True)
 

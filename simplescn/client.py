@@ -586,7 +586,7 @@ class client_init(object):
         if "cserver_ip4" in self.links:
             self.links["cserver_ip4"].serve_forever_nonblock()
         infoobpath = os.path.join(kwargs["run"], "{}-simplescn-client.{}".format(os.getuid(), "{}"))
-        self.links["clientinfohandler"] = fobject_handler(infoobpath.format("info"), json.dumps(self.show()), 0o600)
+        self.links["clientinfohandler"] = fobject_handler(infoobpath.format("info"), json.dumps(self.show()), 0o400)
 
     def join(self):
         self.links["hserver"].serve_join()
