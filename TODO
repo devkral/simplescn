@@ -1,8 +1,15 @@
 
 
+* secure unix socket (use own directory) (done)
+* prepare for permissions
+* wrap support
+* announce client with info file
+
+
 ## 0.6
 * tests for wrap, traversal, massimport
 * ipv4, ipv6 compatibility checks
+
 
 ## future
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)

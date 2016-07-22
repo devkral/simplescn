@@ -20,6 +20,7 @@ max_serverrequest_size = 4000
 # maybe a bad idea to change
 max_typelength = 15
 max_namelength = 64
+max_urllength = 400
 
 ## dbending
 dbending = ".sqlite"

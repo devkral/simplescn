@@ -28,18 +28,20 @@ class AddressError(Exception):
         return self.basemsg + self.msg
 
 class EnforcedPortError(AddressError):
-    msg = 'address is lacking -<port>'
+    msg = 'address lacking -<port>'
 class AddressEmptyError(AddressError):
-    msg = 'address is empty'
+    msg = 'address empty'
+class AddressLengthError(AddressError):
+    msg = 'address too long'
 class AddressInvalidError(AddressError):
-    msg = 'address is invalid'
+    msg = 'address invalid'
 
 class InvalidLoadError(Exception):
     msg = ''
     def __str__(self):
         return self.msg
 class InvalidLoadSizeError(InvalidLoadError):
-    msg = 'Load is invalid tuple/list (needs 3 items or 2 in case of very_low_load)'
+    msg = 'Load invalid tuple/list (needs 3 items or 2 in case of very_low_load)'
 class InvalidLoadLevelError(InvalidLoadError):
     msg = 'Load levels invalid (not high_load>medium_load>low_load)'
 

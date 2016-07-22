@@ -19,7 +19,7 @@ from simplescn.tools import generate_error, gen_result, fobject_handler
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, certhash_db, loglevel_converter, permissionhash_db
 
 
-from simplescn.tools import default_sslcont, try_traverse, get_pidlock, generate_certs, \
+from simplescn.tools import default_sslcont, try_traverse, secdir_handler, generate_certs, \
 init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
@@ -279,7 +279,8 @@ class client_server(commonscn):
         else:
             return False, "Traversal could not opened"
 
-def gen_client_handler(_links, stimeout, etimeout, hasserver=False, hasclient=False, remote=False, nowrap=False):
+def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
+    localnocert = _links["kwargs"].get("localnocert", False)
     """ create handler with: links, server_timeout, default_timeout, ... """
     class client_handler(commonscnhandler):
         """ client handler """
@@ -287,8 +288,8 @@ def gen_client_handler(_links, stimeout, etimeout, hasserver=False, hasclient=Fa
         # set onlylocal variable if remote is deactivated and not server
         onlylocal = not remote and not hasserver
         links = _links
-        server_timeout = stimeout
-        etablished_timeout = etimeout
+        server_timeout = _links["kwargs"].get("server_timeout")
+        etablished_timeout = _links["kwargs"].get("default_timeout")
 
         def handle_wrap(self, servicename):
             """ wrap service """
@@ -358,7 +359,10 @@ def gen_client_handler(_links, stimeout, etimeout, hasserver=False, hasclient=Fa
                     return
 
                 gaction = getattr(self.links["client"], action)
-                if remote:
+                if not remote and self.server.socket.family != file_family and not check_local(self.client_address[0]):
+                    self.send_error(400, "no permission - client")
+                    return
+                if not localnocert and self.server.socket.family != file_family and not check_local(self.client_address[0]):
                     if check_classify(gaction, "admin"):
                         ret = self.links["permsdb"].exist(self.certtupel[1], "admin")
                     else:
@@ -366,9 +370,6 @@ def gen_client_handler(_links, stimeout, etimeout, hasserver=False, hasclient=Fa
                     if not ret:
                         self.send_error(400, "no permission - client")
                         return
-                elif not remote and self.server.socket.family != file_family and not check_local(self.client_address[0]):
-                    self.send_error(400, "no permission - client")
-                    return
                 self.connection.settimeout(self.etablished_timeout)
                 obdict = self.parse_body()
                 if obdict is None:
@@ -484,34 +485,32 @@ def gen_client_handler(_links, stimeout, etimeout, hasserver=False, hasclient=Fa
 
 class client_init(object):
     config_root = None
-    plugins_config = None
     links = None
     active = True
-    pidpath = None
+    secdir = None
 
     @classmethod
     def create(cls, **kwargs):
-        if not kwargs["nolock"]:
-            pidpath = get_pidlock(kwargs["run"], "{}-simplescn-client.lck".format(os.getuid()))
-            if not pidpath:
-                return None
-        else:
-            pidpath = None
-        ret = cls(**kwargs)
-        ret.pidpath = pidpath
+        secdirpath = os.path.join(kwargs["run"], "{}-simplescn-client".format(os.getuid()))
+        secdir = secdir_handler.create(secdirpath, 0o700)
+        if not secdir:
+            logging.info("Client already runs in same user profile or permission problems")
+            return None
+        ret = cls(secdir, **kwargs)
+        ret.secdir = secdir
         return ret
     
     def __del__(self):
-        if self.pidpath:
-            try:
-                os.remove(self.pidpath)
-            except Exception:
-                pass
+        try:
+           del self.secdir
+        except Exception:
+            pass
 
-    def __init__(self, **kwargs):
+    def __init__(self, secdirob, **kwargs):
         self.links = {}
         self.links["config_root"] = kwargs.get("config")
         self.links["kwargs"] = kwargs
+        self.links["secdirob"] = secdirob
         _cpath = os.path.join(self.links["config_root"], "client")
         init_config_folder(self.links["config_root"], "client")
 
@@ -525,7 +524,6 @@ class client_init(object):
         self.links["auth_server"] = scnauth_server(dhash(pub_cert))
         self.links["permsdb"] = permissionhash_db(os.path.join(self.links["config_root"], "permsdb{}".format(config.dbending)))
         self.links["hashdb"] = certhash_db(os.path.join(self.links["config_root"], "certdb{}".format(config.dbending)))
-
 
         if bool(kwargs.get("spwhash")):
             if not check_hash(kwargs.get("spwhash")):
@@ -560,15 +558,15 @@ class client_init(object):
         sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
         
         if kwargs.get("remote", False):
-            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), hasserver=True, hasclient=True, remote=True, nowrap=kwargs.get("nowrap", False))
+            self.links["shandler"] = gen_client_handler(self.links, hasserver=True, hasclient=True, remote=True, nowrap=kwargs.get("nowrap", False))
         else:
-            self.links["shandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), hasserver=True, hasclient=False, remote=False, nowrap=kwargs.get("nowrap", False))
+            self.links["shandler"] = gen_client_handler(self.links,  hasserver=True, hasclient=False, remote=False, nowrap=kwargs.get("nowrap", False))
         self.links["hserver"] = http_server(("::", port), sslcont, self.links["shandler"])
         
         if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):
-            self.links["chandler"] = gen_client_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"), hasserver=False, hasclient=True, remote=False, nowrap=True)
+            self.links["chandler"] = gen_client_handler(self.links, hasserver=False, hasclient=True, remote=False, nowrap=True)
             if file_family is not None:
-                rpath = os.path.join(kwargs.get("run"), "{}-simplescn-client.unix".format(os.getuid()))
+                rpath = os.path.join(secdirob.filepath, "unix")
                 self.links["cserver_unix"] = http_server(rpath, sslcont, self.links["chandler"], use_unix=True)
             if not kwargs.get("noip", False):
                 self.links["cserver_ip"] = http_server(("::1", port), sslcont, self.links["chandler"])
@@ -587,8 +585,8 @@ class client_init(object):
             self.links["cserver_ip"].serve_forever_nonblock()
         if "cserver_ip4" in self.links:
             self.links["cserver_ip4"].serve_forever_nonblock()
-        infoobpath = os.path.join(kwargs["run"], "{}-simplescn-client.info".format(os.getuid()))
-        self.links["clientinfohandler"] = fobject_handler(infoobpath, json.dumps(self.show()))
+        infoobpath = os.path.join(kwargs["run"], "{}-simplescn-client.{}".format(os.getuid(), "{}"))
+        self.links["clientinfohandler"] = fobject_handler(infoobpath.format("info"), json.dumps(self.show()), 0o644)
 
     def join(self):
         self.links["hserver"].serve_join()
@@ -605,7 +603,6 @@ class client_init(object):
             self.links["cserver_ip4"].server_close()
         if "cserver_unix" in self.links:
             self.links["cserver_unix"].server_close()
-
     def show(self):
         ret = dict()
         ret["cert_hash"] = self.links["client"].certtupel[1]
@@ -639,8 +636,9 @@ default_client_args = \
     "nounix": ["False", parsebool, "<bool>: deactivate unix socket client server"],
     "noip": ["False", parsebool, "<bool>: deactivate ip socket client server"],
     "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb security"],
-    "nolock": ["False", parsebool, "<bool>: disable pid lock"],
+    "nofullinfo": ["False", parsebool, "<bool>: don't create info file with full info"],
     "nowrap": ["False", parsebool, "<bool>: disable wrap"],
+    "localnocert": ["True", parsebool, "<bool>: no cert required for local clients"],
     "notraverse": ["True", parsebool, "<bool>: disable traversal"]
 }
 

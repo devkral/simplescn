@@ -17,11 +17,12 @@ import re
 import threading
 import json
 import selectors
+import shutil
 
 
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
-from simplescn import AddressError, AddressEmptyError, EnforcedPortError
+from simplescn import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
 
 
 
@@ -145,23 +146,65 @@ def get_pidlock(rundir, name):
 ## file object handler for e.g.representing port ##
 class fobject_handler(object):
     filepath = None
-    def __init__(self, path, msg):
+    def __init__(self, path, msg, mode):
         self.filepath = path
-        fdob = os.open(self.filepath, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+        fdob = os.open(self.filepath, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
         with open(fdob, "w") as ob:
             ob.write(msg)
     def __del__(self):
+        self.cleanup()
+    def cleanup(self):
         try:
             os.remove(self.filepath)
         except Exception as exc:
             logging.warning(exc)
     @classmethod
-    def create(cls, path, msg):
+    def create(cls, path, msg, mode=0o600):
         ret = None
         try:
-            ret = cls(path, msg)
+            ret = cls(path, msg, mode)
         except Exception as exc:
             logging.warning(exc)
+        return ret
+
+class secdir_handler(object):
+    filepath = None
+    pidlock = None
+    #secret = None
+    def __init__(self, path, mode):
+        self.filepath = path
+        #self.secret = str(os.urandom(config.token_size).hex())
+        os.makedirs(self.filepath, mode=mode, exist_ok=True)
+
+    def __del__(self):
+        self.cleanup()
+
+    def cleanup(self):
+        if self.filepath:
+            try:
+                shutil.rmtree(self.filepath)
+            except Exception as exc:
+                logging.warning(exc)
+    @classmethod
+    def create(cls, path, mode=0o700):
+        ret = None
+        try:
+            ret = cls(path, mode)
+        except Exception as exc:
+            logging.warning(exc)
+            return None
+        ret.pidlock = get_pidlock(path, "lock")
+        if ret.pidlock is None:
+            ret.filepath = None
+            del ret
+            return None
+        #try:
+        #    fdob = os.open(os.path.join(path, "secret"), os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
+        #    with open(fdob, "w") as wob:
+        #        wob.write(ret.secret)
+        #except Exception as exc:
+        #    logging.error(exc)
+        #    ret = None
         return ret
 
 ##### etc ######
@@ -216,8 +259,10 @@ def scnparse_url(url, force_port=False):
     #     return url
     if not isinstance(url, str):
         raise AddressError
-    if url == "":
+    if len(url) == 0:
         raise AddressEmptyError
+    if len(url) > config.max_urllength:
+        raise AddressLengthError
     _urlre = _reparseurl.match(url)
     if _urlre is not None:
         return _urlre.groups()[0], int(_urlre.groups()[1])
