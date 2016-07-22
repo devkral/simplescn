@@ -108,7 +108,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         senddict = extract_senddict(obdict, "name", "port")
         senddict["wrappedport"] = obdict.get("wrappedport", False)
         senddict["post"] = obdict.get("post", False)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
@@ -117,7 +117,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             # access direct (more speed+no pwcheck)
             senddict["clientaddress"] = ("::1", 0)
             _cstemp = self.links["client_server"]
-            ret = _cstemp.registerservice(senddict)
+            ret = _cstemp.registerservice(senddict, prefix=None)
             return ret[0], gen_result(ret[1])
 
     @check_args_deco({"name": str}, optional={"client": str, "forcehash": str})
@@ -138,7 +138,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             # access direct (more speed+no pwcheck)
             senddict["clientaddress"] = ("::1", 0)
             _cstemp = self.links["client_server"]
-            ret = _cstemp.delservice(senddict)
+            ret = _cstemp.delservice(senddict, prefix=None)
             return ret[0], gen_result(ret[1])
 
     @check_args_deco({"name": str}, optional={"client": str, "forcehash": str})

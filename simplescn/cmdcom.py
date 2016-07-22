@@ -88,7 +88,12 @@ def loop_unix(argv=sys.argv[1:]):
 
 def _test(argv, use_unix):
     from simplescn.__main__ import client, server, running_instances
-    c = client(doreturn=True)
+    aargv = argv.copy()
+    if use_unix:
+        aargv.append("--nounix=False")
+    else:
+        aargv.append("--noip=False")
+    c = client(aargv, doreturn=True)
     running_instances.append(c)
     t = c.show()
     s = server([], doreturn=True)
@@ -118,9 +123,9 @@ def _init_method_main(argv=sys.argv[1:]):
         if callable(toexe):
             toexe(argv[1:])
         else:
-            print("Available: single{ip,unix,-}, loop{ip,unix,-}, test{ip,unix}}", file=sys.stderr)
+            print("Available: single{_ip, _unix, -}, loop{_ip, _unix, -}, test{_ip, _unix}}", file=sys.stderr)
     else:
-        print("Available: single{ip,unix,-}, loop{ip,unix,-}, test{ip,unix}}", file=sys.stderr)
+        print("Available: single{_ip, _unix, -}, loop{_ip, _unix, -}, test{_ip, _unix}}", file=sys.stderr)
 
 if __name__ == "__main__":
     _init_method_main()

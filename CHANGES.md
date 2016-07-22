@@ -1,3 +1,6 @@
+# 0.6
+## bugfixes
+
 # 0.5
 ## bugfixes
 * all headers were send to server in some methods

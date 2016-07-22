@@ -119,14 +119,14 @@ def check_args_deco(requires=None, optional=None):
     if not optional:
         optional = {}
     def func_to_check(func):
-        def get_args(self, obdict):
+        def get_args(self, obdict, **kwargs):
             error = []
             if not check_args(obdict, requires, optional, error=error):
                 if len(error) == 2:
                     return False, generate_error("check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), False), self.certtupel
                 else:
                     raise(TypeError("check_args failed ({})+error broken: {}".format(func.__name__, error)))
-            resp = func(self, obdict)
+            resp = func(self, obdict, **kwargs)
             if resp is None:
                 return False, generate_error("bug: no return value in function {}".format(type(func).__name__), False), self.certtupel
             if isinstance(resp, bool) or len(resp) == 1:

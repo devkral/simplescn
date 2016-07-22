@@ -168,7 +168,7 @@ class client_server(commonscn):
     @check_args_deco({"name": str, "port": int}, optional={"wrappedport": bool, "post": bool, "hidden": bool})
     @classify_local
     @classify_accessable
-    def registerservice(self, obdict):
+    def registerservice(self, obdict, prefix="#"):
         """ func: register a service = (map port to name)
             return: success or error
             name: service name
@@ -176,46 +176,51 @@ class client_server(commonscn):
             wrappedport: port is masked/is not traversable (but can be wrapped)
             hidden: port and servicename are not listed (default: False)
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
+        if not check_local(obdict["clientaddress"][0]):
+            return False, "no permission"
         if not check_name(obdict["name"]):
             return False, "invalid service name"
-        if check_local(obdict["clientaddress"][0]):
-            wrappedport = obdict.get("wrappedport", None)
-            # activates wrappedport if unspecified
-            if wrappedport is None:
-                wrappedport = obdict.get("post", False)
-            with self.wlock:
-                self.spmap_meta[obdict["name"]] = (obdict.get("port"), wrappedport, obdict.get("post", False))
-                if obdict.get("hidden", False) and \
-                   obdict.get("port") in self.spmap[obdict["name"]]:
-                    del self.spmap[obdict["name"]]
+        if prefix and obdict["name"][0] != prefix:
+            return False, "service name without/with wrong prefix"
+        wrappedport = obdict.get("wrappedport", None)
+        # activates wrappedport if unspecified
+        if wrappedport is None:
+            wrappedport = obdict.get("post", False)
+        with self.wlock:
+            self.spmap_meta[obdict["name"]] = (obdict.get("port"), wrappedport, obdict.get("post", False))
+            if obdict.get("hidden", False) and \
+               obdict.get("port") in self.spmap[obdict["name"]]:
+                del self.spmap[obdict["name"]]
+            else:
+                if not wrappedport:
+                    self.spmap[obdict["name"]] = obdict.get("port")
                 else:
-                    if not wrappedport:
-                        self.spmap[obdict["name"]] = obdict.get("port")
-                    else:
-                        self.spmap[obdict["name"]] = -1
-                self.cache["dumpservices"] = json.dumps(self.spmap)
-                #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
-            return True, "ok"
-        return False, "no permission"
+                    self.spmap[obdict["name"]] = -1
+            self.cache["dumpservices"] = json.dumps(self.spmap)
+            #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
+        return True
 
     # don't annote list with "map" dict structure on serverside (overhead)
     @check_args_deco({"name": str})
     @classify_local
     @classify_accessable
-    def delservice(self, obdict):
+    def delservice(self, obdict, prefix="#"):
         """ func: delete a service
             return: success or error
             name: service name """
-        if check_local(obdict["clientaddress"][0]):
-            with self.wlock:
-                if  obdict["name"] in self.spmap_meta:
-                    del self.spmap_meta[obdict["name"]]
+        if not check_local(obdict["clientaddress"][0]):
+            return False, "no permission"
+        if prefix and obdict["name"][0] != prefix:
+            return False, "service name without/with wrong prefix"
 
-                if obdict["name"] in self.spmap:
-                    del self.spmap[obdict["name"]]
-                    self.cache["dumpservices"] = json.dumps(gen_result(self.spmap)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
-            return True, "ok"
-        return False, "no permission"
+        with self.wlock:
+            if  obdict["name"] in self.spmap_meta:
+                del self.spmap_meta[obdict["name"]]
+
+            if obdict["name"] in self.spmap:
+                del self.spmap[obdict["name"]]
+                self.cache["dumpservices"] = json.dumps(gen_result(self.spmap)) #sorted(self.spmap.items(), key=lambda t: t[0]), True))
+        return True
 
     ### management section - end ###
 

@@ -120,13 +120,17 @@ class TestCommunication(unittest.TestCase):
         self.assertEqual(services_ret[0], False)
 
     def test_services_remote(self):
+        # unprefixed
         services_reg = self.client2.links["client"].access_dict("registerservice", {"client": "::1-{}".format(self.client_port), "name": "test", "port": 666})
+        self.assertEqual(services_reg[0], False, services_reg[1])
+        # prefixed
+        services_reg = self.client2.links["client"].access_dict("registerservice", {"client": "::1-{}".format(self.client_port), "name": "#test", "port": 666})
         self.assertEqual(services_reg[0], True, services_reg[1])
-        services_ret = self.client.links["client"].access_dict("getservice", {"client": "::1-{}".format(self.client_port), "name": "test"})
+        services_ret = self.client.links["client"].access_dict("getservice", {"client": "::1-{}".format(self.client_port), "name": "#test"})
         self.assertEqual(services_ret[0], True, services_ret[1])
-        services_del = self.client.links["client"].access_dict("delservice", {"client": "::1-{}".format(self.client_port), "name": "test"})
+        services_del = self.client.links["client"].access_dict("delservice", {"client": "::1-{}".format(self.client_port), "name": "#test"})
         self.assertEqual(services_del[0], True, services_del[1])
-        services_ret = self.client.links["client"].access_dict("getservice", {"client": "::1-{}".format(self.client_port), "name": "test"})
+        services_ret = self.client.links["client"].access_dict("getservice", {"client": "::1-{}".format(self.client_port), "name": "#test"})
         self.assertEqual(services_ret[0], False)
 
     def test_rename(self):
