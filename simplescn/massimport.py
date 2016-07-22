@@ -40,7 +40,7 @@ def _getclientcon(addr, configdir=config.default_configdir, forcehash=None):
     ret = do_request(addr, "/client/show", {}, {}, pwhandler=lambda: pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
     if not ret[0] or not ret[1]:
         raise Exception("Invalid client")
-    return ret[0], ret[2]
+    return ret[0], ret[3][1]
 
 def cmdmassimport(argv=sys.argv[1:]):
     kwargs = scnparse_args(argv, massimport_paramhelp, massimport_args)
@@ -54,8 +54,8 @@ def cmdmassimport(argv=sys.argv[1:]):
     if not bool(shash):
         print("Error: no sourcehash", file=sys.stderr)
         return
-    con_or_addr, _hash = _getclientcon(kwargs["address"], kwargs["config"], forcehash=_hash)
-    ret = massimport(con_or_addr, saddr, shash, kwargs["listentities"], \
+    con, _hash = _getclientcon(kwargs["address"], kwargs["config"], forcehash=_hash)
+    ret = massimport(con, saddr, shash, kwargs["listentities"], \
         kwargs["listhashes"], pwhandler=lambda: pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
     print(ret)
 
