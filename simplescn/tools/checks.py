@@ -44,6 +44,13 @@ def check_local(addr):
         return True
     return False
 
+#def check_local_user(port):
+#    import psutil
+#    if addr.lower() in ["127.0.0.1", "::1", "::ffff:127.0.0.1"]:
+#        return True
+#    return False
+
+
 # DEFAULT_HASHALGORITHM_len for default hash algo
 # but None by default for validating hashes of other length
 def check_hash(hashstr, length=None):
