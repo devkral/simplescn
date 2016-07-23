@@ -257,7 +257,8 @@ def normalize_name(_name, maxlength=config.max_namelength):
 def default_sslcont():
     sslcont = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     sslcont.set_ciphers("HIGH")
-    sslcont.options = sslcont.options|ssl.OP_SINGLE_DH_USE|ssl.OP_SINGLE_ECDH_USE|ssl.OP_NO_COMPRESSION
+    sslcont.options = sslcont.options | ssl.OP_SINGLE_DH_USE \
+    | ssl.OP_SINGLE_ECDH_USE|ssl.OP_NO_COMPRESSION
     return sslcont
 
 def gen_sslcont(path):
@@ -290,7 +291,8 @@ def scnparse_url(url, force_port=False):
 def url_to_ipv6(url: str, port: int):
     if url == "":
         return None
-    ret = socket.getaddrinfo(url, port, socket.AF_INET6, socket.SOCK_STREAM, flags=socket.AI_V4MAPPED)
+    ret = socket.getaddrinfo(url, port, \
+    socket.AF_INET6, socket.SOCK_STREAM, flags=socket.AI_V4MAPPED)
     if len(ret) == 0:
         return None
     return ret[0][4][:2]
@@ -317,7 +319,8 @@ class scnauth_server(object):
     hash_algorithm = None
     serverpubcert_hash = None
 
-    def __init__(self, serverpubcert_hash, hash_algorithm=config.DEFAULT_HASHALGORITHM, request_expire_time=config.auth_request_expire_time):
+    def __init__(self, serverpubcert_hash, hash_algorithm=config.DEFAULT_HASHALGORITHM, \
+                 request_expire_time=config.auth_request_expire_time):
         self.hash_algorithm = hash_algorithm
         self.serverpubcert_hash = serverpubcert_hash
         self.request_expire_time = request_expire_time

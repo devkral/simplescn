@@ -1,5 +1,17 @@
 # 0.6
 ## bugfixes
+* unix sockets are better secured
+* protect regex against long urls
+* fix wrap support
+* add example
+
+## changes
+* require prefix for foreign created services
+* rename *trust to *perm
+* move trusteddb, hasdb into links
+* add more modes for registerservice
+* announce client with info file
+* change defaults
 
 # 0.5
 ## bugfixes

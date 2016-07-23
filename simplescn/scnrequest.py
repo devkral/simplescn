@@ -20,8 +20,8 @@ reference_header = \
 {
     "User-Agent": "simplescn/1.0",
     "Authorization": 'scn {}'
-    #"Connection": 'keep-alive' # dokeepalive cares
 }
+#"Connection": 'keep-alive' # dokeepalive cares
 
 strip_headers = ["Connection", "Host", "Accept-Encoding", \
 "Content-Length", "User-Agent", "X-certrewrap", "X-SCN-Authorization"]
@@ -30,7 +30,7 @@ class requester(object):
     saved_kwargs = None
     def __init__(self, **kwargs):
         self.saved_kwargs = kwargs
-    
+
     def do_request(self, addr_or_con, path, body=None, headers=None, **kwargs):
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
@@ -41,11 +41,10 @@ class requester(object):
         _kwargs.update(kwargs)
         return do_request_simple(addr_or_con, path, body=body, headers=headers, **_kwargs)
 
-
 class SCNConnection(client.HTTPSConnection):
     """ easy way to connect with simplescn nodes """
     kwargs = None
-    
+
     # valid values for certtupel
     # None
     # None, hash, cert
@@ -65,9 +64,9 @@ class SCNConnection(client.HTTPSConnection):
                 logging.warning("use_unix used with forceport")
         else:
             self.host, self.port = scnparse_url(host, force_port=kwargs.get("forceport", False))
-    
+
     def connect(self):
-        """Connect to the host and port specified in __init__."""
+        """ Connect to the host and port specified in __init__ """
         etimeout = self.kwargs.get("timeout", config.default_timeout)
         contimeout = self.kwargs.get("connect_timeout", config.connect_timeout)
         if self.kwargs.get("use_unix"):
@@ -111,7 +110,7 @@ class SCNConnection(client.HTTPSConnection):
         self._check_cert()
         #if self._tunnel_host:
         #    self._tunnel()
-    
+
     def _check_cert(self):
         pcert = ssl.DER_cert_to_PEM_cert(self.sock.getpeercert(True)).strip().rstrip()
         hashpcert = dhash(pcert)
@@ -136,7 +135,6 @@ class SCNConnection(client.HTTPSConnection):
     def rewrap(self):
         self.sock = self.sock.unwrap()
         self.sock = self._context.wrap_socket(self.sock, server_side=True)
-        
 
 def init_body_headers(body, headers):
     sendheaders = reference_header.copy()
@@ -157,8 +155,6 @@ def init_body_headers(body, headers):
             if key not in strip_headers:
                 sendheaders[key] = value
     return sendbody, sendheaders
-
-
 
 def authorization(pwhashed, reqob, serverhash, sendheaders):
     """ handles auth, headers arg will be changed """
@@ -263,7 +259,7 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
         elif callable(kwargs.get("pwhandler", None)):
             pw = kwargs.get("pwhandler")(config.pwrealm_prompt)
             if pw:
-                kwargs["X-SCN-Authorization"] = dhash(pw, reqob.get("algo")) 
+                kwargs["X-SCN-Authorization"] = dhash(pw, reqob.get("algo"))
                 return do_request(con, path, body=body, \
                     headers=sendheaders, kwargs=kwargs)
         raise AuthNeeded(con, str(readob, "utf-8"))
@@ -290,7 +286,6 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
             return con, success, obdict, obdict["origcertinfo"]
         else:
             return con, success, obdict, con.certtupel
-
 
 def do_request_simple(addr_or_con, path: str, body: dict, headers: dict, **kwargs):
     """ autoclose connection """

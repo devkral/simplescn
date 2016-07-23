@@ -55,7 +55,6 @@ class client_client(client_admin, client_safe):
         self.udpsrcsock.settimeout(None)
         self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
         self.scntraverse_helper = traverser_helper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
-        
         os.makedirs(os.path.join(self.links["config_root"], "broken"), mode=0o700, exist_ok=True)
         for elem in os.listdir(os.path.join(self.links["config_root"], "broken")):
             _splitted = elem.rsplit(".", 1)
@@ -323,10 +322,6 @@ def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, n
                 self.scn_send_answer(404, message="service not reachable")
                 return
             if post:
-                # create_certhashheader not needed only localhost
-                #_header, _random = create_certhashheader(self.links["client_client"].certtupel[1])
-                #"X-certrewrap": _header,
-                
                 jsonnized = bytes(json.dumps({"origcertinfo": self.certtupel}), "utf-8")
                 # feed with real values for server
                 con = client.HTTPConnection(_waddr, port)
@@ -507,7 +502,7 @@ class client_init(object):
         ret = cls(secdirinst, **kwargs)
         cls.secdirinst = secdirinst
         return ret
-    
+
     def __del__(self):
         if self.links:
             try:
@@ -563,13 +558,14 @@ class client_init(object):
         else:
             port = config.client_port
         sslcont = default_sslcont()
-        sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
-        
+        sslcont.load_cert_chain(_cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
+
         if kwargs.get("remote", False):
             self.links["shandler"] = gen_client_handler(self.links, hasserver=True, hasclient=True, remote=True, nowrap=kwargs.get("nowrap", False))
             kwargs["noip"] = True
         else:
-            self.links["shandler"] = gen_client_handler(self.links,  hasserver=True, hasclient=False, remote=False, nowrap=kwargs.get("nowrap", False))
+            self.links["shandler"] = gen_client_handler(self.links, hasserver=True, \
+            hasclient=False, remote=False, nowrap=kwargs.get("nowrap", False))
         self.links["hserver"] = http_server(("::", port), sslcont, self.links["shandler"])
 
         if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):

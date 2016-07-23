@@ -718,19 +718,21 @@ class commonscnhandler(BaseHTTPRequestHandler):
         This is called by send_response().
         """
         if isinstance(code, http.HTTPStatus):
-            code = code.value
+            _code = code.value
+        else:
+            _code = code
         self.log_message('"%s" %s %s',
-                         self.requestline, str(code), str(size), logfunc=logging.debug)
-    def log_error(self, format, *args):
+                         self.requestline, str(_code), str(size), logfunc=logging.debug)
+    def log_error(self, lformat, *args):
         """Log an error. """
-        self.log_message(format, *args, logfunc=logging.error)
+        self.log_message(lformat, *args, logfunc=logging.error)
 
-    def log_message(self, format, *args, logfunc=logging.debug):
+    def log_message(self, lformat, *args, logfunc=logging.debug):
         """Log an arbitrary message. """
         logfunc("%s - - [%s] %s" %
-                         (self.address_string(),
-                          self.log_date_time_string(),
-                          format%args))
+                (self.address_string(),
+                 self.log_date_time_string(),
+                 lformat%args))
 
     def scn_send_answer(self, status, body=None, mime="application/json", message=None, docache=False, dokeepalive=None):
         if message:
@@ -749,7 +751,7 @@ class commonscnhandler(BaseHTTPRequestHandler):
             # don't break wrap implicit
             if dokeepalive is None and status == 200 and not self.close_connection:
                 dokeepalive = True
-        
+
         if dokeepalive:
             self.send_header('Connection', 'keep-alive')
         else:

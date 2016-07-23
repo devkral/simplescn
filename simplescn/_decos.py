@@ -52,7 +52,7 @@ def classify_private(func):
         func.classify = set()
     func.classify.add("private")
     if "accessable" in func.classify:
-        raise(TypeError("can't be accessable and private"))
+        raise TypeError("can't be accessable and private")
     return func
 
 # signals that method is access method
@@ -62,7 +62,7 @@ def classify_accessable(func):
         func.classify = set()
     func.classify.add("accessable")
     if "private" in func.classify:
-        raise(TypeError("can't be accessable and private"))
+        raise TypeError("can't be accessable and private")
     return func
 
 def gen_doc_deco(func):
@@ -147,5 +147,3 @@ def check_args_deco(requires=None, optional=None):
         get_args.classify = getattr(func, "classify", set())
         return gen_doc_deco(get_args)
     return func_to_check
-
-

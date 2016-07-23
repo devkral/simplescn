@@ -93,7 +93,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
                       "listen": self.links["hserver"].server_address,
                       "port": self.links["hserver"].server_port}
 
-    @check_args_deco({"name": str, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool, "hidden": bool,"forcehash": str})
+    @check_args_deco({"name": str, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool, "hidden": bool, "forcehash": str})
     @classify_accessable
     def registerservice(self, obdict: dict):
         """ func: register service (second way)
@@ -243,7 +243,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
     @check_args_deco({"address": str, "name": str}, optional={"forcehash": str})
     @classify_accessable
     def wrap(self, obdict: dict):
-        """ func: initiate wrap 
+        """ func: initiate wrap
             return: wrapped socket
             name: service name
             forcehash: enforce node with hash==forcehash

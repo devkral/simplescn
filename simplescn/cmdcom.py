@@ -78,13 +78,13 @@ def loop_ip(argv=sys.argv[1:]):
     if len(argv) < 1:
         print("Usage: loop_ip <url>", file=sys.stderr)
     else:
-         cmdloop(argv[0], False)
+        cmdloop(argv[0], False)
 
 def loop_unix(argv=sys.argv[1:]):
     if len(argv) < 2:
         print("Usage: loop_unix <path>", file=sys.stderr)
     else:
-         cmdloop(argv[0], True)
+        cmdloop(argv[0], True)
 
 def _test(argv, use_unix):
     from simplescn.__main__ import client, server, running_instances

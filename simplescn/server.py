@@ -52,6 +52,7 @@ class server(commonscn):
         self.nhipmap = {}
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()
+        self.links = d["links"]
         # now: always None, because set manually
         #  traversesrcaddr = d.get("traversesrcaddr", None)
         if len(config.very_low_load) != 2 or len(config.low_load) != 3 or len(config.medium_load) != 3 or len(config.high_load) != 3:
@@ -64,14 +65,12 @@ class server(commonscn):
         if d["message"] is None or len(d["message"]) == 0:
             logging.debug("Message empty")
             d["message"] = "<empty>"
-
-        self.timeout = d["timeout"]
-        self.connect_timeout = d["connect_timeout"]
-        self.priority = int(d["priority"])
+        self.timeout = self.links["kwargs"].get("timeout")
+        self.connect_timeout = self.links["kwargs"].get("connect_timeout")
+        self.priority = self.links["kwargs"].get("priority")
         self.certtupel = d["certtupel"]
         self.name = d["name"]
         self.message = d["message"]
-        self.links = d["links"]
         self.cache["dumpnames"] = json.dumps({})
         self.update_cache()
         self.validactions.update(self.cache.keys())
@@ -149,7 +148,7 @@ class server(commonscn):
     def check_brokencerts(self, _address, _port, _name, certhashlist, newhash):
         """ func: connect to check if requester has broken certs """
         try:
-            update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traversefunc=lambda ownaddr:self.traverse.send((_address, _port), ownaddr))
+            update_list = check_updated_certs(_address, _port, certhashlist, newhash=newhash, timeout=self.timeout, connect_timeout=self.connect_timeout, traversefunc=lambda ownaddr: self.traverse.send((_address, _port), ownaddr))
         except Exception as exc:
             logging.warning(exc)
             update_list = []
@@ -270,13 +269,13 @@ class server(commonscn):
         else:
             return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
 
-def gen_server_handler(_links, stimeout, etimeout):
+def gen_server_handler(_links):
     class server_handler(commonscnhandler):
         server_version = 'simplescn/1.0 (server)'
         webgui = False
         links = _links
-        server_timeout=stimeout
-        etablished_timeout=etimeout
+        server_timeout = _links["kwargs"].get("server_timeout")
+        etablished_timeout = _links["kwargs"].get("default_timeout")
 
         def handle_server(self, action):
             if action not in self.links["server_server"].validactions:
@@ -359,7 +358,7 @@ class server_init(object):
         ret = cls(**kwargs)
         ret.pidpath = pidpath
         return ret
-    
+
     def __del__(self):
         if self.pidpath:
             try:
@@ -371,7 +370,7 @@ class server_init(object):
         self.links = {}
         self.links["config_root"] = kwargs.get("config")
         self.links["kwargs"] = kwargs
-        self.links["handler"] = gen_server_handler(self.links, kwargs.get("server_timeout"), kwargs.get("default_timeout"))
+        self.links["handler"] = gen_server_handler(self.links)
         _spath = os.path.join(self.links["config_root"], "server")
 
         init_config_folder(self.links["config_root"], "server")
@@ -414,11 +413,11 @@ class server_init(object):
             port = config.server_port
 
         certtupel = (config.isself, dhash(pub_cert), pub_cert)
-        serverd = {"name": _name[0], "certtupel": certtupel, "timeout": kwargs["timeout"], "connect_timeout": kwargs["connect_timeout"], "priority": kwargs["priority"], "message":_message, "links": self.links}
+        serverd = {"name": _name[0], "certtupel": certtupel, "message":_message, "links": self.links}
         self.links["server_server"] = server(serverd)
-        
+
         sslcont = default_sslcont()
-        sslcont.load_cert_chain( _spath+"_cert.pub",  _spath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
+        sslcont.load_cert_chain(_spath+"_cert.pub", _spath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
 
         self.links["hserver"] = http_server(("::", port), sslcont, self.links["handler"])
 

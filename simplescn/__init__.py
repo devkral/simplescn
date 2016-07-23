@@ -11,6 +11,9 @@ license: MIT, see LICENSE.txt
 #__all__ += ["VALError", "VALNameError", "VALHashError", "VALMITMError"]
 #__all__ += ["pwcallmethodinst", "pwcallmethodinst", "resp_st"]
 
+###### running instances ######
+running_instances = []
+
 ###### signaling ######
 
 class AuthNeeded(Exception):

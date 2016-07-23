@@ -17,10 +17,8 @@ if __name__ == "__main__":
     ownpath = os.path.dirname(os.path.realpath(__file__))
     sys.path.insert(0, os.path.dirname(ownpath))
 
-from simplescn import config
+from simplescn import config, running_instances
 from simplescn._common import scnparse_args, loglevel_converter
-
-running_instances = []
 
 def _signal_handler(_signal, frame):
     """ handles signals; shutdown properly """
@@ -28,6 +26,15 @@ def _signal_handler(_signal, frame):
         elem.quit()
     logging.shutdown()
     sys.exit(0)
+
+_is_init_already = False
+def _init_scn():
+    """ initialize once and only in mainthread """
+    global _is_init_already
+    if not _is_init_already and threading.current_thread() == threading.main_thread():
+        _is_init_already = True
+        logging.basicConfig(level=loglevel_converter(config.default_loglevel), format=config.logformat)
+        signal.signal(signal.SIGINT, _signal_handler)
 
 def server(argv=sys.argv[1:], doreturn=False):
     """ start server component """
@@ -80,14 +87,6 @@ def cmd_massimport(argv=sys.argv[1:]):
     from simplescn.massimport import cmdmassimport
     return cmdmassimport(argv)
 
-_is_init_already = False
-def _init_scn():
-    """ initialize once and only in mainthread """
-    global _is_init_already
-    if not _is_init_already and threading.current_thread() == threading.main_thread():
-        _is_init_already = True
-        logging.basicConfig(level=loglevel_converter(config.default_loglevel), format=config.logformat)
-        signal.signal(signal.SIGINT, _signal_handler)
 
 def _init_method_main(argv=sys.argv[1:]):
     """ starter method """
