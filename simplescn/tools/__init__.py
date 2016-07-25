@@ -18,6 +18,7 @@ import threading
 import json
 import selectors
 import shutil
+import functools
 
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
@@ -140,32 +141,6 @@ def get_pidlock(rundir, name):
     return None
 
 ## file object handler for e.g.representing port ##
-## fails deleting old stuff
-class fobject_handler(object):
-    filepath = None
-    def __init__(self, path, msg, mode):
-        self.filepath = path
-        # cleanup old
-        if os.path.exists(self.filepath):
-            self.cleanup()
-        fdob = os.open(self.filepath, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
-        with open(fdob, "w", closefd=True) as ob:
-            ob.write(msg)
-    def __del__(self):
-        self.cleanup()
-    def cleanup(self):
-        try:
-            os.remove(self.filepath)
-        except Exception as exc:
-            logging.warning(exc)
-    @classmethod
-    def create(cls, path, msg, mode=0o600):
-        ret = None
-        try:
-            ret = cls(path, msg, mode)
-        except Exception as exc:
-            logging.warning(exc)
-        return ret
 
 def writemsg(path, msg, mode=0o400):
     try:
@@ -269,9 +244,8 @@ def gen_sslcont(path):
         sslcont.load_verify_locations(cafile=path)
     return sslcont
 
-
-
 _reparseurl = re.compile("(.*)-([0-9]+)$")
+@functools.lru_cache()
 def scnparse_url(url, force_port=False):
     # if isinstance(url, (tuple, list)) == True:
     #     return url
@@ -288,6 +262,7 @@ def scnparse_url(url, force_port=False):
         return (url, config.server_port)
     raise EnforcedPortError
 
+@functools.lru_cache()
 def url_to_ipv6(url: str, port: int):
     if url == "":
         return None
@@ -558,7 +533,7 @@ def dhash(oblist, algo=config.DEFAULT_HASHALGORITHM, prehash=""):
         ret = tmp.hexdigest()
     return ret
 
-
+@functools.lru_cache()
 def encode_bo(inp, encoding, charset="utf-8"):
     splitted = encoding.split(";", 1)
     if len(splitted) == 2:
@@ -567,6 +542,7 @@ def encode_bo(inp, encoding, charset="utf-8"):
         charset = split2[1].strip().rstrip()
     return str(inp, charset, errors="ignore")
 
+@functools.lru_cache()
 def safe_mdecode(inp, encoding, charset="utf-8"):
     try:
         # extract e.g. application/json
@@ -592,7 +568,6 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
     except Exception as exc:
         logging.error(exc)
         return None
-
 
 def generate_error(err, withstack=True):
     error = {"msg": "unknown", "type": "unknown"}
@@ -679,7 +654,6 @@ def rw_socket(sockr, sockw, timeout=None):
             break
 
 ## for finding local simplescn client ##
-
 def parselocalclient(path, extractipv6=True):
     """ parse simplescn info file; used by getlocalclient()
         extractipv6: extract ipv6 address

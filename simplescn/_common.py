@@ -724,11 +724,11 @@ class commonscnhandler(BaseHTTPRequestHandler):
         self.log_message('"%s" %s %s',
                          self.requestline, str(_code), str(size), logfunc=logging.debug)
     def log_error(self, lformat, *args):
-        """Log an error. """
+        """ Log an error. """
         self.log_message(lformat, *args, logfunc=logging.error)
 
     def log_message(self, lformat, *args, logfunc=logging.debug):
-        """Log an arbitrary message. """
+        """ Log an arbitrary message. """
         logfunc("%s - - [%s] %s" %
                 (self.address_string(),
                  self.log_date_time_string(),
@@ -853,21 +853,6 @@ class commonscnhandler(BaseHTTPRequestHandler):
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
             self.scn_send_answer(404, message="brokencert not found", docache=False, dokeepalive=True)
-
-    def wrap_func(self, func, *args, **kwargs):
-        self.send_response(200)
-        self.send_header("Connection", "keep-alive")
-        self.send_header("Cache-Control", "no-cache")
-        if self.headers.get("X-certrewrap") is not None:
-            self.send_header("X-certrewrap", self.headers.get("X-certrewrap").split(";")[1])
-        self.end_headers()
-        # send if not sent already
-        self.wfile.flush()
-        try:
-            return func(*args, **kwargs)
-        except Exception as exc:
-            logging.error(exc)
-            return False
 
     def do_auth(self, domain):
         if not self.links["auth_server"].verify(domain, self.auth_info):

@@ -1,7 +1,7 @@
 
-#import typing
+import functools
 
-from simplescn.tools import generate_error
+from simplescn.tools import generate_error, gen_result
 from simplescn.tools.checks import check_args
 
 #def generate_permissionactions_deco(DecoClass):
@@ -118,32 +118,34 @@ def check_args_deco(requires=None, optional=None):
         requires = {}
     if not optional:
         optional = {}
+
     def func_to_check(func):
+        @gen_doc_deco
+        @functools.wraps(func)
         def get_args(self, obdict, **kwargs):
             error = []
             if not check_args(obdict, requires, optional, error=error):
-                if len(error) == 2:
-                    return False, generate_error("check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), False), self.certtupel
-                else:
-                    raise(TypeError("check_args failed ({})+error broken: {}".format(func.__name__, error)))
+                assert len(error) == 2, "bug: check_args failed ({})+error broken: {}".format(func.__name__, error)
+                return False, generate_error("check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), False), self.certtupel
             resp = func(self, obdict, **kwargs)
-            if resp is None:
-                return False, generate_error("bug: no return value in function {}".format(type(func).__name__), False), self.certtupel
+            assert resp is not None, "bug: no return value in function {}".format(type(func).__name__)
             if isinstance(resp, bool) or len(resp) == 1:
-                if not isinstance(resp, bool):
-                    resp = resp[0]
-                if resp:
-                    return True, "{} succeeded".format(func.__name__), self.certtupel
+                if isinstance(resp, bool):
+                    success = resp
+                else:
+                    success = resp[0]
+                if success:
+                    return True, gen_result("{} succeeded".format(func.__name__)), self.certtupel
                 else:
                     return False, generate_error("{} failed".format(func.__name__), False), self.certtupel
             elif len(resp) == 2:
-                return resp[0], resp[1], self.certtupel
+                return resp[0], gen_result(resp[1]), self.certtupel
             else:
                 return resp
         get_args.requires = requires
         get_args.optional = optional
-        get_args.__doc__ = func.__doc__
-        get_args.__name__ = func.__name__
         get_args.classify = getattr(func, "classify", set())
-        return gen_doc_deco(get_args)
+        #get_args.__doc__ = func.__doc__
+        #get_args.__name__ = func.__name__
+        return get_args
     return func_to_check

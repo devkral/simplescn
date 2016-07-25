@@ -274,7 +274,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
                 out.append((name, _hash, _security, isself))
             else:
                 out.append((name, _hash, _security, self.links["hashdb"].certhash_as_name(_hash)))
-        return _tnames[0], {"items": out, "map":["name", "hash", "security", "localname"]}, _tnames[2]
+        return _tnames[0], {"items": out, "map": ["name", "hash", "security", "localname"]}, _tnames[2]
 
     @check_args_deco(optional={"address": str})
     @classify_accessable
