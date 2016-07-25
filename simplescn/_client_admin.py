@@ -11,7 +11,7 @@ import logging
 import abc
 
 from simplescn.config import isself
-from simplescn.tools import dhash, generate_certs, generate_error
+from simplescn.tools import dhash, generate_certs, generate_error, genc_error
 from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security, check_hash, check_trustpermission
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable, generate_validactions_deco
 
@@ -148,11 +148,11 @@ class client_admin(object, metaclass=abc.ABCMeta):
             reftype: reference type """
         _name = self.links["hashdb"].certhash_as_name(obdict["hash"])
         if _name is None:
-            return False, generate_error("hash not in db: {}".format(obdict["hash"]))
+            return False, genc_error("hash not exist")
         if not check_reference(obdict["reference"]):
-            return False, generate_error("reference invalid")
+            return False, genc_error("reference invalid")
         if not check_reference_type(obdict["reftype"]):
-            return False, generate_error("reference type invalid")
+            return False, genc_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
         return self.links["hashdb"].addreference(_tref[4], obdict["reference"], obdict["reftype"])
 
@@ -168,12 +168,12 @@ class client_admin(object, metaclass=abc.ABCMeta):
             newreference: new reference (=new location)
             newreftype: new reference type """
         if not check_reference(obdict["newreference"]):
-            return False, generate_error("reference invalid")
+            return False, genc_error("reference invalid")
         if not check_reference_type(obdict["newreftype"]):
-            return False, generate_error("reference type invalid")
+            return False, genc_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, generate_error("hash not exist")
+            return False, genc_error("hash not exist")
         return self.links["hashdb"].updatereference(_tref[4], obdict["reference"], obdict["newreference"], obdict["newreftype"])
 
     @check_args_deco({"hash": str, "reference": str})
@@ -187,7 +187,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             reference: reference (=where to find node)"""
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, generate_error("hash not exist")
+            return False, genc_error("hash not exist")
         return self.links["hashdb"].delreference(_tref[4], obdict["reference"])
 
     @check_args_deco({"reason": str})
@@ -362,7 +362,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
                 self.links["hashdb"].addhash(_name, _hash, _type, _priority, _security)
             localref = self.links["hashdb"].get(_hash)
             if localref is None:
-                return False, generate_error("could not write entry")
+                return False, genc_error("could not write entry")
             else:
                 localref = localref[4]
             localreferences = self.links["hashdb"].getreferences(localref)

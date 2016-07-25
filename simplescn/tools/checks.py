@@ -55,6 +55,7 @@ def check_local(addr):
 # DEFAULT_HASHALGORITHM_len for default hash algo
 # but None by default for validating hashes of other length
 def check_hash(hashstr, length=None):
+    """ check if valid hash (for scn) """
     if hashstr in [None, ""]:
         return False
     if length and len(hashstr) != length:
@@ -65,6 +66,7 @@ def check_hash(hashstr, length=None):
     return True
 
 def check_name(_name, maxlength=config.max_namelength):
+    """ check node name """
     if _name is None:
         return False
     # name shouldn't be too long or 0
@@ -79,8 +81,9 @@ def check_name(_name, maxlength=config.max_namelength):
         return False
     return True
 
-@functools.lru_cache(maxsize=8)
+@functools.lru_cache(maxsize=16)
 def check_typename(_type, maxlength=config.max_typelength):
+    """ check if valid node type """
     if _type is None:
         return False
     # type shouldn't be too long or 0

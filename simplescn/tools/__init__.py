@@ -569,6 +569,10 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
         logging.error(exc)
         return None
 
+@functools.lru_cache()
+def genc_error(err):
+    return generate_error(err, False)
+
 def generate_error(err, withstack=True):
     error = {"msg": "unknown", "type": "unknown"}
     if err is None:
@@ -580,7 +584,7 @@ def generate_error(err, withstack=True):
         error["type"] = type(err).__name__
         if withstack:
             if hasattr(err, "__traceback__"):
-                error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "") #[3]
+                error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "")
             elif sys.exc_info()[2] is not None:
                 error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
     return error # json.dumps(error)

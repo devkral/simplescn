@@ -11,7 +11,7 @@ import abc
 
 from simplescn import EnforcedPortError
 from simplescn.config import isself
-from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result
+from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
 from simplescn.tools.checks import check_updated_certs, check_local, check_args, check_name
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
 
@@ -73,8 +73,8 @@ class client_safe(object, metaclass=abc.ABCMeta):
         server_port = self.links["hserver"].server_port
         _srvaddr = scnparse_url(obdict.get("server"))
         if not _srvaddr:
-            return False, generate_error("not a valid server", False)
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+            return False, genc_error("not a valid server")
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         ret = self.do_request(obdict.get("server"), "/server/register", {"name": self.name, "port": server_port, "update": self.brokencerts}, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
 
         if ret[0] and ret[1].get("traverse", False):
@@ -212,7 +212,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             return: hash, certificate (stripped = scn compatible)
             address: node url """
         if obdict["address"] in ["", " ", None]:
-            return False, generate_error("address is empty")
+            return False, genc_error("address is empty")
         try:
             cont = default_sslcont()
             _addr = scnparse_url(obdict["address"], force_port=False)
@@ -221,9 +221,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
             pcert = ssl.DER_cert_to_PEM_cert(sslsock.getpeercert(True)).strip().rstrip()
             return True, {"hash": dhash(pcert), "cert": pcert}
         except ssl.SSLError:
-            return False, generate_error("server speaks no tls 1.2")
+            return False, genc_error("server speaks no tls 1.2")
         except ConnectionRefusedError:
-            return False, generate_error("server does not exist")
+            return False, genc_error("server does not exist")
         except EnforcedPortError as exc:
             return False, generate_error(exc, False)
         except Exception as exc:
@@ -252,7 +252,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         _addr = obdict["address"]
         _name = obdict["name"]
         if not check_name(_name):
-            return False, "not a valid service name"
+            return False, genc_error("not a valid service name")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.do_request(_addr, "/wrap/{}".format(_name), {}, _headers, forceport=True, closecon=False, sendclientcert=True, forcehash=obdict.get("forcehash", None))
 
@@ -356,7 +356,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict["hash"] == self.certtupel[1]:
             _forcehash = self.certtupel[1]
             if obdict.get("security", "valid") != "valid":
-                return False, "Error: own client is marked not valid"
+                return False, genc_error("Error: own client is marked not valid")
         else:
             _forcehash = obdict.get("forcehash", None)
         # only use forcehash if requested elsewise handle hash mismatch later
@@ -374,9 +374,9 @@ class client_safe(object, metaclass=abc.ABCMeta):
             address, port = scnparse_url(obdict.get("address"), False)
             check_ret = check_updated_certs(address, port, [(obdict.get("hash"), "insecure"), ], newhash=prioty_ret[2][1])
             if check_ret in [None, []] and obdict.get("security", "valid") == "valid":
-                return False, "MITM attack?, Certmismatch"
+                return False, genc_error("MITM attack?, Certmismatch")
             elif check_ret in [None, []]:
-                return False, "MITM?, Wrong Server information?, Certmismatch and security!=valid"
+                return False, genc_error("MITM?, Wrong Server information?, Certmismatch and security!=valid")
             if obdict.get("security", "valid") == "valid":
                 obdict["security"] = "insecure"
             # is in db and was valid before
@@ -441,7 +441,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             hash: node certificate hash """
         out = self.links["hashdb"].get(obdict["hash"])
         if out is None:
-            return False, generate_error("Not in db", False)
+            return False, genc_error("Not in db")
         ret = \
         {
             "name": out[0],
@@ -518,7 +518,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
             _hash = obdict.get("hash")
             _tref = self.links["hashdb"].get(_hash)
             if _tref is None:
-                return False, generate_error("certhash does not exist: {}".format(_hash))
+                return False, genc_error("hash not exist")
             _tref = _tref[4]
         else:
             _tref = obdict.get("certreferenceid")
@@ -536,5 +536,5 @@ class client_safe(object, metaclass=abc.ABCMeta):
             reference: reference """
         temp = self.links["hashdb"].findbyref(obdict["reference"])
         if temp is None:
-            return False, generate_error("reference does not exist: {}".format(obdict["reference"]))
+            return False, genc_error("reference not exist")
         return True, {"items": temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
