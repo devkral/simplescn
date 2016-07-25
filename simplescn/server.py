@@ -71,7 +71,7 @@ class server(commonscn):
         self.certtupel = d["certtupel"]
         self.name = d["name"]
         self.message = d["message"]
-        self.cache["dumpnames"] = json.dumps({})
+        self.cache["dumpnames"] = json.dumps({"items": []})
         self.update_cache()
         self.validactions.update(self.cache.keys())
         self.load_balance(0)
@@ -107,9 +107,9 @@ class server(commonscn):
                 if len(self.nhipmap[_name]) == 0:
                     del self.nhipmap[_name]
             ### don't annote list with "map" dict structure on serverside (overhead)
-            self.cache["dumpnames"] = json.dumps(dump)
-            self.cache["num_nodes"] = json.dumps(count)
-            self.cache["update_time"] = json.dumps(int(time.time()))
+            self.cache["dumpnames"] = json.dumps({"items": dump})
+            self.cache["num_nodes"] = json.dumps({"count": count})
+            self.cache["update_time"] = json.dumps({"time": int(time.time())})
             self.changeip_lock.release()
             self.nhipmap_cond.clear()
             self.load_balance(count)
@@ -265,9 +265,9 @@ class server(commonscn):
             if _travobj1[0]:
                 _travaddr = _travobj1[1].get("traverse_address")
         if _usecurity:
-            return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
+            return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse_needed": _obj["traverse"], "traverse_address": _travaddr}
         else:
-            return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address":_travaddr}
+            return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address": _travaddr}
 
 def gen_server_handler(_links):
     class server_handler(commonscnhandler):

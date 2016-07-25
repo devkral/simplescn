@@ -3,16 +3,14 @@
 
 import sys
 import os
-import tempfile
 import threading
-import shlex
 import socket
 import ssl
 import json
 
 from http import server, client
-from simplescn import scnrequest, pwcallmethod, config
-from simplescn.tools import scnparse_url, checks, getlocalclient
+from simplescn import scnrequest, pwcallmethod
+from simplescn.tools import scnparse_url, getlocalclient
 
 hserver = None
 
@@ -88,7 +86,7 @@ def cmdloop(requester, address, ownscnport):
                 print("Error: too less parameters – server")
                 continue
             body_server = {"server": tt[0], "name": tt[1], "hash": tt[2]}
-            resp_s = requester.do_request(address, "/client/get", body, {}, forcehash=forcehash, pwhandler=pwcallmethod)
+            resp_s = requester.do_request(address, "/client/get", body_server, {}, forcehash=forcehash, pwhandler=pwcallmethod)
             if resp_s[0]:
                 resp_s[0].close()
             if not resp_s[1]:

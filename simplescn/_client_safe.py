@@ -112,7 +112,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
-            return self.do_request(client_addr, "/server/registerservice", senddict, _headers, forcehash=_forcehash)
+            return self.do_request(client_addr, "/server/registerservice", senddict, _headers, forcehash=_forcehash, forceport=True)
         else:
             # access direct (more speed+no pwcheck)
             senddict["clientaddress"] = ("::1", 0)
@@ -133,7 +133,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
-            return self.do_request(client_addr, "/server/delservice", senddict, _headers, forcehash=_forcehash)
+            return self.do_request(client_addr, "/server/delservice", senddict, _headers, forcehash=_forcehash, forceport=True)
         else:
             # access direct (more speed+no pwcheck)
             senddict["clientaddress"] = ("::1", 0)
@@ -154,7 +154,7 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
-            return self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash)
+            return self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash, forceport=True)
         else:
             # access direct (more speed+no pwcheck)
             _cstemp = self.links["client_server"]
@@ -172,13 +172,14 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
-            _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, forcehash=_forcehash)
+            _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, forcehash=_forcehash, forceport=True)
         else:
             # access direct (more speed+no pwcheck)
-            _tservices = True, self.links["client_server"].spmap, self.certtupel
+            _tservices = True, {"dict": self.links["client_server"].spmap}, self.certtupel
         if not _tservices[0]:
             return _tservices
-        out = sorted(_tservices[1].items(), key=lambda t: t[0])
+        # crash if "dict" is not available instead of silently ignore error (catched)
+        out = sorted(_tservices[1]["dict"].items(), key=lambda t: t[0])
         return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2]
 
     @check_args_deco({"server": str, "name": str, "hash": str}, optional={"forcehash": str})
@@ -267,7 +268,8 @@ class client_safe(object, metaclass=abc.ABCMeta):
         if not _tnames[0]:
             return _tnames
         out = []
-        for name, _hash, _security in sorted(_tnames[1], key=lambda t: t[0]):
+        # crash if "items" is not available instead of silently ignore error (catched)
+        for name, _hash, _security in sorted(_tnames[1]["items"], key=lambda t: t[0]):
             if _hash == self.certtupel[1]:
                 out.append((name, _hash, _security, isself))
             else:

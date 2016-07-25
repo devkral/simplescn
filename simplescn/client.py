@@ -157,7 +157,7 @@ class client_server(commonscn):
         self.message = dcserver["message"]
         self.priority = self.links["kwargs"].get("priority")
         self.certtupel = dcserver["certtupel"]
-        self.cache["dumpservices"] = json.dumps({})
+        self.cache["dumpservices"] = json.dumps({"dict": {}})
         self.update_cache()
         self.validactions.update(self.cache.keys())
     ### the primary way to add or remove a service
@@ -195,7 +195,7 @@ class client_server(commonscn):
                     self.spmap[obdict["name"]] = obdict.get("port")
                 else:
                     self.spmap[obdict["name"]] = -1
-            self.cache["dumpservices"] = json.dumps(self.spmap)
+            self.cache["dumpservices"] = json.dumps({"dict": self.spmap})
             #self.cache["listservices"] = json.dumps(gen_result(sorted(self.spmap.items(), key=lambda t: t[0]), True))
         return True
 
@@ -377,7 +377,7 @@ def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, n
                 try:
                     response = self.links["client"].access_dict(gaction, obdict)
                 except AuthNeeded as exc:
-                    self.scn_send_answer(401, body=bytes(exc.reqob, "utf-8", errors="ignore"), mime="application/json", docache=False)
+                    self.scn_send_answer(401, body=bytes(exc.reqob, "utf-8"), mime="application/json", docache=False)
                     return
 
                 if response[0] is False:
@@ -451,6 +451,7 @@ def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, n
                     self.scn_send_answer(400, body=ob, mime="application/json", docache=False)
                 else:
                     self.scn_send_answer(200, body=ob, mime="application/json", docache=False)
+
         def do_POST(self):
             """ access to client_client and client_server """
             if not self.init_scn_stuff():
