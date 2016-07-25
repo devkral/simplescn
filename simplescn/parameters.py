@@ -39,6 +39,8 @@ default_timeout = 60
 connect_timeout = 5
 server_timeout = 20
 traverse_retries = 3
+# url to ipv6 caching time to live
+#urlttl = 30
 
 ## file positions ##
 default_configdir = '~/.simplescn'

@@ -14,6 +14,8 @@ install_requirements = []
 install_requirements += ["cryptography>=1.1"]
 # for pidlock
 install_requirements += ["psutil>=3.0"]
+# for caching
+#install_requirements += ["cachetools>=1.1.0"]
 
 entry_points["console_scripts"].append('scnmain = simplescn.__main__:_init_method_main')
 entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:_init_method_main')

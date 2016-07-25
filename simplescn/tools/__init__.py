@@ -245,7 +245,7 @@ def gen_sslcont(path):
     return sslcont
 
 _reparseurl = re.compile("(.*)-([0-9]+)$")
-@functools.lru_cache()
+@functools.lru_cache(maxsize=256)
 def scnparse_url(url, force_port=False):
     # if isinstance(url, (tuple, list)) == True:
     #     return url
@@ -262,7 +262,14 @@ def scnparse_url(url, force_port=False):
         return (url, config.server_port)
     raise EnforcedPortError
 
-@functools.lru_cache()
+#def ttlcaching(func):
+#    try:
+#        import cachetools
+#        return cachetools.cached(cache=cachetools.TTLCache(128, config.urlttl))(func)
+#    except ImportError:
+#        return func
+
+#@ttlcaching
 def url_to_ipv6(url: str, port: int):
     if url == "":
         return None
