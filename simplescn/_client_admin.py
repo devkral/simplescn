@@ -11,7 +11,7 @@ import logging
 import abc
 
 from simplescn.config import isself
-from simplescn.tools import dhash, generate_certs
+from simplescn.tools import dhash, generate_certs, generate_error
 from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security, check_hash, check_trustpermission
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable, generate_validactions_deco
 
@@ -51,7 +51,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return: success or error
             priority: priority of the client"""
         if obdict["priority"] < 0 or obdict["priority"] > 100:
-            return False, "out of range"
+            return False, generate_error("out of range")
         self.links["server"].priority = obdict["priority"]
         self.links["server"].update_cache()
         return True
@@ -148,11 +148,11 @@ class client_admin(object, metaclass=abc.ABCMeta):
             reftype: reference type """
         _name = self.links["hashdb"].certhash_as_name(obdict["hash"])
         if _name is None:
-            return False, "hash not in db: {}".format(obdict["hash"])
+            return False, generate_error("hash not in db: {}".format(obdict["hash"]))
         if not check_reference(obdict["reference"]):
-            return False, "reference invalid"
+            return False, generate_error("reference invalid")
         if not check_reference_type(obdict["reftype"]):
-            return False, "reference type invalid"
+            return False, generate_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
         return self.links["hashdb"].addreference(_tref[4], obdict["reference"], obdict["reftype"])
 
@@ -168,12 +168,12 @@ class client_admin(object, metaclass=abc.ABCMeta):
             newreference: new reference (=new location)
             newreftype: new reference type """
         if not check_reference(obdict["newreference"]):
-            return False, "reference invalid"
+            return False, generate_error("reference invalid")
         if not check_reference_type(obdict["newreftype"]):
-            return False, "reference type invalid"
+            return False, generate_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, "hash not exist"
+            return False, generate_error("hash not exist")
         return self.links["hashdb"].updatereference(_tref[4], obdict["reference"], obdict["newreference"], obdict["newreftype"])
 
     @check_args_deco({"hash": str, "reference": str})
@@ -187,7 +187,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             reference: reference (=where to find node)"""
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, "hash not exist"
+            return False, generate_error("hash not exist")
         return self.links["hashdb"].delreference(_tref[4], obdict["reference"])
 
     @check_args_deco({"reason": str})
@@ -199,7 +199,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return: success or error
             reason: reason (=security level) for invalidating cert"""
         if not check_security(obdict.get("reason")) or obdict.get("reason") == "valid":
-            return False, "wrong reason"
+            return False, generate_error("wrong reason")
         self.delperm({"hash": self.certtupel[1]})
         _cpath = os.path.join(self.links["config_root"], "client_cert")
         if os.path.isfile(_cpath+".pub"):
@@ -214,7 +214,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             with open(_brokenpath+".reason", "w") as wr:
                 wr.write(obdict.get("reason"))
         else:
-            return False, "no pubcert"
+            return False, generate_error("no pubcert")
         ret = generate_certs(_cpath)
         if not ret:
             logging.critical("Fatal error: certs could not be regenerated")
@@ -272,14 +272,14 @@ class client_admin(object, metaclass=abc.ABCMeta):
         with self.changeNameLock:
             newname = obdict.get("name")
             if not check_name(newname):
-                return False, "not a valid name"
+                return False, generate_error("not a valid name")
             if obdict.get("permanent", True):
                 configr = self.links["config_root"]
                 oldt = None
                 with open(os.path.join(configr, "client_name.txt"), "r") as readn:
                     oldt = readn.read().strip().rstrip().split("/")
                 if oldt is None:
-                    return False, "reading name failed"
+                    return False, generate_error("reading name failed")
                 with open(os.path.join(configr, "client_name.txt"), "w") as writen:
                     if len(oldt) == 2:
                         writen.write("{}/{}".format(newname, oldt[1]))
@@ -299,9 +299,9 @@ class client_admin(object, metaclass=abc.ABCMeta):
             hash: certhash of trusted
             permission: which permission """
         if not check_hash(obdict["hash"]):
-            return False, "invalid hash"
+            return False, generate_error("invalid hash")
         if not check_trustpermission(obdict["permission"]):
-            return False, "invalid permission"
+            return False, generate_error("invalid permission")
         return self.links["permsdb"].add(obdict["hash"], obdict["permission"])
 
     @check_args_deco({"hash": str}, optional={"permission": str})
@@ -313,7 +313,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             hash: certhash of trusted
             permission: which permission (default: None=all) """
         if not check_hash(obdict["hash"]):
-            return False, "invalid hash"
+            return False,  generate_error("invalid hash")
         return self.links["permsdb"].delete(obdict["hash"], obdict.get("permission", None))
 
     @check_args_deco({"hash": str})
@@ -324,11 +324,11 @@ class client_admin(object, metaclass=abc.ABCMeta):
             return: list permissions of certhash
             hash: certhash of trusted """
         if not check_hash(obdict["hash"]):
-            return False, "invalid hash"
-        ret = self.links["permsdb"].get(obdict["hash"])
+            return False, generate_error("invalid hash")
+        ret = self.links["permsdb"].get(obdict["hash"], None)
         if ret is None:
-            return False, "retrieving permission(s) failed"
-        return True, {"items": ret, "map":["permission"]}
+            return False, generate_error("retrieving permission(s) failed")
+        return True, {"items": ret, "map": ["permission"]}
 
     # TODO: test
     @check_args_deco({"sourceaddress": str, "sourcehash": str}, optional={"entities": list, "hashes": list})
@@ -342,7 +342,7 @@ class client_admin(object, metaclass=abc.ABCMeta):
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below), None for all """
         #listhashes = obdict.get("hashes")
-        listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", forcehash=obdict.get("sourcehash"))[1]
+        listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", {}, {}, forcehash=obdict.get("sourcehash"))[1]
         _imp_ent = obdict.get("entities")
         _imp_hash = obdict.get("hashes")
         for _name, _hash, _type, _priority, _security, _certreferenceid in listall:
@@ -362,15 +362,15 @@ class client_admin(object, metaclass=abc.ABCMeta):
                 self.links["hashdb"].addhash(_name, _hash, _type, _priority, _security)
             localref = self.links["hashdb"].get(_hash)
             if localref is None:
-                return False, "could not write entry"
+                return False, generate_error("could not write entry")
             else:
                 localref = localref[4]
             localreferences = self.links["hashdb"].getreferences(localref)
-            _retreferences = self.do_request(obdict.get("client"), "/client/getreferences", {"hash":_hash})
+            _retreferences = self.do_request(obdict.get("client"), "/client/getreferences", {}, {}, {"hash":_hash})
             if _retreferences[0]:
                 for _ref, _reftype in _retreferences[1]["items"]:
                     if (_ref, _reftype) in localreferences:
                         pass
                     else:
                         self.links["hashdb"].addreference(localref, _ref, _reftype)
-        return True, "import finished"
+        return True

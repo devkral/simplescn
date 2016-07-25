@@ -1,7 +1,8 @@
 
 import functools
 
-from simplescn.tools import generate_error, gen_result
+from simplescn.tools import generate_error
+#, gen_result
 from simplescn.tools.checks import check_args
 
 #def generate_permissionactions_deco(DecoClass):
@@ -122,25 +123,28 @@ def check_args_deco(requires=None, optional=None):
     def func_to_check(func):
         @gen_doc_deco
         @functools.wraps(func)
-        def get_args(self, obdict, **kwargs):
+        def get_args(self, obdict, **kwargs) -> (bool, dict, tuple):
             error = []
             if not check_args(obdict, requires, optional, error=error):
-                assert len(error) == 2, "bug: check_args failed ({})+error broken: {}".format(func.__name__, error)
+                assert len(error) == 2, "assert: check_args failed ({})+error broken: {}".format(func.__name__, error)
                 return False, generate_error("check_args failed ({}) arg: {}, reason:{}".format(func.__name__, *error), False), self.certtupel
             resp = func(self, obdict, **kwargs)
-            assert resp is not None, "bug: no return value in function {}".format(type(func).__name__)
+            assert resp is not None, "assert: no return value in function {}".format(type(func).__name__)
+
             if isinstance(resp, bool) or len(resp) == 1:
                 if isinstance(resp, bool):
                     success = resp
                 else:
                     success = resp[0]
                 if success:
-                    return True, gen_result("{} succeeded".format(func.__name__)), self.certtupel
+                    return True, {}, self.certtupel
                 else:
-                    return False, generate_error("{} failed".format(func.__name__), False), self.certtupel
+                    return False, {}, self.certtupel
             elif len(resp) == 2:
-                return resp[0], gen_result(resp[1]), self.certtupel
+                assert isinstance(resp[1], dict), "bug: second return value of {} is not dict (type: {}): {}".format(func.__name__, type(resp[1]), resp[1])
+                return resp[0], resp[1], self.certtupel
             else:
+                assert isinstance(resp[1], dict), "bug: second return value of {} is not dict (type: {}): {}".format(func.__name__, type(resp[1]), resp[1])
                 return resp
         get_args.requires = requires
         get_args.optional = optional

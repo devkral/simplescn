@@ -3,6 +3,7 @@ tools
 license: MIT, see LICENSE.txt
 """
 
+import functools
 import os
 import ssl
 import logging
@@ -78,6 +79,7 @@ def check_name(_name, maxlength=config.max_namelength):
         return False
     return True
 
+@functools.lru_cache(maxsize=8)
 def check_typename(_type, maxlength=config.max_typelength):
     if _type is None:
         return False
@@ -127,6 +129,7 @@ def check_certs(path):
 
 # removed support for checking multiple classifier in one call
 # reason: huge speed improvements
+@functools.lru_cache()
 def check_classify(func, perm: str) -> bool:
     if not hasattr(func, "classify"):
         return False

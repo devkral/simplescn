@@ -176,11 +176,11 @@ class client_server(commonscn):
             hidden: port and servicename are not listed (default: False)
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
         if not check_local(obdict["clientaddress"][0]):
-            return False, "no permission"
+            return False, generate_error("no permission", False)
         if not check_name(obdict["name"]):
-            return False, "invalid service name"
+            return False, generate_error("invalid service name", False)
         if prefix and obdict["name"][0] != prefix:
-            return False, "service name without/with wrong prefix"
+            return False, generate_error("service name without/with wrong prefix", False)
         wrappedport = obdict.get("wrappedport", None)
         # activates wrappedport if unspecified
         if wrappedport is None:
@@ -208,9 +208,9 @@ class client_server(commonscn):
             return: success or error
             name: service name """
         if not check_local(obdict["clientaddress"][0]):
-            return False, "no permission"
+            return False, generate_error("no permission", False)
         if prefix and obdict["name"][0] != prefix:
-            return False, "service name without/with wrong prefix"
+            return False, generate_error("service name without/with wrong prefix", False)
 
         with self.wlock:
             if  obdict["name"] in self.spmap_meta:
@@ -233,14 +233,14 @@ class client_server(commonscn):
         """
         if not self.links["kwargs"].get("trustforall", False):
             if not "origcertinfo" in obdict:
-                return False, "no certificate sent"
+                return False, generate_error("no certificate sent", False)
             if not self.links["permsdb"].exist(obdict["origcertinfo"][1], "gettrust"):
-                return False, "No permission"
+                return False, generate_error("No permission", False)
         hasho = self.links["client"].links["hashdb"].get(obdict.get("hash"))
         if hasho:
-            return True, hasho[3]
+            return True, {"security": hasho[3]}
         else:
-            return True, "unknown"
+            return True, {"security": "unknown"}
 
     @check_args_deco({"name": str})
     @classify_local
@@ -251,7 +251,7 @@ class client_server(commonscn):
             name: servicename """
         serviceob = self.spmap_meta.get(obdict["name"], None)
         if not serviceob:
-            return False, "Service not available"
+            return False, generate_error("Service not available", False)
 
         if not serviceob[1]:
             return True, {"port": serviceob[0]}
@@ -265,12 +265,12 @@ class client_server(commonscn):
             return: portnumber or error
             name: servicename """
         if not self.links["kwargs"]["notraversal"]:
-            return False, "traversal disabled"
+            return False, generate_error("traversal disabled")
         serviceob = self.spmap_meta.get(obdict["name"], None)
         if not serviceob:
-            return False, "Service not available"
+            return False, generate_error("Service not available", False)
         if not serviceob[1]:
-            return False, "Service not traversable"
+            return False, generate_error("Service not traversable", False)
         #_port = obdict.get("destport", None)
         #if not _port:
         #    _port = obdict["clientaddress"][1]
@@ -279,7 +279,7 @@ class client_server(commonscn):
         if try_traverse(travaddr, destaddr, connect_timeout=self.links["kwargs"]["connect_timeout"], retries=config.traverse_retries):
             return True, {"port": serviceob[0]}
         else:
-            return False, "Traversal could not opened"
+            return False, generate_error("Traversal could not opened", False)
 
 def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
     checklocalcert = _links["kwargs"].get("checklocalcert", False)
@@ -392,7 +392,7 @@ def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, n
                         resultob = generate_error(error, shallstack)
                     status = 500
                 else:
-                    resultob = gen_result(response[1])
+                    resultob = response[1]
                     status = 200
                 if not check_classify(gaction, "local") and not response[2][0] is isself:
                     resultob["origcertinfo"] = response[2]

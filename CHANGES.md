@@ -12,6 +12,7 @@
 * add more modes for registerservice
 * announce client with info file
 * change defaults
+* speed up by using caches
 
 # 0.5
 ## bugfixes

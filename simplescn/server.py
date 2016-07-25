@@ -20,7 +20,7 @@ from simplescn.tools import generate_certs, init_config_folder, \
 dhash, scnauth_server, traverser_dropper, scnparse_url, default_sslcont, get_pidlock
 from simplescn.tools.checks import check_certs, check_hash, check_local, check_name, check_updated_certs
 from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
-from simplescn.tools import generate_error, gen_result
+from simplescn.tools import generate_error
 from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, loglevel_converter
 
 @generate_validactions_deco
@@ -300,7 +300,7 @@ def gen_server_handler(_links):
             try:
                 func = getattr(self.links["server_server"], action)
                 success, result = func(obdict)[:2]
-                jsonnized = json.dumps(gen_result(result))
+                jsonnized = json.dumps(result)
             except Exception as exc:
                 # with harden mode do not show errormessage
                 if config.harden_mode:
