@@ -26,7 +26,7 @@ reference_header = \
 strip_headers = ["Connection", "Host", "Accept-Encoding", \
 "Content-Length", "User-Agent", "X-certrewrap", "X-SCN-Authorization"]
 
-class requester(object):
+class Requester(object):
     saved_kwargs = None
     def __init__(self, **kwargs):
         self.saved_kwargs = kwargs

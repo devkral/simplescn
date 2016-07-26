@@ -150,7 +150,7 @@ def writemsg(path, msg, mode=0o400):
     except Exception as exc:
         logging.info(exc)
 
-class secdir_handler(object):
+class SecdirHandler(object):
     filepath = None
     pidpath = None
     #secret = None
@@ -293,7 +293,7 @@ auth_struct = \
     "timestamp": None
 }
 
-class scnauth_server(object):
+class SCNAuthServer(object):
     request_expire_time = None # in secs
     # auth realms
     nonce = None
@@ -389,7 +389,7 @@ def try_traverse(srcaddr, destaddr, connect_timeout=config.connect_timeout, retr
         logging.info(exc)
     return None
 
-class traverser_dropper(object):
+class TraverserDropper(object):
     _srcaddrtupel = None
     _sock = None
     active = None
@@ -435,7 +435,7 @@ class traverser_dropper(object):
         else:
             return True
 
-class traverser_helper(object):
+class TraverserHelper(object):
     desttupels = None
     active = None
     mutex = None

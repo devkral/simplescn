@@ -143,13 +143,13 @@ def init(requester, address):
 if __name__ == "__main__":
     if len(sys.argv) == 2:
         if os.path.exists(sys.argv[1]):
-            init(scnrequest.requester(use_unix=True, pwhandler=pwcallmethod), sys.argv[1])
+            init(scnrequest.Requester(use_unix=True, pwhandler=pwcallmethod), sys.argv[1])
         else:
-            init(scnrequest.requester(use_unix=False, pwhandler=pwcallmethod), sys.argv[1])
+            init(scnrequest.Requester(use_unix=False, pwhandler=pwcallmethod), sys.argv[1])
     else:
         p = getlocalclient()
         if p:
-            init(scnrequest.requester(use_unix=p[1], pwhandler=pwcallmethod), p[0])
+            init(scnrequest.Requester(use_unix=p[1], pwhandler=pwcallmethod), p[0])
         #elif os.path.exists(p.format("info")):
         #    init(scnrequest.requester(use_unix=False, forcehash=pjson.get("cert_hash"), pwhandler=pwcallmethod), pjson.get("cserver_ip"))
 

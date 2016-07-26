@@ -1,9 +1,11 @@
 #! /usr/bin/env python3
-
 """
 load parameters, stuff
 license: MIT, see LICENSE.txt
 """
+import sys
+import os
+
 
 #__all__ = ["simplescn.tools", "AuthNeeded", "AddressError"]
 #__all__ += ["EnforcedPortError", "AddressEmptyError", "AddressInvalidError"]
@@ -11,9 +13,18 @@ license: MIT, see LICENSE.txt
 #__all__ += ["VALError", "VALNameError", "VALHashError", "VALMITMError"]
 #__all__ += ["pwcallmethodinst", "pwcallmethodinst", "resp_st"]
 
-###### running instances ######
-running_instances = []
-
+###### encode pw ######
+def hashpw(argv=sys.argv[1:]):
+    """ create pw hash for *pwhash """
+    from simplescn.tools import dhash
+    import base64
+    if len(sys.argv) < 2 or sys.argv[1] in ["--help", "help"]:
+        print("Usage: {} hashpw <pw>/\"random\"".format(sys.argv[0]))
+        return
+    pw = argv[0]
+    if pw == "random":
+        pw = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
+    print("pw: {}, hash: {}".format(pw, dhash(pw)))
 ###### signaling ######
 
 class AuthNeeded(Exception):

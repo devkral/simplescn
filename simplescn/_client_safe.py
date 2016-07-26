@@ -16,7 +16,7 @@ from simplescn.tools.checks import check_updated_certs, check_local, check_args,
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
 
 @generate_validactions_deco
-class client_safe(object, metaclass=abc.ABCMeta):
+class ClientClientSafe(object, metaclass=abc.ABCMeta):
     @property
     def validactions(self):
         raise NotImplementedError

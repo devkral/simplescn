@@ -25,20 +25,20 @@ def massparse(inp):
 def massimport(con_or_addr, sourceaddr, sourcehash, listentities=None, listhashes=None, forcehash=None, pwhandler=None):
     body = {"sourceaddr": sourceaddr, "sourcehash": sourcehash, "listentities": listentities, "listhashes": listhashes}
     ret = do_request(con_or_addr, "/client/massimport", body, {}, pwhandler=pwhandler, forcehash=forcehash)
-    ret[0].close()
+    if ret[0]:
+        ret[0].close()
     return ret[1:]
 
 def _getclientcon(addr, configdir=config.default_configdir, forcehash=None):
     if addr == "":
-        from simplescn import running_instances
-        from simplescn.__main__ import client
-        c = client(["nounix=True", "port=0", "nolock=True", "config={}".format(configdir)], doreturn=True)
+        from simplescn.start import running_instances, client
+        c = client(["nounix=True", "noip=False", "port=0", "nolock=True", "config={}".format(configdir)], doreturn=True)
         running_instances.append(c)
         addr = c.show()["cserver_ip"]
         _hash = c.show()["cert_hash"]
     else:
         _hash = None
-    ret = do_request(addr, "/client/show", {}, {}, pwhandler=lambda: pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
+    ret = do_request(addr, "/client/show", {}, {}, pwhandler=lambda: pwcallmethod(config.pwrealm_prompt), forcehash=_hash, keepalive=True)
     if not ret[0] or not ret[1]:
         raise Exception("Invalid client")
     return ret[0], ret[3][1]

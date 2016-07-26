@@ -16,7 +16,7 @@ from simplescn.tools.checks import check_reference, check_reference_type, check_
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable, generate_validactions_deco
 
 @generate_validactions_deco
-class client_admin(object, metaclass=abc.ABCMeta):
+class ClientClientAdmin(object, metaclass=abc.ABCMeta):
     @property
     def validactions(self):
         raise NotImplementedError

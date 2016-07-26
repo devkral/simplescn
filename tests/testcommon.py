@@ -73,7 +73,7 @@ class TestAuth(unittest.TestCase):
         cls.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwadmin = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
-        cls.authserver = tools.scnauth_server(cls.hashserver)
+        cls.authserver = tools.SCNAuthServer(cls.hashserver)
         #cls.authclient = tools.scnauth_client()
         cls.authserver.init(tools.dhash(cls.pwserver))
     

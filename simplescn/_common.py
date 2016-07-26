@@ -58,7 +58,7 @@ def connecttodb(func):
     return funcwrap
 
 
-class permissionhash_db(object):
+class PermissionHashDb(object):
     db_path = None
     lock = None
 
@@ -162,7 +162,7 @@ class permissionhash_db(object):
             return []
         return ret
 
-class certhash_db(object):
+class CerthashDb(object):
     db_path = None
     lock = None
 
@@ -566,7 +566,7 @@ class certhash_db(object):
         else:
             return out
 
-class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
+class SHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     """ server part of client/server """
     sslcont = None
     rawsock = None
@@ -645,7 +645,7 @@ class http_server(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def serve_join(self):
         self._listenthread.join()
 
-class commonscn(object):
+class CommonSCN(object):
     # replace not add elsewise bugs in multi instance situation
     capabilities = None
     priority = None
@@ -675,7 +675,7 @@ class commonscn(object):
             self.cache["prioty"] = json.dumps({"priority": self.priority, "type": self.scn_type})
 
 
-class commonscnhandler(BaseHTTPRequestHandler):
+class CommonSCNHandler(BaseHTTPRequestHandler):
     links = None
     sys_version = "" # would say python xy, no need and maybe security hole
     # for keep-alive

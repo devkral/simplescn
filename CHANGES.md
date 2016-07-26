@@ -13,6 +13,8 @@
 * announce client with info file
 * change defaults
 * speed up by using caches
+* move starter of client, server to start
+* adjust classes to python naming convention
 
 # 0.5
 ## bugfixes

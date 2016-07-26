@@ -10,7 +10,7 @@ import time
 
 import simplescn
 from simplescn import tools
-import simplescn.__main__
+from simplescn.tools import start
 
 
 #def shimrun(cmd, *args):
@@ -42,16 +42,16 @@ class TestCommunication(unittest.TestCase):
         #print(cls.temptestdir, cls.temptestdir2)
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        cls.client = simplescn.__main__.client(cls.param_client, doreturn=True)
+        cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["client"].certtupel[1]
         cls.client_port = cls.client.links["hserver"].server_port
         cls.name = cls.client.links["client"].name
         
-        cls.client2 = simplescn.__main__.client(cls.param_client2, doreturn=True)
+        cls.client2 = start.client(cls.param_client2, doreturn=True)
         cls.client_hash2 = cls.client2.links["client"].certtupel[1]
         cls.client_port2 = cls.client2.links["hserver"].server_port
         
-        cls.server = simplescn.__main__.server(cls.param_server, doreturn=True)
+        cls.server = start.server(cls.param_server, doreturn=True)
         cls.server_port = cls.server.links["hserver"].server_port
         
         cls.client_hash3 = tools.dhash("m")

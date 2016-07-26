@@ -15,19 +15,19 @@ from http import client
 from simplescn import config, VALError, AuthNeeded, AddressError, pwcallmethod
 from simplescn.config import isself, file_family
 #, create_certhashheader
-from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, certhash_db, loglevel_converter, permissionhash_db
-from simplescn.tools import default_sslcont, try_traverse, secdir_handler, generate_certs, \
-init_config_folder, dhash, rw_socket, scnauth_server, traverser_helper, \
+from simplescn._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, CerthashDb, loglevel_converter, PermissionHashDb
+from simplescn.tools import default_sslcont, try_traverse, SecdirHandler, generate_certs, \
+init_config_folder, dhash, rw_socket, SCNAuthServer, TraverserHelper, \
 generate_error, gen_result, writemsg
 from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
-from simplescn._client_admin import client_admin
-from simplescn._client_safe import client_safe
-from simplescn.scnrequest import requester
+from simplescn._client_admin import ClientClientAdmin
+from simplescn._client_safe import ClientClientSafe
+from simplescn.scnrequest import Requester
 
 
 @generate_validactions_deco
-class client_client(client_admin, client_safe):
+class ClientClient(ClientClientAdmin, ClientClientSafe):
     name = None
     certtupel = None
     links = None
@@ -41,20 +41,20 @@ class client_client(client_admin, client_safe):
         raise NotImplementedError
 
     def __init__(self, name: str, certtupel: tuple, _links: dict):
-        client_admin.__init__(self)
-        client_safe.__init__(self)
-        self.validactions.update(client_admin.validactions)
-        self.validactions.update(client_safe.validactions)
+        ClientClientAdmin.__init__(self)
+        ClientClientSafe.__init__(self)
+        self.validactions.update(ClientClientAdmin.validactions)
+        self.validactions.update(ClientClientSafe.validactions)
         self.links = _links
         self.name = name
         self.certtupel = certtupel
         self.brokencerts = []
-        self.requester = requester(ownhash=self.certtupel[1], hashdb=self.links["hashdb"], certcontext=self.links["hserver"].sslcont)
+        self.requester = Requester(ownhash=self.certtupel[1], hashdb=self.links["hashdb"], certcontext=self.links["hserver"].sslcont)
 
         self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.udpsrcsock.settimeout(None)
         self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
-        self.scntraverse_helper = traverser_helper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
+        self.scntraverse_helper = TraverserHelper(connectsock=self.links["hserver"].socket, srcsock=self.udpsrcsock)
         os.makedirs(os.path.join(self.links["config_root"], "broken"), mode=0o700, exist_ok=True)
         for elem in os.listdir(os.path.join(self.links["config_root"], "broken")):
             _splitted = elem.rsplit(".", 1)
@@ -116,14 +116,14 @@ class client_client(client_admin, client_safe):
 ### receiverpart of client ###
 
 @generate_validactions_deco
-class client_server(commonscn):
+class ClientServer(CommonSCN):
     # only servicenames with ports for efficient json generation
     spmap = None
     # meta data to servicename, not neccessary in spmap (hidden)
     spmap_meta = None
     scn_type = "client"
     links = None
-    # replace commonscn capabilities
+    # replace CommonSCN capabilities
     capabilities = None
     wlock = None
     certtupel = None
@@ -133,7 +133,7 @@ class client_server(commonscn):
         raise NotImplementedError
 
     def __init__(self, dcserver):
-        commonscn.__init__(self)
+        CommonSCN.__init__(self)
         # init here (multi instance situation)
         self.spmap = {}
         self.spmap_meta = {}
@@ -281,10 +281,10 @@ class client_server(commonscn):
         else:
             return False, generate_error("Traversal could not opened", False)
 
-def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
+def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
     checklocalcert = _links["kwargs"].get("checklocalcert", False)
     """ create handler with: links, server_timeout, default_timeout, ... """
-    class client_handler(commonscnhandler):
+    class ClientHandler(CommonSCNHandler):
         """ client handler """
         server_version = 'simplescn/1.0 (client)'
         # set onlylocal variable if remote is deactivated and not server
@@ -482,9 +482,9 @@ def gen_client_handler(_links, hasserver=False, hasclient=False, remote=False, n
             else:
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
             self.connection.settimeout(self.server_timeout)
-    return client_handler
+    return ClientHandler
 
-class client_init(object):
+class ClientInit(object):
     config_root = None
     links = None
     active = True
@@ -494,7 +494,7 @@ class client_init(object):
     def create(cls, **kwargs):
         if not kwargs.get("nolock", False):
             secdirpath = os.path.join(kwargs["run"], "{}-simplescn-client".format(os.getuid()))
-            secdirinst = secdir_handler.create(secdirpath, 0o700)
+            secdirinst = SecdirHandler.create(secdirpath, 0o700)
             if not secdirinst:
                 logging.info("Client already active (same user, rundirectory) or permission problems")
                 return None
@@ -525,9 +525,9 @@ class client_init(object):
         with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         #self.links["auth_client"] = scnauth_client()
-        self.links["auth_server"] = scnauth_server(dhash(pub_cert))
-        self.links["permsdb"] = permissionhash_db(os.path.join(self.links["config_root"], "permsdb{}".format(config.dbending)))
-        self.links["hashdb"] = certhash_db(os.path.join(self.links["config_root"], "certdb{}".format(config.dbending)))
+        self.links["auth_server"] = SCNAuthServer(dhash(pub_cert))
+        self.links["permsdb"] = PermissionHashDb(os.path.join(self.links["config_root"], "permsdb{}".format(config.dbending)))
+        self.links["hashdb"] = CerthashDb(os.path.join(self.links["config_root"], "certdb{}".format(config.dbending)))
 
         if bool(kwargs.get("spwhash")):
             if not check_hash(kwargs.get("spwhash")):
@@ -562,27 +562,27 @@ class client_init(object):
         sslcont.load_cert_chain(_cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
 
         if kwargs.get("remote", False):
-            self.links["shandler"] = gen_client_handler(self.links, hasserver=True, hasclient=True, remote=True, nowrap=kwargs.get("nowrap", False))
+            self.links["shandler"] = gen_ClientHandler(self.links, hasserver=True, hasclient=True, remote=True, nowrap=kwargs.get("nowrap", False))
             kwargs["noip"] = True
         else:
-            self.links["shandler"] = gen_client_handler(self.links, hasserver=True, \
+            self.links["shandler"] = gen_ClientHandler(self.links, hasserver=True, \
             hasclient=False, remote=False, nowrap=kwargs.get("nowrap", False))
-        self.links["hserver"] = http_server(("::", port), sslcont, self.links["shandler"])
+        self.links["hserver"] = SHTTPServer(("::", port), sslcont, self.links["shandler"])
 
         if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):
-            self.links["chandler"] = gen_client_handler(self.links, hasserver=False, hasclient=True, remote=False, nowrap=True)
+            self.links["chandler"] = gen_ClientHandler(self.links, hasserver=False, hasclient=True, remote=False, nowrap=True)
             if file_family is not None and secdirinst:
                 rpath = os.path.join(secdirinst.filepath, "socket")
-                self.links["cserver_unix"] = http_server(rpath, sslcont, self.links["chandler"], use_unix=True)
+                self.links["cserver_unix"] = SHTTPServer(rpath, sslcont, self.links["chandler"], use_unix=True)
             if not kwargs.get("noip", False):
-                self.links["cserver_ip"] = http_server(("::1", port), sslcont, self.links["chandler"])
-                self.links["cserver_ip4"] = http_server(("::ffff:127.0.0.1", self.links["cserver_ip"].server_port), sslcont, self.links["chandler"])
+                self.links["cserver_ip"] = SHTTPServer(("::1", port), sslcont, self.links["chandler"])
+                self.links["cserver_ip4"] = SHTTPServer(("::ffff:127.0.0.1", self.links["cserver_ip"].server_port), sslcont, self.links["chandler"])
 
         certtupel = (isself, dhash(pub_cert), pub_cert)
-        self.links["client"] = client_client(_name[0], certtupel, self.links)
+        self.links["client"] = ClientClient(_name[0], certtupel, self.links)
         clientserverdict = {"name": _name[0], "certtupel": certtupel, "message": _message, "links": self.links}
 
-        self.links["client_server"] = client_server(clientserverdict)
+        self.links["client_server"] = ClientServer(clientserverdict)
 
         self.links["hserver"].serve_forever_nonblock()
         if "cserver_unix" in self.links:

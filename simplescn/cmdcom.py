@@ -87,7 +87,7 @@ def loop_unix(argv=sys.argv[1:]):
         cmdloop(argv[0], True)
 
 def _test(argv, use_unix):
-    from simplescn.__main__ import client, server, running_instances
+    from simplescn.tools.start import client, server, running_instances
     aargv = argv.copy()
     if use_unix:
         aargv.append("--nounix=False")

@@ -17,14 +17,14 @@ import ssl
 from simplescn import config, InvalidLoadSizeError, InvalidLoadLevelError, pwcallmethod
 
 from simplescn.tools import generate_certs, init_config_folder, \
-dhash, scnauth_server, traverser_dropper, scnparse_url, default_sslcont, get_pidlock
+dhash, SCNAuthServer, TraverserDropper, scnparse_url, default_sslcont, get_pidlock
 from simplescn.tools.checks import check_certs, check_hash, check_local, check_name, check_updated_certs
 from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
 from simplescn.tools import generate_error
-from simplescn._common import parsepath, parsebool, commonscn, commonscnhandler, http_server, loglevel_converter
+from simplescn._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, loglevel_converter
 
 @generate_validactions_deco
-class server(commonscn):
+class Server(CommonSCN):
     # replace not add (multi instance)
     capabilities = None
     nhipmap = None
@@ -46,7 +46,7 @@ class server(commonscn):
         raise NotImplementedError
 
     def __init__(self, d):
-        commonscn.__init__(self)
+        CommonSCN.__init__(self)
         self.capabilities = ["basic", "server"]
         # init here (multi instance situation)
         self.nhipmap = {}
@@ -79,10 +79,10 @@ class server(commonscn):
         self.refreshthread.start()
         # now: traversesrcaddr always invalid, set manually by init
         #  if traversesrcaddr:
-        #      self.traverse = traverser_dropper(traversesrcaddr)
+        #      self.traverse = TraverserDropper(traversesrcaddr)
 
     def __del__(self):
-        commonscn.__del__(self)
+        CommonSCN.__del__(self)
         self.nhipmap_cond.set()
         try:
             self.refreshthread.join(4)
@@ -269,8 +269,8 @@ class server(commonscn):
         else:
             return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address": _travaddr}
 
-def gen_server_handler(_links):
-    class server_handler(commonscnhandler):
+def gen_ServerHandler(_links):
+    class ServerHandler(CommonSCNHandler):
         server_version = 'simplescn/1.0 (server)'
         webgui = False
         links = _links
@@ -337,9 +337,9 @@ def gen_server_handler(_links):
             else:
                 self.scn_send_answer(404, message="resource not found (POST)", docache=True)
             self.connection.settimeout(self.server_timeout)
-    return server_handler
+    return ServerHandler
 
-class server_init(object):
+class ServerInit(object):
     config_path = None
     links = None
     active = True
@@ -370,7 +370,7 @@ class server_init(object):
         self.links = {}
         self.links["config_root"] = kwargs.get("config")
         self.links["kwargs"] = kwargs
-        self.links["handler"] = gen_server_handler(self.links)
+        self.links["handler"] = gen_ServerHandler(self.links)
         _spath = os.path.join(self.links["config_root"], "server")
 
         init_config_folder(self.links["config_root"], "server")
@@ -380,7 +380,7 @@ class server_init(object):
             logging.debug("Certificate generation complete")
         with open(_spath+"_cert.pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip()
-        self.links["auth_server"] = scnauth_server(dhash(pub_cert))
+        self.links["auth_server"] = SCNAuthServer(dhash(pub_cert))
         if bool(kwargs["spwhash"]):
             if not check_hash(kwargs["spwhash"]):
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"])
@@ -414,17 +414,17 @@ class server_init(object):
 
         certtupel = (config.isself, dhash(pub_cert), pub_cert)
         serverd = {"name": _name[0], "certtupel": certtupel, "message":_message, "links": self.links}
-        self.links["server_server"] = server(serverd)
+        self.links["server_server"] = Server(serverd)
 
         sslcont = default_sslcont()
         sslcont.load_cert_chain(_spath+"_cert.pub", _spath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
 
-        self.links["hserver"] = http_server(("::", port), sslcont, self.links["handler"])
+        self.links["hserver"] = SHTTPServer(("::", port), sslcont, self.links["handler"])
 
         if not kwargs["notraversal"]:
             self.links["server_server"].capabilities.append("traversal")
             srcaddr = self.links["hserver"].socket.getsockname()
-            self.links["server_server"].traverse = traverser_dropper(srcaddr)
+            self.links["server_server"].traverse = TraverserDropper(srcaddr)
 
         self.links["hserver"].serve_forever_nonblock()
 

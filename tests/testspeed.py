@@ -14,9 +14,9 @@ from http.server import BaseHTTPRequestHandler
 from http.client import HTTPSConnection
 
 import simplescn
-from simplescn._common import http_server
+from simplescn._common import SHTTPServer
 from simplescn import scnrequest, tools
-import simplescn.__main__
+from simplescn.tools import start
 
 avgtestnum = 20
 avg = 0.3
@@ -79,7 +79,7 @@ class TestSpeed(unittest.TestCase):
         #os.mkdir(cls.temptestdir2, 0o700)
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        cls.client = simplescn.__main__.client(cls.param_client, doreturn=True)
+        cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["client"].certtupel[1]
         cls.client_port = cls.client.links["hserver"].server_port
         cls.client_port2 = cls.client.links["cserver_ip"].server_port
@@ -90,13 +90,13 @@ class TestSpeed(unittest.TestCase):
         sslcont = tools.default_sslcont()
         _cpath = os.path.join(cls.temptestdir, "client")
         sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv")
-        cls.testserver = http_server(("::1", 0), sslcont, TestServerHandler)
+        cls.testserver = SHTTPServer(("::1", 0), sslcont, TestServerHandler)
 
         #cls.client2 = simplescn.__main__.client(cls.param_client2, doreturn=True)
         #cls.client_hash2 = cls.client2.links["client"].cert_hash
         #cls.client_port2 = cls.client2.links["hserver"].socket.getsockname()[1]
         
-        cls.server = simplescn.__main__.server(cls.param_server, doreturn=True)
+        cls.server = start.server(cls.param_server, doreturn=True)
         cls.server_port = cls.server.links["hserver"].server_port
         cls.server_addressscn = "::1-{}".format(cls.server_port)
         cls.test_server_port = cls.testserver.server_port
