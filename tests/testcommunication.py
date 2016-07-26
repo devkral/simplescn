@@ -53,7 +53,6 @@ class TestCommunication(unittest.TestCase):
         
         cls.server = start.server(cls.param_server, doreturn=True)
         cls.server_port = cls.server.links["hserver"].server_port
-        
         cls.client_hash3 = tools.dhash("m")
     # needed to run ONCE; tearDownModule runs async
     @classmethod
