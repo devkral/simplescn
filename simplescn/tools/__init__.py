@@ -250,26 +250,28 @@ def scnparse_url(url, force_port=False):
     # if isinstance(url, (tuple, list)) == True:
     #     return url
     if not isinstance(url, str):
-        raise AddressError
+        raise AddressError()
     if len(url) == 0:
-        raise AddressEmptyError
+        raise AddressEmptyError()
     if len(url) > config.max_urllength:
-        raise AddressLengthError
+        raise AddressLengthError()
     _urlre = _reparseurl.match(url)
     if _urlre is not None:
         return _urlre.groups()[0], int(_urlre.groups()[1])
     if not force_port:
         return (url, config.server_port)
-    raise EnforcedPortError
+    raise EnforcedPortError()
 
-#def ttlcaching(func):
-#    try:
-#        import cachetools
-#        return cachetools.cached(cache=cachetools.TTLCache(128, config.urlttl))(func)
-#    except ImportError:
-#        return func
+def ttlcaching(ttl):
+    def cachew(func):
+        try:
+            import cachetools
+            return cachetools.cached(cache=cachetools.TTLCache(128, ttl))(func)
+        except ImportError:
+            return func
+    return cachew
 
-#@ttlcaching
+#@ttlcaching(config.urlttl)
 def url_to_ipv6(url: str, port: int):
     if url == "":
         return None

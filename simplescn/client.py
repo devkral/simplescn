@@ -38,7 +38,7 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
 
     @property
     def validactions(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def __init__(self, name: str, certtupel: tuple, _links: dict):
         ClientClientAdmin.__init__(self)
@@ -400,7 +400,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                     wrappedsocket = resultob.pop("wrappedsocket")
                 else:
                     wrappedsocket = None
-                jsonnized = bytes(json.dumps(resultob), "utf-8") #, errors="ignore")
+                jsonnized = bytes(json.dumps(resultob), "utf-8", errors="ignore")
                 self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False, dokeepalive=True)
                 if wrappedsocket:
                     rw_socket(self.connection, wrappedsocket, self.etablished_timeout)
@@ -500,6 +500,11 @@ class ClientInit(object):
                 return None
         else:
             secdirinst = None
+        kwargs["permsdb"] = PermissionHashDb.create(os.path.join(kwargs["config"], "permsdb{}".format(config.dbending)))
+        kwargs["hashdb"] = CerthashDb.create(os.path.join(kwargs["config"], "certdb{}".format(config.dbending)))
+        if None in [kwargs["permsdb"], kwargs["hashdb"]]:
+            logging.error("permsdb (permission db) or hashdb (certificate hash db) could not be initialized")
+            return None
         ret = cls(secdirinst, **kwargs)
         cls.secdirinst = secdirinst
         return ret
@@ -526,8 +531,8 @@ class ClientInit(object):
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         #self.links["auth_client"] = scnauth_client()
         self.links["auth_server"] = SCNAuthServer(dhash(pub_cert))
-        self.links["permsdb"] = PermissionHashDb(os.path.join(self.links["config_root"], "permsdb{}".format(config.dbending)))
-        self.links["hashdb"] = CerthashDb(os.path.join(self.links["config_root"], "certdb{}".format(config.dbending)))
+        self.links["permsdb"] = kwargs["permsdb"]
+        self.links["hashdb"] = kwargs["hashdb"]
 
         if bool(kwargs.get("spwhash")):
             if not check_hash(kwargs.get("spwhash")):

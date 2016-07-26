@@ -11,6 +11,7 @@ import logging
 import json
 import socket
 import ssl
+import sqlite3
 
 import http
 from http.server import BaseHTTPRequestHandler
@@ -37,7 +38,6 @@ def parsebool(inp):
     return inp.lower() in ["y", "true", "t"]
 
 def connecttodb(func):
-    import sqlite3
     def funcwrap(self, *args, **kwargs):
         temp = None
         with self.lock:
@@ -57,30 +57,40 @@ def connecttodb(func):
         return temp
     return funcwrap
 
+class CommonDbInit(object):
+    def initdb(self, con):
+        raise NotImplementedError()
+    @classmethod
+    def create(cls, dbpath):
+        try:
+            dbcon = sqlite3.connect(dbpath)
+            os.chmod(dbpath, 0o600)
+        except Exception as exc:
+            logging.error(exc)
+            return None
+        ret = cls(dbpath)
+        with ret.lock:
+            try:
+                ret.initdb(dbcon)
+                dbcon.commit()
+                dbcon.close()
+                return ret
+            except Exception as exc:
+                dbcon.rollback()
+                logging.error(exc)
+                dbcon.close()
+                return None
 
-class PermissionHashDb(object):
+class PermissionHashDb(CommonDbInit):
     db_path = None
     lock = None
 
     def __init__(self, dbpath):
-        import sqlite3
         self.db_path = dbpath
         self.lock = threading.Lock()
-        try:
-            con = sqlite3.connect(self.db_path)
-            os.chmod(self.db_path, 0o600)
-        except Exception as exc:
-            logging.error(exc)
-            return
-        self.lock.acquire()
-        try:
-            con.execute('''CREATE TABLE if not exists certperms(certhash TEXT, permission TEXT, PRIMARY KEY(certhash,permission));''')
-            con.commit()
-        except Exception as exc:
-            con.rollback()
-            logging.error(exc)
-        con.close()
-        self.lock.release()
+
+    def initdb(self, con):
+        con.execute('''CREATE TABLE if not exists certperms(certhash TEXT, permission TEXT, PRIMARY KEY(certhash,permission));''')
 
     @connecttodb
     def add(self, certhash, permission, dbcon=None) -> bool:
@@ -162,33 +172,20 @@ class PermissionHashDb(object):
             return []
         return ret
 
-class CerthashDb(object):
+class CerthashDb(CommonDbInit):
     db_path = None
     lock = None
 
     def __init__(self, dbpath):
-        import sqlite3
         self.db_path = dbpath
         self.lock = threading.RLock()
-        try:
-            con = sqlite3.connect(self.db_path)
-            os.chmod(self.db_path, 0o600)
-        except Exception as exc:
-            logging.error(exc)
-            return
-        self.lock.acquire()
-        try:
-            con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, security TEXT, certreferenceid INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
-            con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, type TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
-            #hack:
-            con.execute('''CREATE TABLE if not exists certrefcount(certreferenceid INTEGER);''')
-            con.execute('''INSERT INTO certrefcount(certreferenceid) values(?);''', (0,))
-            con.commit()
-        except Exception as exc:
-            con.rollback()
-            logging.error(exc)
-        con.close()
-        self.lock.release()
+
+    def initdb(self, con):
+        con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, security TEXT, certreferenceid INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+        con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, type TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
+        #hack:
+        con.execute('''CREATE TABLE if not exists certrefcount(certreferenceid INTEGER);''')
+        con.execute('''INSERT INTO certrefcount(certreferenceid) values(?);''', (0,))
 
     @connecttodb
     def addentity(self, _name, dbcon=None) -> bool:

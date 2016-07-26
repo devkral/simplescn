@@ -289,6 +289,8 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
 
 def do_request_simple(addr_or_con, path: str, body: dict, headers: dict, **kwargs):
     """ autoclose connection """
+    # keepalive is not possible so deactivate it
+    kwargs["keepalive"] = False
     ret = do_request(addr_or_con, path, body, headers, **kwargs)
     if ret[0]:
         ret[0].close()

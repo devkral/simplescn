@@ -31,7 +31,7 @@ def massimport(con_or_addr, sourceaddr, sourcehash, listentities=None, listhashe
 
 def _getclientcon(addr, configdir=config.default_configdir, forcehash=None):
     if addr == "":
-        from simplescn.start import running_instances, client
+        from simplescn.tools.start import running_instances, client
         c = client(["nounix=True", "noip=False", "port=0", "nolock=True", "config={}".format(configdir)], doreturn=True)
         running_instances.append(c)
         addr = c.show()["cserver_ip"]

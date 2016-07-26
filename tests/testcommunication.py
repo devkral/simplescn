@@ -57,7 +57,7 @@ class TestCommunication(unittest.TestCase):
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
-        # server side needs some time to cleanup, elswise strange exceptions happen
+        # server side needs some time to cleanup, elsewise strange exceptions happen
         time.sleep(4)
         cls.client.quit()
         cls.client2.quit()

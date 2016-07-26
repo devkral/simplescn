@@ -43,7 +43,7 @@ class Server(CommonSCN):
 
     @property
     def validactions(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def __init__(self, d):
         CommonSCN.__init__(self)
@@ -155,11 +155,10 @@ class Server(CommonSCN):
         if update_list in [None, []]:
             return
 
-        self.changeip_lock.acquire(True)
-        update_time = int(time.time())
-        for _uhash, _usecurity in update_list:
-            self.nhipmap[_name][_uhash] = {"security": _usecurity, "hash": newhash, "name": _name, "updatetime": update_time}
-        self.changeip_lock.release()
+        with self.changeip_lock:
+            update_time = int(time.time())
+            for _uhash, _usecurity in update_list:
+                self.nhipmap[_name][_uhash] = {"security": _usecurity, "hash": newhash, "name": _name, "updatetime": update_time}
         # notify that change happened
         self.nhipmap_cond.set()
 
@@ -210,8 +209,9 @@ class Server(CommonSCN):
             self.nhipmap[obdict["name"]][clientcerthash]["traverse"] = mode == "registered_traversal"
         self.changeip_lock.release()
 
-        # update broken certs afterwards
-        threading.Thread(target=self.check_brokencerts, args=(caddress[0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True).start()
+        # update broken certs afterwards (if needed)
+        if len(obdict.get("update", [])) > 0:
+            threading.Thread(target=self.check_brokencerts, args=(caddress[0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True).start()
 
         # notify that change happened
         self.nhipmap_cond.set()

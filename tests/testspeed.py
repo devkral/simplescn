@@ -50,7 +50,7 @@ def threaded_bar(func, threadsem, counter, args=(), kwargs={}):
         threadsem.acquire(True)
 
 class TestServerHandler(BaseHTTPRequestHandler):
-    server_timeout = 5
+    server_timeout = 4
     def do_POST(self):
         self.send_response(200, "ok")
         self.send_header("Content-Length", str(2))
@@ -59,8 +59,8 @@ class TestServerHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"ok")
 
 class TestSpeed(unittest.TestCase):
-    temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
-    #temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
+    temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_speed")
+    #temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_speed2")
     param_server = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7"]
     param_client = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip=False"]
     #param_client2 = ["--config={}".format(temptestdir2), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
@@ -105,8 +105,8 @@ class TestSpeed(unittest.TestCase):
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
-        # server side needs some time to cleanup, elswise strange exceptions happen
-        time.sleep(4)
+        # server side needs some time to cleanup, elsewise strange exceptions happen
+        time.sleep(5)
         cls.client.quit()
         #cls.client2.quit()
         cls.server.quit()
@@ -132,6 +132,7 @@ class TestSpeed(unittest.TestCase):
         if printresults:
             print("test_regspeed_parallel", ret)
         self.assertLess(ret, maxtime)
+        time.sleep(2)
 
     def test_show(self):
         fun = lambda: self.client.links["client"].access_dict("show", {})
