@@ -28,11 +28,6 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def certtupel(self):
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
     def _cache_help(self):
         raise NotImplementedError
 
@@ -89,7 +84,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             return: client stats """
             #; port==0 -> unixsockets are used, not True for hserver
         return True, {"name": self.name,
-                      "hash": self.certtupel[1],
+                      "hash": self.links["certtupel"][1],
                       "listen": self.links["hserver"].server_address,
                       "port": self.links["hserver"].server_port}
 
@@ -175,7 +170,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, forcehash=_forcehash, forceport=True)
         else:
             # access direct (more speed+no pwcheck)
-            _tservices = True, {"dict": self.links["client_server"].spmap}, self.certtupel
+            _tservices = True, {"dict": self.links["client_server"].spmap}, self.links["certtupel"]
         if not _tservices[0]:
             return _tservices
         # crash if "dict" is not available instead of silently ignore error (catched)
@@ -270,7 +265,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         out = []
         # crash if "items" is not available instead of silently ignore error (catched)
         for name, _hash, _security in sorted(_tnames[1]["items"], key=lambda t: t[0]):
-            if _hash == self.certtupel[1]:
+            if _hash == self.links["certtupel"][1]:
                 out.append((name, _hash, _security, isself))
             else:
                 out.append((name, _hash, _security, self.links["hashdb"].certhash_as_name(_hash)))
@@ -291,7 +286,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         else:
             # access direct (more speed+no pwcheck)
             _cstemp = self.links["client_server"]
-            return True, {"type": _cstemp.scn_type, "name": _cstemp.name, "message": _cstemp.message}, self.certtupel
+            return True, {"type": _cstemp.scn_type, "name": _cstemp.name, "message": _cstemp.message}
 
     @check_args_deco(optional={"address": str})
     @classify_accessable
@@ -308,7 +303,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         else:
             # access direct (more speed+no pwcheck)
             _cstemp = self.links["client_server"]
-            return True, {"caps": _cstemp.capabilities}, self.certtupel
+            return True, {"caps": _cstemp.capabilities}
 
     @check_args_deco(optional={"address": str})
     @classify_accessable
@@ -325,7 +320,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         else:
             # access direct (more speed+no pwcheck)
             _cstemp = self.links["client_server"]
-            return True, {"priority": _cstemp.priority, "type": _cstemp.scn_type}, self.certtupel
+            return True, {"priority": _cstemp.priority, "type": _cstemp.scn_type}
 
 
     @check_args_deco({"server": str, "name": str, "hash": str})
@@ -353,8 +348,8 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             forcehash: enforce node with hash==forcehash
             security: set/verify security """
         # force hash if hash is from client itself
-        if obdict["hash"] == self.certtupel[1]:
-            _forcehash = self.certtupel[1]
+        if obdict["hash"] == self.links["certtupel"][1]:
+            _forcehash = self.links["certtupel"][1]
             if obdict.get("security", "valid") != "valid":
                 return False, genc_error("Error: own client is marked not valid")
         else:
@@ -365,7 +360,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if not prioty_ret[0]:
             return prioty_ret
         # don't query if hash is from client itself
-        if obdict["hash"] == self.certtupel[1]:
+        if obdict["hash"] == self.links["certtupel"][1]:
             hashdbo = None
         else:
             hashdbo = self.links["hashdb"].get(obdict["hash"])
@@ -400,7 +395,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             self.links["hashdb"].changetype(prioty_ret[2][1], prioty_ret[1]["type"])
             # return security of current hash
             prioty_ret[1]["security"] = hashdbo[3]
-        elif obdict["hash"] == self.certtupel[1]:
+        elif obdict["hash"] == self.links["certtupel"][1]:
             # is client itself
             # valid because (hashdbo=None)
             prioty_ret[1]["security"] = "valid"

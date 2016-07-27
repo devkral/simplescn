@@ -20,6 +20,11 @@ import selectors
 import shutil
 import functools
 
+try:
+    import cachetools
+except ImportError:
+    cachetools = None
+
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
 from simplescn import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
@@ -264,14 +269,13 @@ def scnparse_url(url, force_port=False):
 
 def ttlcaching(ttl):
     def cachew(func):
-        try:
-            import cachetools
+        if cachetools:
             return cachetools.cached(cache=cachetools.TTLCache(128, ttl))(func)
-        except ImportError:
+        else:
             return func
     return cachew
 
-#@ttlcaching(config.urlttl)
+@ttlcaching(config.urlttl)
 def url_to_ipv6(url: str, port: int):
     if url == "":
         return None

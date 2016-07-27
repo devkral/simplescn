@@ -29,7 +29,6 @@ from simplescn.scnrequest import Requester
 @generate_validactions_deco
 class ClientClient(ClientClientAdmin, ClientClientSafe):
     name = None
-    certtupel = None
     links = None
     scntraverse_helper = None
     brokencerts = None
@@ -40,16 +39,15 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
     def validactions(self):
         raise NotImplementedError()
 
-    def __init__(self, name: str, certtupel: tuple, _links: dict):
+    def __init__(self, name: str,  _links: dict):
         ClientClientAdmin.__init__(self)
         ClientClientSafe.__init__(self)
         self.validactions.update(ClientClientAdmin.validactions)
         self.validactions.update(ClientClientSafe.validactions)
         self.links = _links
         self.name = name
-        self.certtupel = certtupel
         self.brokencerts = []
-        self.requester = Requester(ownhash=self.certtupel[1], hashdb=self.links["hashdb"], certcontext=self.links["hserver"].sslcont)
+        self.requester = Requester(ownhash=self.links["certtupel"][1], hashdb=self.links["hashdb"], certcontext=self.links["hserver"].sslcont)
 
         self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.udpsrcsock.settimeout(None)
@@ -90,9 +88,9 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
         elif action in self.validactions:
             gaction = getattr(self, action)
         else:
-            return False, "not in validactions", self.certtupel
+            return False, "not in validactions", self.links["certtupel"]
         if check_classify(gaction, "private"):
-            return False, "actions: 'private functions not allowed in access", self.certtupel
+            return False, "actions: 'private functions not allowed in access", self.links["certtupel"]
         #with self.client_lock: # not needed, use sqlite's intern locking mechanic
         try:
             return gaction(obdict)
@@ -100,7 +98,7 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
             raise exc
         except Exception as exc:
             #raise(exc)
-            return False, exc, self.certtupel #.with_traceback(sys.last_traceback)
+            return False, exc, self.links["certtupel"] #.with_traceback(sys.last_traceback)
 
     # help section
     def cmdhelp(self):
@@ -126,7 +124,6 @@ class ClientServer(CommonSCN):
     # replace CommonSCN capabilities
     capabilities = None
     wlock = None
-    certtupel = None
 
     @property
     def validactions(self):
@@ -156,7 +153,6 @@ class ClientServer(CommonSCN):
         self.name = dcserver["name"]
         self.message = dcserver["message"]
         self.priority = self.links["kwargs"].get("priority")
-        self.certtupel = dcserver["certtupel"]
         self.cache["dumpservices"] = json.dumps({"dict": {}})
         self.update_cache()
         self.validactions.update(self.cache.keys())
@@ -527,7 +523,7 @@ class ClientInit(object):
             logging.info("Certificate(s) not found. Generate new...")
             generate_certs(_cpath + "_cert")
             logging.info("Certificate generation complete")
-        with open(_cpath+"_cert.pub", 'rb') as readinpubkey:
+        with open(_cpath+"_cert.pub", 'r') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip() #why fail
         #self.links["auth_client"] = scnauth_client()
         self.links["auth_server"] = SCNAuthServer(dhash(pub_cert))
@@ -583,9 +579,9 @@ class ClientInit(object):
                 self.links["cserver_ip"] = SHTTPServer(("::1", port), sslcont, self.links["chandler"])
                 self.links["cserver_ip4"] = SHTTPServer(("::ffff:127.0.0.1", self.links["cserver_ip"].server_port), sslcont, self.links["chandler"])
 
-        certtupel = (isself, dhash(pub_cert), pub_cert)
-        self.links["client"] = ClientClient(_name[0], certtupel, self.links)
-        clientserverdict = {"name": _name[0], "certtupel": certtupel, "message": _message, "links": self.links}
+        self.links["certtupel"] = (isself, dhash(pub_cert), pub_cert)
+        self.links["client"] = ClientClient(_name[0], self.links)
+        clientserverdict = {"name": _name[0], "message": _message, "links": self.links}
 
         self.links["client_server"] = ClientServer(clientserverdict)
 
@@ -621,7 +617,7 @@ class ClientInit(object):
 
     def show(self):
         ret = dict()
-        ret["cert_hash"] = self.links["client"].certtupel[1]
+        ret["cert_hash"] = self.links["certtupel"][1]
         _r = self.links["hserver"]
         ret["hserver"] = _r.server_name, _r.server_port
         _r = self.links.get("cserver_ip", None)

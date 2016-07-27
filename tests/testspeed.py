@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 import sys, os
 # fix import
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 import unittest
 import shutil
@@ -80,7 +81,7 @@ class TestSpeed(unittest.TestCase):
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         cls.client = start.client(cls.param_client, doreturn=True)
-        cls.client_hash = cls.client.links["client"].certtupel[1]
+        cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
         cls.client_port2 = cls.client.links["cserver_ip"].server_port
         cls.name = cls.client.links["client"].name

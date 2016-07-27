@@ -137,12 +137,12 @@ def check_args_deco(requires=None, optional=None):
                 else:
                     success = resp[0]
                 if success:
-                    return True, {}, self.certtupel
+                    return True, {}, self.links["certtupel"]
                 else:
-                    return False, {}, self.certtupel
+                    return False, {}, self.links["certtupel"]
             elif len(resp) == 2:
                 assert isinstance(resp[1], dict), "bug: second return value of {} is not dict (type: {}): {}".format(func.__name__, type(resp[1]), resp[1])
-                return resp[0], resp[1], self.certtupel
+                return resp[0], resp[1], self.links["certtupel"]
             else:
                 assert isinstance(resp[1], dict), "bug: second return value of {} is not dict (type: {}): {}".format(func.__name__, type(resp[1]), resp[1])
                 return resp

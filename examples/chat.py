@@ -138,6 +138,7 @@ def init(requester, address):
         hserver.shutdown()
         return
     requester.saved_kwargs["forcehash"] = resp[3][1]
+    requester.saved_kwargs["ownhash"] = resp[3][1]
     cmdloop(requester, address, resp2[2].get("port"))
 
 if __name__ == "__main__":

@@ -26,11 +26,6 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
     def links(self):
         raise NotImplementedError
 
-    @property
-    @abc.abstractmethod
-    def certtupel(self):
-        raise NotImplementedError
-
     @abc.abstractmethod
     def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
         raise NotImplementedError
@@ -200,7 +195,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             reason: reason (=security level) for invalidating cert"""
         if not check_security(obdict.get("reason")) or obdict.get("reason") == "valid":
             return False, generate_error("wrong reason")
-        self.delperm({"hash": self.certtupel[1]})
+        self.delperm({"hash": self.links["certtupel"][1]})
         _cpath = os.path.join(self.links["config_root"], "client_cert")
         if os.path.isfile(_cpath+".pub"):
             with open(_cpath+".pub", "r") as readob:
@@ -223,8 +218,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             sys.exit(1)
         with open(_cpath+".pub", 'rb') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip()
-        self.links["client"].certtupel = (isself, dhash(pub_cert), pub_cert)
-        self.links["client_server"].certtupel = (isself, dhash(pub_cert), pub_cert)
+        self.links["certtupel"] = (isself, dhash(pub_cert), pub_cert)
         self.links["hserver"].shutdown()
         self.links["hserver"].socket.close()
         print("Keydestruction successful - Please restart process")

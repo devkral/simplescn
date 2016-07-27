@@ -30,7 +30,6 @@ class Server(CommonSCN):
     nhipmap = None
     nhipmap_cache = ""
     refreshthread = None
-    cert_hash = None
     scn_type = "server"
     traverse = None
     links = None
@@ -68,7 +67,6 @@ class Server(CommonSCN):
         self.timeout = self.links["kwargs"].get("timeout")
         self.connect_timeout = self.links["kwargs"].get("connect_timeout")
         self.priority = self.links["kwargs"].get("priority")
-        self.certtupel = d["certtupel"]
         self.name = d["name"]
         self.message = d["message"]
         self.cache["dumpnames"] = json.dumps({"items": []})
@@ -213,7 +211,7 @@ class Server(CommonSCN):
         if len(obdict.get("update", [])) > 0:
             threading.Thread(target=self.check_brokencerts, args=(caddress[0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True).start()
 
-        # notify that change happened
+        # notify that a change happened
         self.nhipmap_cond.set()
         return True, {"mode": mode, "traverse": mode == "registered_traversal"}
 
@@ -378,7 +376,7 @@ class ServerInit(object):
             logging.debug("Certificate(s) not found. Generate new...")
             generate_certs(_spath + "_cert")
             logging.debug("Certificate generation complete")
-        with open(_spath+"_cert.pub", 'rb') as readinpubkey:
+        with open(_spath+"_cert.pub", 'r') as readinpubkey:
             pub_cert = readinpubkey.read().strip().rstrip()
         self.links["auth_server"] = SCNAuthServer(dhash(pub_cert))
         if bool(kwargs["spwhash"]):
@@ -412,8 +410,8 @@ class ServerInit(object):
         else:
             port = config.server_port
 
-        certtupel = (config.isself, dhash(pub_cert), pub_cert)
-        serverd = {"name": _name[0], "certtupel": certtupel, "message":_message, "links": self.links}
+        self.links["certtupel"] = (config.isself, dhash(pub_cert), pub_cert)
+        serverd = {"name": _name[0], "message":_message, "links": self.links}
         self.links["server_server"] = Server(serverd)
 
         sslcont = default_sslcont()
@@ -437,7 +435,7 @@ class ServerInit(object):
 
     def show(self):
         ret = dict()
-        ret["cert_hash"] = self.links["server_server"].certtupel[1]
+        ret["cert_hash"] = self.links["certtupel"][1]
         _r = self.links["hserver"]
         ret["hserver"] = _r.server_name, _r.server_port
         return ret
@@ -465,4 +463,3 @@ def server_paramhelp():
     for _key, elem in sorted(default_server_args.items(), key=lambda x: x[0]):
         _temp += "  * key: {}, value: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return _temp
-

@@ -72,5 +72,3 @@ medium_load = (1000, 60, 4*60*60)
 low_load = (500, 10, 4*60*60)
 # special load just: refresh, expire
 very_low_load = (1, 24*60*60)
-
-

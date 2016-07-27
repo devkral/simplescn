@@ -648,7 +648,6 @@ class CommonSCN(object):
     priority = None
     name = None
     message = None
-    certtupel = None
     scn_type = "unknown"
     pluginmanager = None
     isactive = True
@@ -678,7 +677,6 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
     # for keep-alive
     default_request_version = "HTTP/1.1"
     auth_info = None
-    certtupel = None
     # replaced by function not init
     alreadyrewrapped = False
     links = None
@@ -786,7 +784,9 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
             if _rewrapcert.split(";")[0] != client_certhash:
                 return False
             validated_name = None
-            if "hashdb" in self.links:
+            if self.links.get("certtupel", (None, None, None))[1] == client_certhash:
+                validated_name = isself
+            elif "hashdb" in self.links:
                 hashob = self.links["hashdb"].get(client_certhash)
                 if hashob:
                     validated_name = (hashob[0], hashob[3]) #name, security

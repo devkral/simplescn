@@ -2,7 +2,8 @@
 import sys
 import os
 # fix import
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 import unittest
 import shutil
@@ -43,12 +44,12 @@ class TestCommunication(unittest.TestCase):
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         cls.client = start.client(cls.param_client, doreturn=True)
-        cls.client_hash = cls.client.links["client"].certtupel[1]
+        cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
         cls.name = cls.client.links["client"].name
         
         cls.client2 = start.client(cls.param_client2, doreturn=True)
-        cls.client_hash2 = cls.client2.links["client"].certtupel[1]
+        cls.client_hash2 = cls.client2.links["certtupel"][1]
         cls.client_port2 = cls.client2.links["hserver"].server_port
         
         cls.server = start.server(cls.param_server, doreturn=True)
