@@ -22,7 +22,7 @@ def default_sslcont():
 
 class chathandler(server.BaseHTTPRequestHandler):
     forcehash = None
-    certtupel = None
+    certtupel = (None, None, None)
     default_request_version = "HTTP/1.1"
     
     def wrap(self):
