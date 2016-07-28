@@ -14,7 +14,8 @@
 * change defaults
 * speed up by using caches
 * move starter of client, server to start
-* adjust classes to python naming convention
+* rename classes to python naming convention
+* move certtupel to links (isself support serverside)
 
 # 0.5
 ## bugfixes
