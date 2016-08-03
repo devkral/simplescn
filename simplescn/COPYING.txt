@@ -1,6 +1,7 @@
 
 code (exclude plugins except no seperate license is available): see LICENSE.txt, MIT-license
 config (=parameters.py): public domain (only options)
+examples: public domain
 
 gobject, gtk, ...: GPL; code: git.gnome.org
 python: www.python.org
