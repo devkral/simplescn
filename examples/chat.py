@@ -10,18 +10,13 @@ import json
 
 from http import server, client
 from simplescn import scnrequest, pwcallmethod
-from simplescn.tools import scnparse_url, getlocalclient
+from simplescn.tools import scnparse_url, getlocalclient, dhash, default_sslcont
 
 hserver = None
 
-def default_sslcont():
-    sslcont = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-    sslcont.set_ciphers("HIGH")
-    sslcont.options = sslcont.options|ssl.OP_SINGLE_DH_USE|ssl.OP_SINGLE_ECDH_USE|ssl.OP_NO_COMPRESSION
-    return sslcont
 
 class chathandler(server.BaseHTTPRequestHandler):
-    forcehash = None
+    clienthash = None
     certtupel = (None, None, None)
     default_request_version = "HTTP/1.1"
     
@@ -29,6 +24,7 @@ class chathandler(server.BaseHTTPRequestHandler):
         cont = default_sslcont()
         self.connection = cont.wrap_socket(self.connection, server_side=False)
         self.connection.do_handshake()
+        self.clienthash = dhash(ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip())
         self.rfile = self.connection.makefile(mode='rb')
         self.wfile = self.connection.makefile(mode='wb')
         ret = self.headers.get("Content-Length", "")
@@ -44,7 +40,8 @@ class chathandler(server.BaseHTTPRequestHandler):
     def chat(self):
         ret = self.headers.get("Content-Length", "")
         if ret.isdigit():
-            print("From: ", self.certtupel[1])
+            print("Client:", clienthash)
+            print("From:", self.certtupel[1])
             print(str(self.rfile.read(int(ret)), "utf-8"))
         self.send_response(200)
         self.send_header('Connection', 'close')

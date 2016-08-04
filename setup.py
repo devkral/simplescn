@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
-#license: bsd3, see LICENSE.txt
+"""
+license: MIT, see LICENSE.txt
+"""
 
 from setuptools import setup
 
@@ -27,6 +29,7 @@ setup(name='simplescn',
       description='Simple communication nodes',
       author='Alexander K.',
       author_email='devkral@web.de',
+      license='MIT',
       url='https://github.com/devkral/simplescn',
       entry_points=entry_points,
       #zip_safe=True,
@@ -38,5 +41,13 @@ setup(name='simplescn',
       install_requires=install_requirements,
       packages=['simplescn', 'simplescn.tools'],
       #ext_modules=distributions,
-      license="MIT",
-      test_suite="tests")
+      test_suite="tests",
+      classifiers=[
+          'License :: OSI Approved :: MIT License',
+          'Operating System :: OS Independent',
+          'Programming Language :: Python :: 3.5',
+          'Programming Language :: Python :: 3 :: Only',
+          'Topic :: Communications',
+          'Topic :: Internet',
+          'Topic :: Security'],
+      keywords='simplescn,scn')
