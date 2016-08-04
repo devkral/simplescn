@@ -40,7 +40,7 @@ class chathandler(server.BaseHTTPRequestHandler):
     def chat(self):
         ret = self.headers.get("Content-Length", "")
         if ret.isdigit():
-            print("Client:", clienthash)
+            print("Client:", self.clienthash)
             print("From:", self.certtupel[1])
             print(str(self.rfile.read(int(ret)), "utf-8"))
         self.send_response(200)

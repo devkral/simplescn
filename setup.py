@@ -5,9 +5,7 @@ license: MIT, see LICENSE.txt
 
 from setuptools import setup
 
-
-#, Distribution
-#from pkg_resources import Environment, working_set
+version = "0.6.1"
 
 
 entry_points = {"console_scripts": []}
@@ -25,12 +23,14 @@ entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:_init_meth
 
 # plugins imported by MANIFEST.in
 setup(name='simplescn',
-      version='0.6.0',
+      version=version,
+      #version_format='{tag}',
       description='Simple communication nodes',
       author='Alexander K.',
       author_email='devkral@web.de',
       license='MIT',
       url='https://github.com/devkral/simplescn',
+      download_url='https://github.com/devkral/simplescn/tarball/'+version,
       entry_points=entry_points,
       #zip_safe=True,
       platforms='Platform Independent',
@@ -50,4 +50,4 @@ setup(name='simplescn',
           'Topic :: Communications',
           'Topic :: Internet',
           'Topic :: Security'],
-      keywords='simplescn,scn')
+      keywords=['simplescn', 'scn'])
