@@ -702,14 +702,14 @@ def parselocalclient(path, extractipv6=True):
         logging.warning(exc)
     return None
 
-def getlocalclient(extractipv6=True, rundir=config.default_runpath):
+def getlocalclient(extractipv6=True, rundir=config.default_runpath, cleanupoldfiles=False):
     """ parse simplescn info file at default position; use parselocalclient()
         extractipv6: extract ipv6 address
         returns: address, use_unix, cert_hash or None """
     p1 = os.path.join(rundir, "{}-simplescn-client".format(os.getuid()))
     p2 = os.path.join(p1, "info")
-    if os.path.exists(p1):
-        if not psutil or not get_pidlock(p1, "lock"):
+    if os.path.exists(p2):
+        if not cleanupoldfiles or not get_pidlock(p1, "lock"):
             return parselocalclient(p2, extractipv6)
         else:
             shutil.rmtree(p1)
