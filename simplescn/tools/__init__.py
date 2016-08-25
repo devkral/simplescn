@@ -25,6 +25,12 @@ try:
 except ImportError:
     cachetools = None
 
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
+
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
 from simplescn import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
@@ -120,7 +126,9 @@ def init_config_folder(_dir, prefix):
 ## pidlock ##
 
 def get_pidlock(rundir, name):
-    import psutil
+    if not psutil:
+        logging.error("psutil needed for checking pidlock")
+        return None
     path = os.path.join(rundir, name)
     pid = None
     try:
@@ -700,5 +708,8 @@ def getlocalclient(extractipv6=True, rundir=config.default_runpath):
         returns: address, use_unix, cert_hash or None """
     p = os.path.join(rundir, "{}-simplescn-client".format(os.getuid()), "info")
     if os.path.exists(p):
-        return parselocalclient(p, extractipv6)
+        if not psutil or not get_pidlock(p, "lock"):
+            return parselocalclient(p, extractipv6)
+        else:
+            shutil.rmtree(p)
     return None
