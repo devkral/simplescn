@@ -706,10 +706,11 @@ def getlocalclient(extractipv6=True, rundir=config.default_runpath):
     """ parse simplescn info file at default position; use parselocalclient()
         extractipv6: extract ipv6 address
         returns: address, use_unix, cert_hash or None """
-    p = os.path.join(rundir, "{}-simplescn-client".format(os.getuid()), "info")
-    if os.path.exists(p):
-        if not psutil or not get_pidlock(p, "lock"):
-            return parselocalclient(p, extractipv6)
+    p1 = os.path.join(rundir, "{}-simplescn-client".format(os.getuid()))
+    p2 = os.path.join(p1, "info")
+    if os.path.exists(p1):
+        if not psutil or not get_pidlock(p1, "lock"):
+            return parselocalclient(p2, extractipv6)
         else:
-            shutil.rmtree(p)
+            shutil.rmtree(p1)
     return None
