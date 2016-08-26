@@ -1,3 +1,9 @@
+# 0.6.2
+## bugfixes
+* fix cleanup of old files after crash
+## changes
+* add cleanupoldfiles option to getlocalclient
+
 # 0.6
 ## bugfixes
 * unix sockets are better secured
