@@ -95,16 +95,22 @@ def _test(argv, use_unix):
         aargv.append("--noip=False")
     c = client(aargv, doreturn=True)
     running_instances.append(c)
+    if not c:
+        print("Client could not start (maybe other instance)")
+        return
     t = c.show()
-    s = server([], doreturn=True)
+    s = server(["--nolock=True", "--port=0"], doreturn=True)
+    if not s:
+        print("Server could not start")
+        return
     t2 = s.show()
     running_instances.append(s)
-    print("client ip", t.get("cserver_ip", None))
-    print("client unix", t.get("cserver_unix", None))
-    print("client server", t.get("hserver"))
-    print("client hash", t.get("cert_hash"))
-    print("server", "::1-{}".format(t2.get("hserver")))
-    print("server hash", t2.get("cert_hash"))
+    print("client ip", t.get("cserver_ip", None),  sep=":\t")
+    print("client unix", t.get("cserver_unix", None),  sep=":\t")
+    print("client server", t.get("hserver"),  sep=":\t")
+    print("client hash", t.get("cert_hash"),  sep=":\t")
+    print("server", "::1-{}".format(t2["hserver"][1]),  sep=":\t\t")
+    print("server hash", t2.get("cert_hash"),  sep=":\t")
     if use_unix:
         cmdloop(t.get("cserver_unix"), use_unix=True, forcehash=t.get("cert_hash"))
     else:

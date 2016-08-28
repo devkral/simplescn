@@ -356,7 +356,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _forcehash = obdict.get("forcehash", None)
         # only use forcehash if requested elsewise handle hash mismatch later
         _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        prioty_ret = self.prioty_direct({"address": obdict["address"], "headers": _headers, "forcehash": _forcehash})
+        if _forcehash:
+            prioty_ret = self.prioty_direct({"address": obdict["address"], "headers": _headers, "forcehash": _forcehash})
+        else:
+            prioty_ret = self.prioty_direct({"address": obdict["address"], "headers": _headers})
         if not prioty_ret[0]:
             return prioty_ret
         # don't query if hash is from client itself
@@ -421,7 +424,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _forcehash = None
         newaddress = "{address}-{port}".format(**get_ret[1])
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "headers": _headers, "forcehash":_forcehash, "security": get_ret[1].get("security", "valid")})
+        if _forcehash:
+            direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "headers": _headers, "forcehash": _forcehash, "security": get_ret[1].get("security", "valid")})
+        else:
+            direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "headers": _headers, "security": get_ret[1].get("security", "valid")})
         # return new hash in hash field
         if direct_ret[0]:
             direct_ret[1]["hash"] = direct_ret[2][1]
