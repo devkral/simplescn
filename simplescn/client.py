@@ -572,7 +572,7 @@ class ClientInit(object):
 
         if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):
             self.links["chandler"] = gen_ClientHandler(self.links, hasserver=False, hasclient=True, remote=False, nowrap=True)
-            if file_family is not None and secdirinst:
+            if file_family is not None and secdirinst and not kwargs.get("nounix"):
                 rpath = os.path.join(secdirinst.filepath, "socket")
                 self.links["cserver_unix"] = SHTTPServer(rpath, sslcont, self.links["chandler"], use_unix=True)
             if not kwargs.get("noip", False):
