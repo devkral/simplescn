@@ -58,10 +58,11 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             return: help """
         return True, {"help": self._cache_help}
 
-    @check_args_deco({"server": str})
+    @check_args_deco({"server": str}, optional={"forcehash": str})
     @classify_accessable
     def register(self, obdict: dict):
         """ func: register client
+            forcehash: enforce node with hash==forcehash
             return: success or error
             server: address of server """
         _srvaddr = None
@@ -251,7 +252,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.do_request(_addr, "/wrap/{}".format(_name), {}, _headers, forceport=True, closecon=False, sendclientcert=True, forcehash=obdict.get("forcehash", None))
 
-    @check_args_deco({"server": str})
+    @check_args_deco({"server": str}, optional={"forcehash": str})
     @classify_accessable
     def listnames(self, obdict: dict):
         """ func: sort and list names from server
@@ -271,7 +272,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                 out.append((name, _hash, _security, self.links["hashdb"].certhash_as_name(_hash)))
         return _tnames[0], {"items": out, "map": ["name", "hash", "security", "localname"]}, _tnames[2]
 
-    @check_args_deco(optional={"address": str})
+    @check_args_deco(optional={"address": str, "forcehash": str})
     @classify_accessable
     def info(self, obdict: dict):
         """ func: retrieve info of node
@@ -288,7 +289,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"type": _cstemp.scn_type, "name": _cstemp.name, "message": _cstemp.message}
 
-    @check_args_deco(optional={"address": str})
+    @check_args_deco(optional={"address": str, "forcehash": str})
     @classify_accessable
     def cap(self, obdict: dict):
         """ func: retrieve capabilities of node
@@ -305,7 +306,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"caps": _cstemp.capabilities}
 
-    @check_args_deco(optional={"address": str})
+    @check_args_deco(optional={"address": str, "forcehash": str})
     @classify_accessable
     def prioty_direct(self, obdict: dict):
         """ func: retrieve priority of node
@@ -334,11 +335,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         temp = self.get(obdict)
         if not temp[0]:
             return temp
-        temp[1]["forcehash"] = obdict.get("hash")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.prioty_direct({"address":"{address}-{port}".format(**temp[1]), "headers":_headers})
+        return self.prioty_direct({"address":"{address}-{port}".format(**temp[1]), "forcehash": obdict.get("hash"), "headers":_headers})
 
-    @check_args_deco({"address": str, "hash": str}, optional={"security": str})
+    @check_args_deco({"address": str, "hash": str}, optional={"security": str, "forcehash": str})
     @classify_accessable
     def check_direct(self, obdict: dict):
         """ func: check if a address is reachable; update local information when reachable
@@ -402,12 +402,13 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         return prioty_ret
 
     # reason for beeing seperate from get: to detect if a minor or a bigger error happened
-    @check_args_deco({"server": str, "name": str, "hash": str})
+    @check_args_deco({"server": str, "name": str, "hash": str}, optional={"forcehash": str})
     @classify_accessable
     def check(self, obdict: dict):
         """ func: check if client is reachable; update local information when reachable
             return: priority, type, certificate security, (new-)hash (client)
             server: server url
+            forcehash: enforce server with hash==forcehash
             name: client name
             hash: client certificate hash """
         get_ret = self.get(obdict)
