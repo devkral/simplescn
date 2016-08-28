@@ -556,7 +556,7 @@ class CerthashDb(CommonDbInit):
             logging.error("invalid reference")
             return None
         cur = dbcon.cursor()
-        cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=?);''', (_reference,))
+        cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=?) ORDER BY name ASC;''', (_reference,))
         out = cur.fetchall()
         if out is None:
             return []
