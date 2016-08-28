@@ -420,7 +420,7 @@ class CerthashDb(CommonDbInit):
         if _nodetype is None:
             cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs ORDER BY priority DESC;''')
         else:
-            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs ORDER BY priority WHERE type=? DESC;''', (_nodetype,))
+            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE type=? ORDER BY priority DESC;''', (_nodetype,))
         out = cur.fetchall()
         if out is None:
             return []
