@@ -282,6 +282,8 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
         #    con.close()
         #    return None, False, "obdict not a dict", con.certtupel
         # origcertinfo[0] is not isself, otherwise it isn't sent
+        if con and not kwargs.get("keepalive", True):
+            con.close()
         if con.certtupel[0] is isself and "origcertinfo" in obdict:
             return con, success, obdict, obdict["origcertinfo"]
         else:

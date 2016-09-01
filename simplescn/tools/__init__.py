@@ -124,34 +124,39 @@ def init_config_folder(_dir, prefix):
             writeo.write("<message>")
 
 ## pidlock ##
-
-def get_pidlock(rundir, name):
+# returns
+def get_pidlock(pidpath):
+    """ input: path to pidfile
+         returns None if found pid == own pid
+         returns False if other process has lock
+         returns True if pidlock could snatched """
     if not psutil:
         logging.error("psutil needed for checking pidlock")
-        return None
-    path = os.path.join(rundir, name)
+        return False
     pid = None
     try:
-        with open(path, "r") as ro:
+        with open(pidpath, "r") as ro:
             pid = int(ro.read())
     except Exception:
         pid = None
-    if pid and os.getpid() != pid and psutil.pid_exists(pid):
+    if pid == os.getpid():
         return None
+    if pid and psutil.pid_exists(pid):
+        return False
     try:
-        fdob = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+        fdob = os.open(pidpath, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
         with open(fdob, "w", closefd=True) as wo:
             wo.write(str(os.getpid()))
     except Exception:
-        return None
+        return False
     try:
-        with open(path, "r") as ro:
+        with open(pidpath, "r") as ro:
             pid = int(ro.read())
     except Exception:
         pid = None
     if os.getpid() == pid:
-        return path
-    return None
+        return True
+    return False
 
 ## file object handler for e.g.representing port ##
 
@@ -189,8 +194,9 @@ class SecdirHandler(object):
     def create(cls, path, mode=0o700):
         # check if other instance is running
         if os.path.exists(path):
-            pidpath = get_pidlock(path, "lock")
-            if not pidpath:
+            pidl = get_pidlock(os.path.join(path, "lock"))
+            # only if other process has lock/no psutil
+            if pidl is False:
                 return None
         ret = None
         try:
@@ -199,10 +205,12 @@ class SecdirHandler(object):
             logging.warning(exc)
             return None
         # regenerate lock
-        pidpath = get_pidlock(path, "lock")
-        if pidpath is None:
+        pidl = get_pidlock(os.join(path, "lock"))
+        # if other process has lock, deletion failed or no psutil
+        if not pidl and psutil:
             ret.filepath = None
             return None
+
         #try:
         #    fdob = os.open(os.path.join(path, "secret"), os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
         #    with open(fdob, "w") as wob:
@@ -702,14 +710,15 @@ def parselocalclient(path, extractipv6=True):
         logging.warning(exc)
     return None
 
-def getlocalclient(extractipv6=True, rundir=config.default_runpath, cleanupoldfiles=False):
+def getlocalclient(extractipv6=True, rundir=config.default_runpath):
     """ parse simplescn info file at default position; use parselocalclient()
         extractipv6: extract ipv6 address
         returns: address, use_unix, cert_hash or None """
     p1 = os.path.join(rundir, "{}-simplescn-client".format(os.getuid()))
     p2 = os.path.join(p1, "info")
     if os.path.exists(p2):
-        if not cleanupoldfiles or not get_pidlock(p1, "lock"):
+        pidl = get_pidlock(os.path.join(p1, "lock"))
+        if not pidl:
             return parselocalclient(p2, extractipv6)
         else:
             shutil.rmtree(p1)
