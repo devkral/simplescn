@@ -145,7 +145,7 @@ if __name__ == "__main__":
         else:
             init(scnrequest.Requester(use_unix=False, pwhandler=pwcallmethod), sys.argv[1])
     else:
-        p = getlocalclient(cleanupoldfiles=True)
+        p = getlocalclient()
         if p:
             init(scnrequest.Requester(use_unix=p[1], pwhandler=pwcallmethod), p[0])
         #elif os.path.exists(p.format("info")):

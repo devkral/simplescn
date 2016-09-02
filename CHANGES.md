@@ -1,3 +1,9 @@
+# 0.7
+
+## changes
+* remove cleanoldfiles hack
+* get_pidlock returns now state instead path or None
+
 # 0.6.2
 ## bugfixes
 * fix cleanup of old files after crash
