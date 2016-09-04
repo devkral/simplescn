@@ -205,7 +205,7 @@ class SecdirHandler(object):
             logging.warning(exc)
             return None
         # regenerate lock
-        pidl = get_pidlock(os.join(path, "lock"))
+        pidl = get_pidlock(os.path.join(path, "lock"))
         # if other process has lock, deletion failed or no psutil
         if not pidl and psutil:
             ret.filepath = None
