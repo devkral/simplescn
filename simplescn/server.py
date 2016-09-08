@@ -347,8 +347,9 @@ class ServerInit(object):
     def create(cls, **kwargs):
         if not kwargs["nolock"]:
             # port
-            pidpath = get_pidlock(kwargs["run"], "{}-simplescn-server.lck".format(kwargs["port"]))
-            if not pidpath:
+            pidpath = os.path.join(kwargs["run"], "{}-simplescn-server.lck".format(kwargs["port"]))
+            pidl = get_pidlock(pidpath)
+            if not pidl:
                 logging.info("Server already active or permission problems")
                 return None
         else:

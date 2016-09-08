@@ -195,8 +195,8 @@ class SecdirHandler(object):
         # check if other instance is running
         if os.path.exists(path):
             pidl = get_pidlock(os.path.join(path, "lock"))
-            # only if other process has lock/no psutil
-            if pidl is False:
+            # if call doesn't get lock, e.g. other process, no psutil, double calling
+            if not pidl:
                 return None
         ret = None
         try:
@@ -694,18 +694,22 @@ def parselocalclient(path, extractipv6=True):
     try:
         with open(path, "r") as rob:
             pjson = json.load(rob)
-        if os.path.exists(pjson.get("cserver_unix", None)):
+        ppath = pjson.get("cserver_unix", None)
+        if ppath and os.path.exists(ppath):
             return pjson.get("cserver_unix"), True
         if extractipv6 and "cserver_ip" in pjson:
             soc = socket.create_connection(pjson.get("cserver_ip"), 3)
             if not soc:
                 return None
-            return "-".join(pjson.get("cserver_ip")), False
+            soc.close()
+            return "{}-{}".format(*pjson.get("cserver_ip")), False
         elif "cserver_ip4" in pjson:
             soc = socket.create_connection(pjson.get("cserver_ip4"), 3)
             if not soc:
                 return None
-            return "-".join(pjson.get("cserver_ip4")), False
+            soc.close()
+            return "{}-{}".format(*pjson.get("cserver_ip4")), False
+        logging.info("Info file exist but no connection found")
     except Exception as exc:
         logging.warning(exc)
     return None
@@ -721,5 +725,6 @@ def getlocalclient(extractipv6=True, rundir=config.default_runpath):
         if not pidl:
             return parselocalclient(p2, extractipv6)
         else:
+            # cleanup own and old information
             shutil.rmtree(p1)
     return None

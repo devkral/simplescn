@@ -14,7 +14,7 @@ import json
 import simplescn
 from simplescn import config
 from simplescn import tools
-from simplescn.tools import checks
+from simplescn.tools import checks, start
 
 
 class TestGenerateError(unittest.TestCase):
@@ -109,7 +109,6 @@ class Test_safe_mdecode(unittest.TestCase):
         cls.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwclient = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
-        
         cls._testseq_json1 = json.dumps({"action": "show", "headers": {"X-SCN-Authorization": tools.dhash(cls.pwserver)}})
     
     def test_valid_json(self):
@@ -134,8 +133,7 @@ class Test_safe_mdecode(unittest.TestCase):
         self.assertIn("headers", result)
         self.assertIn("X-SCN-Authorization", result["headers"])
         self.assertEqual(result["headers"]["X-SCN-Authorization"], tools.dhash(self.pwserver))
-        
-        
+
         result = tools.safe_mdecode(bytes(self._testseq_json1, "iso8859_8"), "application/json; charset=iso8859_8")
         self.assertIn("action", result)
         self.assertEqual(result["action"], "show")
@@ -150,6 +148,62 @@ class Test_safe_mdecode(unittest.TestCase):
             self.assertIsNone(tools.safe_mdecode(self._testseq_json1, "text/plain"))
         with self.assertLogs(level=logging.ERROR):
             self.assertIsNone(tools.safe_mdecode(bytes(self._testseq_json1, "utf-8"), "application/json", "ksksls"))
+
+
+class Test_getlocalclient(unittest.TestCase):
+    temptestdirconf = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientconf")
+    temptestdirconf2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientconf2")
+    temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclient2")
+    temptestdir3 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclient3")
+    temptestdirempty = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientempty")
+    param_client = ["--config={}".format(temptestdirconf), "--run={}".format(temptestdir2), "--noip", "--nounix"]
+    param_client2 = ["--config={}".format(temptestdirconf2), "--run={}".format(temptestdir3), "--nounix", "--noip=False"]
+    # needed to run ONCE; setUpModule runs async
+    @classmethod
+    def setUpClass(cls):
+        if os.path.isdir(cls.temptestdirconf):
+            shutil.rmtree(cls.temptestdirconf)
+        if os.path.isdir(cls.temptestdirconf2):
+            shutil.rmtree(cls.temptestdirconf2)
+        if os.path.isdir(cls.temptestdir2):
+            shutil.rmtree(cls.temptestdir2)
+        if os.path.isdir(cls.temptestdir3):
+            shutil.rmtree(cls.temptestdir3)
+        if os.path.isdir(cls.temptestdirempty):
+            shutil.rmtree(cls.temptestdirempty)
+        os.mkdir(cls.temptestdirconf, 0o700)
+        os.mkdir(cls.temptestdirconf2, 0o700)
+        os.mkdir(cls.temptestdirempty, 0o700)
+        os.mkdir(cls.temptestdir2, 0o700)
+        os.mkdir(cls.temptestdir3, 0o700)
+        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
+        simplescn.pwcallmethodinst = lambda msg: ""
+        cls.client = start.client(cls.param_client, doreturn=True)
+        cls.client2 = start.client(cls.param_client2, doreturn=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.client.quit()
+        #cls.client2.quit()
+        shutil.rmtree(cls.temptestdirconf)
+        shutil.rmtree(cls.temptestdirconf2)
+        shutil.rmtree(cls.temptestdir2)
+        shutil.rmtree(cls.temptestdir3)
+        shutil.rmtree(cls.temptestdirempty)
+        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+
+    def test_blockclient(self):
+        client2 = start.client(self.param_client, doreturn=True)
+        self.assertIsNone(client2)
+
+    def test_retrieve(self):
+        ret = tools.getlocalclient(rundir=self.temptestdirempty)
+        self.assertIsNone(ret)
+        # no connection possible
+        ret2 = tools.getlocalclient(rundir=self.temptestdir2)
+        self.assertIsNone(ret2)
+        ret3 = tools.getlocalclient(rundir=self.temptestdir3)
+        self.assertIsNotNone(ret3)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

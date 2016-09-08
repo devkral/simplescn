@@ -78,8 +78,8 @@ class TestSpeed(unittest.TestCase):
         #    shutil.rmtree(cls.temptestdir2)
         os.mkdir(cls.temptestdir, 0o700)
         #os.mkdir(cls.temptestdir2, 0o700)
-        simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
+        simplescn.pwcallmethodinst = lambda msg: ""
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port

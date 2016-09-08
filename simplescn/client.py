@@ -502,7 +502,6 @@ class ClientInit(object):
             logging.error("permsdb (permission db) or hashdb (certificate hash db) could not be initialized")
             return None
         ret = cls(secdirinst, **kwargs)
-        cls.secdirinst = secdirinst
         return ret
 
     def __del__(self):
@@ -514,6 +513,7 @@ class ClientInit(object):
 
     def __init__(self, secdirinst, **kwargs):
         self.links = {}
+        self.secdirinst = secdirinst
         self.links["config_root"] = kwargs.get("config")
         self.links["kwargs"] = kwargs
         _cpath = os.path.join(self.links["config_root"], "client")

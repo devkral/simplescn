@@ -82,8 +82,8 @@ class TestWrap(unittest.TestCase):
         os.mkdir(cls.temptestdir, 0o700)
         os.mkdir(cls.temptestdir2, 0o700)
         #print(cls.temptestdir, cls.temptestdir2)
-        simplescn.pwcallmethodinst = lambda msg: ""
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
+        simplescn.pwcallmethodinst = lambda msg: ""
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
@@ -148,7 +148,6 @@ class TestWrap(unittest.TestCase):
         ob = resp.read(int(resp.headers["Content-Length"]))
         job = json.loads(str(ob, "utf-8"))
         self.assertDictEqual(job, {"origcertinfo": [None, None, None]})
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

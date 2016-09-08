@@ -83,7 +83,7 @@ def cmdloop(requester, address, ownscnport):
                 print("Error: too less parameters – server")
                 continue
             body_server = {"server": tt[0], "name": tt[1], "hash": tt[2]}
-            resp_s = requester.do_request(address, "/client/get", body_server, {}, forcehash=forcehash, pwhandler=pwcallmethod)
+            resp_s = requester.do_request(address, "/client/get", body_server, {}, pwhandler=pwcallmethod)
             if resp_s[0]:
                 resp_s[0].close()
             if not resp_s[1]:
