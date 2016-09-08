@@ -156,8 +156,10 @@ class Test_getlocalclient(unittest.TestCase):
     temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclient2")
     temptestdir3 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclient3")
     temptestdirempty = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientempty")
+    temptestdirserver = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientserver")
     param_client = ["--config={}".format(temptestdirconf), "--run={}".format(temptestdir2), "--noip", "--nounix"]
     param_client2 = ["--config={}".format(temptestdirconf2), "--run={}".format(temptestdir3), "--nounix", "--noip=False"]
+    param_server = ["--run={}".format(temptestdirserver)]
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
@@ -171,11 +173,14 @@ class Test_getlocalclient(unittest.TestCase):
             shutil.rmtree(cls.temptestdir3)
         if os.path.isdir(cls.temptestdirempty):
             shutil.rmtree(cls.temptestdirempty)
+        if os.path.isdir(cls.temptestdirserver):
+            shutil.rmtree(cls.temptestdirserver)
         os.mkdir(cls.temptestdirconf, 0o700)
         os.mkdir(cls.temptestdirconf2, 0o700)
         os.mkdir(cls.temptestdirempty, 0o700)
         os.mkdir(cls.temptestdir2, 0o700)
         os.mkdir(cls.temptestdir3, 0o700)
+        os.mkdir(cls.temptestdirserver, 0o700)
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.client = start.client(cls.param_client, doreturn=True)
@@ -190,11 +195,19 @@ class Test_getlocalclient(unittest.TestCase):
         shutil.rmtree(cls.temptestdir2)
         shutil.rmtree(cls.temptestdir3)
         shutil.rmtree(cls.temptestdirempty)
+        shutil.rmtree(cls.temptestdirserver)
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_blockclient(self):
         client2 = start.client(self.param_client, doreturn=True)
         self.assertIsNone(client2)
+
+    def test_blockserver(self):
+        server1 = start.server(self.param_server, doreturn=True)
+        self.assertIsNotNone(server1)
+        server2 = start.server(self.param_server, doreturn=True)
+        self.assertIsNone(server2)
+
 
     def test_retrieve(self):
         ret = tools.getlocalclient(rundir=self.temptestdirempty)
