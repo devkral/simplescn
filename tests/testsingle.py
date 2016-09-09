@@ -34,7 +34,7 @@ class Test_getlocalclient(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.client.quit()
-        #cls.client2.quit()
+        cls.client2.quit()
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_blockclient(self):
