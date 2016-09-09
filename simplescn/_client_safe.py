@@ -13,9 +13,9 @@ from simplescn import EnforcedPortError
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
 from simplescn.tools.checks import check_updated_certs, check_local, check_args, check_name
-from simplescn._decos import check_args_deco, classify_local, classify_accessable, generate_validactions_deco
+from simplescn._decos import check_args_deco, classify_local, classify_accessable
 
-@generate_validactions_deco
+#@generate_validactions_deco
 class ClientClientSafe(object, metaclass=abc.ABCMeta):
     @property
     def validactions(self):
@@ -29,11 +29,6 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def _cache_help(self):
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def name(self):
         raise NotImplementedError
 
     @property
@@ -58,6 +53,18 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             return: help """
         return True, {"help": self._cache_help}
 
+    @check_args_deco()
+    @classify_local
+    @classify_accessable
+    def show(self, obdict: dict):
+        """ func: show client stats
+            return: client stats """
+            #; port==0 -> unixsockets are used, not True for hserver
+        return True, {"name": self.links["client_server"].name,
+                      "hash": self.links["certtupel"][1],
+                      "listen": self.links["hserver"].server_address,
+                      "port": self.links["hserver"].server_port}
+
     @check_args_deco({"server": str}, optional={"forcehash": str})
     @classify_accessable
     def register(self, obdict: dict):
@@ -71,23 +78,12 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if not _srvaddr:
             return False, genc_error("not a valid server")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        ret = self.do_request(obdict.get("server"), "/server/register", {"name": self.name, "port": server_port, "update": self.brokencerts}, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
+        body = {"name": self.links["client_server"].name, "port": server_port, "update": self.brokencerts}
+        ret = self.do_request(obdict.get("server"), "/server/register", body, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
 
         if ret[0] and ret[1].get("traverse", False):
             self.scntraverse_helper.add_desttupel(_srvaddr)
         return ret
-
-    @check_args_deco()
-    @classify_local
-    @classify_accessable
-    def show(self, obdict: dict):
-        """ func: show client stats
-            return: client stats """
-            #; port==0 -> unixsockets are used, not True for hserver
-        return True, {"name": self.name,
-                      "hash": self.links["certtupel"][1],
-                      "listen": self.links["hserver"].server_address,
-                      "port": self.links["hserver"].server_port}
 
     @check_args_deco({"name": str, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool, "hidden": bool, "forcehash": str})
     @classify_accessable
@@ -125,7 +121,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             forcehash: enforce node with hash==forcehash
             client: LOCAL client url (default: own client) """
         senddict = extract_senddict(obdict, "name")
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
@@ -355,7 +351,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         else:
             _forcehash = obdict.get("forcehash", None)
         # only use forcehash if requested elsewise handle hash mismatch later
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if _forcehash:
             prioty_ret = self.prioty_direct({"address": obdict["address"], "headers": _headers, "forcehash": _forcehash})
         else:

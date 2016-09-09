@@ -1,13 +1,14 @@
 #! /usr/bin/env python3
+
+import unittest
+import tempfile
+import time
+
 import sys
 import os
 # fix import
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-
-import unittest
-import shutil
-import time
 
 import simplescn
 from simplescn import tools
@@ -22,39 +23,34 @@ from simplescn.tools import start
 
 
 class TestCommunication(unittest.TestCase):
-    temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication")
-    temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_communication2")
-    param_server = ["--config={}".format(temptestdir), "--nolock", "--port=0"]
-    param_client = ["--config={}".format(temptestdir), "--nolock", "--nounix", "--noip"]
-    param_client2 = ["--config={}".format(temptestdir2), "--nolock", "--nounix", "--noip"]
-    
+    temptestdir = tempfile.TemporaryDirectory("testcommunication")
+    temptestdir2 = tempfile.TemporaryDirectory("testcommunication2")
+    param_server = ["--config={}".format(temptestdir.name), "--nolock", "--port=0"]
+    param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip"]
+    param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip"]
+
     #client = None
     #server = None
-    
+
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
-        if os.path.isdir(cls.temptestdir):
-            shutil.rmtree(cls.temptestdir)
-        if os.path.isdir(cls.temptestdir2):
-            shutil.rmtree(cls.temptestdir2)
-        os.mkdir(cls.temptestdir, 0o700)
-        os.mkdir(cls.temptestdir2, 0o700)
         #print(cls.temptestdir, cls.temptestdir2)
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
-        cls.name = cls.client.links["client"].name
-        
+        cls.name = cls.client.links["client_server"].name
+
         cls.client2 = start.client(cls.param_client2, doreturn=True)
         cls.client_hash2 = cls.client2.links["certtupel"][1]
         cls.client_port2 = cls.client2.links["hserver"].server_port
-        
+
         cls.server = start.server(cls.param_server, doreturn=True)
         cls.server_port = cls.server.links["hserver"].server_port
         cls.client_hash3 = tools.dhash("m")
+
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
@@ -63,8 +59,6 @@ class TestCommunication(unittest.TestCase):
         cls.client.quit()
         cls.client2.quit()
         cls.server.quit()
-        shutil.rmtree(cls.temptestdir)
-        shutil.rmtree(cls.temptestdir2)
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_register_get(self):
@@ -177,6 +171,12 @@ class TestCommunication(unittest.TestCase):
         # test remote fail (no certinformation)
         ret_remote3 = self.client.links["client"].access_dict("check_direct", {"address": "::1-{}".format(self.client_port2), "security": "insecure", "hash": self.client_hash3})
         self.assertEqual(ret_remote3[0], False)
+
+    def test_addentity(self):
+        add1 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
+        self.assertEqual(add1[0], True)
+        add2 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
+        self.assertEqual(add2[0], False)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

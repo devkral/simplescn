@@ -1,20 +1,19 @@
 #! /usr/bin/env python3
 
+import unittest
+import logging
+import json
+import tempfile
+
 import os, sys
 # fix import
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-
-import unittest
-import logging
-import shutil
-import json
-
 import simplescn
 from simplescn import config
 from simplescn import tools
-from simplescn.tools import checks, start
+from simplescn.tools import checks
 
 
 class TestGenerateError(unittest.TestCase):
@@ -36,33 +35,28 @@ class TestGenerateError(unittest.TestCase):
         self.assertDictEqual(tools.generate_error("teststring"), {"msg": "teststring", "type":""})
 
 class TestGenerateCerts(unittest.TestCase):
-    temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_certs")
+    temptestdir = tempfile.TemporaryDirectory("testcommoncerts")
     
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
-        if os.path.isdir(cls.temptestdir):
-            shutil.rmtree(cls.temptestdir)
-        os.mkdir(cls.temptestdir, 0o700)
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
 
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(cls.temptestdir)
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
     
     def test_NoPw(self):
         simplescn.pwcallmethodinst = lambda msg: ""
-        tools.generate_certs(os.path.join(self.temptestdir, "testnopw"))
-        self.assertTrue(checks.check_certs(os.path.join(self.temptestdir, "testnopw")))
+        tools.generate_certs(os.path.join(self.temptestdir.name, "testnopw"))
+        self.assertTrue(checks.check_certs(os.path.join(self.temptestdir.name, "testnopw")))
     
     def test_WithPw(self):
         pw = str(os.urandom(10), "utf-8", "backslashreplace")
         simplescn.pwcallmethodinst = lambda msg: pw
-        tools.generate_certs(os.path.join(self.temptestdir, "testwithpw"))
-        self.assertTrue(checks.check_certs(os.path.join(self.temptestdir, "testwithpw")))
-        
+        tools.generate_certs(os.path.join(self.temptestdir.name, "testwithpw"))
+        self.assertTrue(checks.check_certs(os.path.join(self.temptestdir.name, "testwithpw")))
 
 class TestAuth(unittest.TestCase):
     # needed to run ONCE; setUpModule runs async
@@ -100,7 +94,6 @@ class TestAuth(unittest.TestCase):
         self.assertFalse(self.authserver.verify(clienta))
         clienta = tools.scn_hashedpw_auth(tools.dhash(self.pwserver), serverra, self.hashserver_wrong)
         self.assertFalse(self.authserver.verify(clienta))
-
 
 class Test_safe_mdecode(unittest.TestCase):
     # needed to run ONCE; setUpModule runs async
@@ -149,74 +142,5 @@ class Test_safe_mdecode(unittest.TestCase):
         with self.assertLogs(level=logging.ERROR):
             self.assertIsNone(tools.safe_mdecode(bytes(self._testseq_json1, "utf-8"), "application/json", "ksksls"))
 
-
-class Test_getlocalclient(unittest.TestCase):
-    temptestdirconf = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientconf")
-    temptestdirconf2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientconf2")
-    temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclient2")
-    temptestdir3 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclient3")
-    temptestdirempty = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientempty")
-    temptestdirserver = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_getlocalclientserver")
-    param_client = ["--config={}".format(temptestdirconf), "--run={}".format(temptestdir2), "--noip", "--nounix"]
-    param_client2 = ["--config={}".format(temptestdirconf2), "--run={}".format(temptestdir3), "--nounix", "--noip=False"]
-    param_server = ["--run={}".format(temptestdirserver)]
-    # needed to run ONCE; setUpModule runs async
-    @classmethod
-    def setUpClass(cls):
-        if os.path.isdir(cls.temptestdirconf):
-            shutil.rmtree(cls.temptestdirconf)
-        if os.path.isdir(cls.temptestdirconf2):
-            shutil.rmtree(cls.temptestdirconf2)
-        if os.path.isdir(cls.temptestdir2):
-            shutil.rmtree(cls.temptestdir2)
-        if os.path.isdir(cls.temptestdir3):
-            shutil.rmtree(cls.temptestdir3)
-        if os.path.isdir(cls.temptestdirempty):
-            shutil.rmtree(cls.temptestdirempty)
-        if os.path.isdir(cls.temptestdirserver):
-            shutil.rmtree(cls.temptestdirserver)
-        os.mkdir(cls.temptestdirconf, 0o700)
-        os.mkdir(cls.temptestdirconf2, 0o700)
-        os.mkdir(cls.temptestdirempty, 0o700)
-        os.mkdir(cls.temptestdir2, 0o700)
-        os.mkdir(cls.temptestdir3, 0o700)
-        os.mkdir(cls.temptestdirserver, 0o700)
-        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        simplescn.pwcallmethodinst = lambda msg: ""
-        cls.client = start.client(cls.param_client, doreturn=True)
-        cls.client2 = start.client(cls.param_client2, doreturn=True)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.client.quit()
-        #cls.client2.quit()
-        shutil.rmtree(cls.temptestdirconf)
-        shutil.rmtree(cls.temptestdirconf2)
-        shutil.rmtree(cls.temptestdir2)
-        shutil.rmtree(cls.temptestdir3)
-        shutil.rmtree(cls.temptestdirempty)
-        shutil.rmtree(cls.temptestdirserver)
-        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
-
-    def test_blockclient(self):
-        client2 = start.client(self.param_client, doreturn=True)
-        self.assertIsNone(client2)
-
-    def test_blockserver(self):
-        server1 = start.server(self.param_server, doreturn=True)
-        self.assertIsNotNone(server1)
-        server2 = start.server(self.param_server, doreturn=True)
-        self.assertIsNone(server2)
-
-
-    def test_retrieve(self):
-        ret = tools.getlocalclient(rundir=self.temptestdirempty)
-        self.assertIsNone(ret)
-        # no connection possible
-        ret2 = tools.getlocalclient(rundir=self.temptestdir2)
-        self.assertIsNone(ret2)
-        ret3 = tools.getlocalclient(rundir=self.temptestdir3)
-        self.assertIsNotNone(ret3)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=2)

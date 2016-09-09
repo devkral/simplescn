@@ -2,7 +2,6 @@
 import functools
 
 from simplescn.tools import generate_error
-#, gen_result
 from simplescn.tools.checks import check_args
 
 #def generate_permissionactions_deco(DecoClass):
@@ -21,16 +20,22 @@ from simplescn.tools.checks import check_args
 #                DecoClass.validactions_normal.add(key)
 #    return DecoClass
 
+def _add_validaction(validactions, key, value):
+    if not callable(value) or key[0] == "_":
+        return
+    tClassify = getattr(value, "classify", None)
+    if not tClassify:
+        return
+    if "accessable" in tClassify:
+        validactions.add(key)
+
 def generate_validactions_deco(DecoClass):
     DecoClass.validactions = set()
+    for parent in DecoClass.__bases__:
+        for key, value in parent.__dict__.items():
+            _add_validaction(DecoClass.validactions, key, value)
     for key, value in DecoClass.__dict__.items():
-        if not callable(value) or key[0] == "_":
-            continue
-        tClassify = getattr(value, "classify", None)
-        if not tClassify:
-            continue
-        if "accessable" in tClassify:
-            DecoClass.validactions.add(key)
+        _add_validaction(DecoClass.validactions, key, value)
     return DecoClass
 
 # signals that method needs admin permission

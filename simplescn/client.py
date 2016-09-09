@@ -28,24 +28,20 @@ from simplescn.scnrequest import Requester
 
 @generate_validactions_deco
 class ClientClient(ClientClientAdmin, ClientClientSafe):
-    name = None
     links = None
     scntraverse_helper = None
     brokencerts = None
-    _cache_help = None
     requester = None
+    _cache_help = None
 
     @property
     def validactions(self):
         raise NotImplementedError()
 
-    def __init__(self, name: str,  _links: dict):
-        ClientClientAdmin.__init__(self)
-        ClientClientSafe.__init__(self)
-        self.validactions.update(ClientClientAdmin.validactions)
-        self.validactions.update(ClientClientSafe.validactions)
+    def __init__(self, _links: dict):
+        for parent in type(self).__bases__:
+            parent.__init__(self)
         self.links = _links
-        self.name = name
         self.brokencerts = []
         self.requester = Requester(ownhash=self.links["certtupel"][1], hashdb=self.links["hashdb"], certcontext=self.links["hserver"].sslcont)
 
@@ -101,6 +97,7 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
             return False, exc, self.links["certtupel"] #.with_traceback(sys.last_traceback)
 
     # help section
+    @classify_private
     def cmdhelp(self):
         out = "# commands\n"
         for funcname in sorted(self.validactions):
@@ -156,10 +153,10 @@ class ClientServer(CommonSCN):
         self.cache["dumpservices"] = json.dumps({"dict": {}})
         self.update_cache()
         self.validactions.update(self.cache.keys())
+
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
-
     @check_args_deco({"name": str, "port": int}, optional={"wrappedport": bool, "post": bool, "hidden": bool})
     @classify_local
     @classify_accessable
@@ -580,7 +577,7 @@ class ClientInit(object):
                 self.links["cserver_ip4"] = SHTTPServer(("::ffff:127.0.0.1", self.links["cserver_ip"].server_port), sslcont, self.links["chandler"])
 
         self.links["certtupel"] = (isself, dhash(pub_cert), pub_cert)
-        self.links["client"] = ClientClient(_name[0], self.links)
+        self.links["client"] = ClientClient(self.links)
         clientserverdict = {"name": _name[0], "message": _message, "links": self.links}
 
         self.links["client_server"] = ClientServer(clientserverdict)
@@ -618,8 +615,9 @@ class ClientInit(object):
     def show(self):
         ret = dict()
         ret["cert_hash"] = self.links["certtupel"][1]
-        _r = self.links["hserver"]
-        ret["hserver"] = _r.server_name, _r.server_port
+        ret["name"] = self.links["client_server"].name
+        hserver = self.links["hserver"]
+        ret["hserver"] = hserver.server_name, hserver.server_port
         _r = self.links.get("cserver_ip", None)
         if _r:
             ret["cserver_ip"] = _r.server_name, _r.server_port

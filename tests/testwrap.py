@@ -1,22 +1,21 @@
 #! /usr/bin/env python3
-import sys
-import os
 
 import unittest
-import shutil
 import time
 import threading
 from http import server, client
 import json
+import tempfile
 import socket
 
+import sys
+import os
 # fix import
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import simplescn
 from simplescn import scnrequest
 from simplescn.tools import start, default_sslcont
-
 
 class httpserver(server.HTTPServer):
     address_family = socket.AF_INET6
@@ -27,7 +26,7 @@ class WrapTestHandler(server.BaseHTTPRequestHandler):
     certtupel = (None, None, None)
     server_timeout = 4
     default_request_version = "HTTP/1.1"
-    
+
     def wrap(self):
         cont = default_sslcont()
         self.connection = cont.wrap_socket(self.connection, server_side=False)
@@ -62,11 +61,11 @@ class WrapTestHandler(server.BaseHTTPRequestHandler):
             self.confirm()
 
 class TestWrap(unittest.TestCase):
-    temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_wrap")
-    temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_wrap2")
+    temptestdir = tempfile.TemporaryDirectory("testwrap")
+    temptestdir2 = tempfile.TemporaryDirectory("testwrap")
     #param_server = ["--config={}".format(temptestdir), "--nolock", "--port=0"]
-    param_client = ["--config={}".format(temptestdir), "--nolock", "--nounix", "--noip=False"]
-    param_client2 = ["--config={}".format(temptestdir2), "--nolock", "--nounix", "--noip"]
+    param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip=False"]
+    param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip"]
 
     client = None
     #server = None
@@ -75,12 +74,6 @@ class TestWrap(unittest.TestCase):
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
-        if os.path.isdir(cls.temptestdir):
-            shutil.rmtree(cls.temptestdir)
-        if os.path.isdir(cls.temptestdir2):
-            shutil.rmtree(cls.temptestdir2)
-        os.mkdir(cls.temptestdir, 0o700)
-        os.mkdir(cls.temptestdir2, 0o700)
         #print(cls.temptestdir, cls.temptestdir2)
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
@@ -112,8 +105,6 @@ class TestWrap(unittest.TestCase):
         cls.client.quit()
         #cls.client2.quit()
         #cls.server.quit()
-        shutil.rmtree(cls.temptestdir)
-        shutil.rmtree(cls.temptestdir2)
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_wrap1(self):

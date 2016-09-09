@@ -1,16 +1,18 @@
 #! /usr/bin/env python3
+
+import unittest
+import timeit
+import time
+import tempfile
+import threading
+import compileall
+#import logging
+
 import sys, os
 # fix import
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-import unittest
-import shutil
-import timeit
-import time
-import threading
-import compileall
-#import logging
 from http.server import BaseHTTPRequestHandler
 from http.client import HTTPSConnection
 
@@ -60,10 +62,10 @@ class TestServerHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"ok")
 
 class TestSpeed(unittest.TestCase):
-    temptestdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_speed")
+    temptestdir = tempfile.TemporaryDirectory()
     #temptestdir2 = os.path.join(os.path.dirname(os.path.realpath(__file__)), "temp_speed2")
-    param_server = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7"]
-    param_client = ["--config={}".format(temptestdir), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip=False"]
+    param_server = ["--config={}".format(temptestdir.name), "--port=0", "--nolock", "--loglevel=7"]
+    param_client = ["--config={}".format(temptestdir.name), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip=False"]
     #param_client2 = ["--config={}".format(temptestdir2), "--port=0", "--nolock", "--loglevel=7", "--nounix", "--noip"]
     referencestuff = None
     referencestuffinvalid = None
@@ -72,19 +74,13 @@ class TestSpeed(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         compileall.compile_dir(os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "simplescn"))
-        if os.path.isdir(cls.temptestdir):
-            shutil.rmtree(cls.temptestdir)
-        #if os.path.isdir(cls.temptestdir2):
-        #    shutil.rmtree(cls.temptestdir2)
-        os.mkdir(cls.temptestdir, 0o700)
-        #os.mkdir(cls.temptestdir2, 0o700)
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
         cls.client_port2 = cls.client.links["cserver_ip"].server_port
-        cls.name = cls.client.links["client"].name
+        cls.name = cls.client.links["client_server"].name
 
         #cls.client2 = simplescn.__main__.client(cls.param_client2, doreturn=True)
 
@@ -112,8 +108,6 @@ class TestSpeed(unittest.TestCase):
         #cls.client2.quit()
         cls.server.quit()
         cls.testserver.server_close()
-        shutil.rmtree(cls.temptestdir)
-        #shutil.rmtree(cls.temptestdir2)
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
         print(cls.referencestuff)
         print(cls.referencestuffinvalid)

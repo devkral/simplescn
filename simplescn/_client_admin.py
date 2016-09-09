@@ -13,9 +13,9 @@ import abc
 from simplescn.config import isself
 from simplescn.tools import dhash, generate_certs, generate_error, genc_error
 from simplescn.tools.checks import check_reference, check_reference_type, check_name, check_security, check_hash, check_trustpermission
-from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable, generate_validactions_deco
+from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable
 
-@generate_validactions_deco
+#@generate_validactions_deco
 class ClientClientAdmin(object, metaclass=abc.ABCMeta):
     @property
     def validactions(self):
@@ -279,7 +279,6 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
                         writen.write("{}/{}".format(newname, oldt[1]))
                     else:
                         writen.write("{}/0".format(newname))
-            self.links["client"].name = newname
             self.links["client_server"].name = newname
             self.links["client_server"].update_cache()
             return True

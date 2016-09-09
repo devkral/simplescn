@@ -570,6 +570,7 @@ class SHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     timeout = None
     _listenthread = None
     use_unix = False
+    daemon_threads = True
 
     def __init__(self, _address, sslcont, _handler, use_unix=False):
         self.use_unix = use_unix

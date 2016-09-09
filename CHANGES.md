@@ -3,6 +3,17 @@
 ## changes
 * remove cleanoldfiles hack
 * get_pidlock returns now state instead path or None
+* move name to client_server
+* add name to show() information
+* generate_validactions_deco is now recursive
+* use daemon threads for SHTTPServer
+* add tests (locking, )
+* use TemporaryDirectory for tests
+
+## bugfixes
+* fix multiinstance bugs
+* fix tests
+
 
 # 0.6.2
 ## bugfixes

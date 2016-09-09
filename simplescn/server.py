@@ -437,8 +437,9 @@ class ServerInit(object):
     def show(self):
         ret = dict()
         ret["cert_hash"] = self.links["certtupel"][1]
-        _r = self.links["hserver"]
-        ret["hserver"] = _r.server_name, _r.server_port
+        hserver = self.links["hserver"]
+        ret["hserver"] = hserver.server_name, hserver.server_port
+        ret["name"] = self.links["server_server"].name
         return ret
     def join(self):
         self.links["hserver"].serve_join()
