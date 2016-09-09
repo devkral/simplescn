@@ -26,8 +26,8 @@ class TestCommunication(unittest.TestCase):
     temptestdir = tempfile.TemporaryDirectory("testcommunication")
     temptestdir2 = tempfile.TemporaryDirectory("testcommunication2")
     param_server = ["--config={}".format(temptestdir.name), "--nolock", "--port=0"]
-    param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip"]
-    param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip"]
+    param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip", "port=0"]
+    param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip", "port=0"]
 
     #client = None
     #server = None

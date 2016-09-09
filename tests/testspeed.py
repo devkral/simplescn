@@ -85,7 +85,7 @@ class TestSpeed(unittest.TestCase):
         #cls.client2 = simplescn.__main__.client(cls.param_client2, doreturn=True)
 
         sslcont = tools.default_sslcont()
-        _cpath = os.path.join(cls.temptestdir, "client")
+        _cpath = os.path.join(cls.temptestdir.name, "client")
         sslcont.load_cert_chain( _cpath+"_cert.pub", _cpath+"_cert.priv")
         cls.testserver = SHTTPServer(("::1", 0), sslcont, TestServerHandler)
 

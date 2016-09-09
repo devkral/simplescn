@@ -20,9 +20,9 @@ class Test_getlocalclient(unittest.TestCase):
     temptestdir3 = tempfile.TemporaryDirectory("testsingle3")
     temptestdirempty = tempfile.TemporaryDirectory("testsingleempty")
     temptestdirserver = tempfile.TemporaryDirectory("testsingleserver")
-    param_client = ["--config={}".format(temptestdirconf.name), "--run={}".format(temptestdir2.name), "--noip", "--nounix"]
-    param_client2 = ["--config={}".format(temptestdirconf2.name), "--run={}".format(temptestdir3.name), "--nounix", "--noip=False"]
-    param_server = ["--run={}".format(temptestdirserver.name)]
+    param_client = ["--config={}".format(temptestdirconf.name), "--run={}".format(temptestdir2.name), "--noip", "--nounix", "port=0"]
+    param_client2 = ["--config={}".format(temptestdirconf2.name), "--run={}".format(temptestdir3.name), "--nounix", "--noip=False", "port=0"]
+    param_server = ["--run={}".format(temptestdirserver.name), "port=0"]
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
@@ -59,6 +59,7 @@ class Test_getlocalclient(unittest.TestCase):
             self.assertIsNone(ret2)
         ret3 = tools.getlocalclient(rundir=self.temptestdir3.name)
         self.assertIsNotNone(ret3)
+        self.assertTrue(os.path.exists(self.temptestdir3.name))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

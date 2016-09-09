@@ -64,8 +64,8 @@ class TestWrap(unittest.TestCase):
     temptestdir = tempfile.TemporaryDirectory("testwrap")
     temptestdir2 = tempfile.TemporaryDirectory("testwrap")
     #param_server = ["--config={}".format(temptestdir), "--nolock", "--port=0"]
-    param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip=False"]
-    param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip"]
+    param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip=False", "port=0"]
+    param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip", "port=0"]
 
     client = None
     #server = None
@@ -81,7 +81,7 @@ class TestWrap(unittest.TestCase):
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
         cls.client_c_port = cls.client.links["cserver_ip"].server_port
-        cls.name = cls.client.links["client"].name
+        cls.name = cls.client.links["client_server"].name
 
         #cls.client2 = start.client(cls.param_client2, doreturn=True)
         #cls.client_hash2 = cls.client2.links["client"].certtupel[1]
