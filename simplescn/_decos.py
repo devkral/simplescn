@@ -115,7 +115,6 @@ def gen_doc_deco(func):
     func.__doc__ = newdoc[:-len(sep)]
     return func
 
-
 # args is iterable with (argname, type)
 # obdict (=_moddict) is modified
 # -> Tuple[bool, Union[str, dict], Union[str, tuple, None], Union[str, None]]:

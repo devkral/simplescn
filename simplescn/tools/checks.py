@@ -17,6 +17,32 @@ from simplescn.tools import badnamechars, dhash, default_sslcont, url_to_ipv6
 
 allowed_permissions = {"gettrust", "admin", "client"}
 
+def checkmetagen(func):
+    class hashstrmeta(type):
+        def __instancecheck__(self, instance):
+            return func(instance)
+
+        def __eq__(self, instance):
+            return func(instance)
+        
+        def __hash__(self):
+            return type.__hash__(self)
+    return hashstrmeta
+
+def checkclass(func, classtype=str):
+    class _checkclass(classtype, metaclass=checkmetagen(func)):
+        __doc__ = func.__doc__
+    return _checkclass
+
+def classlist_helper(func):
+    @functools.wraps(func)
+    def _wrapped(it):
+        for element in it:
+            if not func(element):
+                return False
+        return True
+    return _wrapped
+
 def check_reference(_reference):
     if _reference is None:
         return False
@@ -40,6 +66,16 @@ def check_security(_security):
         return True
     return False
 
+def check_priority(priority):
+    if not isinstance(priority, int):
+        return False
+    if priority < 0:
+        return False
+    if priority > 100:
+        return False
+    return True
+
+
 def check_local(addr):
     if addr.lower() in ["127.0.0.1", "::1", "::ffff:127.0.0.1"]:
         return True
@@ -51,19 +87,18 @@ def check_local(addr):
 #        return True
 #    return False
 
-
-# DEFAULT_HASHALGORITHM_len for default hash algo
-# but None by default for validating hashes of other length
-def check_hash(hashstr, length=None):
+def check_hash(hashstr):
     """ check if valid hash (for scn) """
     if hashstr in [None, ""]:
         return False
-    if length and len(hashstr) != length:
+    if len(hashstr) not in config.validhexhashlengths:
         return False
     # don't allow uppercase as it could confuse clients+servers and lowercase is default
     if not all(c in "0123456789abcdef" for c in hashstr):
         return False
     return True
+hashstr = checkclass(check_hash)
+hashlist = checkclass(classlist_helper(check_hash), list)
 
 def check_name(_name, maxlength=config.max_namelength):
     """ check node name """
@@ -80,6 +115,8 @@ def check_name(_name, maxlength=config.max_namelength):
     if _name == isself:
         return False
     return True
+namestr = checkclass(check_name)
+namelist = checkclass(classlist_helper(check_name), list)
 
 @functools.lru_cache(maxsize=16)
 def check_typename(_type, maxlength=config.max_typelength):
@@ -148,10 +185,8 @@ def check_args(_moddict, requires=None, optional=None, error=None):
     if error is None:
         error = []
     search = set()
-    if not isinstance(requires, dict):
-        raise TypeError("requires wrong type: " + type(requires).__name__)
-    if not isinstance(optional, dict):
-        raise TypeError("optional wrong type: " + type(optional).__name__)
+    assert isinstance(requires, dict), "requires has wrong type: " + type(requires).__name__
+    assert isinstance(optional, dict), "requires has wrong type: " + type(requires).__name__
     search.update(requires.items())
     #_optionallist = [elemoptional[0] for elemoptional in optional]
     search.update(optional.items())
@@ -165,16 +200,7 @@ def check_args(_moddict, requires=None, optional=None, error=None):
             return False
         if isinstance(_moddict[argname], _type):
             continue
-        if _type is tuple and isinstance(_moddict[argname], list):
-            _moddict[argname] = tuple(_moddict[argname])
-            continue
-        if _type is list and isinstance(_moddict[argname], tuple):
-            _moddict[argname] = list(_moddict[argname])
-            continue
-        # strip array and try again (limitation of www-parser) (not needed anymore)
-        # if not _type in (tuple, list) and isinstance(_moddict[argname], (tuple, list)):
-        #    _moddict[argname] = _moddict[argname][0]
-        # is a number given as string?
+        # is a number given as string? e.g. user input
         if _type is int and isinstance(_moddict[argname], str) and _moddict[argname].strip().rstrip().isdecimal():
             _moddict[argname] = int(_moddict[argname])
         # check if everything is right now

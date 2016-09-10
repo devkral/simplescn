@@ -6,9 +6,15 @@
 * move name to client_server
 * add name to show() information
 * generate_validactions_deco is now recursive
+* add check_priority
 * use daemon threads for SHTTPServer
-* add tests (locking, )
+* add tests (locking, massimport)
 * use TemporaryDirectory for tests
+* findbyref supports filtering
+* use smart classes
+* wrappedcon instead wrappedsocket
+* optimize hashdb, permsdb
+
 
 ## bugfixes
 * fix multiinstance bugs

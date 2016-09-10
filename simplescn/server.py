@@ -12,13 +12,13 @@ import threading
 import json
 import logging
 import ssl
-
+import collections
 
 from simplescn import config, InvalidLoadSizeError, InvalidLoadLevelError, pwcallmethod
 
 from simplescn.tools import generate_certs, init_config_folder, \
 dhash, SCNAuthServer, TraverserDropper, scnparse_url, default_sslcont, get_pidlock
-from simplescn.tools.checks import check_certs, check_hash, check_local, check_name, check_updated_certs
+from simplescn.tools.checks import check_certs, hashstr, check_local, namestr, check_updated_certs
 from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
 from simplescn.tools import generate_error
 from simplescn._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, loglevel_converter
@@ -160,7 +160,7 @@ class Server(CommonSCN):
         # notify that change happened
         self.nhipmap_cond.set()
 
-    @check_args_deco({"name": str, "port": int}, optional={"update": list})
+    @check_args_deco({"name": namestr, "port": int}, optional={"update": collections.Iterable})
     @classify_accessable
     def register(self, obdict: dict):
         """ func: register client
@@ -168,8 +168,6 @@ class Server(CommonSCN):
             name: client name
             port: listen port of client
             update: list with compromised hashes (includes reason=security) """
-        if not check_name(obdict["name"]):
-            return False, generate_error("invalid_name", False)
         if obdict["origcertinfo"][1] is None:
             return False, generate_error("no_cert", False)
         if obdict["clientaddress"][0][:7] == "::ffff:":
@@ -239,7 +237,7 @@ class Server(CommonSCN):
             return: remote requester address """
         return True, {"address": obdict.get("clientaddress")}
 
-    @check_args_deco({"hash": str, "name": str}, optional={"autotraverse": bool})
+    @check_args_deco({"hash": str, "name": namestr}, optional={"autotraverse": bool})
     @classify_accessable
     def get(self, obdict: dict):
         """ func: get address of a client
@@ -381,7 +379,7 @@ class ServerInit(object):
             pub_cert = readinpubkey.read().strip().rstrip()
         self.links["auth_server"] = SCNAuthServer(dhash(pub_cert))
         if bool(kwargs["spwhash"]):
-            if not check_hash(kwargs["spwhash"]):
+            if hashstr == kwargs["spwhash"]:
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"])
             else:
                 self.links["auth_server"].init(kwargs["spwhash"])
@@ -401,7 +399,7 @@ class ServerInit(object):
         if None in [pub_cert, _name, _message]:
             raise Exception("missing")
         _name = _name.split("/")
-        if len(_name) > 2 or not check_name(_name):
+        if len(_name) > 2 or namestr != _name:
             logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _spath + "_name")
 
         if kwargs["port"] > -1:

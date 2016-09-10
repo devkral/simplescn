@@ -172,11 +172,5 @@ class TestCommunication(unittest.TestCase):
         ret_remote3 = self.client.links["client"].access_dict("check_direct", {"address": "::1-{}".format(self.client_port2), "security": "insecure", "hash": self.client_hash3})
         self.assertEqual(ret_remote3[0], False)
 
-    def test_addentity(self):
-        add1 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
-        self.assertEqual(add1[0], True)
-        add2 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
-        self.assertEqual(add2[0], False)
-
 if __name__ == "__main__":
     unittest.main(verbosity=2)

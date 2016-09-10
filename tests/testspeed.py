@@ -139,14 +139,14 @@ class TestSpeed(unittest.TestCase):
     def test_show_parallel(self):
         counter = [0, parallelnum]
         bar = threading.Semaphore(1)
-        fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("show", {}))
+        fun = lambda: threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("show", {}))
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
             print("test_show_parallel", ret)
         self.assertLess(ret, maxtime)
 
     def test_capspeed(self):
-        fun = lambda :self.client.links["client"].access_dict("cap", {"address": self.server_addressscn})
+        fun = lambda: self.client.links["client"].access_dict("cap", {"address": self.server_addressscn})
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
             print("test_capspeed", ret/avgtestnum)
@@ -189,7 +189,7 @@ class TestSpeed(unittest.TestCase):
         fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.client_port2), "/client/teststubnotvalidparallel", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
-            print("test_connectspeedivalid_parallel", ret)
+            print("test_connectspeedinvalid_parallel", ret)
         self.assertLess(ret, maxtime)
 
     def test_connecttestserver(self):

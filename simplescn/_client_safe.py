@@ -12,7 +12,7 @@ import abc
 from simplescn import EnforcedPortError
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
-from simplescn.tools.checks import check_updated_certs, check_local, check_args, check_name
+from simplescn.tools.checks import check_updated_certs, check_local, check_args, namestr, hashstr
 from simplescn._decos import check_args_deco, classify_local, classify_accessable
 
 #@generate_validactions_deco
@@ -65,7 +65,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                       "listen": self.links["hserver"].server_address,
                       "port": self.links["hserver"].server_port}
 
-    @check_args_deco({"server": str}, optional={"forcehash": str})
+    @check_args_deco({"server": str}, optional={"forcehash": hashstr})
     @classify_accessable
     def register(self, obdict: dict):
         """ func: register client
@@ -85,7 +85,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             self.scntraverse_helper.add_desttupel(_srvaddr)
         return ret
 
-    @check_args_deco({"name": str, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool, "hidden": bool, "forcehash": str})
+    @check_args_deco({"name": namestr, "port": int}, optional={"client": str, "wrappedport": bool, "post": bool, "hidden": bool, "forcehash": hashstr})
     @classify_accessable
     def registerservice(self, obdict: dict):
         """ func: register service (second way)
@@ -112,7 +112,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             ret = _cstemp.registerservice(senddict, prefix=None)
             return ret[0], gen_result(ret[1])
 
-    @check_args_deco({"name": str}, optional={"client": str, "forcehash": str})
+    @check_args_deco({"name": namestr}, optional={"client": str, "forcehash": hashstr})
     @classify_accessable
     def delservice(self, obdict: dict):
         """ func: delete service (second way)
@@ -133,7 +133,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             ret = _cstemp.delservice(senddict, prefix=None)
             return ret[0], gen_result(ret[1])
 
-    @check_args_deco({"name": str}, optional={"client": str, "forcehash": str})
+    @check_args_deco({"name": namestr}, optional={"client": str, "forcehash": hashstr})
     @classify_accessable
     def getservice(self, obdict: dict):
         """ func: get port of a service
@@ -153,7 +153,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             ret = _cstemp.getservice(senddict)
             return ret[0], gen_result(ret[1])
 
-    @check_args_deco(optional={"client": str, "forcehash": str})
+    @check_args_deco(optional={"client": str, "forcehash": hashstr})
     @classify_accessable
     def listservices(self, obdict: dict):
         """ func: list services with ports
@@ -174,7 +174,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         out = sorted(_tservices[1]["dict"].items(), key=lambda t: t[0])
         return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2]
 
-    @check_args_deco({"server": str, "name": str, "hash": str}, optional={"forcehash": str})
+    @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr})
     @classify_accessable
     def get(self, obdict: dict):
         """ func: fetch client address from server
@@ -222,7 +222,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             #logging.error(exc)
             return False, generate_error(exc, True)
 
-    @check_args_deco({"hash": str, "address": str}, optional={"forcehash": str})
+    @check_args_deco({"hash": hashstr, "address": str}, optional={"forcehash": hashstr})
     @classify_accessable
     def trust(self, obdict: dict):
         """ func: retrieve trust info of node, use getlocal for local node
@@ -233,7 +233,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.do_request(_addr, "/server/trust", {"hash": hash}, _headers, forceport=True, forcehash=obdict.get("forcehash", None))
 
-    @check_args_deco({"address": str, "name": str}, optional={"forcehash": str})
+    @check_args_deco({"address": str, "name": namestr}, optional={"forcehash": hashstr})
     @classify_accessable
     def wrap(self, obdict: dict):
         """ func: initiate wrap
@@ -243,12 +243,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             address: remote node url """
         _addr = obdict["address"]
         _name = obdict["name"]
-        if not check_name(_name):
-            return False, genc_error("not a valid service name")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.do_request(_addr, "/wrap/{}".format(_name), {}, _headers, forceport=True, closecon=False, sendclientcert=True, forcehash=obdict.get("forcehash", None))
 
-    @check_args_deco({"server": str}, optional={"forcehash": str})
+    @check_args_deco({"server": str}, optional={"forcehash": hashstr})
     @classify_accessable
     def listnames(self, obdict: dict):
         """ func: sort and list names from server
@@ -268,7 +266,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                 out.append((name, _hash, _security, self.links["hashdb"].certhash_as_name(_hash)))
         return _tnames[0], {"items": out, "map": ["name", "hash", "security", "localname"]}, _tnames[2]
 
-    @check_args_deco(optional={"address": str, "forcehash": str})
+    @check_args_deco(optional={"address": str, "forcehash": hashstr})
     @classify_accessable
     def info(self, obdict: dict):
         """ func: retrieve info of node
@@ -285,7 +283,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"type": _cstemp.scn_type, "name": _cstemp.name, "message": _cstemp.message}
 
-    @check_args_deco(optional={"address": str, "forcehash": str})
+    @check_args_deco(optional={"address": str, "forcehash": hashstr})
     @classify_accessable
     def cap(self, obdict: dict):
         """ func: retrieve capabilities of node
@@ -302,7 +300,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"caps": _cstemp.capabilities}
 
-    @check_args_deco(optional={"address": str, "forcehash": str})
+    @check_args_deco(optional={"address": str, "forcehash": hashstr})
     @classify_accessable
     def prioty_direct(self, obdict: dict):
         """ func: retrieve priority of node
@@ -320,7 +318,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             return True, {"priority": _cstemp.priority, "type": _cstemp.scn_type}
 
 
-    @check_args_deco({"server": str, "name": str, "hash": str})
+    @check_args_deco({"server": str, "name": namestr, "hash": hashstr})
     @classify_accessable
     def prioty(self, obdict: dict):
         """ func: retrieve priority and type of a client on a server
@@ -332,9 +330,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if not temp[0]:
             return temp
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.prioty_direct({"address":"{address}-{port}".format(**temp[1]), "forcehash": obdict.get("hash"), "headers":_headers})
+        return self.prioty_direct({"address":"{address}-{port}".format(**temp[1]), "forcehash": obdict["hash"], "headers":_headers})
 
-    @check_args_deco({"address": str, "hash": str}, optional={"security": str, "forcehash": str})
+    @check_args_deco({"address": str, "hash": hashstr}, optional={"security": str, "forcehash": hashstr})
     @classify_accessable
     def check_direct(self, obdict: dict):
         """ func: check if a address is reachable; update local information when reachable
@@ -401,7 +399,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         return prioty_ret
 
     # reason for beeing seperate from get: to detect if a minor or a bigger error happened
-    @check_args_deco({"server": str, "name": str, "hash": str}, optional={"forcehash": str})
+    @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr})
     @classify_accessable
     def check(self, obdict: dict):
         """ func: check if client is reachable; update local information when reachable
@@ -430,7 +428,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         return direct_ret[0], direct_ret[1], get_ret[2]
     ### local management ###
 
-    @check_args_deco({"hash": str})
+    @check_args_deco({"hash": hashstr})
     @classify_local
     @classify_accessable
     def getlocal(self, obdict: dict):
@@ -450,7 +448,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         }
         return True, ret
 
-    @check_args_deco({"name": str}, optional={"filter": str})
+    @check_args_deco({"name": namestr}, optional={"filter": str})
     @classify_local
     @classify_accessable
     def listhashes(self, obdict: dict):
@@ -458,8 +456,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             return: list with local informations
             name: entity name
             filter: filter nodetype (server/client) (default: all) """
-        _name = obdict.get("name")
-        temp = self.links["hashdb"].listhashes(_name, obdict.get("filter", None))
+        temp = self.links["hashdb"].listhashes(obdict["name"], obdict.get("filter", None))
         if temp is None:
             return False
         else:
@@ -503,7 +500,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         else:
             return True, {"items": temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}
 
-    @check_args_deco(optional={"filter": str, "hash": str, "certreferenceid": int})
+    @check_args_deco(optional={"filter": str, "hash": hashstr, "certreferenceid": int})
     @classify_local
     @classify_accessable
     def getreferences(self, obdict: dict):
@@ -512,27 +509,28 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             hash: local hash (or use certreferenceid)
             certreferenceid: reference id of certificate hash (or use hash)
             filter: filter reference type """
-        if obdict.get("certreferenceid") is None:
-            _hash = obdict.get("hash")
-            _tref = self.links["hashdb"].get(_hash)
-            if _tref is None:
-                return False, genc_error("hash not exist")
-            _tref = _tref[4]
-        else:
+        if "certreferenceid" in obdict :
             _tref = obdict.get("certreferenceid")
+        elif "hash" in obdict :
+            _trethash = self.links["hashdb"].get(obdict["hash"])
+            if _trethash is None:
+                return False, genc_error("hash not exist")
+            _tref = _trethash[4]
+        else:
+            return False, genc_error("neither hash nor certreferenceid given")
         temp = self.links["hashdb"].getreferences(_tref, obdict.get("filter", None))
         if temp is None:
             return False
         return True, {"items": temp, "map": ["reference", "type"]}
 
-    @check_args_deco({"reference": str})
+    @check_args_deco({"reference": str}, optional={"filter": str})
     @classify_local
     @classify_accessable
     def findbyref(self, obdict: dict):
         """ func:find nodes in hashdb by reference
             return: certhash with additional informations
             reference: reference """
-        temp = self.links["hashdb"].findbyref(obdict["reference"])
+        temp = self.links["hashdb"].findbyref(obdict["reference"], obdict.get("filter", None))
         if temp is None:
-            return False, genc_error("reference not exist")
+            return False, genc_error("error looking up reference")
         return True, {"items": temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}

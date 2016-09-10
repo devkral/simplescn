@@ -13,7 +13,7 @@ import simplescn
 from simplescn import tools
 from simplescn.tools import start
 
-class Test_getlocalclient(unittest.TestCase):
+class Test_single(unittest.TestCase):
     temptestdirconf = tempfile.TemporaryDirectory("testsingleconf")
     temptestdirconf2 = tempfile.TemporaryDirectory("testsingleconf2")
     temptestdir2 = tempfile.TemporaryDirectory("testsingle2")
@@ -49,7 +49,6 @@ class Test_getlocalclient(unittest.TestCase):
             server2 = start.server(self.param_server, doreturn=True)
             self.assertIsNone(server2)
 
-
     def test_retrieve(self):
         ret = tools.getlocalclient(rundir=self.temptestdirempty.name)
         self.assertIsNone(ret)
@@ -60,6 +59,27 @@ class Test_getlocalclient(unittest.TestCase):
         ret3 = tools.getlocalclient(rundir=self.temptestdir3.name)
         self.assertIsNotNone(ret3)
         self.assertTrue(os.path.exists(self.temptestdir3.name))
+
+    def test_entityhashreference(self):
+        add1 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
+        self.assertEqual(add1[0], True)
+        add2 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
+        self.assertEqual(add2[0], False)
+        addhash1 = self.client.links["client"].access_dict("addhash", {"name": "test1", "hash": tools.dhash("a"), "type": "client"})
+        self.assertEqual(addhash1[0], True)
+        addhash2 = self.client.links["client"].access_dict("addhash", {"name": "test1", "hash": tools.dhash("testafter"), "type": "client"})
+        self.assertEqual(addhash2[0], True)
+        rename1 = self.client.links["client"].access_dict("renameentity", {"name": "test1", "newname": "test2"})
+        self.assertEqual(rename1[0], True)
+        # try after rename
+        addhashfail = self.client.links["client"].access_dict("addhash", {"name": "test1", "hash": tools.dhash("b"), "type": "client"})
+        self.assertEqual(addhashfail[0], False)
+        # deleting a not available object returns True and logs
+        dele1 = self.client.links["client"].access_dict("delentity", {"name": "test1"})
+        self.assertEqual(dele1[0], True)
+        dele1 = self.client.links["client"].access_dict("delentity", {"name": "test2"})
+        self.assertEqual(dele1[0], True)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

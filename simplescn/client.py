@@ -19,7 +19,7 @@ from simplescn._common import parsepath, parsebool, CommonSCN, CommonSCNHandler,
 from simplescn.tools import default_sslcont, try_traverse, SecdirHandler, generate_certs, \
 init_config_folder, dhash, rw_socket, SCNAuthServer, TraverserHelper, \
 generate_error, gen_result, writemsg
-from simplescn.tools.checks import check_certs, check_name, check_hash, check_local, check_classify
+from simplescn.tools.checks import check_certs, check_local, check_classify, hashstr, namestr
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import ClientClientAdmin
 from simplescn._client_safe import ClientClientSafe
@@ -57,7 +57,7 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
             _hash = _splitted[0]
             with open(os.path.join(self.links["config_root"], "broken", elem), "r") as reado:
                 _reason = reado.read().strip().rstrip()
-            if check_hash(_hash) and (_hash, _reason) not in self.brokencerts:
+            if hashstr == _hash and (_hash, _reason) not in self.brokencerts:
                 self.brokencerts.append((_hash, _reason))
         self._cache_help = self.cmdhelp()
 
@@ -67,13 +67,10 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
     def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
         """ func: wrapper+ cache certcontext and ownhash """
         ret = self.requester.do_request(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, sendclientcert=sendclientcert, keepalive=not closecon)
-        # for wrapping
+        # for wrapping and massimport
         if ret[0]:
-            if closecon or not ret[1]:
-                ret[0].close()
-            else:
-                ret[2]["wrappedsocket"] = ret[0].sock
-                ret[0].sock = None
+            if not closecon and ret[1]:
+                ret[2]["wrappedcon"] = ret[0]
         return ret[1:]
 
     @classify_private
@@ -92,9 +89,9 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
             return gaction(obdict)
         except AuthNeeded as exc:
             raise exc
-        except Exception as exc:
+        #except Exception as exc:
             #raise(exc)
-            return False, exc, self.links["certtupel"] #.with_traceback(sys.last_traceback)
+        #    return False, exc, self.links["certtupel"] #.with_traceback(sys.last_traceback)
 
     # help section
     @classify_private
@@ -157,7 +154,7 @@ class ClientServer(CommonSCN):
     ### the primary way to add or remove a service
     ### can be called by every application on same client
     ### don't annote list with "map" dict structure on serverside (overhead)
-    @check_args_deco({"name": str, "port": int}, optional={"wrappedport": bool, "post": bool, "hidden": bool})
+    @check_args_deco({"name": namestr, "port": int}, optional={"wrappedport": bool, "post": bool, "hidden": bool})
     @classify_local
     @classify_accessable
     def registerservice(self, obdict, prefix="#"):
@@ -170,8 +167,6 @@ class ClientServer(CommonSCN):
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
         if not check_local(obdict["clientaddress"][0]):
             return False, generate_error("no permission", False)
-        if not check_name(obdict["name"]):
-            return False, generate_error("invalid service name", False)
         if prefix and obdict["name"][0] != prefix:
             return False, generate_error("service name without/with wrong prefix", False)
         wrappedport = obdict.get("wrappedport", None)
@@ -193,7 +188,7 @@ class ClientServer(CommonSCN):
         return True
 
     # don't annote list with "map" dict structure on serverside (overhead)
-    @check_args_deco({"name": str})
+    @check_args_deco({"name": namestr})
     @classify_local
     @classify_accessable
     def delservice(self, obdict, prefix="#"):
@@ -216,7 +211,7 @@ class ClientServer(CommonSCN):
 
     ### management section - end ###
 
-    @check_args_deco({"hash": str})
+    @check_args_deco({"hash": hashstr})
     @classify_accessable
     @classify_local
     def trust(self, obdict: dict):
@@ -235,7 +230,7 @@ class ClientServer(CommonSCN):
         else:
             return True, {"security": "unknown"}
 
-    @check_args_deco({"name": str})
+    @check_args_deco({"name": namestr})
     @classify_local
     @classify_accessable
     def getservice(self, obdict):
@@ -251,7 +246,7 @@ class ClientServer(CommonSCN):
         else:
             return True, {"port": -1}
 
-    @check_args_deco({"name": str})
+    @check_args_deco({"name": namestr})
     @classify_accessable
     def traverse_service(self, obdict):
         """ func: traverse to the port of a service
@@ -389,8 +384,10 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                     status = 200
                 if not check_classify(gaction, "local") and not response[2][0] is isself:
                     resultob["origcertinfo"] = response[2]
-                if "wrappedsocket" in resultob:
-                    wrappedsocket = resultob.pop("wrappedsocket")
+                if "wrappedcon" in resultob:
+                    conn = resultob.pop("wrappedcon")
+                    wrappedsocket = conn.sock
+                    conn.sock = None
                 else:
                     wrappedsocket = None
                 jsonnized = bytes(json.dumps(resultob), "utf-8", errors="ignore")
@@ -528,7 +525,7 @@ class ClientInit(object):
         self.links["hashdb"] = kwargs["hashdb"]
 
         if bool(kwargs.get("spwhash")):
-            if not check_hash(kwargs.get("spwhash")):
+            if hashstr != kwargs.get("spwhash"):
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs.get("spwhash"))
             else:
                 self.links["auth_server"].init(kwargs.get("spwhash"))
@@ -547,7 +544,7 @@ class ClientInit(object):
         if None in [pub_cert, _name, _message]:
             raise Exception("missing")
         _name = _name.split("/")
-        if len(_name) > 2 or not check_name(_name[0]):
+        if len(_name) > 2 or namestr != _name[0]:
             logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _cpath + "_name")
             sys.exit(1)
         if kwargs.get("port") > -1:

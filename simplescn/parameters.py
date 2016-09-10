@@ -58,10 +58,10 @@ default_loglevel = "DEBUG"
 
 ## hash algorithms ##
 algorithms_strong = ['sha512', 'sha384', 'sha256', 'whirlpool']
+validhexhashlengths = [64,  96, 128]
 cert_sign_hash = hashes.SHA512()
 # don't change
 DEFAULT_HASHALGORITHM = "sha256"
-DEFAULT_HASHALGORITHM_len = 64
 security_states = ["compromised", "old", "valid", "insecure"]
 
 ## server only ##
