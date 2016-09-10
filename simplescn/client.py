@@ -90,7 +90,9 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
         except AuthNeeded as exc:
             raise exc
         except Exception as exc:
-            return False, exc, self.links["certtupel"] #.with_traceback(sys.last_traceback)
+            # convert throwed Exceptions to variable
+            # needed for some tests and error cases
+            return False, exc, self.links["certtupel"]
 
     # help section
     @classify_private
