@@ -24,7 +24,7 @@ def checkmetagen(func):
 
         def __eq__(self, instance):
             return func(instance)
-        
+
         def __hash__(self):
             return type.__hash__(self)
     return hashstrmeta

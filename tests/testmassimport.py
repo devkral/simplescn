@@ -24,9 +24,6 @@ class TestMassimport(unittest.TestCase):
     temptestdirdest1 = tempfile.TemporaryDirectory("testmassimportdest2")
     temptestdirdest1 = tempfile.TemporaryDirectory("testmassimportdest3")
 
-    #client = None
-    #server = None
-
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
@@ -55,7 +52,7 @@ class TestMassimport(unittest.TestCase):
         time.sleep(2)
         cls.client.quit()
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
-    
+
     def test_importall(self):
         _clientd1 = start.client(cparam_client(self.temptestdirdest1.name), doreturn=True)
         clientd1 = _clientd1.links["client"]
