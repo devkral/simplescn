@@ -18,7 +18,7 @@ from simplescn.tools import badnamechars, dhash, default_sslcont, url_to_ipv6
 allowed_permissions = {"gettrust", "admin", "client"}
 
 def checkmetagen(func):
-    class hashstrmeta(type):
+    class CheckClassMeta(type):
         def __instancecheck__(self, instance):
             return func(instance)
 
@@ -27,12 +27,12 @@ def checkmetagen(func):
 
         def __hash__(self):
             return type.__hash__(self)
-    return hashstrmeta
+    return CheckClassMeta
 
 def checkclass(func, classtype=str):
-    class _checkclass(classtype, metaclass=checkmetagen(func)):
+    class CheckClass(classtype, metaclass=checkmetagen(func)):
         __doc__ = func.__doc__
-    return _checkclass
+    return CheckClass
 
 def classlist_helper(func):
     @functools.wraps(func)
