@@ -89,9 +89,8 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
             return gaction(obdict)
         except AuthNeeded as exc:
             raise exc
-        #except Exception as exc:
-            #raise(exc)
-        #    return False, exc, self.links["certtupel"] #.with_traceback(sys.last_traceback)
+        except Exception as exc:
+            return False, exc, self.links["certtupel"] #.with_traceback(sys.last_traceback)
 
     # help section
     @classify_private

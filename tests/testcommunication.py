@@ -165,8 +165,8 @@ class TestCommunication(unittest.TestCase):
         self.assertEqual(ret_remote2[0], False)
         
         # test remote fail2
-        ret_remote2 = self.client.links["client"].access_dict("check_direct", {"address": "::1-{}".format(self.client_port2), "security": "valid", "hash": self.client_hash})
-        self.assertEqual(ret_remote2[0], False)
+        ret_remote3 = self.client.links["client"].access_dict("check_direct", {"address": "::1-{}".format(self.client_port2), "security": "valid", "hash": self.client_hash})
+        self.assertEqual(ret_remote3[0], False)
         
         # test remote fail (no certinformation)
         ret_remote3 = self.client.links["client"].access_dict("check_direct", {"address": "::1-{}".format(self.client_port2), "security": "insecure", "hash": self.client_hash3})
