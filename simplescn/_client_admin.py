@@ -16,6 +16,16 @@ from simplescn.tools.checks import check_reference, check_reference_type, namest
 hashstr, check_priority, namelist, hashlist
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable
 
+def _mipcheck_inlisthelper(_name, _hash, entities, hashes):
+    """ massimport helper"""
+    if not entities and not hashes:
+        return True
+    if entities and _name in entities:
+        return True
+    if hashes and _hash in hashes:
+        return True
+    return False
+
 #@generate_validactions_deco
 class ClientClientAdmin(object, metaclass=abc.ABCMeta):
     @property
@@ -335,7 +345,11 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             if namestr != _name:
                 logging.warning("invalid name %s", _name)
                 continue
-            if _imp_ent is not None and _name not in _imp_ent:
+
+            if _hash != "default" and hashstr != _hash:
+                logging.warning("invalid hash %s", _hash)
+                continue
+            if not _mipcheck_inlisthelper(_name, _hash, _imp_ent, _imp_hash):
                 continue
             if not self.links["hashdb"].exist(_name):
                 self.links["hashdb"].addentity(_name)
@@ -344,26 +358,20 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             if _hash == "default":
                 continue
 
-            if hashstr != _hash:
-                logging.warning("invalid hash %s", _hash)
-                continue
-
-            if _imp_hash is not None and _hash not in _imp_hash:
-                continue
-
             if self.links["hashdb"].exist(_name, _hash):
                 pass
                 #self.links["hashdb"].updatehash(_hash, _type, _priority, _security)
-            elif self.links["hashdb"].get(_hash) is not None:
-                pass
+            elif self.links["hashdb"].get(_hash):
+                # don't update references of certhash which is already in db and not explicitly specified by name,hash
+                # or by hash in hashes
+                if not _imp_hash or _hash not in _imp_hash:
+                    continue
             else:
                 self.links["hashdb"].addhash(_name, _hash, _type, _priority, _security)
             localref = self.links["hashdb"].get(_hash)
             if localref is None:
                 return False, genc_error("could not write entry")
-            else:
-                localref = localref[4]
-            localreferences = self.links["hashdb"].getreferences(localref)
+            localreferences = self.links["hashdb"].getreferences(localref[4])
             # reuse connection
             _retreferences = self.do_request(listall[1]["wrappedcon"], "/client/getreferences", {"hash": _hash}, {}, forcehash=obdict["sourcehash"], closecon=False)
             if not _retreferences[0]:
@@ -373,5 +381,5 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
                 if (_ref, _reftype) in localreferences:
                     pass
                 else:
-                    self.links["hashdb"].addreference(localref, _ref, _reftype)
+                    self.links["hashdb"].addreference(localref[4], _ref, _reftype)
         return True

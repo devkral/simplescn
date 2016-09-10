@@ -1,7 +1,7 @@
 
 
-## 0.7?
-* tests for wrap, traversal, massimport
+## 0.8
+* tests for traversal
 * ipv4, ipv6 compatibility checks
 
 

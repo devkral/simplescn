@@ -19,14 +19,14 @@ allowed_permissions = {"gettrust", "admin", "client"}
 
 def checkmetagen(func):
     class CheckClassMeta(type):
-        def __instancecheck__(self, instance):
+        def __instancecheck__(cls, instance):
             return func(instance)
 
-        def __eq__(self, instance):
+        def __eq__(cls, instance):
             return func(instance)
 
-        def __hash__(self):
-            return type.__hash__(self)
+        def __hash__(cls):
+            return type.__hash__(cls)
     return CheckClassMeta
 
 def checkclass(func, classtype=str):
@@ -87,14 +87,14 @@ def check_local(addr):
 #        return True
 #    return False
 
-def check_hash(hashstr):
+def check_hash(hashstring):
     """ check if valid hash (for scn) """
-    if hashstr in [None, ""]:
+    if hashstring in [None, ""]:
         return False
-    if len(hashstr) not in config.validhexhashlengths:
+    if len(hashstring) not in config.validhexhashlengths:
         return False
     # don't allow uppercase as it could confuse clients+servers and lowercase is default
-    if not all(c in "0123456789abcdef" for c in hashstr):
+    if not all(c in "0123456789abcdef" for c in hashstring):
         return False
     return True
 hashstr = checkclass(check_hash)

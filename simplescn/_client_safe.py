@@ -427,6 +427,14 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             direct_ret[1]["hash"] = direct_ret[2][1]
         return direct_ret[0], direct_ret[1], get_ret[2]
     ### local management ###
+    @check_args_deco({"name": namestr}, optional={"hash": hashstr})
+    @classify_local
+    @classify_accessable
+    def exist(self, obdict: dict):
+        """ func: retrieve local information about hash (hashdb)
+            return: local information about certificate hash
+            hash: node certificate hash """
+        return self.links["hashdb"].exist(obdict["name"], obdict.get("hash", None))
 
     @check_args_deco({"hash": hashstr})
     @classify_local

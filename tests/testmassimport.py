@@ -20,9 +20,6 @@ def cparam_client(cdir):
 
 class TestMassimport(unittest.TestCase):
     temptestdirsource = tempfile.TemporaryDirectory("testmassimportsource")
-    temptestdirdest1 = tempfile.TemporaryDirectory("testmassimportdest1")
-    temptestdirdest1 = tempfile.TemporaryDirectory("testmassimportdest2")
-    temptestdirdest1 = tempfile.TemporaryDirectory("testmassimportdest3")
 
     # needed to run ONCE; setUpModule runs async
     @classmethod
@@ -54,12 +51,71 @@ class TestMassimport(unittest.TestCase):
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_importall(self):
-        _clientd1 = start.client(cparam_client(self.temptestdirdest1.name), doreturn=True)
-        clientd1 = _clientd1.links["client"]
-        ret1 = clientd1.access_dict("massimport", {"sourceaddress": "::1-{}".format(self.client_port), "sourcehash": self.client_hash})
-        self.assertTrue(ret1[0], ret1[1])
-        ttget1 = clientd1.access_dict("getlocal", {"hash": tools.dhash("b")})
-        self.assertTrue(ttget1[0], ttget1[1])
+        with tempfile.TemporaryDirectory("testmassimportdestall") as path:
+            _clientd1 = start.client(cparam_client(path), doreturn=True)
+            clientd1 = _clientd1.links["client"]
+            ret1 = clientd1.access_dict("massimport", {"sourceaddress": "::1-{}".format(self.client_port), "sourcehash": self.client_hash})
+            self.assertTrue(ret1[0], ret1[1])
+            ttget1 = clientd1.access_dict("getlocal", {"hash": tools.dhash("b")})
+            self.assertTrue(ttget1[0], ttget1[1])
+            self.assertEqual(ttget1[1]["name"], "testmass1")
+            ttget2 = clientd1.access_dict("getreferences", {"certreferenceid": ttget1[1].get("certreferenceid")})
+            self.assertTrue(ttget2[0], ttget2[1])
+            self.assertEqual(len(ttget2[1]["items"]), 3)
+            ttget3 = clientd1.access_dict("getreferences", {"certreferenceid": ttget1[1].get("certreferenceid"), "filter": "surl"})
+            self.assertTrue(ttget3[0], ttget3[1])
+            self.assertEqual(len(ttget3[1]["items"]), 1)
+            ttget4 = clientd1.access_dict("getreferences", {"certreferenceid": ttget1[1].get("certreferenceid"), "filter": "fkssk"})
+            self.assertTrue(ttget4[0], ttget4[1])
+            self.assertEqual(len(ttget4[1]["items"]), 0, ttget4[1])
+            ttget5 = clientd1.access_dict("getreferences", {"hash": tools.dhash("b")})
+            self.assertTrue(ttget5[0], ttget5[1])
+            self.assertEqual(len(ttget5[1]["items"]), 3, ttget5[1])
+            ttget6 = clientd1.access_dict("getlocal", {"hash": tools.dhash("c")})
+            self.assertTrue(ttget6[0], ttget6[1])
+            self.assertEqual(ttget6[1]["name"], "testmass2", ttget6[1])
+            ttgetfalse = clientd1.access_dict("getreferences", {"filter": "surl"})
+            self.assertFalse(ttgetfalse[0], ttgetfalse[1])
+
+    def test_importhashes(self):
+        with tempfile.TemporaryDirectory("testmasshashes") as path:
+            _clientd1 = start.client(cparam_client(path), doreturn=True)
+            clientd1 = _clientd1.links["client"]
+            ret1 = clientd1.access_dict("massimport", {"sourceaddress": "::1-{}".format(self.client_port), \
+            "sourcehash": self.client_hash, "hashes": [tools.dhash("b")]})
+            self.assertTrue(ret1[0], ret1[1])
+            ttget1 = clientd1.access_dict("getlocal", {"hash": tools.dhash("b")})
+            self.assertTrue(ttget1[0], ttget1[1])
+            ttget2 = clientd1.access_dict("getlocal", {"hash": tools.dhash("c")})
+            self.assertFalse(ttget2[0], ttget2[1])
+
+    def test_importnames(self):
+        with tempfile.TemporaryDirectory("testmassnames") as path:
+            _clientd1 = start.client(cparam_client(path), doreturn=True)
+            clientd1 = _clientd1.links["client"]
+            ret1 = clientd1.access_dict("massimport", {"sourceaddress": "::1-{}".format(self.client_port), \
+            "sourcehash": self.client_hash, "entities": ["testmass1", "testmass3"]})
+            self.assertTrue(ret1[0], ret1[1])
+            ttget1 = clientd1.access_dict("getlocal", {"hash": tools.dhash("b")})
+            self.assertTrue(ttget1[0], ttget1[1])
+            ttget2 = clientd1.access_dict("getlocal", {"hash": tools.dhash("c")})
+            self.assertFalse(ttget2[0], ttget2[1])
+            ttget3 = clientd1.access_dict("exist", {"name": "testmass3"})
+            self.assertTrue(ttget3[0], ttget3[1])
+
+    def test_importhashesnames(self):
+        with tempfile.TemporaryDirectory("testmasshn") as path:
+            _clientd1 = start.client(cparam_client(path), doreturn=True)
+            clientd1 = _clientd1.links["client"]
+            ret1 = clientd1.access_dict("massimport", {"sourceaddress": "::1-{}".format(self.client_port), \
+            "sourcehash": self.client_hash, "hashes": [tools.dhash("b")], "entities": ["testmass2"]})
+            self.assertTrue(ret1[0], ret1[1])
+            ttget1 = clientd1.access_dict("getlocal", {"hash": tools.dhash("b")})
+            self.assertTrue(ttget1[0], ttget1[1])
+            ttget2 = clientd1.access_dict("getlocal", {"hash": tools.dhash("c")})
+            self.assertTrue(ttget2[0], ttget2[1])
+            ttget3 = clientd1.access_dict("exist", {"name": "massimport3"})
+            self.assertFalse(ttget3[0], ttget3[1])
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

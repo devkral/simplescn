@@ -323,8 +323,6 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def get(self, certhash, dbcon=None) -> tuple:
-        if certhash is None:
-            return None
         assert hashstr == certhash, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
         cur.execute('''SELECT name,type,priority,security,certreferenceid FROM certs WHERE certhash=?;''', (certhash,))
@@ -336,9 +334,12 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def listhashes(self, _name, _nodetype=None, dbcon=None) -> list:
-        #if check_name(_name) == False:
-        #    return None
+        assert _name == namestr, "invalid name {}".format(_name)
         cur = dbcon.cursor()
+        cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
+        # should be an error if name is not in db
+        if cur.fetchone() is None:
+            return None
         if _nodetype is None:
             cur.execute('''SELECT certhash,type,priority,security,certreferenceid FROM certs WHERE name=? AND certhash!='default' ORDER BY priority DESC;''', (_name,))
         else:
@@ -384,6 +385,7 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def exist(self, _name, certhash=None, dbcon=None) -> bool:
+        assert _name == namestr, "invalid name {}".format(_name)
         assert hashstr == certhash or certhash is None, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
         if certhash is None:
@@ -396,7 +398,8 @@ class CerthashDb(CommonDbInit):
             return True
 
     @connecttodb
-    def addreference(self, _referenceid, _reference, _reftype, dbcon=None):
+    def addreference(self, _certreferenceid, _reference, _reftype, dbcon=None):
+        assert isinstance(_certreferenceid, int), "invalid certreferenceid"
         if not check_reference(_reference):
             logging.error("reference invalid: %s", _reference)
             return False
@@ -404,16 +407,19 @@ class CerthashDb(CommonDbInit):
             logging.error("reference type invalid: %s", _reftype)
             return False
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_referenceid, _reference))
+        cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is not None:
-            logging.info("certreferenceid exist: %s", _referenceid)
+            logging.info("certreferenceid exist: %s", _certreferenceid)
             return False
-        cur.execute('''INSERT INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_referenceid, _reference, _reftype))
+        cur.execute('''INSERT INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_certreferenceid, _reference, _reftype))
         dbcon.commit()
         return True
 
     @connecttodb
     def delreference(self, _certreferenceid, _reference, dbcon=None) -> bool:
+        if not check_reference(_reference):
+            logging.error("invalid reference")
+            return False
         cur = dbcon.cursor()
         cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         dbcon.commit()
@@ -421,6 +427,16 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def updatereference(self, _certreferenceid, _reference, _newreference, _newreftype, dbcon=None) -> bool:
+        assert isinstance(_certreferenceid, int), "invalid certreferenceid"
+        if not check_reference(_reference):
+            logging.error("invalid reference")
+            return False
+        if not check_reference(_newreference):
+            logging.error("invalid newreference")
+            return False
+        if not check_reference_type(_newreftype):
+            logging.error("invalid referencetype")
+            return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if cur.fetchone() is None:
@@ -436,22 +452,22 @@ class CerthashDb(CommonDbInit):
         return True
 
     @connecttodb
-    def getreferences(self, _referenceid, reftype=None, dbcon=None):
-        if not isinstance(_referenceid, int):
-            logging.error("invalid referenceid")
-            return None
-        if reftype and check_reference_type(reftype):
+    def getreferences(self, _certreferenceid: int, reftype=None, dbcon=None):
+        assert isinstance(_certreferenceid, int), "invalid certreferenceid"
+        if reftype and not check_reference_type(reftype):
             logging.error("invalid referencetype")
             return None
         cur = dbcon.cursor()
         if reftype is None:
-            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''', (_referenceid,))
+            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''', (_certreferenceid,))
         else:
-            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? and type=?;''', (_referenceid, reftype))
+            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? and type=?;''', (_certreferenceid, reftype))
         return cur.fetchall()
 
     @connecttodb
-    def movereferences(self, _oldrefid, _newrefid, dbcon=None) -> bool:
+    def movereferences(self, _oldrefid: int, _newrefid: int, dbcon=None) -> bool:
+        assert isinstance(_oldrefid, int), "invalid oldrefid"
+        assert isinstance(_newrefid, int), "invalid newrefid"
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_oldrefid,))
         if cur.fetchone() is None:
@@ -466,7 +482,9 @@ class CerthashDb(CommonDbInit):
         return True
 
     @connecttodb
-    def copyreferences(self, oldrefid, newrefid, dbcon=None) -> bool:
+    def copyreferences(self, oldrefid: int, newrefid: int, dbcon=None) -> bool:
+        assert isinstance(oldrefid, int), "invalid oldrefid"
+        assert isinstance(newrefid, int), "invalid newrefid"
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (oldrefid,))
         if cur.fetchone() is None:
@@ -488,10 +506,10 @@ class CerthashDb(CommonDbInit):
     @connecttodb
     def findbyref(self, reference, reftype=None, dbcon=None):
         if not check_reference(reference):
-            logging.error("invalid reference")
+            logging.error("invalid reference, %s", reference)
             return None
-        if reftype and check_reference_type(reftype):
-            logging.error("invalid referencetype")
+        if reftype and not check_reference_type(reftype):
+            logging.error("invalid referencetype, %s", reftype)
             return None
         cur = dbcon.cursor()
         if reftype:
@@ -535,7 +553,6 @@ class SHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         self.socket = self.sslcont.wrap_socket(self.socket)
-
         try:
             self.server_bind()
             if self.use_unix:
@@ -544,14 +561,6 @@ class SHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         except:
             self.server_close()
             raise
-
-    # not needed bind method used
-    #def verify_request(self, request, client_address):
-    #    if self.RequestHandlerClass.onlylocal:
-    #         if self.address_family != file_family and \
-    #                not check_local(client_address[0]):
-    #            return False
-    #    return True
 
     def get_request(self):
         con, addr = self.socket.accept()

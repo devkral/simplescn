@@ -14,11 +14,13 @@
 * use smart classes
 * wrappedcon instead wrappedsocket
 * optimize hashdb, permsdb
+* add exist
 
 
 ## bugfixes
 * fix multiinstance bugs
 * fix tests
+* fix massimport
 
 
 # 0.6.2
