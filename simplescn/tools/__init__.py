@@ -131,7 +131,7 @@ def get_pidlock(pidpath):
          returns False if other process has lock
          returns True if pidlock could snatched """
     if not psutil:
-        logging.error("psutil needed for checking pidlock")
+        logging.warning("get_pidlock called without psutil")
         return False
     pid = None
     try:
@@ -144,17 +144,19 @@ def get_pidlock(pidpath):
     if pid and psutil.pid_exists(pid):
         return False
     try:
-        fdob = os.open(pidpath, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+        if os.path.exists(pidpath):
+            os.remove(pidpath)
+        fdob = os.open(pidpath, os.O_WRONLY|os.O_CREAT|os.O_EXCL, 0o444)
         with open(fdob, "w", closefd=True) as wo:
             wo.write(str(os.getpid()))
     except Exception:
         return False
     try:
         with open(pidpath, "r") as ro:
-            pid = int(ro.read())
+            newpid = int(ro.read())
     except Exception:
-        pid = None
-    if os.getpid() == pid:
+        newpid = None
+    if os.getpid() == newpid:
         return True
     return False
 
@@ -168,18 +170,16 @@ def writemsg(path, msg, mode=0o400):
     except Exception as exc:
         logging.info(exc)
 
+def cleanup_nlfiles(path):
+    for dfile in os.listdir(path):
+        if dfile == "lock":
+            continue
+        os.remove(os.path.join(path, dfile))
+
 class SecdirHandler(object):
     filepath = None
-    pidpath = None
-    #secret = None
-    def __init__(self, path, mode):
+    def __init__(self, path):
         self.filepath = path
-        # cleanup old
-        if os.path.exists(self.filepath):
-            self.cleanup()
-        #self.secret = str(os.urandom(config.token_size).hex())
-        os.makedirs(self.filepath, mode=mode, exist_ok=False)
-
     def __del__(self):
         self.cleanup()
 
@@ -188,37 +188,30 @@ class SecdirHandler(object):
             try:
                 shutil.rmtree(self.filepath)
             except Exception as exc:
-                logging.warning(exc)
+                logging.error(exc)
+            self.filepath = None
 
     @classmethod
     def create(cls, path, mode=0o700):
         # check if other instance is running
         if os.path.exists(path):
-            pidl = get_pidlock(os.path.join(path, "lock"))
             # if call doesn't get lock, e.g. other process, no psutil, double calling
-            if not pidl:
+            if not get_pidlock(os.path.join(path, "lock")):
                 return None
-        ret = None
-        try:
-            ret = cls(path, mode)
-        except Exception as exc:
-            logging.warning(exc)
-            return None
-        # regenerate lock
-        pidl = get_pidlock(os.path.join(path, "lock"))
-        # if other process has lock, deletion failed or no psutil
-        if not pidl and psutil:
-            ret.filepath = None
-            return None
-
-        #try:
-        #    fdob = os.open(os.path.join(path, "secret"), os.O_WRONLY|os.O_CREAT|os.O_TRUNC, mode)
-        #    with open(fdob, "w") as wob:
-        #        wob.write(ret.secret)
-        #except Exception as exc:
-        #    logging.error(exc)
-        #    ret = None
-        return ret
+            # can crash if wrong user owns directory
+            try:
+                os.chmod(path, mode)
+                cleanup_nlfiles(path)
+            except Exception:
+                logging.info("cleanup of existing directory failed, remove and retry")
+                shutil.rmtree(path)
+                return cls.create(path, mode)
+        else:
+            os.makedirs(path, mode=mode, exist_ok=False)
+            # check if other process has lock, set lock
+            if not get_pidlock(os.path.join(path, "lock")):
+                return None
+        return  cls(path)
 
 ##### etc ######
 
