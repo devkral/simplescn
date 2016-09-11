@@ -625,7 +625,6 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
     default_request_version = "HTTP/1.1"
     auth_info = None
     # replaced by function not init
-    alreadyrewrapped = False
     links = None
     rfile = None
     wfile = None
@@ -721,11 +720,9 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
         _rewrapcert = self.headers.get("X-certrewrap", None)
         if _rewrapcert is not None:
             cont = self.connection.context
-            if not self.alreadyrewrapped:
-                # wrap tcp socket, not ssl socket
-                self.connection = self.connection.unwrap()
-                self.connection = cont.wrap_socket(self.connection, server_side=False)
-                self.alreadyrewrapped = True
+            # wrap tcp socket, not ssl socket
+            self.connection = self.connection.unwrap()
+            self.connection = cont.wrap_socket(self.connection, server_side=False)
             client_cert = ssl.DER_cert_to_PEM_cert(self.connection.getpeercert(True)).strip().rstrip()
             client_certhash = dhash(client_cert)
             if _rewrapcert.split(";")[0] != client_certhash:

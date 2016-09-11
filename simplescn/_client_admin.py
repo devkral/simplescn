@@ -336,7 +336,10 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below), None for all """
         #listhashes = obdict.get("hashes")
-        listall = self.do_request(obdict.get("sourceaddress"), "/client/listnodeall", {}, {}, forcehash=obdict.get("sourcehash"), closecon=False)
+        listall = self.do_request(obdict.get("sourceaddress"), \
+                                  "/client/listnodeall", {}, {}, \
+                                  forcehash=obdict.get("sourcehash"), \
+                                  closecon=False, sendclientcert=True)
         if not listall[0]:
             return listall
         _imp_ent = obdict.get("entities")
@@ -373,7 +376,9 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
                 return False, genc_error("could not write entry")
             localreferences = self.links["hashdb"].getreferences(localref[4])
             # reuse connection
-            _retreferences = self.do_request(listall[1]["wrappedcon"], "/client/getreferences", {"hash": _hash}, {}, forcehash=obdict["sourcehash"], closecon=False)
+            _retreferences = self.do_request(listall[1]["wrappedcon"], \
+                                             "/client/getreferences", {"hash": _hash}, {}, \
+                                             forcehash=obdict["sourcehash"], closecon=False)
             if not _retreferences[0]:
                 logging.error(_retreferences[1])
                 continue
