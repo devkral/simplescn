@@ -31,12 +31,12 @@ class Requester(object):
     def __init__(self, **kwargs):
         self.saved_kwargs = kwargs
 
-    def do_request(self, addr_or_con, path, body=None, headers=None, **kwargs):
+    def do_request(self, addr_or_con, path, body, headers, **kwargs):
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
         return do_request(addr_or_con, path, body=body, headers=headers, **_kwargs)
 
-    def do_request_simple(self, addr_or_con, path, body=None, headers=None, **kwargs):
+    def do_request_simple(self, addr_or_con, path, body, headers, **kwargs):
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
         return do_request_simple(addr_or_con, path, body=body, headers=headers, **_kwargs)
