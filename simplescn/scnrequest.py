@@ -34,12 +34,12 @@ class Requester(object):
     def do_request(self, addr_or_con, path, body, headers, **kwargs):
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
-        return do_request(addr_or_con, path, body=body, headers=headers, **_kwargs)
+        return do_request(addr_or_con, path, body, headers, **_kwargs)
 
     def do_request_simple(self, addr_or_con, path, body, headers, **kwargs):
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
-        return do_request_simple(addr_or_con, path, body=body, headers=headers, **_kwargs)
+        return do_request_simple(addr_or_con, path, body, headers, **_kwargs)
 
 class SCNConnection(client.HTTPSConnection):
     """ easy way to connect with simplescn nodes """
