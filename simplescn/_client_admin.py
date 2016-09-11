@@ -376,9 +376,12 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
                 return False, genc_error("could not write entry")
             localreferences = self.links["hashdb"].getreferences(localref[4])
             # reuse connection
-            _retreferences = self.do_request(listall[1]["wrappedcon"], \
-                                             "/client/getreferences", {"hash": _hash}, {}, \
-                                             forcehash=obdict["sourcehash"], closecon=False)
+            # retransmit clientcert after connection loss, e.g. Connection close
+            # sendclientcert=False is default (certinfo persists serverside)
+            _retreferences = self.do_request(listall[1]["wrappedcon"], "/client/getreferences", \
+                                             {"hash": _hash}, {}, forcehash=obdict["sourcehash"], \
+                                             closecon=False, \
+                                             sendclientcert=listall[1]["wrappedcon"].sock is None)
             if not _retreferences[0]:
                 logging.error(_retreferences[1])
                 continue
