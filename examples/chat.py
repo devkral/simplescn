@@ -93,7 +93,7 @@ def cmdloop(requester, address, ownscnport):
         else:
             print("No valid action")
             continue
-        body = {"name": "chatscn", "address": req[0]}
+        body = {"name": "examplechat", "address": req[0]}
         resp = requester.do_request(address, "/client/wrap", body, {})
         if not resp[1] or resp[0] is None:
             print(resp[2])
@@ -122,7 +122,7 @@ def init(requester, address):
     global hserver
     hserver = httpserver(("::1", 0), chathandler)
     threading.Thread(target=hserver.serve_forever, daemon=True).start()
-    body = {"port": hserver.server_port, "name": "chatscn", "post": True, "wrappedport": True}
+    body = {"port": hserver.server_port, "name": "examplechat", "post": True, "wrappedport": True}
     resp = requester.do_request(address, "/client/registerservice", body, {})
     resp2 = requester.do_request(address, "/client/show", {}, {})
     if resp[0]:
