@@ -243,7 +243,7 @@ class Server(CommonSCN):
             return: client address, client port, security, traverse_address, traverse_needed
             name: client name
             hash: client hash
-            autotraverse: open traversal when necessary (default: False) """
+            autotraverse: open traversal when necessary (default: True) """
         if obdict["name"] not in self.nhipmap:
             return False, generate_error("name not exist", False)
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
@@ -255,7 +255,7 @@ class Server(CommonSCN):
         else:
             _usecurity = None
         _travaddr = None
-        if self.traverse and _obj.get("autotraverse", False):
+        if obdict.get("autotraverse", True) and self.traverse and _obj["traverse"]:
             _travobj1 = self.open_traversal(obdict)
             if _travobj1[0]:
                 _travaddr = _travobj1[1].get("traverse_address")
