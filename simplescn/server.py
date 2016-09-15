@@ -177,18 +177,17 @@ class Server(CommonSCN):
         clientcerthash = obdict["origcertinfo"][1]
         ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
         if not ret[0]:
-            # '' = serveraddress
             ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1]), "destaddr": "{}-{}".format(caddress[0], obdict["port"])})
             if not ret[0]:
                 return ret
             ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
             if not ret[0]:
                 return False, generate_error("unreachable client", False)
-            mode = "registered_traversal"
-        elif check_local(caddress[0]):
-            mode = "registered_traversal"
+            use_traversal = True
+        elif config.traverse_local and self.traverse and check_local(caddress[0]):
+            use_traversal = True
         else:
-            mode = "registered_ip"
+            use_traversal = False
         self.changeip_lock.acquire(False)
         update_time = int(time.time())
         if obdict["name"] not in self.nhipmap:
@@ -202,7 +201,7 @@ class Server(CommonSCN):
             self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
             self.nhipmap[obdict["name"]][clientcerthash]["updatetime"] = update_time
             self.nhipmap[obdict["name"]][clientcerthash]["security"] = "valid"
-            self.nhipmap[obdict["name"]][clientcerthash]["traverse"] = mode == "registered_traversal"
+            self.nhipmap[obdict["name"]][clientcerthash]["traverse"] = use_traversal
         self.changeip_lock.release()
 
         # update broken certs afterwards (if needed)
@@ -211,7 +210,7 @@ class Server(CommonSCN):
 
         # notify that a change happened
         self.nhipmap_cond.set()
-        return True, {"mode": mode, "traverse": mode == "registered_traversal"}
+        return True, {"traverse": use_traversal}
 
     @check_args_deco({"destaddr": str}) #, optional={"port": int}
     @classify_accessable

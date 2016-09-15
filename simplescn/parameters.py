@@ -9,6 +9,8 @@ logformat = '%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'
 debug_mode = True
 # all transmitted error messages are unknown
 harden_mode = False
+# scnserver activates traversal for local scnclients
+traverse_local = True
 
 ## sizes ##
 salt_size = 10

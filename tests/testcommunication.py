@@ -11,7 +11,7 @@ if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 import simplescn
-from simplescn import tools
+from simplescn import tools, config
 from simplescn.tools import start
 
 
@@ -35,9 +35,10 @@ class TestCommunication(unittest.TestCase):
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
-        #print(cls.temptestdir, cls.temptestdir2)
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
+        cls.oldconfig = config.traverse_local
+        config.traverse_local = True
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
@@ -60,17 +61,18 @@ class TestCommunication(unittest.TestCase):
         cls.client2.quit()
         cls.server.quit()
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+        config.traverse_local = cls.oldconfig
 
     def test_register_get(self):
         reqister1 = self.client.links["client"].access_dict("register", {"server": "::1-{}".format(self.server_port)})
         self.assertEqual(reqister1[0], True)
-        self.assertDictEqual(reqister1[1], {'traverse': True, 'mode': 'registered_traversal'})
+        self.assertDictEqual(reqister1[1], {'traverse': True})
         ret1 = self.client.links["client"].access_dict("get", {"server": "::1-{}".format(self.server_port), "name": self.name, "hash": self.client_hash})
         self.assertEqual(ret1[0], True)
         
         register2 = self.client.links["client"].access_dict("register", {"server": "127.0.0.1-{}".format(self.server_port)})
         self.assertEqual(register2[0], True)
-        self.assertDictEqual(register2[1], {'traverse': True, 'mode': 'registered_traversal'})
+        self.assertDictEqual(register2[1], {'traverse': True})
         ret2 = self.client.links["client"].access_dict("get", {"server": "127.0.0.1-{}".format(self.server_port), "name": self.name, "hash": self.client_hash})
         self.assertEqual(ret2[0], True)
         

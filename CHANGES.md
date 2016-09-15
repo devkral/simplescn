@@ -15,6 +15,8 @@
 * wrappedcon instead wrappedsocket
 * optimize hashdb, permsdb
 * add exist
+* remove mode from register
+* add option to configure traversal behaviour for local clients
 
 
 ## bugfixes
