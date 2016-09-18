@@ -58,7 +58,7 @@ class chathandler(server.BaseHTTPRequestHandler):
         #    pass
         
 
-def cmdloop(requester, address, ownscnport):
+def cmdloop(requester, ownscnport):
     while True:
         inp = input("<action> <actionparams...> <message>:\n").split(" ", 1)
         if inp[0] == "show":
@@ -83,7 +83,7 @@ def cmdloop(requester, address, ownscnport):
                 print("Error: too less parameters – server")
                 continue
             body_server = {"server": tt[0], "name": tt[1], "hash": tt[2]}
-            resp_s = requester.do_request(address, "/client/get", body_server, {}, pwhandler=pwcallmethod)
+            resp_s = requester.do_request("/client/get", body_server, {}, pwhandler=pwcallmethod)
             if resp_s[0]:
                 resp_s[0].close()
             if not resp_s[1]:
@@ -94,7 +94,7 @@ def cmdloop(requester, address, ownscnport):
             print("No valid action")
             continue
         body = {"name": "examplechat", "address": req[0]}
-        resp = requester.do_request(address, "/client/wrap", body, {})
+        resp = requester.do_request("/client/wrap", body, {})
         if not resp[1] or resp[0] is None:
             print(resp[2])
             continue
@@ -118,13 +118,13 @@ class httpserver(server.HTTPServer):
     address_family = socket.AF_INET6
     socket_type = socket.SOCK_STREAM
 
-def init(requester, address):
+def init(requester):
     global hserver
     hserver = httpserver(("::1", 0), chathandler)
     threading.Thread(target=hserver.serve_forever, daemon=True).start()
     body = {"port": hserver.server_port, "name": "examplechat", "post": True, "wrappedport": True}
-    resp = requester.do_request(address, "/client/registerservice", body, {})
-    resp2 = requester.do_request(address, "/client/show", {}, {})
+    resp = requester.do_request("/client/registerservice", body, {})
+    resp2 = requester.do_request("/client/show", {}, {})
     if resp[0]:
         resp[0].close()
     if resp2[0]:
@@ -136,18 +136,18 @@ def init(requester, address):
         return
     requester.saved_kwargs["forcehash"] = resp[3][1]
     requester.saved_kwargs["ownhash"] = resp[3][1]
-    cmdloop(requester, address, resp2[2].get("port"))
+    cmdloop(requester, resp2[2].get("port"))
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:
         if os.path.exists(sys.argv[1]):
-            init(scnrequest.Requester(use_unix=True, pwhandler=pwcallmethod), sys.argv[1])
+            init(scnrequest.Requester(sys.argv[1], use_unix=True, pwhandler=pwcallmethod))
         else:
-            init(scnrequest.Requester(use_unix=False, pwhandler=pwcallmethod), sys.argv[1])
+            init(scnrequest.Requester(sys.argv[1], use_unix=False, pwhandler=pwcallmethod))
     else:
         p = getlocalclient()
         if p:
-            init(scnrequest.Requester(use_unix=p[1], pwhandler=pwcallmethod), p[0])
+            init(scnrequest.Requester(p[0], use_unix=p[1], pwhandler=pwcallmethod))
         #elif os.path.exists(p.format("info")):
         #    init(scnrequest.requester(use_unix=False, forcehash=pjson.get("cert_hash"), pwhandler=pwcallmethod), pjson.get("cserver_ip"))
 

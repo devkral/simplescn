@@ -23,7 +23,7 @@ from simplescn.tools.checks import check_certs, check_local, check_classify, has
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import ClientClientAdmin
 from simplescn._client_safe import ClientClientSafe
-from simplescn.scnrequest import Requester
+from simplescn.scnrequest import do_request
 
 
 @generate_validactions_deco
@@ -31,7 +31,6 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
     links = None
     scntraverse_helper = None
     brokencerts = None
-    requester = None
     _cache_help = None
 
     @property
@@ -43,8 +42,6 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
             parent.__init__(self)
         self.links = _links
         self.brokencerts = []
-        self.requester = Requester(ownhash=self.links["certtupel"][1], hashdb=self.links["hashdb"], certcontext=self.links["hserver"].sslcont)
-
         self.udpsrcsock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         self.udpsrcsock.settimeout(None)
         self.udpsrcsock.bind(self.links["hserver"].socket.getsockname())
@@ -65,8 +62,13 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
     # return success, body, isself, hash
     # return success, body, None, hash
     def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
-        """ func: wrapper+ cache certcontext and ownhash """
-        ret = self.requester.do_request(addr_or_con, path, body, headers, forceport=forceport, forcehash=forcehash, sendclientcert=sendclientcert, keepalive=not closecon)
+        """ func: wrapper for do_request, autoadd ownhash, hashdb and certcontext """
+        # don't use Requester, performance reasons
+        ret = do_request(addr_or_con, path, body, headers, \
+                         ownhash=self.links["certtupel"][1], hashdb=self.links["hashdb"], \
+                         certcontext=self.links["hserver"].sslcont, \
+                         forceport=forceport, forcehash=forcehash, \
+                         sendclientcert=sendclientcert, keepalive=not closecon)
         # for wrapping and massimport
         if ret[0]:
             if not closecon and ret[1]:

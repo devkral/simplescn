@@ -7,14 +7,10 @@ import logging
 
 from simplescn import config
 from simplescn.config import isself
-
 from simplescn.tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, \
 dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6, gen_result, generate_error
-
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
-
-
 
 reference_header = \
 {
@@ -27,24 +23,33 @@ strip_headers = ["Connection", "Host", "Accept-Encoding", \
 "Content-Length", "User-Agent", "X-certrewrap", "X-SCN-Authorization"]
 
 class Requester(object):
+    """ cache arguments, be careful, slows down requests by using copy() """
     saved_kwargs = None
-    def __init__(self, **kwargs):
+    default_addrcon = None
+    def __init__(self, default_addrcon=None, **kwargs):
+        """ set default kwargs and address.
+             address can be overwritten in a request by specifing addrcon=newaddress
+             kwargs can be overwritten in a request by specifing key=newvalue """
+        self.default_addrcon = default_addrcon
         self.saved_kwargs = kwargs
 
-    def do_request(self, addr_or_con, path, body, headers, **kwargs):
+    def do_request(self, path, body, headers, addrcon=None, **kwargs):
+        if not addrcon:
+            addrcon = self.default_addrcon
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
-        return do_request(addr_or_con, path, body, headers, **_kwargs)
+        return do_request(addrcon, path, body, headers, **_kwargs)
 
-    def do_request_simple(self, addr_or_con, path, body, headers, **kwargs):
+    def do_request_simple(self, path, body, headers, addrcon=None, **kwargs):
+        if not addrcon:
+            addrcon = self.default_addrcon
         _kwargs = self.saved_kwargs.copy()
         _kwargs.update(kwargs)
-        return do_request_simple(addr_or_con, path, body, headers, **_kwargs)
+        return do_request_simple(addrcon, path, body, headers, **_kwargs)
 
 class SCNConnection(client.HTTPSConnection):
     """ easy way to connect with simplescn nodes """
     kwargs = None
-
     # valid values for certtupel
     # None
     # None, hash, cert
@@ -67,6 +72,8 @@ class SCNConnection(client.HTTPSConnection):
 
     def connect(self):
         """ Connect to the host and port specified in __init__ """
+        # clear certtupel
+        self.certtupel = (None, None, None)
         etimeout = self.kwargs.get("timeout", config.default_timeout)
         contimeout = self.kwargs.get("connect_timeout", config.connect_timeout)
         if self.kwargs.get("use_unix"):
@@ -196,6 +203,7 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
             * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)
             * AuthNeeded: request Auth, contains con and authob (needed for auth)
     """
+    assert addr_or_con, "addr_or_con is None, {}".format(addr_or_con)
     sendbody, sendheaders = init_body_headers(body, headers)
     if sendbody is None:
         return None, False, generate_error("no body"), (isself, kwargs.get("ownhash", None), None)
@@ -290,10 +298,8 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
             return con, success, obdict, con.certtupel
 
 def do_request_simple(addr_or_con, path: str, body: dict, headers: dict, **kwargs):
-    """ autoclose connection """
+    """ autoclose connection and strip connection and certificate """
     # keepalive is not possible so deactivate it
     kwargs["keepalive"] = False
     ret = do_request(addr_or_con, path, body, headers, **kwargs)
-    if ret[0]:
-        ret[0].close()
     return ret[1], ret[2], ret[3][0], ret[3][1]

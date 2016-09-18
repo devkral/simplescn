@@ -336,9 +336,9 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below), None for all """
         #listhashes = obdict.get("hashes")
-        listall = self.do_request(obdict.get("sourceaddress"), \
+        listall = self.do_request(obdict["sourceaddress"], \
                                   "/client/listnodeall", {}, {}, \
-                                  forcehash=obdict.get("sourcehash"), \
+                                  forcehash=obdict["sourcehash"], \
                                   closecon=False, sendclientcert=True)
         if not listall[0]:
             return listall
