@@ -329,7 +329,7 @@ class ViaServerStruct(object):
         if not via_ret[1]:
             return via_ret
         addressnew = "{address}-{port}".format(**via_ret[2])
-        if _hash != via_ret[2].get("hash") or via_ret[2].get("security", "valid") != "valid":
+        if via_ret[2].get("security", "valid") != "valid":
             _forcehash2 = via_ret[1].get("hash")
         else:
             _forcehash2 = None

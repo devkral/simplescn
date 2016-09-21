@@ -7,6 +7,7 @@ license: MIT, see LICENSE.txt
 import ssl
 import socket
 import abc
+import collections
 
 
 from simplescn import EnforcedPortError
@@ -146,7 +147,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
-            return self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash, forceport=True)
+            ret = self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash, forceport=True)
+            if ret[0] and not isinstance(ret[1].get("port", None), int):
+                return False, genc_error("invalid serveranswer")
+            return ret
         else:
             # access direct (more speed+no pwcheck)
             _cstemp = self.links["client_server"]
@@ -174,12 +178,11 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         out = sorted(_tservices[1]["dict"].items(), key=lambda t: t[0])
         return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2]
 
-    # if given hash doesn't match returned hash, use check_direct
     @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr})
     @classify_accessable
     def get(self, obdict: dict):
         """ func: fetch client address from server
-            return: address, port, name, security, hash, traverse_needed, traverse_address
+            return: address, port, security, traverse_needed, traverse_address, (name, hash)
             server: server url
             forcehash: enforce server with hash==forcehash
             name: client name
@@ -187,10 +190,14 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         senddict = extract_senddict(obdict, "hash", "name")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         _getret = self.do_request(obdict["server"], "/server/get", senddict, _headers, forcehash=obdict.get("forcehash"))
-        if not _getret[0] or not check_args(_getret[1], {"address": str, "port": destportint, "security": securitystr, "hash": hashstr}):
+        if not _getret[0]:
             return _getret
-        if obdict["hash"] != _getret[1]["hash"] and _getret[1]["security"] == "valid":
-            return False, genc_error("MITM-try detected")
+        if not check_args(_getret[1], {"address": str, "port": destportint, "security": securitystr}):
+            return False, genc_error("invalid serveranswer")
+        # if broken cert check also this
+        if _getret[1]["security"] != "valid" and not check_args(_getret[1], {"name": namestr, "hash": hashstr}):
+            return False, genc_error("invalid serveranswer")
+
         # case: remote node runs on server
         if check_local(_getret[1]["address"]):
             # use serveraddress instead
@@ -231,7 +238,11 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             address: remote node url """
         _addr = obdict["address"]
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(_addr, "/server/trust", {"hash": hash}, _headers, forceport=True, forcehash=obdict.get("forcehash", None))
+        ret = self.do_request(_addr, "/server/trust", {"hash": hash}, _headers, \
+                              forceport=True, forcehash=obdict.get("forcehash", None))
+        if ret[0] and not isinstance(ret[1].get("security", None), str):
+            return False, genc_error("invalid serveranswer")
+        return ret
 
     @check_args_deco({"address": str, "name": namestr}, optional={"forcehash": hashstr})
     @classify_accessable
@@ -241,10 +252,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             name: service name
             forcehash: enforce node with hash==forcehash
             address: remote node url """
-        _addr = obdict["address"]
-        _name = obdict["name"]
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.do_request(_addr, "/wrap/{}".format(_name), {}, _headers, forceport=True, closecon=False, sendclientcert=True, forcehash=obdict.get("forcehash", None))
+        return self.do_request(obdict["address"], "/wrap/{}".format(obdict["name"]), {}, \
+                               _headers, forceport=True, closecon=False, sendclientcert=True, \
+                               forcehash=obdict.get("forcehash", None))
 
     @check_args_deco({"server": str}, optional={"forcehash": hashstr})
     @classify_accessable
@@ -254,7 +265,8 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             forcehash: enforce node with hash==forcehash
             server: server url """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        _tnames = self.do_request(obdict["server"], "/server/dumpnames", {}, _headers, forcehash=obdict.get("forcehash", None))
+        _tnames = self.do_request(obdict["server"], "/server/dumpnames", {}, \
+                                  _headers, forcehash=obdict.get("forcehash", None))
         if not _tnames[0]:
             return _tnames
         out = []
@@ -277,7 +289,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash", None)
-            return self.do_request(_addr, "/server/info", {}, _headers, forcehash=_forcehash)
+            ret = self.do_request(_addr, "/server/info", {}, _headers, forcehash=_forcehash)
+            if not check_args(ret[1], {"type": str, "name": namestr, "message": str}):
+                return False, genc_error("invalid serveranswer")
+            return ret
         else:
             # access direct (more speed+no pwcheck)
             _cstemp = self.links["client_server"]
@@ -294,7 +309,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash", None)
-            return self.do_request(_addr, "/server/cap", {}, _headers, forcehash=_forcehash)
+            ret = self.do_request(_addr, "/server/cap", {}, _headers, forcehash=_forcehash)
+            if ret[0] and not isinstance(ret[1].get("caps", None), collections.Iterable):
+                return False, genc_error("invalid serveranswer")
+            return ret
         else:
             # access direct (more speed+no pwcheck)
             _cstemp = self.links["client_server"]
@@ -311,7 +329,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash")
-            return self.do_request(_addr, "/server/prioty", {}, _headers, forcehash=_forcehash, forceport=True)
+            ret = self.do_request(_addr, "/server/prioty", {}, _headers, forcehash=_forcehash, forceport=True)
+            if ret[0] and (not isinstance(ret[1].get("priority", None), int) or not isinstance(ret[1].get("type", None), str)):
+                return False, genc_error("invalid serveranswer")
+            return ret
         else:
             # access direct (more speed+no pwcheck)
             _cstemp = self.links["client_server"]
@@ -327,60 +348,59 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             forcehash: enforce node with hash==forcehash
             security: set/verify security """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        _obdsecurity = obdict.get("security", "valid")
         if obdict["hash"] == self.links["certtupel"][1]:
             # forcehash if hash is from client itself
-            if obdict.get("security", "valid") != "valid":
+            if _obdsecurity != "valid":
                 return False, genc_error("Error: own client is marked not valid")
-            _priotydirectbody = {"address": obdict["address"], "headers": _headers, "forcehash":  self.links["certtupel"][1]}
+            _priotydirectbody = {"address": obdict["address"], "headers": _headers, "forcehash": self.links["certtupel"][1]}
         elif "forcehash" in obdict:
              # forcehash if requested
-            _priotydirectbody = {"address": obdict["address"], "headers": _headers, "forcehash":  obdict["forcehash"]}
+            _priotydirectbody = {"address": obdict["address"], "headers": _headers, "forcehash": obdict["forcehash"]}
         else:
             #  elsewise handle hash mismatch later
             _priotydirectbody = {"address": obdict["address"], "headers": _headers}
         prioty_ret = self.prioty_direct(_priotydirectbody)
         if not prioty_ret[0]:
             return prioty_ret
-        # don't query if hash is from client itself
-        if obdict["hash"] == self.links["certtupel"][1]:
-            hashdbo = None
+
+        # handle hash mismatch (own client by use of forcehash excluded)
+        if prioty_ret[2][1] != obdict["hash"]:
+            assert obdict["hash"] != self.links["certtupel"][1], "should not happen because of use of forcehash"
+            _newsecurity = "insecure"
         else:
-            hashdbo = self.links["hashdb"].get(obdict["hash"])
-        # handle hash mismatch
-        if prioty_ret[2][1] != obdict["hash"] or obdict.get("security", "valid") != "valid":
+            _newsecurity = _obdsecurity
+        if _newsecurity != "valid":
+            assert obdict["hash"] != self.links["certtupel"][1], "should not happen because client is forced to be valid"
+            # add placeholder security field, init as _newsecurity
+            prioty_ret[1]["security"] = _newsecurity
             address, port = scnparse_url(obdict.get("address"), False)
-            check_ret = check_updated_certs(address, port, [(obdict.get("hash"), "insecure"), ], newhash=prioty_ret[2][1])
-            if check_ret in [None, []] and obdict.get("security", "valid") == "valid":
+            check_ret = check_updated_certs(address, port, [(obdict["hash"], _newsecurity)], newhash=prioty_ret[2][1])
+            if check_ret in [None, []] and _obdsecurity == "valid":
                 return False, genc_error("MITM attack?, Certmismatch")
             elif check_ret in [None, []]:
                 return False, genc_error("MITM?, Wrong Server information?, Certmismatch and security!=valid")
-            if obdict.get("security", "valid") == "valid":
-                obdict["security"] = "insecure"
+            hashgetl = self.links["hashdb"].get(obdict["hash"])
             # is in db and was valid before
-            if hashdbo and hashdbo[3] == "valid":
+            if hashgetl and hashgetl[3] == "valid":
                 # invalidate old
-                self.links["hashdb"].changesecurity(obdict["hash"], obdict.get("security", "insecure"))
-                # create unverified new, if former state was valid and is not in db
-                newhashdbo = self.links["hashdb"].get(prioty_ret[2][1])
-                if not newhashdbo:
-                    self.links["hashdb"].addhash(hashdbo[0], prioty_ret[2][1], hashdbo[1], hashdbo[2], "unverified")
-                    newhashdbo = self.links["hashdb"].get(prioty_ret[2][1])
+                self.links["hashdb"].changesecurity(obdict["hash"], _newsecurity)
+                # create new entry with security=="unverified" if not in db elsewise just copy references
+                newhashgetl = self.links["hashdb"].get(prioty_ret[2][1])
+                if not newhashgetl:
+                    self.links["hashdb"].addhash(hashgetl[0], prioty_ret[2][1], hashgetl[1], hashgetl[2], "unverified")
+                    newhashgetl = self.links["hashdb"].get(prioty_ret[2][1])
                 # copy references
-                self.links["hashdb"].copyreferences(hashdbo[4], newhashdbo[4])
-                # replace hashdbo by newhashdbo
-                hashdbo = newhashdbo
-        # add security field, init as unverified
-        prioty_ret[1]["security"] = "unverified"
-        if hashdbo:
-            # is hashdbo/newhashdbo in db
+                self.links["hashdb"].copyreferences(hashgetl[4], newhashgetl[4])
+                # update security field to value in db
+                prioty_ret[1]["security"] = newhashgetl[3]
+        else:
+            # security was valid and no hash mismatch
+            prioty_ret[1]["security"] = "valid"
+
+        if obdict["hash"] != self.links["certtupel"][1]:
             self.links["hashdb"].changepriority(prioty_ret[2][1], prioty_ret[1]["priority"])
             self.links["hashdb"].changetype(prioty_ret[2][1], prioty_ret[1]["type"])
-            # return security of current hash
-            prioty_ret[1]["security"] = hashdbo[3]
-        elif obdict["hash"] == self.links["certtupel"][1]:
-            # is client itself
-            # valid because (hashdbo=None)
-            prioty_ret[1]["security"] = "valid"
         return prioty_ret
 
     ### local management ###

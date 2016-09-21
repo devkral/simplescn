@@ -776,15 +776,15 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
         obdict["socket"] = self.connection
         return obdict
 
-    def handle_usebroken(self, sub):
+    def handle_usebroken(self, brokenhash):
         # invalidate as attacker can connect while switching
         self.certtupel = (None, None, None)
-        certfpath = os.path.join(self.links["config_root"], "broken", sub)
+        oldsslcont = self.connection.context
+        self.connection = self.connection.unwrap()
+        certfpath = os.path.join(self.links["config_root"], "broken", brokenhash)
         if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):
             cont = default_sslcont()
             cont.load_cert_chain(certfpath+".pub", certfpath+".priv")
-            oldsslcont = self.connection.context
-            self.connection = self.connection.unwrap()
             self.connection = cont.wrap_socket(self.connection, server_side=True)
             self.connection = self.connection.unwrap()
             self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
@@ -792,14 +792,15 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
             self.wfile = self.connection.makefile(mode='wb')
             self.scn_send_answer(200, message="brokencert successful", docache=False, dokeepalive=True)
         else:
-            oldsslcont = self.connection.context
-            self.connection = self.connection.unwrap()
             self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
             self.connection = self.connection.unwrap()
             self.connection = oldsslcont.wrap_socket(self.connection, server_side=True)
             self.rfile = self.connection.makefile(mode='rb')
             self.wfile = self.connection.makefile(mode='wb')
-            self.scn_send_answer(404, message="brokencert not found", docache=False, dokeepalive=True)
+            if brokenhash == self.links["certtupel"][1]:
+                self.scn_send_answer(404, message="brokencert is client cert", docache=False, dokeepalive=True)
+            else:
+                self.scn_send_answer(404, message="brokencert not found", docache=False, dokeepalive=True)
 
     def do_auth(self, domain):
         if not self.links["auth_server"].verify(domain, self.auth_info):

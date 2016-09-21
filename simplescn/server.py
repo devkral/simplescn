@@ -91,24 +91,23 @@ class Server(CommonSCN):
     @classify_private
     def refresh_nhipmap(self):
         while self.isactive:
-            self.changeip_lock.acquire()
-            e_time = int(time.time())-self.expire_time
-            count = 0
-            dump = []
-            for _name, hashob in self.nhipmap.items():
-                for _hash, val in hashob.items():
-                    if val["updatetime"] < e_time:
-                        del self.nhipmap[_name][_hash]
-                    else:
-                        count += 1
-                        dump.append((_name, _hash, val.get("security")))
-                if len(self.nhipmap[_name]) == 0:
-                    del self.nhipmap[_name]
-            ### don't annote list with "map" dict structure on serverside (overhead)
-            self.cache["dumpnames"] = json.dumps({"items": dump})
-            self.cache["num_nodes"] = json.dumps({"count": count})
-            self.cache["update_time"] = json.dumps({"time": int(time.time())})
-            self.changeip_lock.release()
+            with self.changeip_lock:
+                e_time = int(time.time())-self.expire_time
+                count = 0
+                dump = []
+                for _name, hashob in self.nhipmap.items():
+                    for _hash, val in hashob.items():
+                        if val["updatetime"] < e_time:
+                            del self.nhipmap[_name][_hash]
+                        else:
+                            count += 1
+                            dump.append((_name, _hash, val.get("security")))
+                    if len(self.nhipmap[_name]) == 0:
+                        del self.nhipmap[_name]
+                ### don't annote list with "map" dict structure on serverside (overhead)
+                self.cache["dumpnames"] = json.dumps({"items": dump})
+                self.cache["num_nodes"] = json.dumps({"count": count})
+                self.cache["update_time"] = json.dumps({"time": int(time.time())})
             self.nhipmap_cond.clear()
             self.load_balance(count)
             time.sleep(self.sleep_time)
@@ -153,10 +152,14 @@ class Server(CommonSCN):
         if update_list in [None, []]:
             return
 
-        with self.changeip_lock:
-            update_time = int(time.time())
-            for _uhash, _usecurity in update_list:
-                self.nhipmap[_name][_uhash] = {"security": _usecurity, "hash": newhash, "name": _name, "updatetime": update_time}
+        update_time = int(time.time())
+        # name is in self.nhipmap because called at last
+        assert _name in self.nhipmap, "name is not in nhipmap after being entered by register"
+        for _uhash, _usecurity in update_list:
+            entry= {"security": _usecurity, "hash": newhash, "name": _name, "updatetime": update_time}
+            with self.changeip_lock:
+                self.nhipmap[_name][_uhash] = entry
+
         # notify that change happened
         self.nhipmap_cond.set()
 
@@ -188,22 +191,24 @@ class Server(CommonSCN):
             use_traversal = True
         else:
             use_traversal = False
-        self.changeip_lock.acquire(False)
-        update_time = int(time.time())
-        if obdict["name"] not in self.nhipmap:
-            self.nhipmap[obdict["name"]] = {}
-        if clientcerthash not in self.nhipmap[obdict["name"]]:
-            # set security=valid for next step
-            self.nhipmap[obdict["name"]][clientcerthash] = {"security": "valid"}
-        # when certificate has a compromised flag (!=valid) stop register process
-        if self.nhipmap[obdict["name"]][clientcerthash].get("security", "valid") == "valid":
-            self.nhipmap[obdict["name"]][clientcerthash]["address"] = caddress[0]
-            self.nhipmap[obdict["name"]][clientcerthash]["port"] = obdict["port"]
-            self.nhipmap[obdict["name"]][clientcerthash]["updatetime"] = update_time
-            self.nhipmap[obdict["name"]][clientcerthash]["security"] = "valid"
-            self.nhipmap[obdict["name"]][clientcerthash]["traverse"] = use_traversal
-        self.changeip_lock.release()
-
+        entry = {}
+        entry["address"] = caddress[0]
+        entry["port"] = obdict["port"]
+        entry["updatetime"] = int(time.time())
+        entry["security"] = "valid"
+        entry["traverse"] = use_traversal
+        _name = obdict["name"]
+        # prepared dict, so no dict must be allocated while having lock
+        _prepdict = dict()
+        with self.changeip_lock:
+            if _name not in self.nhipmap:
+                self.nhipmap[_name] = _prepdict
+            # update only if not in db or if valid
+            if clientcerthash not in self.nhipmap[_name]:
+                # set security=valid for next step
+                self.nhipmap[_name][clientcerthash] = entry
+            elif self.nhipmap[_name][clientcerthash].get("security", "valid") == "valid":
+                self.nhipmap[_name][clientcerthash] = entry
         # update broken certs afterwards (if needed)
         if len(obdict.get("update", [])) > 0:
             threading.Thread(target=self.check_brokencerts, args=(caddress[0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True).start()
@@ -212,7 +217,7 @@ class Server(CommonSCN):
         self.nhipmap_cond.set()
         return True, {"traverse": use_traversal}
 
-    @check_args_deco({"destaddr": str}) #, optional={"port": int}
+    @check_args_deco({"destaddr": str})
     @classify_accessable
     def open_traversal(self, obdict: dict):
         """ func: open traversal connection
@@ -249,20 +254,24 @@ class Server(CommonSCN):
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
             return False, generate_error("hash not exist", False)
         _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
+        retob = {"security": _obj.get("security", "valid")}
         if _obj.get("security", "") != "valid":
-            _usecurity, _uname, _uhash = _obj.get("security"), _obj["name"], _obj["hash"]
+            retob["name"] = _obj["name"]
+            retob["hash"] = _obj["hash"]
             _obj = self.nhipmap[_obj["name"]][_obj["hash"]]
-        else:
-            _usecurity = None
+        retob["address"] =_obj["address"]
+        retob["port"] =_obj["port"]
+
         _travaddr = None
         if obdict.get("autotraverse", True) and self.traverse and _obj["traverse"]:
             _travobj1 = self.open_traversal(obdict)
             if _travobj1[0]:
                 _travaddr = _travobj1[1].get("traverse_address")
-        if _usecurity:
-            return True, {"address": _obj["address"], "security": _usecurity, "port": _obj["port"], "name": _uname, "hash": _uhash, "traverse_needed": _obj["traverse"], "traverse_address": _travaddr}
+            retob["traverse_address"] = _travaddr
+            retob["traverse_needed"] = True
         else:
-            return True, {"address": _obj["address"], "security": "valid", "port": _obj["port"], "traverse_needed": _obj["traverse"], "traverse_address": _travaddr}
+            retob["traverse_needed"] = False
+        return True, retob
 
 def gen_ServerHandler(_links):
     class ServerHandler(CommonSCNHandler):

@@ -204,11 +204,12 @@ def check_args(_moddict, requires=None, optional=None, error=None):
         if isinstance(_moddict[argname], _type):
             continue
         # is a number given as string? e.g. user input
-        if _type is int and isinstance(_moddict[argname], str) and _moddict[argname].strip().rstrip().isdecimal():
-            _moddict[argname] = int(_moddict[argname])
-        # check if everything is right now
-        if isinstance(_moddict[argname], _type):
-            continue
+        if _type is int:
+            if isinstance(_moddict[argname], str) and _moddict[argname].strip().rstrip().isdecimal():
+                _moddict[argname] = int(_moddict[argname])
+            # check if everything is right now
+            if isinstance(_moddict[argname], _type):
+                continue
         error.append(argname)
         error.append("wrong type: {}, {}".format(type(_moddict[argname]).__name__, _moddict[argname]))
         return False

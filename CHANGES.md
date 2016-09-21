@@ -21,6 +21,7 @@
 * move prioty, check to ViaServer
 
 ## bugfixes
+* better verification serveranswers
 * fix multiinstance bugs
 * fix tests
 * fix massimport
