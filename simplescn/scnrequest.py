@@ -11,6 +11,8 @@ from simplescn.tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, \
 dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6, gen_result, generate_error
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
+from simplescn._decos import check_args_deco
+from simplescn.tools.checks import namestr, hashstr, checkclass
 
 reference_header = \
 {
@@ -21,31 +23,6 @@ reference_header = \
 
 strip_headers = ["Connection", "Host", "Accept-Encoding", \
 "Content-Length", "User-Agent", "X-certrewrap", "X-SCN-Authorization"]
-
-class Requester(object):
-    """ cache arguments, be careful, slows down requests by using copy() """
-    saved_kwargs = None
-    default_addrcon = None
-    def __init__(self, default_addrcon=None, **kwargs):
-        """ set default kwargs and address.
-             address can be overwritten in a request by specifing addrcon=newaddress
-             kwargs can be overwritten in a request by specifing key=newvalue """
-        self.default_addrcon = default_addrcon
-        self.saved_kwargs = kwargs
-
-    def do_request(self, path, body, headers, addrcon=None, **kwargs):
-        if not addrcon:
-            addrcon = self.default_addrcon
-        _kwargs = self.saved_kwargs.copy()
-        _kwargs.update(kwargs)
-        return do_request(addrcon, path, body, headers, **_kwargs)
-
-    def do_request_simple(self, path, body, headers, addrcon=None, **kwargs):
-        if not addrcon:
-            addrcon = self.default_addrcon
-        _kwargs = self.saved_kwargs.copy()
-        _kwargs.update(kwargs)
-        return do_request_simple(addrcon, path, body, headers, **_kwargs)
 
 class SCNConnection(client.HTTPSConnection):
     """ easy way to connect with simplescn nodes """
@@ -150,17 +127,11 @@ def init_body_headers(body, headers):
         sendheaders["Content-Type"] = "application/json; charset=utf-8"
     elif isinstance(body, bytes):
         sendbody = body
-    elif isinstance(body, str):
-        sendbody = bytes(body, "utf-8")
-    else:
-        sendbody = None
-    if sendbody:
-        sendheaders["Content-Length"] = str(len(sendbody))
+    sendheaders["Content-Length"] = str(len(sendbody))
 
-    if headers:
-        for key, value in headers.items():
-            if key not in strip_headers:
-                sendheaders[key] = value
+    for key, value in headers.items():
+        if key not in strip_headers:
+            sendheaders[key] = value
     return sendbody, sendheaders
 
 def authorization(pwhashed, reqob, serverhash, sendheaders):
@@ -175,7 +146,7 @@ def authorization(pwhashed, reqob, serverhash, sendheaders):
 
 # return connection, success, body, certtupel
 # certtupel is None if no
-def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNConnection, bool, dict, tuple):
+def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnection, bool, dict, tuple):
     """ func: use this method to communicate with clients/servers
         kwargs:
             options:
@@ -203,14 +174,13 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
             * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)
             * AuthNeeded: request Auth, contains con and authob (needed for auth)
     """
-    assert addr_or_con, "addr_or_con is None, {}".format(addr_or_con)
+    assert addrcon == addrconob, "addrcon is not a valid addrconob".format(type(addrcon))
+    assert isinstance(body, (dict, bytes)), "body is neither dict nor bytes, {}".format(type(body))
     sendbody, sendheaders = init_body_headers(body, headers)
-    if sendbody is None:
-        return None, False, generate_error("no body"), (isself, kwargs.get("ownhash", None), None)
-    if isinstance(addr_or_con, SCNConnection):
-        con = addr_or_con
+    if isinstance(addrcon, SCNConnection):
+        con = addrcon
     else:
-        con = SCNConnection(addr_or_con, **kwargs)
+        con = SCNConnection(addrcon, **kwargs)
     if con.sock is None:
         con.connect()
     if con.sock is None:
@@ -234,12 +204,10 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
     #start connection
     con.putrequest("POST", path)
     for key, value in sendheaders.items():
-        #if not isinstance(value, (bytes, str)):
-        #    con.close()
-        #    raise TypeError("{} of header {} not supported: {}".format(type(value), key, value))
+        #assert isinstance(value, str), "header has invalid type, {} ({})".format(key, type(value))
         con.putheader(key, value)
-
     con.endheaders()
+
     if kwargs.get("sendclientcert", False):
         con.rewrap()
     con.send(sendbody)
@@ -286,20 +254,119 @@ def do_request(addr_or_con, path: str, body, headers: dict, **kwargs) -> (SCNCon
                 obdict = gen_result(encode_bo(readob, conth))
         else:
             obdict = gen_result(response.reason)
-        #if not isinstance(obdict, dict):
-        #    con.close()
-        #    return None, False, "obdict not a dict", con.certtupel
-        # origcertinfo[0] is not isself, otherwise it isn't sent
+        #assert isinstance(obdict, dict),  "obdict not a dict"
         if con and not kwargs.get("keepalive", True):
             con.close()
+        # origcertinfo[0] is never isself, it is stripped
         if con.certtupel[0] is isself and "origcertinfo" in obdict:
             return con, success, obdict, obdict["origcertinfo"]
         else:
             return con, success, obdict, con.certtupel
 
-def do_request_simple(addr_or_con, path: str, body: dict, headers: dict, **kwargs):
+def do_request_simple(addrcon, path: str, body: dict, headers: dict, **kwargs):
     """ autoclose connection and strip connection and certificate """
     # keepalive is not possible so deactivate it
     kwargs["keepalive"] = False
-    ret = do_request(addr_or_con, path, body, headers, **kwargs)
+    ret = do_request(addrcon, path, body, headers, **kwargs)
     return ret[1], ret[2], ret[3][0], ret[3][1]
+
+
+def check_addrcon(addrcon):
+    if isinstance(addrcon, str) and len(addrcon) <= config.max_urllength:
+        return True
+    elif isinstance(addrcon, SCNConnection):
+        return True
+    return False
+
+addrconob = checkclass(check_addrcon, classtype=object)
+
+
+class ViaServerStruct(object):
+    def do_request(self, path: str, body, headers: dict, addrcon=None, **kwargs):
+        raise NotImplementedError
+
+    @check_args_deco({"server": str, "name": namestr, "hash": hashstr, "sname": namestr}, optional={"forcehash": hashstr, "addrcon": addrconob})
+    def wrap_via_server(self, obdict: dict):
+        """func: wrap via a server
+            return: wrap return or error
+            server: server url
+            name: client name
+            hash: client hash
+            sname: service name
+            addrcon: connection or address of client """
+        _addrcon = obdict.pop("addrcon", None)
+        _forcehash = obdict.pop("forcehash", None)
+        get_ret = self.do_request("/client/get", obdict, {}, addrcon=_addrcon, forcehash=_forcehash)
+        if not get_ret[1]:
+            return get_ret
+        newaddress = "{address}-{port}".format(**get_ret[2])
+        wrapbody = {"address": newaddress,"name": obdict["sname"]}
+        return self.do_request("/client/wrap", wrapbody, {}, addrcon=_addrcon, keepalive=True, forcehash=obdict["hash"])
+
+    @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr, "addrcon": addrconob})
+    def prioty_via_server(self, obdict: dict):
+        """func: retrieve priority and type of a client on a server
+            return: priority and type
+            server: server url
+            name: client name
+            hash: client hash
+            addrcon: connection or address of client or None (use default)"""
+        _addrcon = obdict.pop("addrcon", None)
+        _forcehash = obdict.pop("forcehash", None)
+        get_ret = self.do_request("/client/get", obdict, {}, addrcon=_addrcon, forcehash=_forcehash)
+        if not get_ret[1]:
+            return get_ret
+        addressnew = "{address}-{port}".format(**get_ret[2])
+        return self.do_request("/client/prioty_direct", {"address": addressnew}, {}, forcehash=obdict["hash"], addrcon=_addrcon)
+
+    # reason for beeing seperate from get: to detect if a minor or a bigger error happened
+    @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr, "addrcon": addrconob})
+    def check_via_server(self, obdict: dict):
+        """func: check if client is reachable; update local information when reachable
+            return: priority, type, certificate security, (new-)hash (client)
+            server: server url
+            forcehash: enforce server with hash==forcehash
+            name: client name
+            hash: client certificate hash
+            addrcon: connection or address of client or None (use default) """
+        _addrcon = obdict.pop("addrcon", None)
+        _forcehash = obdict.pop("forcehash", None)
+        get_ret = self.do_request("/client/get", obdict, {}, addrcon=_addrcon, forcehash=_forcehash)
+        if not get_ret[1]:
+            return get_ret
+        addressnew = "{address}-{port}".format(**get_ret[1])
+        if get_ret[2].get("security", "valid") != "valid":
+            _forcehash2 = get_ret[1].get("hash")
+        else:
+            _forcehash2 = None
+        _check_directb = {"address": addressnew, "hash": obdict["hash"], "security": get_ret[1].get("security", "valid")}
+        direct_ret = self.do_request("/client/check_direct",  _check_directb, {}, addrcon=_addrcon, forcehash=_forcehash2)
+        # return new hash in hash field
+        if direct_ret[1]:
+            direct_ret[2]["hash"] = direct_ret[3][1]
+        return direct_ret
+
+class Requester(ViaServerStruct):
+    """ cache arguments, be careful, slows down requests by using copy() """
+    saved_kwargs = None
+    default_addrcon = None
+    def __init__(self, default_addrcon=None, **kwargs):
+        """ set default kwargs and address.
+             address can be overwritten in a request by specifing addrcon=newaddress
+             kwargs can be overwritten in a request by specifing key=newvalue """
+        self.default_addrcon = default_addrcon
+        self.saved_kwargs = kwargs
+
+    def do_request(self, path, body, headers, addrcon=None, **kwargs):
+        if not addrcon:
+            addrcon = self.default_addrcon
+        _kwargs = self.saved_kwargs.copy()
+        _kwargs.update(kwargs)
+        return do_request(addrcon, path, body, headers, **_kwargs)
+
+    def do_request_simple(self, path, body, headers, addrcon=None, **kwargs):
+        if not addrcon:
+            addrcon = self.default_addrcon
+        _kwargs = self.saved_kwargs.copy()
+        _kwargs.update(kwargs)
+        return do_request_simple(addrcon, path, body, headers, **_kwargs)

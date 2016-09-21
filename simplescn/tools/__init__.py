@@ -34,8 +34,6 @@ except ImportError:
 from simplescn import config, pwcallmethod
 from simplescn.config import isself
 from simplescn import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
-
-
 ##### init ######
 
 def generate_certs(_path):
@@ -526,7 +524,6 @@ class TraverserHelper(object):
                     logging.info(exc)
             except Exception as exc:
                 logging.info(exc)
-
 
 def create_certhashheader(certhash):
     _random = os.urandom(config.token_size).hex()

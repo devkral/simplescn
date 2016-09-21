@@ -3,6 +3,7 @@
 ## 0.8
 * tests for traversal
 * ipv4, ipv6 compatibility checks
+* standalone proxy program (example?)
 
 
 ## future

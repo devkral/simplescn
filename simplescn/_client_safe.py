@@ -317,21 +317,6 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"priority": _cstemp.priority, "type": _cstemp.scn_type}
 
-
-    @check_args_deco({"server": str, "name": namestr, "hash": hashstr})
-    @classify_accessable
-    def prioty(self, obdict: dict):
-        """ func: retrieve priority and type of a client on a server
-            return: priority and type
-            server: server url
-            name: client name
-            hash: client hash """
-        temp = self.get(obdict)
-        if not temp[0]:
-            return temp
-        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        return self.prioty_direct({"address":"{address}-{port}".format(**temp[1]), "forcehash": obdict["hash"], "headers":_headers})
-
     @check_args_deco({"address": str, "hash": hashstr}, optional={"security": str, "forcehash": hashstr})
     @classify_accessable
     def check_direct(self, obdict: dict):
@@ -341,19 +326,19 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             hash: node certificate hash
             forcehash: enforce node with hash==forcehash
             security: set/verify security """
-        # force hash if hash is from client itself
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict["hash"] == self.links["certtupel"][1]:
-            _forcehash = self.links["certtupel"][1]
+            # forcehash if hash is from client itself
             if obdict.get("security", "valid") != "valid":
                 return False, genc_error("Error: own client is marked not valid")
+            _priotydirectbody = {"address": obdict["address"], "headers": _headers, "forcehash":  self.links["certtupel"][1]}
+        elif "forcehash" in obdict:
+             # forcehash if requested
+            _priotydirectbody = {"address": obdict["address"], "headers": _headers, "forcehash":  obdict["forcehash"]}
         else:
-            _forcehash = obdict.get("forcehash", None)
-        # only use forcehash if requested elsewise handle hash mismatch later
-        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if _forcehash:
-            prioty_ret = self.prioty_direct({"address": obdict["address"], "headers": _headers, "forcehash": _forcehash})
-        else:
-            prioty_ret = self.prioty_direct({"address": obdict["address"], "headers": _headers})
+            #  elsewise handle hash mismatch later
+            _priotydirectbody = {"address": obdict["address"], "headers": _headers}
+        prioty_ret = self.prioty_direct(_priotydirectbody)
         if not prioty_ret[0]:
             return prioty_ret
         # don't query if hash is from client itself
@@ -398,34 +383,6 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             prioty_ret[1]["security"] = "valid"
         return prioty_ret
 
-    # reason for beeing seperate from get: to detect if a minor or a bigger error happened
-    @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr})
-    @classify_accessable
-    def check(self, obdict: dict):
-        """ func: check if client is reachable; update local information when reachable
-            return: priority, type, certificate security, (new-)hash (client)
-            server: server url
-            forcehash: enforce server with hash==forcehash
-            name: client name
-            hash: client certificate hash """
-        get_ret = self.get(obdict)
-        if not get_ret[0]:
-            return get_ret
-        # request forcehash if not valid
-        if get_ret[1].get("security", "valid") != "valid":
-            _forcehash = get_ret[1].get("hash")
-        else:
-            _forcehash = None
-        newaddress = "{address}-{port}".format(**get_ret[1])
-        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if _forcehash:
-            direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "headers": _headers, "forcehash": _forcehash, "security": get_ret[1].get("security", "valid")})
-        else:
-            direct_ret = self.check_direct({"address": newaddress, "hash": obdict["hash"], "headers": _headers, "security": get_ret[1].get("security", "valid")})
-        # return new hash in hash field
-        if direct_ret[0]:
-            direct_ret[1]["hash"] = direct_ret[2][1]
-        return direct_ret[0], direct_ret[1], get_ret[2]
     ### local management ###
     @check_args_deco({"name": namestr}, optional={"hash": hashstr})
     @classify_local

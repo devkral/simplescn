@@ -18,13 +18,14 @@
 * remove mode from register
 * add option to configure traversal behaviour for local clients
 * Requester calls changed
-
+* move prioty, check to ViaServer
 
 ## bugfixes
 * fix multiinstance bugs
 * fix tests
 * fix massimport
 * drastically improve speed by not using Requester
+* fix blocked pw requests by moving composed requests
 
 # 0.6.2
 ## bugfixes
