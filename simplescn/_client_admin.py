@@ -13,7 +13,7 @@ import abc
 from simplescn.config import isself
 from simplescn.tools import dhash, generate_certs, generate_error, genc_error
 from simplescn.tools.checks import check_reference, check_reference_type, namestr, check_security, check_trustpermission, \
-hashstr, check_priority, namelist, hashlist
+hashstr, check_priority, namelist, hashlist, securitystr
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable
 
 def _mipcheck_inlisthelper(_name, _hash, entities, hashes):
@@ -120,7 +120,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             hash: certificate hash (=part of entity) """
         return self.links["hashdb"].delhash(obdict["hash"])
 
-    @check_args_deco({"hash": hashstr, "security": str})
+    @check_args_deco({"hash": hashstr, "security": securitystr})
     @classify_admin
     @classify_local
     @classify_accessable

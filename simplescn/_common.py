@@ -22,8 +22,8 @@ from simplescn import config
 from simplescn.config import isself, file_family
 
 from simplescn.tools import dhash, safe_mdecode, default_sslcont, loglevel_converter
-from simplescn.tools.checks import namestr, hashstr, check_security, \
-check_typename, check_reference, check_reference_type, check_local, check_trustpermission, check_priority
+from simplescn.tools.checks import namestr, hashstr, securitystr, \
+check_typename, check_reference, check_reference_type, check_local, check_trustpermission, priorityint
 
 
 # for config
@@ -59,6 +59,9 @@ def connecttodb(func):
     return funcwrap
 
 class CommonDbInit(object):
+    @property
+    def lock(self):
+        raise NotImplementedError()
     def initdb(self, con):
         raise NotImplementedError()
     @classmethod
@@ -209,13 +212,15 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def addhash(self, _name: namestr, certhash: hashstr, nodetype="unknown", priority=20, security="valid", dbcon=None) -> bool:
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
         assert _name == namestr, "invalid name {}".format(_name)
         assert nodetype, "nodetype None"
-        if not check_security(security):
+        if hashstr != certhash:
+            logging.error("invalid hash: %s", certhash)
+            return False
+        if securitystr != security:
             logging.error("security is invalid: %s", security)
             return False
-        if not check_priority(priority):
+        if priorityint != priority:
             logging.error("priority is invalid: %s", security)
             return False
         cur = dbcon.cursor()
@@ -274,7 +279,7 @@ class CerthashDb(CommonDbInit):
     @connecttodb
     def changepriority(self, certhash: hashstr, _priority, dbcon=None) -> bool:
         assert hashstr == certhash, "invalid hash: {}".format(certhash)
-        if not check_priority(_priority):
+        if priorityint != _priority:
             logging.error("priority either no int or out of range (0-100)")
             return False
         cur = dbcon.cursor()
@@ -287,9 +292,9 @@ class CerthashDb(CommonDbInit):
         return True
 
     @connecttodb
-    def changesecurity(self, certhash, _security, dbcon=None) -> bool:
+    def changesecurity(self, certhash, _security: securitystr, dbcon=None) -> bool:
         assert hashstr == certhash, "invalid hash: {}".format(certhash)
-        if not check_security(_security):
+        if securitystr != _security:
             logging.error("security is invalid: %s", _security)
             return False
         cur = dbcon.cursor()
@@ -631,6 +636,7 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
     connection = None
     etablished_timeout = config.default_timeout
     server_timeout = config.server_timeout
+    certtupel = None
 
     # disconnects any client which doesn't run local
     onlylocal = False
@@ -640,6 +646,7 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
     def __init__(self, request, client_address, server):
         """ overwritten StreamRequestHandler __init__
             for is_local and quicker closing """
+        self.certtupel = (None, None, None)
         self.request = request
         self.client_address = client_address
         self.server = server
@@ -771,7 +778,6 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
 
     def handle_usebroken(self, sub):
         # invalidate as attacker can connect while switching
-        self.alreadyrewrapped = False
         self.certtupel = (None, None, None)
         certfpath = os.path.join(self.links["config_root"], "broken", sub)
         if os.path.isfile(certfpath+".pub") and os.path.isfile(certfpath+".priv"):

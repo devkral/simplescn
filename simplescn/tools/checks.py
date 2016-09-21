@@ -65,16 +65,19 @@ def check_security(_security):
     if _security in config.security_states:
         return True
     return False
+securitystr = checkclass(check_security)
 
 def check_priority(priority):
-    if not isinstance(priority, int):
-        return False
-    if priority < 0:
-        return False
-    if priority > 100:
-        return False
-    return True
+    if isinstance(priority, int) and priority >= 0 and priority <= 100:
+        return True
+    return False
+priorityint = checkclass(check_priority, int)
 
+def check_dport(dport):
+    if isinstance(dport, int) and dport > 0:
+        return True
+    return False
+destportint = checkclass(check_dport, int)
 
 def check_local(addr):
     if addr.lower() in ["127.0.0.1", "::1", "::ffff:127.0.0.1"]:
@@ -221,10 +224,9 @@ cert_update_header = \
 # can't use SCNConnection here. creates a cycle
 # timeouts are better than close; they are dynamically adjusted
 def check_updated_certs(_address, _port, certhashlist, newhash=None, timeout=config.default_timeout, connect_timeout=config.connect_timeout, traversefunc=None):
+    assert _address, "address empty"
+    assert _port, "port empty"
     update_list = []
-    if None in [_address, _port]:
-        logging.error("address or port empty")
-        return None
     addr, _port = url_to_ipv6(_address, _port)
     cont = default_sslcont()
     con = HTTPSConnection(addr, _port, context=cont, timeout=connect_timeout)

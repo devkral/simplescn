@@ -69,7 +69,7 @@ class VALNameError(VALError):
 class VALHashError(VALError):
     msg = 'Hash does not match'
 class VALMITMError(VALError):
-    msg = 'MITM-attack suspected: nonce missing or check failed'
+    msg = 'MITM-attack suspected: nonce check failed (rewrap))'
 
 def inp_passw_cmd(msg):
     from getpass import getpass

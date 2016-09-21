@@ -11,7 +11,6 @@ from simplescn.tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, \
 dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6, gen_result, generate_error
 from simplescn import AuthNeeded, VALHashError, VALNameError, VALMITMError
-from simplescn._decos import check_args_deco
 from simplescn.tools.checks import namestr, hashstr, checkclass
 
 reference_header = \
@@ -285,66 +284,104 @@ class ViaServerStruct(object):
     def do_request(self, path: str, body, headers: dict, addrcon=None, **kwargs):
         raise NotImplementedError
 
-    @check_args_deco({"server": str, "name": namestr, "hash": hashstr, "sname": namestr}, optional={"forcehash": hashstr, "addrcon": addrconob})
-    def wrap_via_server(self, obdict: dict):
+    def _do_request2(self, path: str, body, headers: dict, forcehash=None, addrcon=None, **kwargs):
+        if forcehash:
+            self.do_request(path, body, headers, addrcon=addrcon, forcehash=forcehash, **kwargs)
+        else:
+            self.do_request(path, body, headers, addrcon=addrcon, **kwargs)
+
+    def via_server(self, server: str, _hash: hashstr, name=None, sforcehash=None, forcehash=None, addrcon=None):
+        """func: get client address via a server
+            return: return client address or error
+            server: server url
+            name: client name
+            hash: client hash
+            sforcehash: enforced server hash
+            forcehash: enforced client hash
+            addrcon: connection or address of client """
+        if name:
+            get_b = {"server": server, "hash": _hash, "name": name, "forcehash": sforcehash}
+            get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash)
+            if get_ret[1]:
+                return get_ret
+        grefsb = {"hash": hash, "filter": "sname"}
+        getrefs = self._do_request2("/client/getreferences", grefsb, {}, addrcon=addrcon, forcehash=forcehash)
+        if not getrefs[1]:
+            return getrefs
+        newname = getrefs[2]["items"][0][0]
+        get_b = {"server": server, "hash": _hash, "name": newname}
+        get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash)
+        #if get_ret[1] and get_ret[2].get("hash") != _hash:
+        #    logging.warning("Hash has been changed")
+        return get_ret
+
+    # extended get
+    def checked_get(self, server: str, _hash: hashstr, sname: namestr, name=None, sforcehash=None, forcehash=None, addrcon=None):
+        """func: check if client is reachable; update local information when reachable
+            return: priority, type, certificate security, (new-)hash (client)
+            server: server url
+            name: client name
+            hash: client certificate hash
+            sforcehash: enforced server hash
+            forcehash: enforced client hash
+            addrcon: connection or address of client or None (use default) """
+        via_ret = self.via_server(server, _hash, name=name, sforcehash=sforcehash, forcehash=forcehash, addrcon=addrcon)
+        if not via_ret[1]:
+            return via_ret
+        addressnew = "{address}-{port}".format(**via_ret[2])
+        if _hash != via_ret[2].get("hash") or via_ret[2].get("security", "valid") != "valid":
+            _forcehash2 = via_ret[1].get("hash")
+        else:
+            _forcehash2 = None
+        _check_directb = {"address": addressnew, "hash": _hash, "security": via_ret[1].get("security", "valid"), "forcehash":_forcehash2}
+        direct_ret = self._do_request2("/client/check_direct",  _check_directb, {}, addrcon=addrcon, forcehash=forcehash)
+        # return new hash in hash field
+        if direct_ret[1]:
+            if _hash != direct_ret[3][1]:
+                logging.warning("Hash was updated")
+                via_ret[2]["security"] = "unverified"
+            via_ret[2]["hash"] = direct_ret[3][1]
+            return via_ret
+        else:
+            return direct_ret
+
+    def wrap_via_server(self, server: str, _hash: hashstr, sname: namestr, name=None, sforcehash=None, forcehash=None, addrcon=None):
         """func: wrap via a server
             return: wrap return or error
             server: server url
             name: client name
             hash: client hash
             sname: service name
+            sforcehash: enforced server hash
+            forcehash: enforced client hash
             addrcon: connection or address of client """
-        _addrcon = obdict.pop("addrcon", None)
-        _forcehash = obdict.pop("forcehash", None)
-        get_ret = self.do_request("/client/get", obdict, {}, addrcon=_addrcon, forcehash=_forcehash)
-        if not get_ret[1]:
-            return get_ret
-        newaddress = "{address}-{port}".format(**get_ret[2])
-        wrapbody = {"address": newaddress,"name": obdict["sname"]}
-        return self.do_request("/client/wrap", wrapbody, {}, addrcon=_addrcon, keepalive=True, forcehash=obdict["hash"])
 
-    @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr, "addrcon": addrconob})
-    def prioty_via_server(self, obdict: dict):
+        via_ret = self.checked_get(server, _hash, name=name, forcehash=forcehash, sforcehash=sforcehash, addrcon=addrcon)
+        if not via_ret[1]:
+            return via_ret
+        newaddress = "{address}-{port}".format(**via_ret[2])
+        # can throw exception if invalid change
+        wrapbody = {"address": newaddress,"name": sname, "forcehash": via_ret[2].get("hash")}
+        return self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash)
+
+    def prioty_via_server(self, server: str, _hash: hashstr, sname: namestr, name=None, sforcehash=None, forcehash=None, addrcon=None):
         """func: retrieve priority and type of a client on a server
             return: priority and type
             server: server url
             name: client name
             hash: client hash
+            sforcehash: enforced server hash
+            forcehash: enforced client hash
             addrcon: connection or address of client or None (use default)"""
-        _addrcon = obdict.pop("addrcon", None)
-        _forcehash = obdict.pop("forcehash", None)
-        get_ret = self.do_request("/client/get", obdict, {}, addrcon=_addrcon, forcehash=_forcehash)
-        if not get_ret[1]:
-            return get_ret
-        addressnew = "{address}-{port}".format(**get_ret[2])
-        return self.do_request("/client/prioty_direct", {"address": addressnew}, {}, forcehash=obdict["hash"], addrcon=_addrcon)
 
-    # reason for beeing seperate from get: to detect if a minor or a bigger error happened
-    @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr, "addrcon": addrconob})
-    def check_via_server(self, obdict: dict):
-        """func: check if client is reachable; update local information when reachable
-            return: priority, type, certificate security, (new-)hash (client)
-            server: server url
-            forcehash: enforce server with hash==forcehash
-            name: client name
-            hash: client certificate hash
-            addrcon: connection or address of client or None (use default) """
-        _addrcon = obdict.pop("addrcon", None)
-        _forcehash = obdict.pop("forcehash", None)
-        get_ret = self.do_request("/client/get", obdict, {}, addrcon=_addrcon, forcehash=_forcehash)
-        if not get_ret[1]:
-            return get_ret
-        addressnew = "{address}-{port}".format(**get_ret[1])
-        if get_ret[2].get("security", "valid") != "valid":
-            _forcehash2 = get_ret[1].get("hash")
-        else:
-            _forcehash2 = None
-        _check_directb = {"address": addressnew, "hash": obdict["hash"], "security": get_ret[1].get("security", "valid")}
-        direct_ret = self.do_request("/client/check_direct",  _check_directb, {}, addrcon=_addrcon, forcehash=_forcehash2)
-        # return new hash in hash field
-        if direct_ret[1]:
-            direct_ret[2]["hash"] = direct_ret[3][1]
-        return direct_ret
+        via_ret = self.checked_get(server, _hash, name=name, sforcehash=sforcehash, forcehash=forcehash, addrcon=addrcon)
+        if not via_ret[1]:
+            return via_ret
+        addressnew = "{address}-{port}".format(**via_ret[2])
+        # can throw exception if invalid change
+        pdirectb = {"address": addressnew, "forcehash": via_ret[2].get("hash")}
+        return self._do_request2("/client/prioty_direct", pdirectb, {}, addrcon=addrcon, forcehash=forcehash)
+
 
 class Requester(ViaServerStruct):
     """ cache arguments, be careful, slows down requests by using copy() """

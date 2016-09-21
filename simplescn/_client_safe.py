@@ -12,7 +12,7 @@ import abc
 from simplescn import EnforcedPortError
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
-from simplescn.tools.checks import check_updated_certs, check_local, check_args, namestr, hashstr
+from simplescn.tools.checks import check_updated_certs, check_local, check_args, namestr, hashstr, securitystr, destportint
 from simplescn._decos import check_args_deco, classify_local, classify_accessable
 
 #@generate_validactions_deco
@@ -174,6 +174,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         out = sorted(_tservices[1]["dict"].items(), key=lambda t: t[0])
         return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2]
 
+    # if given hash doesn't match returned hash, use check_direct
     @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr})
     @classify_accessable
     def get(self, obdict: dict):
@@ -186,15 +187,14 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         senddict = extract_senddict(obdict, "hash", "name")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         _getret = self.do_request(obdict["server"], "/server/get", senddict, _headers, forcehash=obdict.get("forcehash"))
-        if not _getret[0] or not check_args(_getret[1], {"address": str, "port": int}):
+        if not _getret[0] or not check_args(_getret[1], {"address": str, "port": destportint, "security": securitystr, "hash": hashstr}):
             return _getret
-        if _getret[1].get("port", 0) < 1:
-            return False, "port < 1: {}".format(_getret[1]["port"])
-        # case: client runs on server
+        if obdict["hash"] != _getret[1]["hash"] and _getret[1]["security"] == "valid":
+            return False, genc_error("MITM-try detected")
+        # case: remote node runs on server
         if check_local(_getret[1]["address"]):
             # use serveraddress instead
-            addr, port = scnparse_url(obdict["server"])
-            _getret[1]["address"] = addr
+            _getret[1]["address"] = scnparse_url(obdict["server"])[0]
         return _getret
 
     @check_args_deco({"address": str})
