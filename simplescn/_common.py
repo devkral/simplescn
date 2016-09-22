@@ -417,7 +417,7 @@ class CerthashDb(CommonDbInit):
             logging.error("reference invalid: %s", _reference)
             return False
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_certreferenceid))
+        cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_certreferenceid, ))
         if not cur.fetchone():
             logging.error("referenceid does not exist: %s", _certreferenceid)
             return False
@@ -434,7 +434,7 @@ class CerthashDb(CommonDbInit):
             logging.error("reference type invalid: %s", _reftype)
             return False
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_certreferenceid))
+        cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_certreferenceid, ))
         if not cur.fetchone():
             logging.error("referenceid does not exist: %s", _certreferenceid)
             return False
@@ -453,11 +453,7 @@ class CerthashDb(CommonDbInit):
             logging.error("invalid reference")
             return False
         cur = dbcon.cursor()
-        # check here certreferences for leftovers
-        cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=?;''', (_certreferenceid))
-        if not cur.fetchone():
-            logging.error("referenceid does not exist: %s", _certreferenceid)
-            return False
+        # just delete
         cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         dbcon.commit()
         return True

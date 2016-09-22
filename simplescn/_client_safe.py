@@ -196,7 +196,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if not _getret[0]:
             return _getret
         # if brokencert check also update stuff
-        if _getret[1]["security"] != "valid":
+        if _getret[1].get("security", "") != "valid":
             if not check_args(_getret[1], _checkgetrespupdate):
                 return False, genc_error("invalid serveranswer")
         else:
