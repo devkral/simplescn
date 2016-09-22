@@ -99,7 +99,7 @@ class PermissionHashDb(CommonDbInit):
     @connecttodb
     def add(self, certhash: hashstr, permission, dbcon=None) -> bool:
         """ add or update, permissions as  list """
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         if not check_trustpermission(permission):
             logging.error("not a valid permission: %s", permission)
             return False
@@ -111,7 +111,7 @@ class PermissionHashDb(CommonDbInit):
     @connecttodb
     def delete(self, certhash, permission=None, dbcon=None) -> bool:
         """ delete permission(s) for certhash """
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         if permission is not None and not check_trustpermission(permission):
             logging.error("not a valid permission: %s", permission)
             return False
@@ -126,7 +126,7 @@ class PermissionHashDb(CommonDbInit):
     @connecttodb
     def get(self, certhash, permission=None, dbcon=None) -> list:
         """ get permissions as list """
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
         if permission:
             if not check_trustpermission(permission):
@@ -143,7 +143,7 @@ class PermissionHashDb(CommonDbInit):
     @connecttodb
     def exist(self, certhash, permission, dbcon=None) -> bool:
         """ exist permission for certhash """
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         if not check_trustpermission(permission):
             logging.error("not a valid permission: %s", permission)
             return False
@@ -175,7 +175,7 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def addentity(self, _name: namestr, dbcon=None) -> bool:
-        assert _name == namestr, "invalid name {}".format(_name)
+        assert _name in namestr, "invalid name {}".format(_name)
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is not None:
@@ -187,7 +187,7 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def delentity(self, _name: namestr, dbcon=None) -> bool:
-        assert _name == namestr, "invalid name {}".format(_name)
+        assert _name in namestr, "invalid name {}".format(_name)
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certs WHERE name=?;''', (_name,))
         ret = cur.fetchall()
@@ -199,8 +199,8 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def renameentity(self, _name: namestr, _newname: namestr, dbcon=None) -> bool:
-        assert _name == namestr, "invalid name {}".format(_name)
-        assert _newname == namestr, "invalid newname {}".format(_newname)
+        assert _name in namestr, "invalid name {}".format(_name)
+        assert _newname in namestr, "invalid newname {}".format(_newname)
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if cur.fetchone() is None:
@@ -216,15 +216,15 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def addhash(self, _name: namestr, certhash: hashstr, nodetype="unknown", priority=20, security="valid", dbcon=None) -> bool:
-        assert _name == namestr, "invalid name {}".format(_name)
+        assert _name in namestr, "invalid name {}".format(_name)
         assert nodetype, "nodetype None"
-        if hashstr != certhash:
+        if certhash not in hashstr:
             logging.error("invalid hash: %s", certhash)
             return False
-        if securitystr != security:
+        if security not in securitystr:
             logging.error("security is invalid: %s", security)
             return False
-        if priorityint != priority:
+        if priority not in priorityint:
             logging.error("priority is invalid: %s", security)
             return False
         cur = dbcon.cursor()
@@ -249,8 +249,8 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def movehash(self, certhash: hashstr, _newname: namestr, dbcon=None) -> bool:
-        assert _newname == namestr, "invalid newname {}".format(_newname)
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert _newname in namestr, "invalid newname {}".format(_newname)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
         if cur.fetchone() is None:
@@ -267,7 +267,7 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def changetype(self, certhash: hashstr, _type, dbcon=None) -> bool:
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         if not check_typename(_type, config.max_typelength):
             logging.info("type contains invalid characters or is too long (maxlen: %s): %s", config.max_typelength, _type)
             return False
@@ -282,8 +282,8 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def changepriority(self, certhash: hashstr, _priority, dbcon=None) -> bool:
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
-        if priorityint != _priority:
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
+        if _priority not in priorityint:
             logging.error("priority either no int or out of range (0-100)")
             return False
         cur = dbcon.cursor()
@@ -297,8 +297,8 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def changesecurity(self, certhash, _security: securitystr, dbcon=None) -> bool:
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
-        if securitystr != _security:
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
+        if _security not in securitystr:
             logging.error("security is invalid: %s", _security)
             return False
         cur = dbcon.cursor()
@@ -311,7 +311,7 @@ class CerthashDb(CommonDbInit):
         return True
 
     def updatehash(self, certhash: hashstr, certtype=None, priority=None, security=None) -> bool:
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         if certtype is not None:
             if not self.changetype(certhash, certtype):
                 return False
@@ -324,7 +324,7 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def delhash(self, certhash: hashstr, dbcon=None) -> bool:
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certs WHERE certhash=?;''', (certhash,))
         ret = cur.fetchone()
@@ -336,7 +336,7 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def get(self, certhash, dbcon=None) -> tuple:
-        assert hashstr == certhash, "invalid hash: {}".format(certhash)
+        assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
         cur.execute('''SELECT name,type,priority,security,certreferenceid FROM certs WHERE certhash=?;''', (certhash,))
         ret = cur.fetchone()
@@ -347,7 +347,7 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def listhashes(self, _name, _nodetype=None, dbcon=None) -> list:
-        assert _name == namestr, "invalid name {}".format(_name)
+        assert _name in namestr, "invalid name {}".format(_name)
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         # should be an error if name is not in db
@@ -398,8 +398,8 @@ class CerthashDb(CommonDbInit):
 
     @connecttodb
     def exist(self, _name, certhash=None, dbcon=None) -> bool:
-        assert _name == namestr, "invalid name {}".format(_name)
-        assert hashstr == certhash or certhash is None, "invalid hash: {}".format(certhash)
+        assert _name in namestr, "invalid name {}".format(_name)
+        assert certhash in hashstr or certhash is None, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
         if certhash is None:
             cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))

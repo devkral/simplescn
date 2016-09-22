@@ -387,7 +387,7 @@ class ServerInit(object):
             pub_cert = readinpubkey.read().strip().rstrip()
         self.links["auth_server"] = SCNAuthServer(dhash(pub_cert))
         if bool(kwargs["spwhash"]):
-            if hashstr == kwargs["spwhash"]:
+            if kwargs["spwhash"] not in hashstr:
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"])
             else:
                 self.links["auth_server"].init(kwargs["spwhash"])
@@ -407,7 +407,7 @@ class ServerInit(object):
         if None in [pub_cert, _name, _message]:
             raise Exception("missing")
         _name = _name.split("/")
-        if len(_name) > 2 or namestr != _name:
+        if len(_name) > 2 or _name not in namestr:
             logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _spath + "_name")
 
         if kwargs["port"] > -1:

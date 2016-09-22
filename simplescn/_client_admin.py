@@ -345,11 +345,11 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
         _imp_ent = obdict.get("entities")
         _imp_hash = obdict.get("hashes")
         for _name, _hash, _type, _priority, _security, _certreferenceid in listall[1]["items"]:
-            if namestr != _name:
+            if _name not in namestr:
                 logging.warning("invalid name %s", _name)
                 continue
 
-            if _hash != "default" and hashstr != _hash:
+            if _hash != "default" and _hash not in hashstr:
                 logging.warning("invalid hash %s", _hash)
                 continue
             if not _mipcheck_inlisthelper(_name, _hash, _imp_ent, _imp_hash):

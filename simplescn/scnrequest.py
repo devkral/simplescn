@@ -173,7 +173,7 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
             * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)
             * AuthNeeded: request Auth, contains con and authob (needed for auth)
     """
-    assert addrcon == addrconob, "addrcon is not a valid addrconob".format(type(addrcon))
+    assert addrcon in addrconob, "addrcon is not a valid addrconob".format(type(addrcon))
     assert isinstance(body, (dict, bytes)), "body is neither dict nor bytes, {}".format(type(body))
     sendbody, sendheaders = init_body_headers(body, headers)
     if isinstance(addrcon, SCNConnection):

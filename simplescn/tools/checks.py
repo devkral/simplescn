@@ -22,11 +22,8 @@ def checkmetagen(func):
         def __instancecheck__(cls, instance):
             return func(instance)
 
-        def __eq__(cls, instance):
+        def __contains__(cls, instance):
             return func(instance)
-
-        def __hash__(cls):
-            return type.__hash__(cls)
     return CheckClassMeta
 
 def checkclass(func, classtype=str):

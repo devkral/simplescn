@@ -54,7 +54,7 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
             _hash = _splitted[0]
             with open(os.path.join(self.links["config_root"], "broken", elem), "r") as reado:
                 _reason = reado.read().strip().rstrip()
-            if hashstr == _hash and (_hash, _reason) not in self.brokencerts:
+            if _hash not in hashstr and (_hash, _reason) not in self.brokencerts:
                 self.brokencerts.append((_hash, _reason))
         self._cache_help = self.cmdhelp()
 
@@ -528,7 +528,7 @@ class ClientInit(object):
         self.links["hashdb"] = kwargs["hashdb"]
 
         if bool(kwargs.get("spwhash")):
-            if hashstr != kwargs.get("spwhash"):
+            if kwargs.get("spwhash") not in hashstr:
                 logging.error("hashtest failed for spwhash, spwhash: %s", kwargs.get("spwhash"))
             else:
                 self.links["auth_server"].init(kwargs.get("spwhash"))
@@ -547,7 +547,7 @@ class ClientInit(object):
         if None in [pub_cert, _name, _message]:
             raise Exception("missing")
         _name = _name.split("/")
-        if len(_name) > 2 or namestr != _name[0]:
+        if len(_name) > 2 or _name[0] not in namestr:
             logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _cpath + "_name")
             sys.exit(1)
         if kwargs.get("port") > -1:

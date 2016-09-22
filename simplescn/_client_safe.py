@@ -176,7 +176,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             out = []
             # crash if "dict" is not available instead of silently ignore error (catched)
             for elem in _tservices[1]["dict"].items():
-                if namestr != elem[0] or not isinstance(elem[1], int):
+                if elem[0] not in namestr or not isinstance(elem[1], int):
                     logging.info("skip invalid service entry")
                     continue
                 out.append(elem)
@@ -285,7 +285,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         out = []
         # crash if "items" is not available instead of silently ignore error (catched)
         for name, _hash, _security in sorted(_tnames[1]["items"], key=lambda t: t[0]):
-            if namestr != name or hashstr != _hash or securitystr != _security:
+            if name not in namestr or _hash not in hashstr or _security not in securitystr:
                 logging.info("skip invalid server entry")
                 continue
             if _hash == self.links["certtupel"][1]:
