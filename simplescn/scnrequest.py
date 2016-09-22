@@ -76,8 +76,19 @@ class SCNConnection(client.HTTPSConnection):
                     return
                 contrav = SCNConnection(trav, **_kwargs)
                 contrav.connect()
+                if not contrav.sock:
+                    return
                 _sport = contrav.sock.getsockname()[1]
-                retserv = do_request(trav, "/server/open_traversal", {"destaddr": _host}, {}, keepalive=True)
+                if self.host == trav:
+                    _hosttraverse = ("::1", _host[1])
+                else:
+                    _hosttraverse = _host
+                try:
+                    retserv = do_request(trav, "/server/open_traversal", {"destaddr": _hosttraverse}, {}, keepalive=True)
+                except AuthNeeded:
+                    contrav.close()
+                    logging.error("Error: open_traversal should always be without pw")
+                    return
                 contrav.close()
                 if retserv[1]:
                     retries = self.kwargs.get("traverse_retries", config.traverse_retries)
@@ -156,6 +167,8 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
                 * keepalive: keep server connection alive
                 * forceport: True: raise if no port is given, False: use server port in that case, not compatible with use_unix
                 * forcehash: force hash on other side
+                * traverseaddress: traverse address
+                * traverse_retries: retries to traverse
             special:
                 * certcontext: specify certcontext used
                 * ownhash: own hash
@@ -318,7 +331,7 @@ class ViaServerStruct(object):
         get_ret = None, False
         for _server in serverlist:
             for _name in namelist:
-                get_b = {"server": _server, "hash": _hash, "name": _name}
+                get_b = {"server": _server, "hash": _hash, "name": _name, "autotraverse": True}
                 if sforcehash:
                     get_b["forcehash"] = sforcehash
                 get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash)

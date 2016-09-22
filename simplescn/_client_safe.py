@@ -14,11 +14,11 @@ import logging
 from simplescn import EnforcedPortError
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
-from simplescn.tools.checks import check_updated_certs, check_local, check_args, namestr, hashstr, securitystr, destportint, referencestr
+from simplescn.tools.checks import check_updated_certs, check_local, check_args, namestr, hashstr, securitystr, destportint, referencestr, addresstup
 from simplescn._decos import check_args_deco, classify_local, classify_accessable
 
-_checkgetresp =  {"address": str, "port": destportint, "security": securitystr}
-_checkgetrespupdate =  {"address": str, "port": destportint, "security": securitystr, "name": namestr, "hash": hashstr}
+_checkgetresp =  {"address": str, "port": destportint, "security": securitystr, "traverse_needed": bool}
+_checkgetrespupdate =  {"address": str, "port": destportint, "security": securitystr, "name": namestr, "hash": hashstr, "traverse_needed": bool}
 
 #@generate_validactions_deco
 class ClientClientSafe(object, metaclass=abc.ABCMeta):
@@ -47,7 +47,8 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
+    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, \
+                sendclientcert=False, closecon=True, traverseaddress=None):
         raise NotImplementedError
 
     @check_args_deco()
@@ -138,20 +139,22 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             ret = _cstemp.delservice(senddict, prefix=None)
             return ret[0], gen_result(ret[1])
 
-    @check_args_deco({"name": namestr}, optional={"client": str, "forcehash": hashstr})
+    @check_args_deco({"name": namestr}, optional={"client": str, "traverseaddress": addresstup, "forcehash": hashstr})
     @classify_accessable
     def getservice(self, obdict: dict):
         """ func: get port of a service
             return: port of service
             name: service name
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             client: client url (default: own client) """
         senddict = extract_senddict(obdict, "name")
         _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
-            ret = self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash, forceport=True)
+            ret = self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash, \
+                traverseaddress=obdict.get("traverseaddress", None), forceport=True)
             if ret[0] and not isinstance(ret[1].get("port", None), int):
                 return False, genc_error("invalid serveranswer")
             return ret
@@ -161,18 +164,20 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             ret = _cstemp.getservice(senddict)
             return ret[0], gen_result(ret[1])
 
-    @check_args_deco(optional={"client": str, "forcehash": hashstr})
+    @check_args_deco(optional={"client": str, "traverseaddress": addresstup, "forcehash": hashstr})
     @classify_accessable
     def listservices(self, obdict: dict):
         """ func: list services with ports
             return port, service pairs
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             client: client url (default: own client) """
         _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("client") is not None:
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
-            _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, forcehash=_forcehash, forceport=True)
+            _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, \
+                    forcehash=_forcehash, traverseaddress=obdict.get("traverseaddress", None), forceport=True)
             if not _tservices[0]:
                 return _tservices
             if not isinstance(_tservices[1].get("dict", None), dict):
@@ -206,7 +211,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         _getret = self.do_request(obdict["server"], "/server/get", senddict, _headers, forcehash=obdict.get("forcehash"))
         if not _getret[0]:
-            return _getret
+            return _getret 
         # if brokencert check also update stuff
         if _getret[1].get("security", "") != "valid":
             if not check_args(_getret[1], _checkgetrespupdate):
@@ -245,33 +250,36 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             #logging.error(exc)
             return False, generate_error(exc, True)
 
-    @check_args_deco({"hash": hashstr, "address": str}, optional={"forcehash": hashstr})
+    @check_args_deco({"hash": hashstr, "address": str}, optional={"forcehash": hashstr, "traverseaddress": addresstup})
     @classify_accessable
     def trust(self, obdict: dict):
         """ func: retrieve trust info of node, use getlocal for local node
             return: security info of node by remote client
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             address: remote node url """
         _addr = obdict["address"]
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         ret = self.do_request(_addr, "/server/trust", {"hash": hash}, _headers, \
-                              forceport=True, forcehash=obdict.get("forcehash", None))
+                              forceport=True, forcehash=obdict.get("forcehash", None), \
+                              traverseaddress=obdict.get("traverseaddress", None))
         if ret[0] and not isinstance(ret[1].get("security", None), str):
             return False, genc_error("invalid serveranswer")
         return ret
 
-    @check_args_deco({"address": str, "name": namestr}, optional={"forcehash": hashstr})
+    @check_args_deco({"address": str, "name": namestr}, optional={"forcehash": hashstr, "traverseaddress": addresstup})
     @classify_accessable
     def wrap(self, obdict: dict):
         """ func: initiate wrap
             return: wrapped socket
             name: service name
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             address: remote node url """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         return self.do_request(obdict["address"], "/wrap/{}".format(obdict["name"]), {}, \
                                _headers, forceport=True, closecon=False, sendclientcert=True, \
-                               forcehash=obdict.get("forcehash", None))
+                               forcehash=obdict.get("forcehash", None), traverseaddress=obdict.get("traverseaddress", None))
 
     @check_args_deco({"server": str}, optional={"forcehash": hashstr})
     @classify_accessable
@@ -279,6 +287,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         """ func: sort and list names from server
             return: sorted list of client names with additional informations
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             server: server url """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         _tnames = self.do_request(obdict["server"], "/server/dumpnames", {}, \
@@ -299,18 +308,20 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                 out.append((name, _hash, _security, self.links["hashdb"].certhash_as_name(_hash)))
         return _tnames[0], {"items": out, "map": ["name", "hash", "security", "localname"]}, _tnames[2]
 
-    @check_args_deco(optional={"address": str, "forcehash": hashstr})
+    @check_args_deco(optional={"address": str, "forcehash": hashstr, "traverseaddress": addresstup})
     @classify_accessable
     def info(self, obdict: dict):
         """ func: retrieve info of node
             return: info section
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             address: remote node url (default: own client) """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash", None)
-            ret = self.do_request(_addr, "/server/info", {}, _headers, forcehash=_forcehash)
+            ret = self.do_request(_addr, "/server/info", {}, _headers, forcehash=_forcehash, \
+                    traverseaddress=obdict.get("traverseaddress", None))
             if not check_args(ret[1], {"type": str, "name": namestr, "message": str}):
                 return False, genc_error("invalid serveranswer")
             return ret
@@ -319,18 +330,20 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"type": _cstemp.scn_type, "name": _cstemp.name, "message": _cstemp.message}
 
-    @check_args_deco(optional={"address": str, "forcehash": hashstr})
+    @check_args_deco(optional={"address": str, "forcehash": hashstr, "traverseaddress": addresstup})
     @classify_accessable
     def cap(self, obdict: dict):
         """ func: retrieve capabilities of node
             return: info section
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             address: remote node url (default: own client) """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash", None)
-            ret = self.do_request(_addr, "/server/cap", {}, _headers, forcehash=_forcehash)
+            ret = self.do_request(_addr, "/server/cap", {}, _headers, forcehash=_forcehash,  \
+                    traverseaddress=obdict.get("traverseaddress", None))
             if ret[0] and not isinstance(ret[1].get("caps", None), collections.Iterable):
                 return False, genc_error("invalid serveranswer")
             return ret
@@ -339,18 +352,20 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"caps": _cstemp.capabilities}
 
-    @check_args_deco(optional={"address": str, "forcehash": hashstr})
+    @check_args_deco(optional={"address": str, "forcehash": hashstr, "traverseaddress": addresstup})
     @classify_accessable
     def prioty_direct(self, obdict: dict):
         """ func: retrieve priority of node
             return: info section
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             address: remote node url (default: own client) """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         if obdict.get("address") is not None:
             _addr = obdict["address"]
             _forcehash = obdict.get("forcehash")
-            ret = self.do_request(_addr, "/server/prioty", {}, _headers, forcehash=_forcehash, forceport=True)
+            ret = self.do_request(_addr, "/server/prioty", {}, _headers, forcehash=_forcehash, forceport=True, \
+                                traverseaddress=obdict.get("traverseaddress", None))
             if ret[0] and (not isinstance(ret[1].get("priority", None), int) or not isinstance(ret[1].get("type", None), str)):
                 return False, genc_error("invalid serveranswer")
             return ret
@@ -359,7 +374,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"priority": _cstemp.priority, "type": _cstemp.scn_type}
 
-    @check_args_deco({"address": str, "hash": hashstr}, optional={"security": str, "forcehash": hashstr, "sname": referencestr})
+    @check_args_deco({"address": str, "hash": hashstr}, optional={"security": str, "forcehash": hashstr, "sname": referencestr, "traverseaddress": addresstup})
     @classify_accessable
     def check_direct(self, obdict: dict):
         """ func: check if a address is reachable; update local information when reachable
@@ -367,6 +382,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             address: node url
             hash: node certificate hash
             forcehash: enforce node with hash==forcehash
+            traverseaddress: server for traversal
             sname: add new server nodename reference if updated
             security: set/verify security """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
@@ -382,6 +398,8 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         else:
             #  elsewise handle hash mismatch later
             _priotydirectbody = {"address": obdict["address"], "headers": _headers}
+        if "traverseaddress" in obdict:
+            _priotydirectbody["traverseaddress"] = obdict["traverseaddress"]
         prioty_ret = self.prioty_direct(_priotydirectbody)
         if not prioty_ret[0]:
             return prioty_ret

@@ -77,6 +77,14 @@ def check_dport(dport):
     return False
 destportint = checkclass(check_dport, int)
 
+def check_addresstupel(addresst):
+    if isinstance(addresst, tuple) and len(addresst) == 2 and \
+        isinstance(addresst[0], str) and check_dport(addresst[1]):
+        return True
+    else:
+        return False
+addresstup = checkclass(check_addresstupel, tuple)
+
 def check_local(addr):
     if addr.lower() in ["127.0.0.1", "::1", "::ffff:127.0.0.1"]:
         return True

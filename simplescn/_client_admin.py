@@ -13,7 +13,7 @@ import abc
 from simplescn.config import isself
 from simplescn.tools import dhash, generate_certs, generate_error, genc_error
 from simplescn.tools.checks import check_reference, check_reference_type, namestr, check_security, check_trustpermission, \
-hashstr, check_priority, namelist, hashlist, securitystr
+hashstr, check_priority, namelist, hashlist, securitystr, addresstup
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable
 
 def _mipcheck_inlisthelper(_name, _hash, entities, hashes):
@@ -38,7 +38,8 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def do_request(self, _addr_or_con, _path, body, headers, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
+    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, \
+                sendclientcert=False, closecon=True, traverseaddress=None):
         raise NotImplementedError
 
     writeMsgLock = None
@@ -325,7 +326,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return False, generate_error("retrieving permission(s) failed")
         return True, {"items": ret, "map": ["permission"]}
 
-    @check_args_deco({"sourceaddress": str, "sourcehash": hashstr}, optional={"entities": namelist, "hashes": hashlist})
+    @check_args_deco({"sourceaddress": str, "sourcehash": hashstr}, optional={"entities": namelist, "hashes": hashlist, "traverseaddress": addresstup})
     @classify_admin
     @classify_accessable
     def massimport(self, obdict: dict):
@@ -333,6 +334,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return: success or error
             sourceaddress: address of source (client)
             sourcehash: hash of source
+            traverseaddress: server for traversal
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below), None for all """
         #listhashes = obdict.get("hashes")

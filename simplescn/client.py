@@ -61,13 +61,14 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
     # return success, body, (name, security), hash
     # return success, body, isself, hash
     # return success, body, None, hash
-    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, sendclientcert=False, closecon=True):
+    def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, \
+                sendclientcert=False, closecon=True, traverseaddress=None):
         """ func: wrapper for do_request, autoadd ownhash, hashdb and certcontext """
         # don't use Requester, performance reasons
         ret = do_request(addr_or_con, path, body, headers, \
                          ownhash=self.links["certtupel"][1], hashdb=self.links["hashdb"], \
                          certcontext=self.links["hserver"].sslcont, \
-                         forceport=forceport, forcehash=forcehash, \
+                         forceport=forceport, forcehash=forcehash, traverseaddress=traverseaddress, \
                          sendclientcert=sendclientcert, keepalive=not closecon)
         # for wrapping and massimport
         if ret[0]:

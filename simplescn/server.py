@@ -231,7 +231,7 @@ class Server(CommonSCN):
             return False, generate_error("destaddr invalid", False)
         travaddr = obdict.get("clientaddress") #(obdict["clientaddress"][0], travport)
         threading.Thread(target=self.traverse.send, args=(travaddr, destaddr), daemon=True).start()
-        return True, {"traverse_address": travaddr}
+        return True, {"traverseaddress": travaddr}
 
     @check_args_deco()
     @classify_local
@@ -241,7 +241,7 @@ class Server(CommonSCN):
             return: remote requester address """
         return True, {"address": obdict.get("clientaddress")}
 
-    @check_args_deco({"hash": str, "name": namestr}, optional={"autotraverse": bool})
+    @check_args_deco({"hash": str, "name": namestr})
     @classify_accessable
     def get(self, obdict: dict):
         """ func: get address of a client
@@ -262,12 +262,7 @@ class Server(CommonSCN):
         retob["address"] =_obj["address"]
         retob["port"] =_obj["port"]
 
-        _travaddr = None
-        if obdict.get("autotraverse", True) and self.traverse and _obj["traverse"]:
-            _travobj1 = self.open_traversal(obdict)
-            if _travobj1[0]:
-                _travaddr = _travobj1[1].get("traverse_address")
-            retob["traverse_address"] = _travaddr
+        if self.traverse and _obj["traverse"]:
             retob["traverse_needed"] = True
         else:
             retob["traverse_needed"] = False
@@ -286,10 +281,12 @@ def gen_ServerHandler(_links):
                 self.scn_send_answer(400, message="invalid action - server")
                 return
             if not self.links["auth_server"].verify(self.auth_info):
-                authreq = self.links["auth_server"].request_auth()
-                ob = bytes(json.dumps(authreq), "utf-8")
-                self.scn_send_answer(401, body=ob, docache=False)
-                return
+                # client cannot ask pw for two nodes
+                if action != "open_traversal":
+                    authreq = self.links["auth_server"].request_auth()
+                    ob = bytes(json.dumps(authreq), "utf-8")
+                    self.scn_send_answer(401, body=ob, docache=False)
+                    return
             self.connection.settimeout(self.etablished_timeout)
             if action in self.links["server_server"].cache:
                 # cleanup {} or smaller, protect against big transmissions
