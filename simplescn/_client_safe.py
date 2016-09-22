@@ -173,8 +173,11 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
             _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, forcehash=_forcehash, forceport=True)
+            if not _tservices[0]:
+                return _tservices
+            if not isinstance(_tservices[1].get("dict", None), dict):
+                return False, genc_error("invalid serveranswer")
             out = []
-            # crash if "dict" is not available instead of silently ignore error (catched)
             for elem in _tservices[1]["dict"].items():
                 if elem[0] not in namestr or not isinstance(elem[1], int):
                     logging.info("skip invalid service entry")
@@ -282,8 +285,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                                   _headers, forcehash=obdict.get("forcehash", None))
         if not _tnames[0]:
             return _tnames
+        if not isinstance(_tnames[1].get("items", None), collections.Iterable):
+                return False, genc_error("invalid serveranswer")
         out = []
-        # crash if "items" is not available instead of silently ignore error (catched)
         for name, _hash, _security in sorted(_tnames[1]["items"], key=lambda t: t[0]):
             if name not in namestr or _hash not in hashstr or _security not in securitystr:
                 logging.info("skip invalid server entry")
