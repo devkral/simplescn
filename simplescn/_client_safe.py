@@ -288,6 +288,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if not isinstance(_tnames[1].get("items", None), collections.Iterable):
                 return False, genc_error("invalid serveranswer")
         out = []
+        # throw if "items" entry has invalid amount of parameters or is not iterable (catched)
         for name, _hash, _security in sorted(_tnames[1]["items"], key=lambda t: t[0]):
             if name not in namestr or _hash not in hashstr or _security not in securitystr:
                 logging.info("skip invalid server entry")
