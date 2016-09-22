@@ -8,6 +8,7 @@ import ssl
 import socket
 import abc
 import collections
+import logging
 
 
 from simplescn import EnforcedPortError
@@ -172,13 +173,21 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             client_addr = obdict["client"]
             _forcehash = obdict.get("forcehash", None)
             _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, forcehash=_forcehash, forceport=True)
+            out = []
+            # crash if "dict" is not available instead of silently ignore error (catched)
+            for elem in _tservices[1]["dict"].items():
+                if namestr != elem[0] or not isinstance(elem[1], int):
+                    logging.info("skip invalid service entry")
+                    continue
+                out.append(elem)
         else:
             # access direct (more speed+no pwcheck)
-            _tservices = True, {"dict": self.links["client_server"].spmap}, self.links["certtupel"]
+            _tservices = True, {}, self.links["certtupel"]
+            # create copy
+            out = list(self.links["client_server"].spmap.items())
         if not _tservices[0]:
             return _tservices
-        # crash if "dict" is not available instead of silently ignore error (catched)
-        out = sorted(_tservices[1]["dict"].items(), key=lambda t: t[0])
+        out.sort(key=lambda t: t[0])
         return _tservices[0], {"items": out, "map": ["name", "port"]}, _tservices[2]
 
     @check_args_deco({"server": str, "name": namestr, "hash": hashstr}, optional={"forcehash": hashstr})
@@ -276,6 +285,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         out = []
         # crash if "items" is not available instead of silently ignore error (catched)
         for name, _hash, _security in sorted(_tnames[1]["items"], key=lambda t: t[0]):
+            if namestr != name or hashstr != _hash or securitystr != _security:
+                logging.info("skip invalid server entry")
+                continue
             if _hash == self.links["certtupel"][1]:
                 out.append((name, _hash, _security, isself))
             else:
