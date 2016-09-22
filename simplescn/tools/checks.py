@@ -51,6 +51,7 @@ def check_reference(_reference):
     if not all(c not in "\0'\"\x1A\x7F" for c in _reference):
         return False
     return True
+referencestr = checkclass(check_reference)
 
 def check_reference_type(_reference_type):
     if _reference_type is None:

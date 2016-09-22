@@ -308,10 +308,12 @@ class ViaServerStruct(object):
         getrefs = self._do_request2("/client/getreferences", grefsb, {}, addrcon=addrcon, forcehash=forcehash)
         if not getrefs[1]:
             return getrefs
-        newname = getrefs[2]["items"][0][0]
-        get_b = {"server": server, "hash": _hash, "name": newname}
-        get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash)
-        #if get_ret[1] and get_ret[2].get("hash") != _hash:
+        for sname, _type in getrefs[2]["items"]:
+            get_b = {"server": server, "hash": _hash, "name": sname}
+            get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash)
+            if get_ret[1]:
+                break
+            #if get_ret[1] and get_ret[2].get("hash") != _hash:
         #    logging.warning("Hash has been changed")
         return get_ret
 
@@ -333,7 +335,10 @@ class ViaServerStruct(object):
             _forcehash2 = via_ret[1].get("hash")
         else:
             _forcehash2 = None
-        _check_directb = {"address": addressnew, "hash": _hash, "security": via_ret[1].get("security", "valid"), "forcehash":_forcehash2}
+        _check_directb = {"address": addressnew, "hash": _hash, \
+                            "security": via_ret[2].get("security", "valid"), "forcehash":_forcehash2}
+        if "name" in via_ret[2]:
+            _check_directb["sname"] = via_ret[2]["name"]
         direct_ret = self._do_request2("/client/check_direct",  _check_directb, {}, addrcon=addrcon, forcehash=forcehash)
         # return new hash in hash field
         if direct_ret[1]:

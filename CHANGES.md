@@ -19,6 +19,7 @@
 * add option to configure traversal behaviour for local clients
 * Requester calls changed
 * move prioty, check to ViaServer
+* add sname parameter to check_direct
 
 ## bugfixes
 * better verification serveranswers
@@ -27,6 +28,7 @@
 * fix massimport
 * drastically improve speed by not using Requester
 * fix blocked pw requests by moving composed requests
+* fix cleaning certreferences
 
 # 0.6.2
 ## bugfixes

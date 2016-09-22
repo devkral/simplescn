@@ -61,7 +61,7 @@ class TestMassimport(unittest.TestCase):
             self.assertEqual(ttget1[1]["name"], "testmass1")
             ttget2 = clientd1.access_dict("getreferences", {"certreferenceid": ttget1[1].get("certreferenceid")})
             self.assertTrue(ttget2[0], ttget2[1])
-            self.assertEqual(len(ttget2[1]["items"]), 3)
+            self.assertEqual(len(ttget2[1]["items"]), 3, ttget2[1]["items"])
             ttget3 = clientd1.access_dict("getreferences", {"certreferenceid": ttget1[1].get("certreferenceid"), "filter": "surl"})
             self.assertTrue(ttget3[0], ttget3[1])
             self.assertEqual(len(ttget3[1]["items"]), 1)

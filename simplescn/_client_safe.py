@@ -13,8 +13,11 @@ import collections
 from simplescn import EnforcedPortError
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
-from simplescn.tools.checks import check_updated_certs, check_local, check_args, namestr, hashstr, securitystr, destportint
+from simplescn.tools.checks import check_updated_certs, check_local, check_args, namestr, hashstr, securitystr, destportint, referencestr
 from simplescn._decos import check_args_deco, classify_local, classify_accessable
+
+_checkgetresp =  {"address": str, "port": destportint, "security": securitystr}
+_checkgetrespupdate =  {"address": str, "port": destportint, "security": securitystr, "name": namestr, "hash": hashstr}
 
 #@generate_validactions_deco
 class ClientClientSafe(object, metaclass=abc.ABCMeta):
@@ -192,12 +195,13 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         _getret = self.do_request(obdict["server"], "/server/get", senddict, _headers, forcehash=obdict.get("forcehash"))
         if not _getret[0]:
             return _getret
-        if not check_args(_getret[1], {"address": str, "port": destportint, "security": securitystr}):
-            return False, genc_error("invalid serveranswer")
-        # if broken cert check also this
-        if _getret[1]["security"] != "valid" and not check_args(_getret[1], {"name": namestr, "hash": hashstr}):
-            return False, genc_error("invalid serveranswer")
-
+        # if brokencert check also update stuff
+        if _getret[1]["security"] != "valid":
+            if not check_args(_getret[1], _checkgetrespupdate):
+                return False, genc_error("invalid serveranswer")
+        else:
+            if not check_args(_getret[1], _checkgetresp):
+                return False, genc_error("invalid serveranswer")
         # case: remote node runs on server
         if check_local(_getret[1]["address"]):
             # use serveraddress instead
@@ -338,7 +342,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             _cstemp = self.links["client_server"]
             return True, {"priority": _cstemp.priority, "type": _cstemp.scn_type}
 
-    @check_args_deco({"address": str, "hash": hashstr}, optional={"security": str, "forcehash": hashstr})
+    @check_args_deco({"address": str, "hash": hashstr}, optional={"security": str, "forcehash": hashstr, "sname": referencestr})
     @classify_accessable
     def check_direct(self, obdict: dict):
         """ func: check if a address is reachable; update local information when reachable
@@ -346,6 +350,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             address: node url
             hash: node certificate hash
             forcehash: enforce node with hash==forcehash
+            sname: add new server nodename reference if updated
             security: set/verify security """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         _obdsecurity = obdict.get("security", "valid")
@@ -392,6 +397,8 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                     newhashgetl = self.links["hashdb"].get(prioty_ret[2][1])
                 # copy references
                 self.links["hashdb"].copyreferences(hashgetl[4], newhashgetl[4])
+                if "sname" in obdict:
+                    self.links["hashdb"].addreference(newhashgetl[4], obdict["sname"])
                 # update security field to value in db
                 prioty_ret[1]["security"] = newhashgetl[3]
         else:
