@@ -78,10 +78,9 @@ def check_dport(dport):
 destportint = checkclass(check_dport, int)
 
 def check_address(address):
-    if isinstance(address, str) and len(address) <= config.max_urllength:
-        _addressstripped = address.strip().rstrip()
-        if _addressstripped == address and address != "":
-            return True
+    if isinstance(address, str) and len(address) <= config.max_urllength and \
+        address != "" and address != " ":
+        return True
     else:
         return False
 addressstr = checkclass(check_address)

@@ -232,8 +232,6 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         """ func: fetch hash from address
             return: hash, certificate (stripped = scn compatible)
             address: node url """
-        if obdict["address"] in ["", " ", None]:
-            return False, genc_error("address is empty")
         try:
             cont = default_sslcont()
             _addr = scnparse_url(obdict["address"], force_port=False)
