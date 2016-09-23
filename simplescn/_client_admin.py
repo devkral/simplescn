@@ -12,8 +12,8 @@ import abc
 
 from simplescn.config import isself
 from simplescn.tools import dhash, generate_certs, generate_error, genc_error
-from simplescn.tools.checks import check_reference, check_reference_type, namestr, check_security, check_trustpermission, \
-hashstr, check_priority, namelist, hashlist, securitystr, addresstup
+from simplescn.tools.checks import check_reference_type, namestr, permissionstr, \
+hashstr, priorityint, namelist, hashlist, securitystr, addressstr, referencestr
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable
 
 def _mipcheck_inlisthelper(_name, _hash, entities, hashes):
@@ -49,7 +49,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
         self.writeMsgLock = threading.Lock()
         self.changeNameLock = threading.Lock()
 
-    @check_args_deco({"priority": int})
+    @check_args_deco({"priority": priorityint})
     @classify_admin
     @classify_local
     @classify_accessable
@@ -57,8 +57,6 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
         """ func: set priority of client
             return: success or error
             priority: priority of the client"""
-        if not check_priority(obdict["priority"]):
-            return False, generate_error("out of range")
         self.links["server"].priority = obdict["priority"]
         self.links["server"].update_cache()
         return True
@@ -143,7 +141,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             newname: entity where hash should moved to """
         return self.links["hashdb"].movehash(obdict["hash"], obdict["newname"])
 
-    @check_args_deco({"hash": hashstr, "reference": str, "reftype": str})
+    @check_args_deco({"hash": hashstr, "reference": referencestr, "reftype": str})
     @classify_admin
     @classify_local
     @classify_accessable
@@ -153,8 +151,6 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             hash: certificate hash (=part of entity)
             reference: reference (=where to find node)
             reftype: reference type """
-        if not check_reference(obdict["reference"]):
-            return False, genc_error("reference invalid")
         if not check_reference_type(obdict["reftype"]):
             return False, genc_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
@@ -162,7 +158,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return False, genc_error("hash not exist")
         return self.links["hashdb"].addreference(_tref[4], obdict["reference"], obdict["reftype"])
 
-    @check_args_deco({"hash": hashstr, "reference": str, "newreference": str, "newreftype": str})
+    @check_args_deco({"hash": hashstr, "reference": referencestr, "newreference": referencestr, "newreftype": str})
     @classify_admin
     @classify_local
     @classify_accessable
@@ -173,8 +169,6 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             reference: old reference (=reference to update)
             newreference: new reference (=new location)
             newreftype: new reference type """
-        if not check_reference(obdict["newreference"]):
-            return False, genc_error("reference invalid")
         if not check_reference_type(obdict["newreftype"]):
             return False, genc_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
@@ -182,7 +176,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return False, genc_error("hash not exist")
         return self.links["hashdb"].updatereference(_tref[4], obdict["reference"], obdict["newreference"], obdict["newreftype"])
 
-    @check_args_deco({"hash": hashstr, "reference": str})
+    @check_args_deco({"hash": hashstr, "reference": referencestr})
     @classify_admin
     @classify_local
     @classify_accessable
@@ -196,7 +190,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return False, genc_error("hash not exist")
         return self.links["hashdb"].delreference(_tref[4], obdict["reference"])
 
-    @check_args_deco({"reason": str})
+    @check_args_deco({"reason": securitystr})
     @classify_admin
     @classify_local
     @classify_accessable
@@ -204,7 +198,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
         """ func: invalidate certificate
             return: success or error
             reason: reason (=security level) for invalidating cert"""
-        if not check_security(obdict.get("reason")) or obdict.get("reason") == "valid":
+        if obdict.get("reason") == "valid":
             return False, generate_error("wrong reason")
         self.delperm({"hash": self.links["certtupel"][1]})
         _cpath = os.path.join(self.links["config_root"], "client_cert")
@@ -292,7 +286,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             self.links["client_server"].update_cache()
             return True
 
-    @check_args_deco({"hash": hashstr, "permission": str})
+    @check_args_deco({"hash": hashstr, "permission": permissionstr})
     @classify_admin
     @classify_local
     def addperm(self, obdict):
@@ -300,11 +294,9 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return: success or error
             hash: certhash of trusted
             permission: which permission """
-        if not check_trustpermission(obdict["permission"]):
-            return False, generate_error("invalid permission")
         return self.links["permsdb"].add(obdict["hash"], obdict["permission"])
 
-    @check_args_deco({"hash": hashstr}, optional={"permission": str})
+    @check_args_deco({"hash": hashstr}, optional={"permission": permissionstr})
     @classify_admin
     @classify_local
     def delperm(self, obdict):
@@ -326,7 +318,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return False, generate_error("retrieving permission(s) failed")
         return True, {"items": ret, "map": ["permission"]}
 
-    @check_args_deco({"sourceaddress": str, "sourcehash": hashstr}, optional={"entities": namelist, "hashes": hashlist, "traverseaddress": addresstup})
+    @check_args_deco({"sourceaddress": addressstr, "sourcehash": hashstr}, optional={"entities": namelist, "hashes": hashlist, "traverseaddress": addressstr})
     @classify_admin
     @classify_accessable
     def massimport(self, obdict: dict):
@@ -338,10 +330,12 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below), None for all """
         #listhashes = obdict.get("hashes")
+        travaddr = obdict.get("traverseaddress", None)
         listall = self.do_request(obdict["sourceaddress"], \
                                   "/client/listnodeall", {}, {}, \
                                   forcehash=obdict["sourcehash"], \
-                                  closecon=False, sendclientcert=True)
+                                  closecon=False, sendclientcert=True, \
+                                  traverseaddress=travaddr)
         if not listall[0]:
             return listall
         _imp_ent = obdict.get("entities")
@@ -383,7 +377,8 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             _retreferences = self.do_request(listall[1]["wrappedcon"], "/client/getreferences", \
                                              {"hash": _hash}, {}, forcehash=obdict["sourcehash"], \
                                              closecon=False, \
-                                             sendclientcert=listall[1]["wrappedcon"].sock is None)
+                                             sendclientcert=listall[1]["wrappedcon"].sock is None, \
+                                             traverseaddress=travaddr)
             if not _retreferences[0]:
                 logging.error(_retreferences[1])
                 continue

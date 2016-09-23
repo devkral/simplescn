@@ -41,9 +41,9 @@ def classlist_helper(func):
     return _wrapped
 
 def check_reference(_reference):
-    if _reference is None:
+    if not isinstance(_reference, str):
         return False
-    if len(_reference) > 100:
+    if len(_reference) > config.max_urllength:
         return False
     if not all(c not in "\0'\"\x1A\x7F" for c in _reference):
         return False
@@ -51,7 +51,7 @@ def check_reference(_reference):
 referencestr = checkclass(check_reference)
 
 def check_reference_type(_reference_type):
-    if _reference_type is None:
+    if not isinstance(_reference_type, str):
         return False
     if len(_reference_type) > config.max_typelength:
         return False
@@ -72,18 +72,19 @@ def check_priority(priority):
 priorityint = checkclass(check_priority, int)
 
 def check_dport(dport):
-    if isinstance(dport, int) and dport > 0:
+    if isinstance(dport, int) and dport > 0 and dport <= 65535:
         return True
     return False
 destportint = checkclass(check_dport, int)
 
-def check_addresstupel(addresst):
-    if isinstance(addresst, tuple) and len(addresst) == 2 and \
-        isinstance(addresst[0], str) and check_dport(addresst[1]):
-        return True
+def check_address(address):
+    if isinstance(address, str) and len(address) <= config.max_urllength:
+        _addressstripped = address.strip().rstrip()
+        if _addressstripped == address and address != "":
+            return True
     else:
         return False
-addresstup = checkclass(check_addresstupel, tuple)
+addressstr = checkclass(check_address)
 
 def check_local(addr):
     if addr.lower() in ["127.0.0.1", "::1", "::ffff:127.0.0.1"]:
@@ -144,12 +145,13 @@ def check_typename(_type, maxlength=config.max_typelength):
     return True
 
 
-def check_trustpermission(_type):
+def check_permission(_type):
     if _type is None:
         return False
     if _type in allowed_permissions:
         return True
     return False
+permissionstr = checkclass(check_permission)
 
 def check_conftype(_value, _converter):
     try:

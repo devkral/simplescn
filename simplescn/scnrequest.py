@@ -80,9 +80,9 @@ class SCNConnection(client.HTTPSConnection):
                     return
                 _sport = contrav.sock.getsockname()[1]
                 if self.host == trav:
-                    _hosttraverse = ("::1", _host[1])
+                    _hosttraverse = "::1-{}".format(_host[1])
                 else:
-                    _hosttraverse = _host
+                    _hosttraverse = "{}-{}".format(_host[0], _host[1])
                 try:
                     retserv = do_request(trav, "/server/open_traversal", {"destaddr": _hosttraverse}, {}, keepalive=True)
                 except AuthNeeded:
@@ -331,11 +331,12 @@ class ViaServerStruct(object):
         get_ret = None, False
         for _server in serverlist:
             for _name in namelist:
-                get_b = {"server": _server, "hash": _hash, "name": _name, "autotraverse": True}
+                get_b = {"server": _server, "hash": _hash, "name": _name}
                 if sforcehash:
                     get_b["forcehash"] = sforcehash
                 get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash)
                 if get_ret[1]:
+                    get_ret[2]["server"] = _server
                     return get_ret
         return get_ret
 
@@ -361,7 +362,8 @@ class ViaServerStruct(object):
                             "security": via_ret[2].get("security", "valid"), "forcehash":_forcehash2}
         if "name" in via_ret[2]:
             _check_directb["sname"] = via_ret[2]["name"]
-        direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, addrcon=addrcon, forcehash=forcehash)
+        direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, addrcon=addrcon, \
+        forcehash=forcehash, traverseaddress=via_ret[2]["server"])
         # return new hash in hash field
         if direct_ret[1]:
             if _hash != direct_ret[3][1]:
@@ -389,7 +391,8 @@ class ViaServerStruct(object):
         newaddress = "{address}-{port}".format(**via_ret[2])
         # can throw exception if invalid change
         wrapbody = {"address": newaddress,"name": sname, "forcehash": via_ret[2].get("hash")}
-        return self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash)
+        return self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash, \
+            traverseaddress=via_ret[2]["server"])
 
     def prioty_via_server(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, forcehash=None, addrcon=None):
         """func: retrieve priority and type of a client on a server
@@ -407,7 +410,8 @@ class ViaServerStruct(object):
         addressnew = "{address}-{port}".format(**via_ret[2])
         # can throw exception if invalid change
         pdirectb = {"address": addressnew, "forcehash": via_ret[2].get("hash")}
-        return self._do_request2("/client/prioty_direct", pdirectb, {}, addrcon=addrcon, forcehash=forcehash)
+        return self._do_request2("/client/prioty_direct", pdirectb, {}, addrcon=addrcon, forcehash=forcehash, \
+            traverseaddress=via_ret[2]["server"])
 
 
 class Requester(ViaServerStruct):
