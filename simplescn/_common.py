@@ -23,7 +23,7 @@ from simplescn.config import isself, file_family
 
 from simplescn.tools import dhash, safe_mdecode, default_sslcont, loglevel_converter
 from simplescn.tools.checks import namestr, hashstr, securitystr, \
-check_typename, check_reference, check_reference_type, check_local, check_trustpermission, priorityint
+check_typename, check_reference, check_reference_type, check_local, check_permission, priorityint
 
 
 # for config
@@ -100,7 +100,7 @@ class PermissionHashDb(CommonDbInit):
     def add(self, certhash: hashstr, permission, dbcon=None) -> bool:
         """ add or update, permissions as  list """
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
-        if not check_trustpermission(permission):
+        if not check_permission(permission):
             logging.error("not a valid permission: %s", permission)
             return False
         cur = dbcon.cursor()
@@ -112,7 +112,7 @@ class PermissionHashDb(CommonDbInit):
     def delete(self, certhash, permission=None, dbcon=None) -> bool:
         """ delete permission(s) for certhash """
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
-        if permission is not None and not check_trustpermission(permission):
+        if permission is not None and not check_permission(permission):
             logging.error("not a valid permission: %s", permission)
             return False
         cur = dbcon.cursor()
@@ -129,7 +129,7 @@ class PermissionHashDb(CommonDbInit):
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
         if permission:
-            if not check_trustpermission(permission):
+            if not check_permission(permission):
                 logging.error("not a valid permission: %s", permission)
                 return None
             cur.execute('''SELECT permission FROM certperms WHERE certhash=? and permission=?;''', (certhash, permission))
@@ -144,7 +144,7 @@ class PermissionHashDb(CommonDbInit):
     def exist(self, certhash, permission, dbcon=None) -> bool:
         """ exist permission for certhash """
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
-        if not check_trustpermission(permission):
+        if not check_permission(permission):
             logging.error("not a valid permission: %s", permission)
             return False
         cur = dbcon.cursor()
