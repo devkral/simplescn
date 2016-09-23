@@ -20,6 +20,7 @@
 * Requester calls changed
 * move prioty, check to ViaServer
 * add sname parameter to check_direct
+* change get address field
 
 ## bugfixes
 * better verification serveranswers

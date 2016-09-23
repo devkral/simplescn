@@ -353,12 +353,11 @@ class ViaServerStruct(object):
         via_ret = self.via_server(_hash, server=server, name=name, sforcehash=sforcehash, forcehash=forcehash, addrcon=addrcon)
         if not via_ret[1]:
             return via_ret
-        addressnew = "{address}-{port}".format(**via_ret[2])
         if via_ret[2].get("security", "valid") != "valid":
             _forcehash2 = via_ret[1].get("hash")
         else:
             _forcehash2 = None
-        _check_directb = {"address": addressnew, "hash": _hash, \
+        _check_directb = {"address": via_ret[2]["address"], "hash": _hash, \
                             "security": via_ret[2].get("security", "valid"), "forcehash":_forcehash2}
         if "name" in via_ret[2]:
             _check_directb["sname"] = via_ret[2]["name"]
@@ -388,9 +387,8 @@ class ViaServerStruct(object):
         via_ret = self.checked_get(_hash, server=server, name=name, forcehash=forcehash, sforcehash=sforcehash, addrcon=addrcon)
         if not via_ret[1]:
             return via_ret
-        newaddress = "{address}-{port}".format(**via_ret[2])
         # can throw exception if invalid change
-        wrapbody = {"address": newaddress,"name": sname, "forcehash": via_ret[2].get("hash")}
+        wrapbody = {"address": via_ret[2]["address"],"name": sname, "forcehash": via_ret[2].get("hash")}
         return self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash, \
             traverseaddress=via_ret[2]["server"])
 
@@ -407,9 +405,8 @@ class ViaServerStruct(object):
         via_ret = self.checked_get(_hash, server=server, name=name, sforcehash=sforcehash, forcehash=forcehash, addrcon=addrcon)
         if not via_ret[1]:
             return via_ret
-        addressnew = "{address}-{port}".format(**via_ret[2])
         # can throw exception if invalid change
-        pdirectb = {"address": addressnew, "forcehash": via_ret[2].get("hash")}
+        pdirectb = {"address": via_ret[2]["address"], "forcehash": via_ret[2].get("hash")}
         return self._do_request2("/client/prioty_direct", pdirectb, {}, addrcon=addrcon, forcehash=forcehash, \
             traverseaddress=via_ret[2]["server"])
 

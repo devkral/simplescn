@@ -259,8 +259,7 @@ class Server(CommonSCN):
             retob["name"] = _obj["name"]
             retob["hash"] = _obj["hash"]
             _obj = self.nhipmap[_obj["name"]][_obj["hash"]]
-        retob["address"] =_obj["address"]
-        retob["port"] =_obj["port"]
+        retob["address"] ="{}-{}".format(_obj["address"], _obj["port"])
 
         if self.traverse and _obj["traverse"]:
             retob["traverse_needed"] = True
