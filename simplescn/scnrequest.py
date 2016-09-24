@@ -317,7 +317,7 @@ class ViaServerStruct(object):
         else:
             grefsb = {"hash": hash, "filter": "surl"}
             getrefs_server = self._do_request2("/client/getreferences", grefsb, {}, addrcon=addrcon, forcehash=forcehash)
-            if not getrefs_server[1] or len(getrefs_server[2]["items"]) == 0:
+            if not getrefs_server[1]:
                 return getrefs_server
             serverlist = [elem[0] for elem in getrefs_server[2]["items"]]
         grefsb = {"hash": hash, "filter": "surl"}
@@ -328,7 +328,7 @@ class ViaServerStruct(object):
         if name:
             namelist.insert(0, name)
 
-        get_ret = None, False, "no reference"
+        get_ret = None, False, "no reference found", (None, None, None)
         for _server in serverlist:
             for _name in namelist:
                 get_b = {"server": _server, "hash": _hash, "name": _name}
@@ -353,10 +353,10 @@ class ViaServerStruct(object):
         else:
             grefsb = {"hash": hash, "filter": "url"}
             getrefs_address = self._do_request2("/client/getreferences", grefsb, {}, addrcon=addrcon, forcehash=forcehash)
-            if not getrefs_address[1] or len(getrefs_address[2["items"]) == 0:
+            if not getrefs_address[1]:
                 return getrefs_address
             addresslist = [elem[0] for elem in getrefs_server[2]["items"]]
-        direct_ret = None, False, "addresslist empty"
+        direct_ret = None, False, "addresslist empty", (None, None, None)
         for _address in addresslist:
             _check_directb = {"address": via_ret[2]["address"], "hash": _hash, \
                               "security": via_ret[2].get("security", "valid"), "forcehash":_forcehash2}
