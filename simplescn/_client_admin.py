@@ -329,7 +329,6 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             traverseaddress: server for traversal
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below), None for all """
-        #listhashes = obdict.get("hashes")
         travaddr = obdict.get("traverseaddress", None)
         listall = self.do_request(obdict["sourceaddress"], \
                                   "/client/listnodeall", {}, {}, \
