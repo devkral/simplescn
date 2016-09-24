@@ -4,7 +4,7 @@
 * tests for traversal
 * more tests
 * ipv4, ipv6 compatibility checks
-
+* compile rw_socket for less latency
 
 ## future
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)
