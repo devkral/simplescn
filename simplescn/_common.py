@@ -382,9 +382,9 @@ class CerthashDb(CommonDbInit):
     def listnodeall(self, _nodetype=None, dbcon=None) -> list:
         cur = dbcon.cursor()
         if _nodetype is None:
-            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs ORDER BY priority DESC;''')
+            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs ORDER BY name ASC, priority DESC;''')
         else:
-            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE type=? ORDER BY priority DESC;''', (_nodetype,))
+            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE type=? ORDER BY name ASC, priority DESC;''', (_nodetype,))
         return cur.fetchall()
 
     # simplifies logic
@@ -492,9 +492,9 @@ class CerthashDb(CommonDbInit):
             return None
         cur = dbcon.cursor()
         if reftype is None:
-            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''', (_certreferenceid,))
+            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? ORDER BY certreference ASC;''', (_certreferenceid,))
         else:
-            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? and type=?;''', (_certreferenceid, reftype))
+            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? and type=? ORDER BY certreference ASC;''', (_certreferenceid, reftype))
         return cur.fetchall()
 
     @connecttodb
