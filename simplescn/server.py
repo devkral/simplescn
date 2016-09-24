@@ -215,7 +215,7 @@ class Server(CommonSCN):
 
         # notify that a change happened
         self.nhipmap_cond.set()
-        return True, {"traverse": use_traversal}
+        return True, {"traverse_needed": use_traversal}
 
     @check_args_deco({"destaddr": addressstr})
     @classify_accessable

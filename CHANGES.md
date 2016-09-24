@@ -19,8 +19,10 @@
 * add option to configure traversal behaviour for local clients
 * Requester calls changed
 * move prioty, check to ViaServer
+* ViaServer provides via_direct, via_server using references
 * add sname parameter to check_direct
 * change get address field
+* rename traverse to traverse_needed (register)
 
 ## bugfixes
 * better verification serveranswers

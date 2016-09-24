@@ -88,7 +88,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         body = {"name": self.links["client_server"].name, "port": server_port, "update": self.brokencerts}
         ret = self.do_request(obdict.get("server"), "/server/register", body, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
 
-        if ret[0] and ret[1].get("traverse", False):
+        if ret[0] and ret[1].get("traverse_needed", False):
             self.scntraverse_helper.add_desttupel(_srvaddr)
         return ret
 
