@@ -6,6 +6,8 @@ license: MIT, see LICENSE.txt
 import shlex
 import sys
 import os
+import socket
+import threading
 
 # don't load different module
 if __name__ == "__main__":
@@ -13,8 +15,9 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.dirname(ownpath))
 
 from simplescn import pwcallmethod
-from simplescn.scnrequest import do_request_simple
-from simplescn.tools import getlocalclient
+from simplescn.scnrequest import do_request_simple, do_request
+from simplescn.tools import getlocalclient, rw_socket
+from simplescn.tools.checks import check_local
 
 def cmdloop(ip, use_unix=False, forcehash=None):
     while True:
@@ -122,6 +125,61 @@ def test_ip(argv=sys.argv[1:]):
 def test_unix(argv=sys.argv[1:]):
     _test(argv, True)
 
+def direct_proxy(argv=sys.argv[1:]):
+    server = None
+    traverseserver = None
+    name = None
+    certhash = None
+    address = None
+    port = 0
+    if len(argv) == 2:
+        address, service = argv
+    elif len(argv) == 3:
+        address, service, port = argv
+    elif len(argv) == 4:
+        server, name, certhash, service = argv
+    elif len(argv) == 5:
+        server, name, certhash, service, port = argv
+    else:
+        print("Usage: direct_proxy (address service [port])/(server name certhash service [port])", file=sys.stderr)
+        return
+    if not address:
+        bodyserver = {"name": name, "hash": certhash}
+        ret = do_request_simple(server, "/server/get", bodyserver, {})
+        if ret[1]:
+            address = ret[2].get("address", None)
+            if ret[2].get("traverse_needed", False):
+                traverseserver = server
+
+    if not address:
+        print("Could not retrieve address", file=sys.stderr)
+        return
+    localcl_ret = getlocalclient()
+    body_lwrap = {"name": service, "address": address}
+    if traverseserver:
+        body_lwrap["traverseaddress"] = traverseserver
+    soc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    soc.bind(("", port))
+    #soc.listen(1)
+    while True:
+        conn, addr = soc.accept()
+        if not check_local(addr):
+            print("SKIP: not local address {}".format(addr), file=sys.stderr)
+            conn.close()
+            continue
+        if localcl_ret:
+            ret_proxy = do_request(localcl_ret[0], "/client/wrap", body_lwrap, {}, \
+                                   forcehash=certhash, keepalive=True, use_unix=localcl_ret[1])
+        else:
+            ret_proxy = do_request(address, "/wrap/{}".format(service), {}, {}, traverseaddress=traverseserver, \
+                                   forcehash=certhash, keepalive=True)
+        if not ret_proxy[1] or not ret_proxy[0]:
+            print("Could not wrap: {}".format(ret_proxy[2]), file=sys.stderr)
+            conn.close()
+            continue
+        wrapsoc = ret_proxy[0].sock
+        ret_proxy[0].sock = None
+        threading.Thread(target=rw_socket, args=(conn, wrapsoc),  daemon=True).start()
 
 def _init_method_main(argv=sys.argv[1:]):
     if len(argv) >= 1:
@@ -129,9 +187,9 @@ def _init_method_main(argv=sys.argv[1:]):
         if callable(toexe):
             toexe(argv[1:])
         else:
-            print("Available: single{_ip, _unix, -}, loop{_ip, _unix, -}, test{_ip, _unix}}", file=sys.stderr)
+            print("Available: single{_ip, _unix, -}, loop{_ip, _unix, -}, test{_ip, _unix}}, direct_proxy", file=sys.stderr)
     else:
-        print("Available: single{_ip, _unix, -}, loop{_ip, _unix, -}, test{_ip, _unix}}", file=sys.stderr)
+        print("Available: single{_ip, _unix, -}, loop{_ip, _unix, -}, test{_ip, _unix}}, direct_proxy", file=sys.stderr)
 
 if __name__ == "__main__":
     _init_method_main()

@@ -240,7 +240,6 @@ def normalize_name(_name, maxlength=config.max_namelength):
         _name = "fake_" + isself
     return _name
 
-
 def default_sslcont():
     sslcont = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     sslcont.set_ciphers("HIGH")
@@ -647,14 +646,14 @@ def loglevel_converter(loglevel):
     else:
         return int(loglevel)
 
-def rw_socket(sockr, sockw, timeout=None):
+def rw_socket(sockrw1, sockrw2, timeout=None):
     sfsel = selectors.DefaultSelector()
-    sockets = {sockr.fileno(): sockw, sockw.fileno(): sockr}
+    sockets = {sockrw1.fileno(): sockrw2, sockrw2.fileno(): sockrw1}
     active = True
-    sockr.setblocking(False)
-    sfsel.register(sockr, selectors.EVENT_READ)
-    sockw.setblocking(False)
-    sfsel.register(sockw, selectors.EVENT_READ)
+    sockrw1.setblocking(False)
+    sfsel.register(sockrw1, selectors.EVENT_READ)
+    sockrw2.setblocking(False)
+    sfsel.register(sockrw2, selectors.EVENT_READ)
     while active:
         try:
             inpl = sfsel.select(timeout)
@@ -663,14 +662,14 @@ def rw_socket(sockr, sockw, timeout=None):
                 if ret == b"":
                     active = False
                     sfsel.close()
-                    sockw.close()
-                    sockr.close()
+                    sockrw2.close()
+                    sockrw1.close()
                     break
                 else:
                     sockets[soc.fd].sendall(ret)
         except (socket.timeout, BrokenPipeError, TimeoutError):
-            sockw.close()
-            sockr.close()
+            sockrw2.close()
+            sockrw1.close()
             break
         except Exception as exc:
             logging.error(exc)

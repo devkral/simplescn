@@ -23,6 +23,7 @@
 * add sname parameter to check_direct
 * change get address field
 * rename traverse to traverse_needed (register)
+* add proxy to cmdcom
 
 ## bugfixes
 * better verification serveranswers

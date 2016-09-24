@@ -173,7 +173,7 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
                 * certcontext: specify certcontext used
                 * ownhash: own hash
                 * pwhandler: method for handling pws
-                * X-SCN-Authorization: dhashed pw (transmitted)
+                * X-SCN-Authorization: dhashed pw (transmitted as X-SCN-Authorization header)
         headers:
             * Authorization: scn pw auth format
             * X-SCN-Authorization: dhashed pw (try to auth)
@@ -355,11 +355,10 @@ class ViaServerStruct(object):
             getrefs_address = self._do_request2("/client/getreferences", grefsb, {}, addrcon=addrcon, forcehash=forcehash)
             if not getrefs_address[1]:
                 return getrefs_address
-            addresslist = [elem[0] for elem in getrefs_server[2]["items"]]
+            addresslist = [elem[0] for elem in getrefs_address[2]["items"]]
         direct_ret = None, False, "addresslist empty", (None, None, None)
         for _address in addresslist:
-            _check_directb = {"address": via_ret[2]["address"], "hash": _hash, \
-                              "security": via_ret[2].get("security", "valid"), "forcehash":_forcehash2}
+            _check_directb = {"address": _address, "hash": _hash, "forcehash": _hash}
             if traverseaddress:
                 _check_directb["traverseaddress"] = traverseaddress
             direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, addrcon=addrcon, \
