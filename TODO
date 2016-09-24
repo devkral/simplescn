@@ -9,3 +9,4 @@
 ## future
 * default pwhandler for different environments (e.g. kivy, gtk, windows, tk)
 * check if traversal request succeeded
+* open traversal in cmdcom

@@ -160,10 +160,11 @@ def direct_proxy(argv=sys.argv[1:]):
         body_lwrap["traverseaddress"] = traverseserver
     soc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     soc.bind(("", port))
+    print('{"port": %s}' % soc.getsockname()[1])
     soc.listen()
     while True:
         conn, addr = soc.accept()
-        if not check_local(addr):
+        if not check_local(addr[0]):
             print("SKIP: not local address {}".format(addr), file=sys.stderr)
             conn.close()
             continue
@@ -179,7 +180,7 @@ def direct_proxy(argv=sys.argv[1:]):
             continue
         wrapsoc = ret_proxy[0].sock
         ret_proxy[0].sock = None
-        threading.Thread(target=rw_socket, args=(conn, wrapsoc),  daemon=True).start()
+        threading.Thread(target=rw_socket, args=(conn, wrapsoc), daemon=True).start()
 
 def _init_method_main(argv=sys.argv[1:]):
     if len(argv) >= 1:

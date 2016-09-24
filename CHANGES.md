@@ -23,7 +23,7 @@
 * add sname parameter to check_direct
 * change get address field
 * rename traverse to traverse_needed (register)
-* add proxy to cmdcom
+* add direct_proxy to cmdcom
 
 ## bugfixes
 * better verification serveranswers
@@ -33,6 +33,7 @@
 * drastically improve speed by not using Requester
 * fix blocked pw requests by moving composed requests
 * fix cleaning certreferences
+* fix traversal (untested)
 
 # 0.6.2
 ## bugfixes
