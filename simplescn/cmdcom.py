@@ -160,7 +160,7 @@ def direct_proxy(argv=sys.argv[1:]):
         body_lwrap["traverseaddress"] = traverseserver
     soc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     soc.bind(("", port))
-    #soc.listen(1)
+    soc.listen()
     while True:
         conn, addr = soc.accept()
         if not check_local(addr):
