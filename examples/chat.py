@@ -144,6 +144,8 @@ if __name__ == "__main__":
         p = getlocalclient()
         if p:
             init(scnrequest.Requester(default_addrcon=p[0], use_unix=p[1], pwhandler=pwcallmethod))
+        else:
+            print("Error: client not found", file=sys.stderr)
         #elif os.path.exists(p.format("info")):
         #    init(scnrequest.requester(use_unix=False, forcehash=pjson.get("cert_hash"), pwhandler=pwcallmethod), pjson.get("cserver_ip"))
 

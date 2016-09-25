@@ -75,4 +75,6 @@ if __name__ == "__main__":
         p = getlocalclient()
         if p:
             init(scnrequest.Requester(p[0], use_unix=p[1], pwhandler=pwcallmethod), port)
+        else:
+            print("Error: client not found", file=sys.stderr)
 
