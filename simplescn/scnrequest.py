@@ -70,10 +70,15 @@ class SCNConnection(client.HTTPSConnection):
             except (ConnectionRefusedError, socket.timeout):
                 _kwargs = self.kwargs.copy()
                 _kwargs["use_unix"] = False
+                _kwargs.pop("hashedpw", None)
                 trav = _kwargs.pop("traverseaddress", None)
                 if trav is None:
                     self.sock = None
                     return
+                headerstraverse = {}
+                travpw = _kwargs.pop("traversepw", None)
+                if travpw:
+                    headerstraverse["X-SCN-Authorization"] = travpw
                 contrav = SCNConnection(trav, **_kwargs)
                 contrav.connect()
                 if not contrav.sock:
@@ -84,10 +89,10 @@ class SCNConnection(client.HTTPSConnection):
                 else:
                     _hosttraverse = "{}-{}".format(_host[0], _host[1])
                 try:
-                    retserv = do_request(trav, "/server/open_traversal", {"destaddr": _hosttraverse}, {}, keepalive=True)
+                    retserv = do_request(trav, "/server/open_traversal", {"destaddr": _hosttraverse}, headerstraverse, keepalive=True)
                 except AuthNeeded:
                     contrav.close()
-                    logging.error("Error: open_traversal should always be without pw")
+                    logging.info("Auth missmatch/No auth for pw protected traversal server")
                     return
                 contrav.close()
                 if retserv[1]:
@@ -169,11 +174,13 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
                 * forcehash: force hash on other side
                 * traverseaddress: traverse address
                 * traverse_retries: retries to traverse
+                * traversepw: dhashed pw for traversal server
+                * retrievepw: add hashedpw to obdict (default off)
             special:
                 * certcontext: specify certcontext used
                 * ownhash: own hash
                 * pwhandler: method for handling pws
-                * X-SCN-Authorization: dhashed pw (transmitted as X-SCN-Authorization header)
+                * hashedpw: dhashed pw (transmitted as X-SCN-Authorization header)
         headers:
             * Authorization: scn pw auth format
             * X-SCN-Authorization: dhashed pw (try to auth)
@@ -185,6 +192,10 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
             * VALNameError: isself is in db
             * VALMITMError: rewrapped connection contains wrong secret (sendclientcert)
             * AuthNeeded: request Auth, contains con and authob (needed for auth)
+        returns:
+            * SCNConnection/None, success, obdict, certtupel
+                obdict may contains: hashedpw (if retrievepw), origcertinfo
+                please be careful with sensitive hashedpw entry
     """
     assert addrcon in addrconob, "addrcon is not a valid addrconob".format(type(addrcon))
     assert isinstance(body, (dict, bytes)), "body is neither dict nor bytes, {}".format(type(body))
@@ -210,9 +221,10 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
         sendheaders["Connection"] = 'keep-alive'
     else:
         sendheaders["Connection"] = 'close'
-    if kwargs.get("X-SCN-Authorization", None):
-        sendheaders["X-SCN-Authorization"] = kwargs["X-SCN-Authorization"]
-        del kwargs["X-SCN-Authorization"]
+
+    hashedpw = kwargs.pop("hashedpw", None)
+    if hashedpw:
+        sendheaders["X-SCN-Authorization"] = kwargs["hashedpw"]
     #start connection
     con.putrequest("POST", path)
     for key, value in sendheaders.items():
@@ -247,7 +259,7 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
         elif callable(kwargs.get("pwhandler", None)):
             pw = kwargs.get("pwhandler")(config.pwrealm_prompt)
             if pw:
-                kwargs["X-SCN-Authorization"] = dhash(pw, reqob.get("algo"))
+                kwargs["hashedpw"] = dhash(pw, reqob.get("algo"))
                 return do_request(con, path, body=body, \
                     headers=sendheaders, kwargs=kwargs)
         raise AuthNeeded(con, str(readob, "utf-8"))
@@ -269,6 +281,10 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
         #assert isinstance(obdict, dict),  "obdict not a dict"
         if con and not kwargs.get("keepalive", True):
             con.close()
+
+        # add hashedpw to output if success
+        if kwargs.get("retrievepw", False):
+            obdict["hashedpw"] = hashedpw
         # origcertinfo[0] is never isself, it is stripped
         if con.certtupel[0] is isself and "origcertinfo" in obdict:
             return con, success, obdict, obdict["origcertinfo"]
@@ -303,6 +319,7 @@ class ViaServerStruct(object):
         else:
             self.do_request(path, body, headers, addrcon=addrcon, **kwargs)
 
+    # warning: contains hashedpw (server pw), be careful
     def via_server(self, _hash: hashstr, server=None, name=None, sforcehash=None, forcehash=None, addrcon=None):
         """func: get client address via a server
             return: return client address or error
@@ -334,7 +351,7 @@ class ViaServerStruct(object):
                 get_b = {"server": _server, "hash": _hash, "name": _name}
                 if sforcehash:
                     get_b["forcehash"] = sforcehash
-                get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash)
+                get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash, retrievepw=True)
                 if get_ret[1]:
                     get_ret[2]["server"] = _server
                     return get_ret
@@ -368,6 +385,7 @@ class ViaServerStruct(object):
         return direct_ret
 
     # extended get
+    # warning: contains hashedpw (server pw), be careful
     def checked_get(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, forcehash=None, addrcon=None):
         """func: check if client is reachable; update local information when reachable
             return: priority, type, certificate security, (new-)hash (client)
@@ -390,6 +408,7 @@ class ViaServerStruct(object):
             _check_directb["sname"] = via_ret[2]["name"]
         if via_ret[2].get("traverse_needed", False):
             _check_directb["traverseaddress"] = via_ret[2]["server"]
+            _check_directb["traversepw"] = via_ret[2]["hashedpw"]
         direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, addrcon=addrcon, \
                                        forcehash=forcehash)
         # return new hash in hash field
@@ -398,6 +417,7 @@ class ViaServerStruct(object):
                 logging.warning("Hash was updated")
                 via_ret[2]["security"] = "unverified"
             via_ret[2]["hash"] = direct_ret[3][1]
+            # warning: contains still hashedpw (server pw), be careful
             return via_ret
         else:
             return direct_ret
@@ -420,6 +440,7 @@ class ViaServerStruct(object):
         wrapbody = {"address": via_ret[2]["address"],"name": sname, "forcehash": via_ret[2].get("hash")}
         if via_ret[2].get("traverse_needed", False):
             wrapbody["traverseaddress"] = via_ret[2]["server"]
+            wrapbody["traversepw"] = via_ret[2]["hashedpw"]
         return self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash)
 
     def prioty_via_server(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, forcehash=None, addrcon=None):
@@ -439,6 +460,7 @@ class ViaServerStruct(object):
         pdirectb = {"address": via_ret[2]["address"], "forcehash": via_ret[2].get("hash")}
         if via_ret[2].get("traverse_needed", False):
             pdirectb["traverseaddress"] = via_ret[2]["server"]
+            pdirectb["traversepw"] = via_ret[2]["hashedpw"]
         return self._do_request2("/client/prioty_direct", pdirectb, {}, addrcon=addrcon, forcehash=forcehash)
 
 class Requester(ViaServerStruct):

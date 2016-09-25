@@ -60,10 +60,7 @@ class Server(CommonSCN):
             raise InvalidLoadLevelError()
         if d["name"] is None or len(d["name"]) == 0:
             logging.debug("Name empty")
-            d["name"] = "<noname>"
-        if d["message"] is None or len(d["message"]) == 0:
-            logging.debug("Message empty")
-            d["message"] = "<empty>"
+            d["name"] = "noname"
         self.timeout = self.links["kwargs"].get("timeout")
         self.connect_timeout = self.links["kwargs"].get("connect_timeout")
         self.priority = self.links["kwargs"].get("priority")
@@ -280,12 +277,11 @@ def gen_ServerHandler(_links):
                 self.scn_send_answer(400, message="invalid action - server")
                 return
             if not self.links["auth_server"].verify(self.auth_info):
-                # client cannot ask pw for two nodes
-                if action != "open_traversal":
-                    authreq = self.links["auth_server"].request_auth()
-                    ob = bytes(json.dumps(authreq), "utf-8")
-                    self.scn_send_answer(401, body=ob, docache=False)
-                    return
+                # TODO: client cannot ask pw for two nodes (open_traversal)
+                authreq = self.links["auth_server"].request_auth()
+                ob = bytes(json.dumps(authreq), "utf-8")
+                self.scn_send_answer(401, body=ob, docache=False)
+                return
             self.connection.settimeout(self.etablished_timeout)
             if action in self.links["server_server"].cache:
                 # cleanup {} or smaller, protect against big transmissions

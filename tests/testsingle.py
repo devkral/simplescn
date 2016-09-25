@@ -63,8 +63,9 @@ class Test_single(unittest.TestCase):
     def test_entityhashreference(self):
         add1 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
         self.assertEqual(add1[0], True)
-        add2 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
-        self.assertEqual(add2[0], False)
+        with self.assertLogs(level=logging.INFO):
+            add2 = self.client.links["client"].access_dict("addentity", {"name": "test1"})
+            self.assertEqual(add2[0], False)
         addhash1 = self.client.links["client"].access_dict("addhash", {"name": "test1", "hash": tools.dhash("a"), "type": "client"})
         self.assertEqual(addhash1[0], True)
         addhash2 = self.client.links["client"].access_dict("addhash", {"name": "test1", "hash": tools.dhash("testafter"), "type": "client"})
@@ -72,9 +73,10 @@ class Test_single(unittest.TestCase):
         rename1 = self.client.links["client"].access_dict("renameentity", {"name": "test1", "newname": "test2"})
         self.assertEqual(rename1[0], True)
         # try after rename
-        addhashfail = self.client.links["client"].access_dict("addhash", {"name": "test1", "hash": tools.dhash("b"), "type": "client"})
-        self.assertEqual(addhashfail[0], False)
-        # deleting a not available object returns True and logs
+        with self.assertLogs(level=logging.WARNING):
+            addhashfail = self.client.links["client"].access_dict("addhash", {"name": "test1", "hash": tools.dhash("b"), "type": "client"})
+            self.assertEqual(addhashfail[0], False)
+        # deleting a not available object returns True
         dele1 = self.client.links["client"].access_dict("delentity", {"name": "test1"})
         self.assertEqual(dele1[0], True)
         dele1 = self.client.links["client"].access_dict("delentity", {"name": "test2"})

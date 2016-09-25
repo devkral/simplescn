@@ -318,7 +318,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return False, generate_error("retrieving permission(s) failed")
         return True, {"items": ret, "map": ["permission"]}
 
-    @check_args_deco({"sourceaddress": addressstr, "sourcehash": hashstr}, optional={"entities": namelist, "hashes": hashlist, "traverseaddress": addressstr})
+    @check_args_deco({"sourceaddress": addressstr, "sourcehash": hashstr}, optional={"entities": namelist, "hashes": hashlist, "traverseaddress": addressstr, "traversepw": hashstr})
     @classify_admin
     @classify_accessable
     def massimport(self, obdict: dict):
@@ -327,14 +327,17 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             sourceaddress: address of source (client)
             sourcehash: hash of source
             traverseaddress: server for traversal
+            traversepw: dhashed pw for traversal server
             entities: list with entities to import (imports hashes below), None for all
             hashes: list with hashes to import (imports references below), None for all """
         travaddr = obdict.get("traverseaddress", None)
+        travpw = obdict.get("traversepw", None)
         listall = self.do_request(obdict["sourceaddress"], \
                                   "/client/listnodeall", {}, {}, \
                                   forcehash=obdict["sourcehash"], \
                                   closecon=False, sendclientcert=True, \
-                                  traverseaddress=travaddr)
+                                  traverseaddress=travaddr, \
+                                  traversepw=travpw)
         if not listall[0]:
             return listall
         _imp_ent = obdict.get("entities")
@@ -377,7 +380,8 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
                                              {"hash": _hash}, {}, forcehash=obdict["sourcehash"], \
                                              closecon=False, \
                                              sendclientcert=listall[1]["wrappedcon"].sock is None, \
-                                             traverseaddress=travaddr)
+                                             traverseaddress=travaddr, \
+                                             traversepw=travpw)
             if not _retreferences[0]:
                 logging.error(_retreferences[1])
                 continue

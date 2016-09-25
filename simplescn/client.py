@@ -62,14 +62,14 @@ class ClientClient(ClientClientAdmin, ClientClientSafe):
     # return success, body, isself, hash
     # return success, body, None, hash
     def do_request(self, addr_or_con, path: str, body, headers: dict, forceport=False, forcehash=None, \
-                sendclientcert=False, closecon=True, traverseaddress=None):
+                sendclientcert=False, closecon=True, traverseaddress=None, traversepw=None):
         """ func: wrapper for do_request, autoadd ownhash, hashdb and certcontext """
         # don't use Requester, performance reasons
         ret = do_request(addr_or_con, path, body, headers, \
                          ownhash=self.links["certtupel"][1], hashdb=self.links["hashdb"], \
                          certcontext=self.links["hserver"].sslcont, \
                          forceport=forceport, forcehash=forcehash, traverseaddress=traverseaddress, \
-                         sendclientcert=sendclientcert, keepalive=not closecon)
+                         traversepw=traversepw, sendclientcert=sendclientcert, keepalive=not closecon)
         # for wrapping and massimport
         if ret[0]:
             if not closecon and ret[1]:
@@ -144,10 +144,7 @@ class ClientServer(CommonSCN):
 
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
             logging.info("Name empty")
-            dcserver["name"] = "<noname>"
-        if dcserver["message"] is None or len(dcserver["message"]) == 0:
-            logging.info("Message empty")
-            dcserver["message"] = "<empty>"
+            dcserver["name"] = "noname"
         self.name = dcserver["name"]
         self.message = dcserver["message"]
         self.priority = self.links["kwargs"].get("priority")

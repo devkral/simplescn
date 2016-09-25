@@ -111,6 +111,7 @@ def init_config_folder(_dir, prefix):
                 pass
         if _name in [None, ""]:
             logging.warning("No user name could be detected, init with empty")
+            # warns user every time he launches program
             _name = ""
         with open("{}_name.txt".format(_path), "w") as writeo:
             if prefix == "client":
