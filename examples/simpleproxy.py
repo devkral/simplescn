@@ -60,6 +60,7 @@ def init(requester, port):
     requester.saved_kwargs["ownhash"] = resp[3][1]
     ProxyHandler.requester = requester
     hserver = httpserver(("::1", port), ProxyHandler)
+    print('{"port": %s}' % hserver.socket.getsockname()[1])
     hserver.serve_forever()
 
 if __name__ == "__main__":
