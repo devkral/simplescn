@@ -92,7 +92,8 @@ class SCNConnection(client.HTTPSConnection):
                     retserv = do_request(trav, "/server/open_traversal", {"destaddr": _hosttraverse}, headerstraverse, keepalive=True)
                 except AuthNeeded:
                     contrav.close()
-                    logging.info("Auth missmatch/No auth for pw protected traversal server")
+                    self.sock = None
+                    logging.info("Auth missmatch/No auth provided for pw protected traversal server")
                     return
                 contrav.close()
                 if retserv[1]:

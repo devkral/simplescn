@@ -26,6 +26,7 @@
 * add direct_proxy to cmdcom
 * do_request can add pw to returned dict
 * no warning if message is empty
+* add proxy example(untested)
 
 ## bugfixes
 * better verification serveranswers

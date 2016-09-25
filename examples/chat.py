@@ -125,10 +125,6 @@ def init(requester):
     body = {"port": hserver.server_port, "name": "examplechat", "post": True, "wrappedport": True}
     resp = requester.do_request("/client/registerservice", body, {})
     resp2 = requester.do_request("/client/show", {}, {})
-    if resp[0]:
-        resp[0].close()
-    if resp2[0]:
-        resp2[0].close()
     if not resp[1] or not resp2[1]:
         print(resp[2])
         print(resp2[2])
@@ -141,13 +137,13 @@ def init(requester):
 if __name__ == "__main__":
     if len(sys.argv) == 2:
         if os.path.exists(sys.argv[1]):
-            init(scnrequest.Requester(sys.argv[1], use_unix=True, pwhandler=pwcallmethod))
+            init(scnrequest.Requester(default_addrcon=sys.argv[1], use_unix=True, pwhandler=pwcallmethod))
         else:
-            init(scnrequest.Requester(sys.argv[1], use_unix=False, pwhandler=pwcallmethod))
+            init(scnrequest.Requester(default_addrcon=sys.argv[1], use_unix=False, pwhandler=pwcallmethod))
     else:
         p = getlocalclient()
         if p:
-            init(scnrequest.Requester(p[0], use_unix=p[1], pwhandler=pwcallmethod))
+            init(scnrequest.Requester(default_addrcon=p[0], use_unix=p[1], pwhandler=pwcallmethod))
         #elif os.path.exists(p.format("info")):
         #    init(scnrequest.requester(use_unix=False, forcehash=pjson.get("cert_hash"), pwhandler=pwcallmethod), pjson.get("cserver_ip"))
 
