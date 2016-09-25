@@ -25,6 +25,7 @@
 * rename traverse to traverse_needed (register)
 * add direct_proxy to cmdcom
 * do_request can add pw to returned dict
+* no warning if message is empty
 
 ## bugfixes
 * better verification serveranswers
@@ -35,6 +36,7 @@
 * fix blocked pw requests by moving composed requests
 * fix cleaning certreferences
 * fix traversal (untested)
+* fix invalid chars in default name
 
 
 # 0.6.2
