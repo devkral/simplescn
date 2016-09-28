@@ -9,13 +9,23 @@ version = "0.7.0"
 
 
 entry_points = {"console_scripts": []}
+
+# for more speed/caching (increases performance in some cases e.g. rotating disk)
+speed_requirements = ["cachetools>=1.1.0"]
+
 install_requirements = []
 # for certificate generation
 install_requirements += ["cryptography>=1.1"]
 # for pidlock
 install_requirements += ["psutil>=3.0"]
-# for caching (increases performance in some cases e.g. rotating disk)
-install_requirements += ["cachetools>=1.1.0"]
+# require speed by default
+install_requirements += speed_requirements
+
+install_extras = {}
+# for markdown help
+install_extras["md"] = ["markdown"]
+# speed as extra
+#install_extras["speed"] = speed_requirements
 
 entry_points["console_scripts"].append('scnmain = simplescn.__main__:_init_method_main')
 entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:_init_method_main')
@@ -39,6 +49,7 @@ setup(name='simplescn',
           'simplescn': ['*.txt', '*.md'],
       },
       install_requires=install_requirements,
+      extras_require=install_extras,
       packages=['simplescn', 'simplescn.tools'],
       #ext_modules=distributions,
       test_suite="tests",

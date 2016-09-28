@@ -315,34 +315,45 @@ class ViaServerStruct(object):
         raise NotImplementedError
 
     def _do_request2(self, path: str, body, headers: dict, forcehash=None, addrcon=None, **kwargs):
+        """ strip forcehash if None (don't unset forcehash) """
         if forcehash:
-            self.do_request(path, body, headers, addrcon=addrcon, forcehash=forcehash, **kwargs)
+            return self.do_request(path, body, headers, addrcon=addrcon, forcehash=forcehash, **kwargs)
         else:
-            self.do_request(path, body, headers, addrcon=addrcon, **kwargs)
+            return self.do_request(path, body, headers, addrcon=addrcon, **kwargs)
 
     # warning: contains hashedpw (server pw), be careful
-    def via_server(self, _hash: hashstr, server=None, name=None, sforcehash=None, forcehash=None, addrcon=None):
+    def via_server(self, _hash: hashstr, server=None, name=None, sforcehash=None, \
+                   nosearchs=False, nosearchn=False, forcehash=None, addrcon=None):
         """func: get client address via a server
             return: return client address or error
             server: server url
             name: client name
             hash: client hash
             sforcehash: enforced server hash
+            nosearchs: don't search in references for server
+            nosearchn: don't search in references for name
             forcehash: enforced client hash
             addrcon: connection or address of client """
-        if server:
-            serverlist = [server]
-        else:
-            grefsb = {"hash": hash, "filter": "surl"}
-            getrefs_server = self._do_request2("/client/getreferences", grefsb, {}, addrcon=addrcon, forcehash=forcehash)
+        if not nosearchs:
+            grefsb = {"hash": _hash, "filter": "surl"}
+            getrefs_server = self._do_request2("/client/getreferences", grefsb, \
+                                               {}, addrcon=addrcon, forcehash=forcehash)
             if not getrefs_server[1]:
                 return getrefs_server
             serverlist = [elem[0] for elem in getrefs_server[2]["items"]]
-        grefsb = {"hash": hash, "filter": "surl"}
-        getrefs_name = self._do_request2("/client/getreferences", grefsb, {}, addrcon=addrcon, forcehash=forcehash)
-        if not getrefs_name[1]:
-            return getrefs_name
-        namelist = [elem[0] for elem in getrefs_name[2]["items"]]
+        else:
+            serverlist = []
+        if server:
+            serverlist.insert(0, server)
+        if not nosearchn:
+            grefsb = {"hash": _hash, "filter": "sname"}
+            getrefs_name = self._do_request2("/client/getreferences", grefsb, \
+                                             {}, addrcon=addrcon, forcehash=forcehash)
+            if not getrefs_name[1]:
+                return getrefs_name
+            namelist = [elem[0] for elem in getrefs_name[2]["items"]]
+        else:
+            namelist = []
         if name:
             namelist.insert(0, name)
 
@@ -352,7 +363,8 @@ class ViaServerStruct(object):
                 get_b = {"server": _server, "hash": _hash, "name": _name}
                 if sforcehash:
                     get_b["forcehash"] = sforcehash
-                get_ret = self._do_request2("/client/get", get_b, {}, addrcon=addrcon, forcehash=forcehash, retrievepw=True)
+                get_ret = self._do_request2("/client/get", get_b, {}, \
+                                            addrcon=addrcon, forcehash=forcehash, retrievepw=True)
                 if get_ret[1]:
                     get_ret[2]["server"] = _server
                     return get_ret
@@ -369,8 +381,9 @@ class ViaServerStruct(object):
         if addresses:
             addresslist = addresses
         else:
-            grefsb = {"hash": hash, "filter": "url"}
-            getrefs_address = self._do_request2("/client/getreferences", grefsb, {}, addrcon=addrcon, forcehash=forcehash)
+            grefsb = {"hash": _hash, "filter": "url"}
+            getrefs_address = self._do_request2("/client/getreferences", grefsb, {}, \
+                                                addrcon=addrcon, forcehash=forcehash)
             if not getrefs_address[1]:
                 return getrefs_address
             addresslist = [elem[0] for elem in getrefs_address[2]["items"]]
@@ -379,15 +392,16 @@ class ViaServerStruct(object):
             _check_directb = {"address": _address, "hash": _hash, "forcehash": _hash}
             if traverseaddress:
                 _check_directb["traverseaddress"] = traverseaddress
-            direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, addrcon=addrcon, \
-                                           forcehash=forcehash)
+            direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, \
+                                           addrcon=addrcon, forcehash=forcehash)
             if direct_ret[1]:
                 return direct_ret
         return direct_ret
 
     # extended get
     # warning: contains hashedpw (server pw), be careful
-    def checked_get(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, forcehash=None, addrcon=None):
+    def checked_get(self, _hash: hashstr, server=None, name=None, sforcehash=None, \
+                    nosearchs=False, nosearchn=False, forcehash=None, addrcon=None):
         """func: check if client is reachable; update local information when reachable
             return: priority, type, certificate security, (new-)hash (client)
             server: server url
@@ -396,7 +410,8 @@ class ViaServerStruct(object):
             sforcehash: enforced server hash
             forcehash: enforced (local) client hash
             addrcon: connection or address of client or None (use default) """
-        via_ret = self.via_server(_hash, server=server, name=name, sforcehash=sforcehash, forcehash=forcehash, addrcon=addrcon)
+        via_ret = self.via_server(_hash, server=server, name=name, sforcehash=sforcehash, \
+            nosearchs=nosearchs, nosearchn=nosearchn, forcehash=forcehash, addrcon=addrcon)
         if not via_ret[1]:
             return via_ret
         if via_ret[2].get("security", "valid") != "valid":
@@ -410,8 +425,8 @@ class ViaServerStruct(object):
         if via_ret[2].get("traverse_needed", False):
             _check_directb["traverseaddress"] = via_ret[2]["server"]
             _check_directb["traversepw"] = via_ret[2]["hashedpw"]
-        direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, addrcon=addrcon, \
-                                       forcehash=forcehash)
+        direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, \
+                                       addrcon=addrcon, forcehash=forcehash)
         # return new hash in hash field
         if direct_ret[1]:
             if _hash != direct_ret[3][1]:
@@ -423,7 +438,8 @@ class ViaServerStruct(object):
         else:
             return direct_ret
 
-    def wrap_via_server(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, forcehash=None, addrcon=None):
+    def wrap_via_server(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, \
+                        nosearchs=False, nosearchn=False, forcehash=None, addrcon=None):
         """func: wrap via a server
             return: wrap return or error
             server: server url
@@ -434,7 +450,8 @@ class ViaServerStruct(object):
             forcehash: enforced (local) client hash
             addrcon: connection or address of client """
 
-        via_ret = self.checked_get(_hash, server=server, name=name, forcehash=forcehash, sforcehash=sforcehash, addrcon=addrcon)
+        via_ret = self.checked_get(_hash, server=server, name=name, sforcehash=sforcehash, \
+        nosearchs=nosearchs, nosearchn=nosearchn, forcehash=forcehash, addrcon=addrcon)
         if not via_ret[1]:
             return via_ret
         # can throw exception if invalid change
@@ -444,7 +461,8 @@ class ViaServerStruct(object):
             wrapbody["traversepw"] = via_ret[2]["hashedpw"]
         return self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash)
 
-    def prioty_via_server(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, forcehash=None, addrcon=None):
+    def prioty_via_server(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, \
+                          nosearchs=False, nosearchn=False, forcehash=None, addrcon=None):
         """func: retrieve priority and type of a client on a server
             return: priority and type
             server: server url
@@ -454,7 +472,8 @@ class ViaServerStruct(object):
             forcehash: enforced client hash
             addrcon: connection or address of client or None (use default)"""
 
-        via_ret = self.checked_get(_hash, server=server, name=name, sforcehash=sforcehash, forcehash=forcehash, addrcon=addrcon)
+        via_ret = self.checked_get(_hash, server=server, name=name, sforcehash=sforcehash, \
+        nosearchs=nosearchs, nosearchn=nosearchn, forcehash=forcehash, addrcon=addrcon)
         if not via_ret[1]:
             return via_ret
         # can throw exception if invalid change
@@ -476,6 +495,7 @@ class Requester(ViaServerStruct):
         self.saved_kwargs = kwargs
 
     def do_request(self, path, body, headers, addrcon=None, **kwargs):
+        """ wrapped do_request """
         if not addrcon:
             addrcon = self.default_addrcon
         _kwargs = self.saved_kwargs.copy()
@@ -483,6 +503,7 @@ class Requester(ViaServerStruct):
         return do_request(addrcon, path, body, headers, **_kwargs)
 
     def do_request_simple(self, path, body, headers, addrcon=None, **kwargs):
+        """ wrapped do_request_simple """
         if not addrcon:
             addrcon = self.default_addrcon
         _kwargs = self.saved_kwargs.copy()

@@ -12,9 +12,10 @@ Dependencies:
 * python >=3.5
 * python-cryptography (not needed with working certs)
 * python-psutil (for pid lock, not needed with "nolock" option)
+* python-cachetools (for caching urls, optional, but required by default for more speed)
 * optional: python-markdown (for more beautiful help)
 
-cryptography and psutil are install requirements for setuptools
+cryptography, psutil and cachetools are install requirements (setuptools)
 
 # Security:
 
