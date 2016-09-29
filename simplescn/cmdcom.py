@@ -55,7 +55,7 @@ def _single(address, use_unix, argv):
 
 def single(argv=sys.argv[1:]):
     if len(argv) < 1:
-        print("Usage: single <command>", file=sys.stderr)
+        print("Usage: single <command> <args...>", file=sys.stderr)
         return
     ret = getlocalclient()
     if ret:
@@ -65,13 +65,13 @@ def single(argv=sys.argv[1:]):
 
 def single_ip(argv=sys.argv[1:]):
     if len(argv) < 2:
-        print("Usage: single_ip <url> <command>", file=sys.stderr)
+        print("Usage: single_ip <url> <command> <args...>", file=sys.stderr)
     else:
         _single(argv[0], False, argv[1:])
 
 def single_unix(argv=sys.argv[1:]):
     if len(argv) < 2:
-        print("Usage: single_ip <path> <command>", file=sys.stderr)
+        print("Usage: single_ip <path> <command> <args...>", file=sys.stderr)
     else:
         _single(argv[0], True, argv[1:])
 
