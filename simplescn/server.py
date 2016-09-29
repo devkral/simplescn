@@ -247,9 +247,9 @@ class Server(CommonSCN):
             hash: client hash
             autotraverse: open traversal when necessary (default: True) """
         if obdict["name"] not in self.nhipmap:
-            return False, generate_error("name not exist", False)
+            return False, generate_error("name not found", False)
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
-            return False, generate_error("hash not exist", False)
+            return False, generate_error("hash not found", False)
         _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
         retob = {"security": _obj.get("security", "valid")}
         if _obj.get("security", "") != "valid":

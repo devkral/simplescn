@@ -155,7 +155,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return False, genc_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, genc_error("hash not exist")
+            return False, genc_error("hash not found")
         return self.links["hashdb"].addreference(_tref[4], obdict["reference"], obdict["reftype"])
 
     @check_args_deco({"hash": hashstr, "reference": referencestr, "newreference": referencestr, "newreftype": str})
@@ -173,7 +173,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return False, genc_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, genc_error("hash not exist")
+            return False, genc_error("hash not found")
         return self.links["hashdb"].updatereference(_tref[4], obdict["reference"], obdict["newreference"], obdict["newreftype"])
 
     @check_args_deco({"hash": hashstr, "reference": referencestr})
@@ -187,7 +187,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             reference: reference (=where to find node)"""
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, genc_error("hash not exist")
+            return False, genc_error("hash not found")
         return self.links["hashdb"].delreference(_tref[4], obdict["reference"])
 
     @check_args_deco({"reason": securitystr})

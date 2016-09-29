@@ -555,7 +555,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         elif "hash" in obdict :
             _trethash = self.links["hashdb"].get(obdict["hash"])
             if _trethash is None:
-                return False, genc_error("hash not exist")
+                return False, genc_error("hash not found")
             _tref = _trethash[4]
         else:
             return False, genc_error("neither hash nor certreferenceid given")
