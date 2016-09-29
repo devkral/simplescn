@@ -31,6 +31,7 @@
 * add logcheck_con
 * fix+improve cmdcom single
 * register allows to use a different name to register with
+* fix sending packets at arbitary addresses (DDOS prevention)
 
 ## bugfixes
 * better validation of serveranswers

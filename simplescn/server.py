@@ -20,7 +20,7 @@ from simplescn.tools import generate_certs, init_config_folder, \
 dhash, SCNAuthServer, TraverserDropper, scnparse_url, default_sslcont, get_pidlock
 from simplescn.tools.checks import check_certs, hashstr, check_local, namestr, check_updated_certs, destportint, addressstr
 from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
-from simplescn.tools import generate_error
+from simplescn.tools import generate_error, genc_error
 from simplescn._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, loglevel_converter
 
 @generate_validactions_deco
@@ -29,6 +29,7 @@ class Server(CommonSCN):
     capabilities = None
     nhipmap = None
     nhipmap_cache = ""
+    registered_addrs = None
     refreshthread = None
     scn_type = "server"
     traverse = None
@@ -49,6 +50,8 @@ class Server(CommonSCN):
         self.capabilities = ["basic", "server"]
         # init here (multi instance situation)
         self.nhipmap = {}
+        # needed only if traverse is active
+        self.registered_addrs = set()
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()
         self.links = d["links"]
@@ -88,10 +91,13 @@ class Server(CommonSCN):
     @classify_private
     def refresh_nhipmap(self):
         while self.isactive:
+            count = 0
+            dump = []
+            istraverse = self.traverse is not None
             with self.changeip_lock:
+                if istraverse:
+                    self.registered_addrs.clear()
                 e_time = int(time.time())-self.expire_time
-                count = 0
-                dump = []
                 for _name, hashob in self.nhipmap.items():
                     for _hash, val in hashob.items():
                         if val["updatetime"] < e_time:
@@ -99,6 +105,8 @@ class Server(CommonSCN):
                         else:
                             count += 1
                             dump.append((_name, _hash, val.get("security")))
+                            if istraverse:
+                                self.registered_addrs.add((val["address"], val["port"]))
                     if len(self.nhipmap[_name]) == 0:
                         del self.nhipmap[_name]
                 ### don't annote list with "map" dict structure on serverside (overhead)
@@ -169,7 +177,7 @@ class Server(CommonSCN):
             port: listen port of client
             update: list with compromised hashes (includes reason=security) """
         if obdict["origcertinfo"][1] is None:
-            return False, generate_error("no_cert", False)
+            return False, genc_error("no_cert")
         if obdict["clientaddress"][0][:7] == "::ffff:":
             caddress = (obdict["clientaddress"][0][7:], obdict["clientaddress"][1])
         else:
@@ -182,7 +190,7 @@ class Server(CommonSCN):
                 return ret
             ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
             if not ret[0]:
-                return False, generate_error("unreachable client", False)
+                return False, genc_error("unreachable client")
             use_traversal = True
         elif config.traverse_local and self.traverse and check_local(caddress[0]):
             use_traversal = True
@@ -194,9 +202,12 @@ class Server(CommonSCN):
         entry["updatetime"] = int(time.time())
         entry["security"] = "valid"
         entry["traverse"] = use_traversal
+        addrtupel = (caddress[0], obdict["port"])
+        istraverse = self.traverse is not None
         _name = obdict["name"]
         # prepared dict, so no dict must be allocated while having lock
         _prepdict = dict()
+        _nhipmapneedupdate = False
         with self.changeip_lock:
             if _name not in self.nhipmap:
                 self.nhipmap[_name] = _prepdict
@@ -204,14 +215,20 @@ class Server(CommonSCN):
             if clientcerthash not in self.nhipmap[_name]:
                 # set security=valid for next step
                 self.nhipmap[_name][clientcerthash] = entry
+                _nhipmapneedupdate = True
+                if istraverse:
+                    self.registered_addrs.add(addrtupel)
             elif self.nhipmap[_name][clientcerthash].get("security", "valid") == "valid":
                 self.nhipmap[_name][clientcerthash] = entry
+                if istraverse:
+                    self.registered_addrs.add(addrtupel)
         # update broken certs afterwards (if needed)
         if len(obdict.get("update", [])) > 0:
             threading.Thread(target=self.check_brokencerts, args=(caddress[0], obdict["port"], obdict["name"], obdict.get("update", []), clientcerthash), daemon=True).start()
 
-        # notify that a change happened
-        self.nhipmap_cond.set()
+        # notify that a change happened if needed
+        if _nhipmapneedupdate:
+            self.nhipmap_cond.set()
         return True, {"traverse_needed": use_traversal}
 
     @check_args_deco({"destaddr": addressstr})
@@ -221,12 +238,14 @@ class Server(CommonSCN):
             return: traverse_address (=remote own address)
             destaddr: destination address """
         if self.traverse is None:
-            return False, generate_error("no traversal possible", False)
+            return False, genc_error("no traversal possible")
         try:
             destaddr = scnparse_url(obdict.get("destaddr"), True)
         except Exception:
-            return False, generate_error("destaddr invalid", False)
-        travaddr = obdict.get("clientaddress") #(obdict["clientaddress"][0], travport)
+            return False, genc_error("destaddr invalid")
+        if destaddr not in self.registered_addrs:
+            return False, genc_error("destaddr is not registered")
+        travaddr = obdict.get("clientaddress")
         threading.Thread(target=self.traverse.send, args=(travaddr, destaddr), daemon=True).start()
         return True, {"traverseaddress": travaddr}
 
@@ -247,9 +266,9 @@ class Server(CommonSCN):
             hash: client hash
             autotraverse: open traversal when necessary (default: True) """
         if obdict["name"] not in self.nhipmap:
-            return False, generate_error("name not found", False)
+            return False, genc_error("name not found")
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
-            return False, generate_error("hash not found", False)
+            return False, genc_error("hash not found")
         _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
         retob = {"security": _obj.get("security", "valid")}
         if _obj.get("security", "") != "valid":
@@ -300,7 +319,7 @@ def gen_ServerHandler(_links):
             except Exception as exc:
                 # with harden mode do not show errormessage
                 if config.harden_mode:
-                    generror = generate_error("unknown")
+                    generror = genc_error("unknown")
                 else:
                     shallstack = config.debug_mode and \
                         (check_local(self.client_address[0]))

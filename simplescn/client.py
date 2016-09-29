@@ -18,7 +18,7 @@ from simplescn.config import isself, file_family
 from simplescn._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, CerthashDb, loglevel_converter, PermissionHashDb
 from simplescn.tools import default_sslcont, try_traverse, SecdirHandler, generate_certs, \
 init_config_folder, dhash, rw_socket, SCNAuthServer, TraverserHelper, \
-generate_error, gen_result, writemsg
+generate_error, gen_result, writemsg, genc_error
 from simplescn.tools.checks import check_certs, check_local, check_classify, hashstr, namestr
 from simplescn._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from simplescn._client_admin import ClientClientAdmin
@@ -167,9 +167,9 @@ class ClientServer(CommonSCN):
             hidden: port and servicename are not listed (default: False)
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
         if not check_local(obdict["clientaddress"][0]):
-            return False, generate_error("no permission", False)
+            return False, genc_error("no permission")
         if prefix and obdict["name"][0] != prefix:
-            return False, generate_error("service name without/with wrong prefix", False)
+            return False, genc_error("service name without/with wrong prefix")
         wrappedport = obdict.get("wrappedport", None)
         # activates wrappedport if unspecified
         if wrappedport is None:
@@ -197,9 +197,9 @@ class ClientServer(CommonSCN):
             return: success or error
             name: service name """
         if not check_local(obdict["clientaddress"][0]):
-            return False, generate_error("no permission", False)
+            return False, genc_error("no permission")
         if prefix and obdict["name"][0] != prefix:
-            return False, generate_error("service name without/with wrong prefix", False)
+            return False, genc_error("service name without/with wrong prefix")
 
         with self.wlock:
             if  obdict["name"] in self.spmap_meta:
@@ -222,9 +222,9 @@ class ClientServer(CommonSCN):
         """
         if not self.links["kwargs"].get("trustforall", False):
             if not "origcertinfo" in obdict:
-                return False, generate_error("no certificate sent", False)
+                return False, genc_error("no certificate sent")
             if not self.links["permsdb"].exist(obdict["origcertinfo"][1], "gettrust"):
-                return False, generate_error("No permission", False)
+                return False, genc_error("No permission")
         hasho = self.links["client"].links["hashdb"].get(obdict.get("hash"))
         if hasho:
             return True, {"security": hasho[3]}
@@ -240,7 +240,7 @@ class ClientServer(CommonSCN):
             name: servicename """
         serviceob = self.spmap_meta.get(obdict["name"], None)
         if not serviceob:
-            return False, generate_error("Service not available", False)
+            return False, genc_error("Service not available")
 
         if not serviceob[1]:
             return True, {"port": serviceob[0]}
@@ -254,12 +254,12 @@ class ClientServer(CommonSCN):
             return: portnumber or error
             name: servicename """
         if not self.links["kwargs"]["notraversal"]:
-            return False, generate_error("traversal disabled")
+            return False, genc_error("traversal disabled")
         serviceob = self.spmap_meta.get(obdict["name"], None)
         if not serviceob:
-            return False, generate_error("Service not available", False)
+            return False, genc_error("Service not available")
         if not serviceob[1]:
-            return False, generate_error("Service not traversable", False)
+            return False, genc_error("Service not traversable")
         #_port = obdict.get("destport", None)
         #if not _port:
         #    _port = obdict["clientaddress"][1]
@@ -268,7 +268,7 @@ class ClientServer(CommonSCN):
         if try_traverse(travaddr, destaddr, connect_timeout=self.links["kwargs"]["connect_timeout"], retries=config.traverse_retries):
             return True, {"port": serviceob[0]}
         else:
-            return False, generate_error("Traversal could not opened", False)
+            return False, genc_error("Traversal could not opened")
 
 def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
     """ create handler with: links, server_timeout, default_timeout, ... """
@@ -373,7 +373,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                     error = response[1]
                     # with harden mode do not show errormessage
                     if config.harden_mode and not isinstance(error, (AddressError, VALError)):
-                        resultob = generate_error("unknown")
+                        resultob = genc_error("unknown")
                     else:
                         shallstack = not isinstance(error, (AddressError, VALError)) and \
                                      config.debug_mode and \
@@ -428,7 +428,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                 except Exception as exc:
                     # with harden mode do not show errormessage
                     if config.harden_mode and not isinstance(exc, (AddressError, VALError)):
-                        generror = generate_error("unknown")
+                        generror = genc_error("unknown")
                     else:
                         shallstack = not isinstance(exc, (AddressError, VALError)) and \
                                      config.debug_mode and \

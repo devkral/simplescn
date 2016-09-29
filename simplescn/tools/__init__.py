@@ -450,10 +450,11 @@ class TraverserDropper(object):
 
 class TraverserHelper(object):
     desttupels = None
+    allowed_addresses = None
     active = None
     mutex = None
     def __init__(self, connectsock, srcsock, interval=config.ping_interval):
-        self.desttupels = []
+        self.desttupels = set()
         self.active = True
         self.interval = interval
         self.connectsock = connectsock
@@ -461,20 +462,20 @@ class TraverserHelper(object):
         self.mutex = threading.Lock()
         threading.Thread(target=self._connecter, daemon=True).start()
 
-    def add_desttupel(self, destaddrtupel):
-        destaddrtupel = url_to_ipv6(*destaddrtupel)
+    def add_desttupel(self, destaddr):
+        destaddrtupel = url_to_ipv6(*destaddr)
         if not destaddrtupel:
             logging.error("Destination host could not resolved")
             return
         with self.mutex:
             if destaddrtupel in self.desttupels:
                 return True
-            self.desttupels.append(destaddrtupel)
+            self.desttupels.add(destaddrtupel)
         threading.Thread(target=self._pinger, args=(destaddrtupel,), daemon=True).start()
         return True
 
-    def del_desttupel(self, destaddrtupel):
-        destaddrtupel = url_to_ipv6(*destaddrtupel)
+    def del_desttupel(self, destaddr):
+        destaddrtupel = url_to_ipv6(*destaddr)
         if not destaddrtupel:
             logging.error("Destination host could not resolved")
             return
@@ -517,6 +518,9 @@ class TraverserHelper(object):
                 addr = unpstru[2][:unpstru[1]]
                 try:
                     addrn = url_to_ipv6(addr, port)
+                    # prevent ddos
+                    if addrn not in self.desttuppels:
+                        continue
                     self.connectsock.connect(addrn)
                     self.srcsock.sendto(scn_yesstruct, requesteraddress)
                 except Exception as exc:
@@ -588,8 +592,9 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
         logging.error(exc)
         return None
 
-@functools.lru_cache()
-def genc_error(err):
+@functools.lru_cache(maxsize=None)
+def genc_error(err: str):
+    #assert isinstance(err, str), "genc_error only accepts str"
     return generate_error(err, False)
 
 def generate_error(err, withstack=True):

@@ -11,13 +11,13 @@ import logging
 import abc
 
 from simplescn.config import isself
-from simplescn.tools import dhash, generate_certs, generate_error, genc_error
+from simplescn.tools import dhash, generate_certs, genc_error
 from simplescn.tools.checks import check_reference_type, namestr, permissionstr, \
 hashstr, priorityint, namelist, hashlist, securitystr, addressstr, referencestr
 from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable
 
 def _mipcheck_inlisthelper(_name, _hash, entities, hashes):
-    """ massimport helper"""
+    """ massimport helper """
     if not entities and not hashes:
         return True
     if entities and _name in entities:
@@ -199,7 +199,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return: success or error
             reason: reason (=security level) for invalidating cert"""
         if obdict.get("reason") == "valid":
-            return False, generate_error("wrong reason")
+            return False, genc_error("wrong reason")
         self.delperm({"hash": self.links["certtupel"][1]})
         _cpath = os.path.join(self.links["config_root"], "client_cert")
         if os.path.isfile(_cpath+".pub"):
@@ -214,7 +214,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             with open(_brokenpath+".reason", "w") as wr:
                 wr.write(obdict.get("reason"))
         else:
-            return False, generate_error("no pubcert")
+            return False, genc_error("no pubcert")
         ret = generate_certs(_cpath)
         if not ret:
             logging.critical("Fatal error: certs could not be regenerated")
@@ -276,7 +276,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
                 with open(os.path.join(configr, "client_name.txt"), "r") as readn:
                     oldt = readn.read().strip().rstrip().split("/")
                 if oldt is None:
-                    return False, generate_error("reading name failed")
+                    return False, genc_error("reading name failed")
                 with open(os.path.join(configr, "client_name.txt"), "w") as writen:
                     if len(oldt) == 2:
                         writen.write("{}/{}".format(newname, oldt[1]))
@@ -315,7 +315,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             hash: certhash of trusted """
         ret = self.links["permsdb"].get(obdict["hash"], None)
         if ret is None:
-            return False, generate_error("retrieving permission(s) failed")
+            return False, genc_error("retrieving permission(s) failed")
         return True, {"items": ret, "map": ["permission"]}
 
     @check_args_deco({"sourceaddress": addressstr, "sourcehash": hashstr}, optional={"entities": namelist, "hashes": hashlist, "traverseaddress": addressstr, "traversepw": hashstr})
