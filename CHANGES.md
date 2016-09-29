@@ -29,6 +29,7 @@
 * add proxy example(untested)
 * logcheck supports do_request answers
 * add logcheck_con
+* fix+improve cmdcom single
 
 ## bugfixes
 * better validation of serveranswers
