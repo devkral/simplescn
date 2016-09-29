@@ -69,7 +69,7 @@ securitystr = checkclass(check_security)
 
 def check_fastlitup(inp):
     """ quick check for iterables tuple, list """
-    if inp.__class__ in {list, tuple}:
+    if inp.__class__ is list or inp.__class__ is tuple:
         return True
     else:
         return False

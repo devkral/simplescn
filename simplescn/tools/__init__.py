@@ -536,7 +536,7 @@ def dhash(oblist, algo=config.DEFAULT_HASHALGORITHM, prehash=""):
         logging.error("Hashalgorithm not available: %s", algo)
         return None
     # cannot import from checks (circular dependency)
-    if oblist.__class__ in {list, tuple}:
+    if oblist.__class__ is list or oblist.__class__ is tuple:
         oblist2 = oblist
     else:
         oblist2 = [oblist]
