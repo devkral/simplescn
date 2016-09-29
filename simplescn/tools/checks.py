@@ -206,7 +206,7 @@ def check_args(_moddict, requires=None, optional=None, error=None):
             if argname in optional:
                 continue
             error.append(argname)
-            error.append("argname not found")
+            error.append("argument not found")
             return False
         if isinstance(_moddict[argname], _type):
             continue

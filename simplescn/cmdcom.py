@@ -38,16 +38,14 @@ def cmdloop(ip, use_unix=False, forcehash=None):
 
 
 def _single(address, use_unix, argv):
-    command = argv[1]
     body = {}
-    if len(argv) >= 2:
-        args = argv[1:]
-    else:
-        args = shlex.split(input())
-    for elem in args:
+    if len(argv) == 0:
+        argv = shlex.split(input())
+    for elem in argv:
         splitted = elem.split("=", 1)
         if len(splitted) == 2:
             body[splitted[0]] = splitted[1]
+    command = body.pop("action", "show")
     headers = {"Content-Type": "application/json; charset=utf-8"}
     ret = do_request_simple(address, "/client/{}".format(command), body, headers, use_unix=use_unix)
     print(ret)
