@@ -34,6 +34,8 @@ def checkclass(func, classtype=str):
 def classlist_helper(func):
     @functools.wraps(func)
     def _wrapped(it):
+        if not isinstance(it, fastit):
+            return False
         for element in it:
             if not func(element):
                 return False
@@ -64,6 +66,14 @@ def check_security(_security):
         return True
     return False
 securitystr = checkclass(check_security)
+
+def check_fastlitup(inp):
+    """ quick check for iterables tuple, list """
+    if inp.__class__ in {list, tuple}:
+        return True
+    else:
+        return False
+fastit = checkclass(check_fastlitup, object)
 
 def check_priority(priority):
     if isinstance(priority, int) and priority >= 0 and priority <= 100:

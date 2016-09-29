@@ -23,6 +23,8 @@ max_serverrequest_size = 4000
 max_typelength = 15
 max_namelength = 64
 max_urllength = 400
+# default cache size
+default_cache_size = 256
 
 ## dbending
 dbending = ".sqlite"

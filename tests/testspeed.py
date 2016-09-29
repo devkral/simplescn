@@ -46,11 +46,16 @@ def _threaded_bar(func, threadsem, args, kwargs):
     threadsem.release()
 
 def threaded_bar(func, threadsem, counter, args=(), kwargs={}):
-    threadsem.acquire(False)
     threading.Thread(target=_threaded_bar, args=(func, threadsem, args, kwargs), daemon=True).start()
     counter[0] += 1
     if counter[0] >= counter[1]:
         threadsem.acquire(True)
+
+def init_sem():
+    sem = threading.Semaphore(0)
+    for e in range(0, parallelnum):
+        sem.acquire(False)
+    return sem
 
 class TestServerHandler(BaseHTTPRequestHandler):
     server_timeout = 4
@@ -121,7 +126,7 @@ class TestSpeed(unittest.TestCase):
 
     def test_regspeed_parallel(self):
         counter = [0, parallelnum]
-        bar = threading.Semaphore(1)
+        bar = init_sem()
         fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("register", {"server": self.server_addressscn}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
@@ -138,7 +143,7 @@ class TestSpeed(unittest.TestCase):
 
     def test_show_parallel(self):
         counter = [0, parallelnum]
-        bar = threading.Semaphore(1)
+        bar = init_sem()
         fun = lambda: threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("show", {}))
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
@@ -154,7 +159,7 @@ class TestSpeed(unittest.TestCase):
     
     def test_capspeed_parallel(self):
         counter = [0, parallelnum]
-        bar = threading.Semaphore(1)
+        bar = init_sem()
         fun = lambda: threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("cap", {"address": self.server_addressscn}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
@@ -185,7 +190,7 @@ class TestSpeed(unittest.TestCase):
 
     def test_connectspeedinvalid_parallel(self):
         counter = [0, parallelnum]
-        bar = threading.Semaphore(1)
+        bar = init_sem()
         fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.client_port2), "/client/teststubnotvalidparallel", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
@@ -201,7 +206,7 @@ class TestSpeed(unittest.TestCase):
     
     def test_connecttestserver_parallel(self):
         counter = [0, parallelnum]
-        bar = threading.Semaphore(1)
+        bar = init_sem()
         fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:

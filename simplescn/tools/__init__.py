@@ -43,9 +43,7 @@ def generate_certs(_path):
     from cryptography.hazmat.backends import default_backend
     from cryptography.x509.oid import NameOID #,ExtendedKeyUsageOID
     _passphrase = pwcallmethod(config.pwcertgen_prompt)
-    if _passphrase is not None and not isinstance(_passphrase, str):
-        logging.error("passphrase not str, None")
-        return False
+    assert isinstance(_passphrase, str), "passphrase not str"
     if _passphrase != "":
         _passphrase2 = pwcallmethod("Retype:\n")
         if _passphrase != _passphrase2:
@@ -257,10 +255,8 @@ def gen_sslcont(path):
     return sslcont
 
 _reparseurl = re.compile("(.+)-([0-9]+)$")
-@functools.lru_cache(maxsize=256)
+@functools.lru_cache(maxsize=config.default_cache_size)
 def scnparse_url(url: str, force_port=False):
-    # if isinstance(url, (tuple, list)) == True:
-    #     return url
     if not isinstance(url, str):
         raise AddressError()
     if len(url) == 0:
@@ -278,7 +274,7 @@ def scnparse_url(url: str, force_port=False):
 def ttlcaching(ttl):
     def cachew(func):
         if cachetools:
-            return cachetools.cached(cache=cachetools.TTLCache(256, ttl))(func)
+            return cachetools.cached(cache=cachetools.TTLCache(config.default_cache_size, ttl))(func)
         else:
             return func
     return cachew
@@ -467,7 +463,7 @@ class TraverserHelper(object):
         destaddrtupel = url_to_ipv6(*destaddr)
         if not destaddrtupel:
             logging.error("Destination host could not resolved")
-            return
+            return False
         with self.mutex:
             if destaddrtupel in self.desttupels:
                 return True
@@ -479,7 +475,7 @@ class TraverserHelper(object):
         destaddrtupel = url_to_ipv6(*destaddr)
         if not destaddrtupel:
             logging.error("Destination host could not resolved")
-            return
+            return False
         with self.mutex:
             try:
                 self.desttupels.remove(destaddrtupel)
@@ -521,6 +517,7 @@ class TraverserHelper(object):
                     addrn = url_to_ipv6(addr, port)
                     # prevent ddos
                     if addrn not in self.desttuppels:
+                        logging.info("%s not in desttupels", addrn)
                         continue
                     self.connectsock.connect(addrn)
                     self.srcsock.sendto(scn_yesstruct, requesteraddress)
@@ -538,10 +535,11 @@ def dhash(oblist, algo=config.DEFAULT_HASHALGORITHM, prehash=""):
     if algo not in config.algorithms_strong:
         logging.error("Hashalgorithm not available: %s", algo)
         return None
-    if not isinstance(oblist, (list, tuple)):
-        oblist2 = [oblist]
-    else:
+    # cannot import from checks (circular dependency)
+    if oblist.__class__ in {list, tuple}:
         oblist2 = oblist
+    else:
+        oblist2 = [oblist]
     hasher = hashlib.new(algo)
     ret = prehash
     for ob in oblist2:
@@ -557,7 +555,7 @@ def dhash(oblist, algo=config.DEFAULT_HASHALGORITHM, prehash=""):
         ret = tmp.hexdigest()
     return ret
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=config.default_cache_size)
 def encode_bo(inp, encoding, charset="utf-8"):
     splitted = encoding.split(";", 1)
     if len(splitted) == 2:
@@ -566,7 +564,7 @@ def encode_bo(inp, encoding, charset="utf-8"):
         charset = split2[1].strip().rstrip()
     return str(inp, charset, errors="ignore")
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=config.default_cache_size)
 def safe_mdecode(inp, encoding, charset="utf-8"):
     try:
         # extract e.g. application/json
@@ -595,10 +593,12 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
 
 @functools.lru_cache(maxsize=256)
 def genc_error(err: str):
+    """ Quick error, be careful: if used for more different strings than maxsize, old entries are deleted """
     #assert isinstance(err, str), "genc_error only accepts str"
     return generate_error(err, False)
 
 def generate_error(err, withstack=True):
+    """ generate error from string/exception/... """
     error = {"msg": "unknown", "type": "unknown"}
     if err is None:
         return error
@@ -612,7 +612,7 @@ def generate_error(err, withstack=True):
                 error["stacktrace"] = "".join(traceback.format_tb(err.__traceback__)).replace("\\n", "")
             elif sys.exc_info()[2] is not None:
                 error["stacktrace"] = "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", "")
-    return error # json.dumps(error)
+    return error
 
 def gen_result(res):
     """ generate result """

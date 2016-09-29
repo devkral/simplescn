@@ -7,7 +7,6 @@ license: MIT, see LICENSE.txt
 import ssl
 import socket
 import abc
-import collections
 import logging
 
 
@@ -15,7 +14,7 @@ from simplescn import EnforcedPortError
 from simplescn.config import isself
 from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
 from simplescn.tools.checks import check_updated_certs, check_local, check_args, \
-namestr, hashstr, securitystr, destportint, referencestr, addressstr
+namestr, hashstr, securitystr, destportint, referencestr, addressstr, fastit
 from simplescn._decos import check_args_deco, classify_local, classify_accessable
 
 _checkgetresp =  {"address": addressstr, "security": securitystr, "traverse_needed": bool}
@@ -80,18 +79,12 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             forcehash: enforce node with hash==forcehash
             name: register with a different name
             server: address of server """
-        _srvaddr = None
-        server_port = self.links["hserver"].server_port
-        _srvaddr = scnparse_url(obdict.get("server"))
-        if not _srvaddr:
-            return False, genc_error("not a valid server")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         name = obdict.get("name", self.links["client_server"].name)
-        body = {"name": name, "port": server_port, "update": self.brokencerts}
-        ret = self.do_request(obdict.get("server"), "/server/register", body, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
-
+        body = {"name": name, "port": self.links["hserver"].server_port, "update": self.brokencerts}
+        ret = self.do_request(obdict["server"], "/server/register", body, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
         if ret[0] and ret[1].get("traverse_needed", False):
-            self.scntraverse_helper.add_desttupel(_srvaddr)
+            self.scntraverse_helper.add_desttupel(scnparse_url(obdict["server"]))
         return ret
 
     @check_args_deco({"name": namestr, "port": destportint}, optional={"client": addressstr, "wrappedport": bool, "post": bool, "hidden": bool, "forcehash": hashstr})
@@ -110,10 +103,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         senddict["wrappedport"] = obdict.get("wrappedport", False)
         senddict["post"] = obdict.get("post", False)
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if obdict.get("client") is not None:
-            client_addr = obdict["client"]
-            _forcehash = obdict.get("forcehash", None)
-            return self.do_request(client_addr, "/server/registerservice", senddict, _headers, forcehash=_forcehash, forceport=True)
+        if "client" in obdict:
+            return self.do_request(obdict["client"], "/server/registerservice", senddict, _headers, \
+            forcehash=obdict.get("forcehash", None), forceport=True)
         else:
             # access direct (more speed+no pwcheck)
             senddict["clientaddress"] = ("::1", 0)
@@ -131,10 +123,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             client: LOCAL client url (default: own client) """
         senddict = extract_senddict(obdict, "name")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if obdict.get("client") is not None:
-            client_addr = obdict["client"]
-            _forcehash = obdict.get("forcehash", None)
-            return self.do_request(client_addr, "/server/delservice", senddict, _headers, forcehash=_forcehash, forceport=True)
+        if "client" in obdict:
+            return self.do_request(obdict["client"], "/server/delservice", senddict, _headers, \
+                    forcehash=obdict.get("forcehash", None), forceport=True)
         else:
             # access direct (more speed+no pwcheck)
             senddict["clientaddress"] = ("::1", 0)
@@ -153,11 +144,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             traversepw: dhashed pw for traversal server
             client: client url (default: own client) """
         senddict = extract_senddict(obdict, "name")
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if obdict.get("client") is not None:
-            client_addr = obdict["client"]
-            _forcehash = obdict.get("forcehash", None)
-            ret = self.do_request(client_addr, "/server/getservice", senddict, _headers, forcehash=_forcehash, \
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        if "client" in obdict:
+            ret = self.do_request(obdict["client"], "/server/getservice", senddict, _headers, forcehash=obdict.get("forcehash", None), \
                 traverseaddress=obdict.get("traverseaddress", None), traversepw=obdict.get("traversepw", None), forceport=True)
             if ret[0] and not isinstance(ret[1].get("port", None), int):
                 return False, genc_error("invalid serveranswer")
@@ -177,12 +166,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             traverseaddress: server for traversal
             traversepw: dhashed pw for traversal server
             client: client url (default: own client) """
-        _headers = {"Authorisation":obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if obdict.get("client") is not None:
-            client_addr = obdict["client"]
-            _forcehash = obdict.get("forcehash", None)
-            _tservices = self.do_request(client_addr, "/server/dumpservices", {}, _headers, \
-                    forcehash=_forcehash, traverseaddress=obdict.get("traverseaddress", None), \
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        if "client" in obdict:
+            _tservices = self.do_request(obdict["client"], "/server/dumpservices", {}, _headers, \
+                    forcehash=obdict.get("forcehash", None), traverseaddress=obdict.get("traverseaddress", None), \
                     traversepw=obdict.get("traversepw", None), forceport=True)
             if not _tservices[0]:
                 return _tservices
@@ -215,7 +202,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             hash: client hash """
         senddict = extract_senddict(obdict, "hash", "name")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        _getret = self.do_request(obdict["server"], "/server/get", senddict, _headers, forcehash=obdict.get("forcehash"))
+        _getret = self.do_request(obdict["server"], "/server/get", senddict, _headers, forcehash=obdict.get("forcehash", None))
         if not _getret[0]:
             return _getret 
         # if brokencert check also update stuff
@@ -263,9 +250,8 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             traverseaddress: server for traversal
             traversepw: dhashed pw for traversal server
             address: remote node url """
-        _addr = obdict["address"]
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        ret = self.do_request(_addr, "/server/trust", {"hash": hash}, _headers, \
+        ret = self.do_request(obdict["address"], "/server/trust", {"hash": hash}, _headers, \
                               forceport=True, forcehash=obdict.get("forcehash", None), \
                               traverseaddress=obdict.get("traverseaddress", None), \
                               traversepw=obdict.get("traversepw", None))
@@ -301,7 +287,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                                   _headers, forcehash=obdict.get("forcehash", None))
         if not _tnames[0]:
             return _tnames
-        if not isinstance(_tnames[1].get("items", None), collections.Iterable):
+        if not isinstance(_tnames[1].get("items", None), fastit):
                 return False, genc_error("invalid serveranswer")
         out = []
         # throw if "items" entry has invalid amount of parameters or is not iterable (catched)
@@ -325,10 +311,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             traversepw: dhashed pw for traversal server
             address: remote node url (default: own client) """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if obdict.get("address") is not None:
-            _addr = obdict["address"]
-            _forcehash = obdict.get("forcehash", None)
-            ret = self.do_request(_addr, "/server/info", {}, _headers, forcehash=_forcehash, \
+        if "address" in obdict:
+            ret = self.do_request(obdict["address"], "/server/info", {}, _headers, \
+                    forcehash=obdict.get("forcehash", None), \
                     traverseaddress=obdict.get("traverseaddress", None), \
                     traversepw=obdict.get("traversepw", None))
             if not check_args(ret[1], {"type": str, "name": namestr, "message": str}):
@@ -349,13 +334,12 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             traversepw: dhashed pw for traversal server
             address: remote node url (default: own client) """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if obdict.get("address") is not None:
-            _addr = obdict["address"]
-            _forcehash = obdict.get("forcehash", None)
-            ret = self.do_request(_addr, "/server/cap", {}, _headers, forcehash=_forcehash,  \
+        if "address" in obdict:
+            ret = self.do_request(obdict["address"], "/server/cap", {}, _headers, \
+                    forcehash=obdict.get("forcehash", None), \
                     traverseaddress=obdict.get("traverseaddress", None), \
                     traversepw=obdict.get("traversepw", None))
-            if ret[0] and not isinstance(ret[1].get("caps", None), collections.Iterable):
+            if ret[0] and not isinstance(ret[1].get("caps", None), fastit):
                 return False, genc_error("invalid serveranswer")
             return ret
         else:
@@ -373,10 +357,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             traversepw: dhashed pw for traversal server
             address: remote node url (default: own client) """
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        if obdict.get("address") is not None:
-            _addr = obdict["address"]
-            _forcehash = obdict.get("forcehash")
-            ret = self.do_request(_addr, "/server/prioty", {}, _headers, forcehash=_forcehash, forceport=True, \
+        if "address" in obdict:
+            ret = self.do_request(obdict["address"], "/server/prioty", {}, _headers, \
+                                forcehash=obdict.get("forcehash", None), forceport=True, \
                                 traverseaddress=obdict.get("traverseaddress", None), \
                                 traversepw=obdict.get("traversepw", None))
             if ret[0] and (not isinstance(ret[1].get("priority", None), int) or not isinstance(ret[1].get("type", None), str)):

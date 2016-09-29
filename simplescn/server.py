@@ -12,13 +12,12 @@ import threading
 import json
 import logging
 import ssl
-import collections
 
 from simplescn import config, InvalidLoadSizeError, InvalidLoadLevelError, pwcallmethod
 
 from simplescn.tools import generate_certs, init_config_folder, \
 dhash, SCNAuthServer, TraverserDropper, scnparse_url, default_sslcont, get_pidlock
-from simplescn.tools.checks import check_certs, hashstr, check_local, namestr, check_updated_certs, destportint, addressstr
+from simplescn.tools.checks import check_certs, hashstr, check_local, namestr, check_updated_certs, destportint, addressstr, fastit
 from simplescn._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
 from simplescn.tools import generate_error, genc_error
 from simplescn._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, loglevel_converter
@@ -168,7 +167,7 @@ class Server(CommonSCN):
         # notify that change happened
         self.nhipmap_cond.set()
 
-    @check_args_deco({"name": namestr, "port": destportint}, optional={"update": collections.Iterable})
+    @check_args_deco({"name": namestr, "port": destportint}, optional={"update": fastit})
     @classify_accessable
     def register(self, obdict: dict):
         """ func: register client
