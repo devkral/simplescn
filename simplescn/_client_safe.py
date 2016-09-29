@@ -72,12 +72,13 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                       "listen": self.links["hserver"].server_address,
                       "port": self.links["hserver"].server_port}
 
-    @check_args_deco({"server": addressstr}, optional={"forcehash": hashstr})
+    @check_args_deco({"server": addressstr}, optional={"forcehash": hashstr, "name": namestr})
     @classify_accessable
     def register(self, obdict: dict):
         """ func: register client
-            forcehash: enforce node with hash==forcehash
             return: success or error
+            forcehash: enforce node with hash==forcehash
+            name: register with a different name
             server: address of server """
         _srvaddr = None
         server_port = self.links["hserver"].server_port
@@ -85,7 +86,8 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if not _srvaddr:
             return False, genc_error("not a valid server")
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        body = {"name": self.links["client_server"].name, "port": server_port, "update": self.brokencerts}
+        name = obdict.get("name", self.links["client_server"].name)
+        body = {"name": name, "port": server_port, "update": self.brokencerts}
         ret = self.do_request(obdict.get("server"), "/server/register", body, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
 
         if ret[0] and ret[1].get("traverse_needed", False):

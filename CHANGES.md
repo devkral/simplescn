@@ -30,6 +30,7 @@
 * logcheck supports do_request answers
 * add logcheck_con
 * fix+improve cmdcom single
+* register allows to use a different name to register with
 
 ## bugfixes
 * better validation of serveranswers
