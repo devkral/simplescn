@@ -334,7 +334,12 @@ class ViaServerStruct(object):
             nosearchn: don't search in references for name
             forcehash: enforced client hash
             addrcon: connection or address of client """
-        if not nosearchs:
+        if not nosearchs or not nosearchs:
+            # check if hash exists
+            ghashexist = {"hash": _hash}
+            ghash = self._do_request2("/client/getlocal", ghashexist, \
+                                               {}, addrcon=addrcon, forcehash=forcehash)
+        if not nosearchs and ghash[1]:
             grefsb = {"hash": _hash, "filter": "surl"}
             getrefs_server = self._do_request2("/client/getreferences", grefsb, \
                                                {}, addrcon=addrcon, forcehash=forcehash)
@@ -345,7 +350,7 @@ class ViaServerStruct(object):
             serverlist = []
         if server:
             serverlist.insert(0, server)
-        if not nosearchn:
+        if not nosearchn and ghash[1]:
             grefsb = {"hash": _hash, "filter": "sname"}
             getrefs_name = self._do_request2("/client/getreferences", grefsb, \
                                              {}, addrcon=addrcon, forcehash=forcehash)
@@ -381,6 +386,11 @@ class ViaServerStruct(object):
         if addresses:
             addresslist = addresses
         else:
+            ghashexist = {"hash": _hash}
+            ghash = self._do_request2("/client/getlocal", ghashexist, \
+                                               {}, addrcon=addrcon, forcehash=forcehash)
+            if not ghash[1]:
+                return ghash
             grefsb = {"hash": _hash, "filter": "url"}
             getrefs_address = self._do_request2("/client/getreferences", grefsb, {}, \
                                                 addrcon=addrcon, forcehash=forcehash)
