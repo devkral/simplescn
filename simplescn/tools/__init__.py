@@ -256,9 +256,9 @@ def gen_sslcont(path):
         sslcont.load_verify_locations(cafile=path)
     return sslcont
 
-_reparseurl = re.compile("(.*)-([0-9]+)$")
+_reparseurl = re.compile("(.+)-([0-9]+)$")
 @functools.lru_cache(maxsize=256)
-def scnparse_url(url, force_port=False):
+def scnparse_url(url: str, force_port=False):
     # if isinstance(url, (tuple, list)) == True:
     #     return url
     if not isinstance(url, str):
@@ -268,16 +268,17 @@ def scnparse_url(url, force_port=False):
     if len(url) > config.max_urllength:
         raise AddressLengthError()
     _urlre = _reparseurl.match(url)
-    if _urlre is not None:
+    if _urlre:
         return _urlre.groups()[0], int(_urlre.groups()[1])
     if not force_port:
         return (url, config.server_port)
-    raise EnforcedPortError()
+    else:
+        raise EnforcedPortError()
 
 def ttlcaching(ttl):
     def cachew(func):
         if cachetools:
-            return cachetools.cached(cache=cachetools.TTLCache(128, ttl))(func)
+            return cachetools.cached(cache=cachetools.TTLCache(256, ttl))(func)
         else:
             return func
     return cachew
@@ -290,7 +291,7 @@ def url_to_ipv6(url: str, port: int):
     socket.AF_INET6, socket.SOCK_STREAM, flags=socket.AI_V4MAPPED)
     if len(ret) == 0:
         return None
-    return ret[0][4][:2]
+    return (ret[0][4][0], ret[0][4][1])
 
 authrequest_struct = \
 {
@@ -592,7 +593,7 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
         logging.error(exc)
         return None
 
-@functools.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=256)
 def genc_error(err: str):
     #assert isinstance(err, str), "genc_error only accepts str"
     return generate_error(err, False)
