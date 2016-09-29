@@ -271,8 +271,8 @@ class ClientServer(CommonSCN):
             return False, generate_error("Traversal could not opened", False)
 
 def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
-    checklocalcert = _links["kwargs"].get("checklocalcert", False)
     """ create handler with: links, server_timeout, default_timeout, ... """
+    checklocalcert = _links["kwargs"].get("checklocalcert", False)
     class ClientHandler(CommonSCNHandler):
         """ client handler """
         server_version = 'simplescn/1.0 (client)'

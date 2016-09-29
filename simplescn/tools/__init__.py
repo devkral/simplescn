@@ -620,22 +620,48 @@ def gen_result(res):
 ### logging ###
 
 def logcheck(ret, level=logging.DEBUG):
-    if ret[0]:
+    """ check if request was successful + log """
+    # don't share code because findCaller can only find the last calling function
+    if isinstance(ret[0], bool):
+        offset = 0
+    else:
+        offset = 1
+    if ret[offset]:
         return True
     else:
-        if level != 0: # = logging.DEBUG
-            try:
-                fn, lno, func, sinfo = logging.root.findCaller(False)
-            except ValueError: # fails on some interpreters
-                fn, lno, func, sinfo = "(unknown file)", 0, "(unknown function)", None
-            sinfo = ret[1].get("stacktrace", None)
-            message = ret[1].get("msg", "")
-            if message == "":
-                message = "{levelname}:{line}:{funcname}: crashed".format(levelname=logging.getLevelName(level), line=lno, funcname=func)
-            record = logging.root.makeRecord(logging.root.name, level, fn, lno, message, [], None, func, None, sinfo)
-            logging.root.handle(record)
+        try:
+            fn, lno, func, sinfo = logging.root.findCaller(False)
+        except ValueError: # fails on some interpreters
+            fn, lno, func, sinfo = "(unknown file)", 0, "(unknown function)", None
+        sinfo = ret[1+offset].get("stacktrace", None)
+        message = ret[1+offset].get("msg", "")
+        if message == "":
+            message = "{levelname}:{line}:{funcname}: crashed".format(levelname=logging.getLevelName(level), line=lno, funcname=func)
+        record = logging.root.makeRecord(logging.root.name, level, fn, lno, message, [], None, func, None, sinfo)
+        logging.root.handle(record)
         return False
 
+def logcheck_con(ret, level=logging.ERROR):
+    """ check also if [0] is not None """
+    # don't share code because findCaller can only find the last calling function
+    if ret[0] and ret[1]:
+        return True
+    else:
+        try:
+            fn, lno, func, sinfo = logging.root.findCaller(False)
+        except ValueError: # fails on some interpreters
+            fn, lno, func, sinfo = "(unknown file)", 0, "(unknown function)", None
+        # connection is missing but True
+        if not ret[0] and ret[1]:
+            message = "{levelname}:{line}:{funcname}: missing connection".format(levelname=logging.getLevelName(level), line=lno, funcname=func)
+        else:
+            sinfo = ret[2].get("stacktrace", None)
+            message = ret[2].get("msg", "")
+            if message == "":
+                message = "{levelname}:{line}:{funcname}: crashed".format(levelname=logging.getLevelName(level), line=lno, funcname=func)
+        record = logging.root.makeRecord(logging.root.name, level, fn, lno, message, [], None, func, None, sinfo)
+        logging.root.handle(record)
+        return False
 
 def loglevel_converter(loglevel):
     if isinstance(loglevel, int):

@@ -36,8 +36,8 @@ class ProxyHandler(server.BaseHTTPRequestHandler):
         if forcehash:
             wrapbody["forcehash"] = forcehash
         resp = self.requester.do_request("/client/wrap", wrapbody, {}, keepalive=True)
-        if not resp[1] or not resp[0]:
-            self.send_error(400, resp[1])
+        if not resp[0] or not resp[1]:
+            self.send_error(400, str(resp[2]))
             return
         self.send_response(200)
         self.end_headers()

@@ -10,7 +10,7 @@ import json
 
 from http import server, client
 from simplescn import scnrequest, pwcallmethod
-from simplescn.tools import scnparse_url, getlocalclient, dhash, default_sslcont
+from simplescn.tools import scnparse_url, getlocalclient, dhash, default_sslcont, logcheck_con
 
 hserver = None
 
@@ -95,14 +95,12 @@ def cmdloop(requester, ownscnport):
             continue
         body = {"name": "examplechat", "address": req[0]}
         resp = requester.do_request("/client/wrap", body, {})
-        if not resp[1] or resp[0] is None:
-            print(resp[2])
+        if logcheck_con(resp, logging.ERROR):
             continue
         
         con = client.HTTPConnection(*scnparse_url(req[0]))
         con.sock = resp[0].sock
         resp[0].sock = None
-        #print("lsls")
         ob = bytes(inp[1],"utf-8")
         con.putrequest("POST", "/chat")
         con.putheader("Content-Length", str(len(ob)))

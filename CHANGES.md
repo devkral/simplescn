@@ -27,9 +27,11 @@
 * do_request can add pw to returned dict
 * no warning if message is empty
 * add proxy example(untested)
+* logcheck supports do_request answers
+* add logcheck_con
 
 ## bugfixes
-* better verification serveranswers
+* better validation of serveranswers
 * fix multiinstance bugs
 * fix tests
 * fix massimport
@@ -38,7 +40,7 @@
 * fix cleaning certreferences
 * fix traversal (untested)
 * fix invalid chars in default name
-
+* fix loop_unix
 
 # 0.6.2
 ## bugfixes

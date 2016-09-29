@@ -84,7 +84,7 @@ def loop_ip(argv=sys.argv[1:]):
         cmdloop(argv[0], False)
 
 def loop_unix(argv=sys.argv[1:]):
-    if len(argv) < 2:
+    if len(argv) < 1:
         print("Usage: loop_unix <path>", file=sys.stderr)
     else:
         cmdloop(argv[0], True)
