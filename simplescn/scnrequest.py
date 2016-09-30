@@ -375,7 +375,7 @@ class ViaServerStruct(object):
                     return get_ret
         return get_ret
 
-    def via_direct(self, _hash: hashstr, addresses=None, traverseaddress=None, forcehash=None, addrcon=None):
+    def via_direct(self, _hash: hashstr, addresses=None, traverseaddress=None, traversepw=None, forcehash=None, addrcon=None):
         """func: check if client is reachable; update local information when reachable
             return: priority, type, certificate security, (new-)hash (client)
             addresses: list with scnparsable addresses (for connecting direct)
@@ -402,6 +402,8 @@ class ViaServerStruct(object):
             _check_directb = {"address": _address, "hash": _hash, "forcehash": _hash}
             if traverseaddress:
                 _check_directb["traverseaddress"] = traverseaddress
+            if traversepw:
+                _check_directb["traversepw"] = traversepw
             direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, \
                                            addrcon=addrcon, forcehash=forcehash)
             if direct_ret[1]:
@@ -424,17 +426,16 @@ class ViaServerStruct(object):
             nosearchs=nosearchs, nosearchn=nosearchn, forcehash=forcehash, addrcon=addrcon)
         if not via_ret[1]:
             return via_ret
+        _check_directb = {"address": "{}-{}".format(via_ret[2]["address"], via_ret[2]["port"]), "hash": _hash, \
+                          "security": via_ret[2].get("security", "valid")}
         if via_ret[2].get("security", "valid") != "valid":
-            _forcehash2 = via_ret[1].get("hash")
-        else:
-            _forcehash2 = None
-        _check_directb = {"address": via_ret[2]["address"], "hash": _hash, \
-                          "security": via_ret[2].get("security", "valid"), "forcehash":_forcehash2}
+            _check_directb["forcehash"] = via_ret[2].get("hash")
         if "name" in via_ret[2]:
             _check_directb["sname"] = via_ret[2]["name"]
         if via_ret[2].get("traverse_needed", False):
             _check_directb["traverseaddress"] = via_ret[2]["server"]
-            _check_directb["traversepw"] = via_ret[2]["hashedpw"]
+            if via_ret[2]["hashedpw"]:
+                _check_directb["traversepw"] = via_ret[2]["hashedpw"]
         direct_ret = self._do_request2("/client/check_direct", _check_directb, {}, \
                                        addrcon=addrcon, forcehash=forcehash)
         # return new hash in hash field
@@ -465,10 +466,11 @@ class ViaServerStruct(object):
         if not via_ret[1]:
             return via_ret
         # can throw exception if invalid change
-        wrapbody = {"address": via_ret[2]["address"],"name": sname, "forcehash": via_ret[2].get("hash")}
+        wrapbody = {"address": "{}-{}".format(via_ret[2]["address"], via_ret[2]["port"]),"name": sname, "forcehash": via_ret[2]["hash"]}
         if via_ret[2].get("traverse_needed", False):
             wrapbody["traverseaddress"] = via_ret[2]["server"]
-            wrapbody["traversepw"] = via_ret[2]["hashedpw"]
+            if via_ret[2]["hashedpw"]:
+                wrapbody["traversepw"] = via_ret[2]["hashedpw"]
         return self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash)
 
     def prioty_via_server(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, \
@@ -487,10 +489,11 @@ class ViaServerStruct(object):
         if not via_ret[1]:
             return via_ret
         # can throw exception if invalid change
-        pdirectb = {"address": via_ret[2]["address"], "forcehash": via_ret[2].get("hash")}
+        pdirectb = {"address": "{}-{}".format(via_ret[2]["address"], via_ret[2]["port"]), "forcehash": via_ret[2]["hash"]}
         if via_ret[2].get("traverse_needed", False):
             pdirectb["traverseaddress"] = via_ret[2]["server"]
-            pdirectb["traversepw"] = via_ret[2]["hashedpw"]
+            if via_ret[2]["hashedpw"]:
+                pdirectb["traversepw"] = via_ret[2]["hashedpw"]
         return self._do_request2("/client/prioty_direct", pdirectb, {}, addrcon=addrcon, forcehash=forcehash)
 
 class Requester(ViaServerStruct):
