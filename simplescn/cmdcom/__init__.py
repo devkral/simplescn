@@ -9,15 +9,10 @@ import os
 import socket
 import threading
 
-# don't load different module
-if __name__ == "__main__":
-    ownpath = os.path.dirname(os.path.realpath(__file__))
-    sys.path.insert(0, os.path.dirname(ownpath))
-
-from simplescn import pwcallmethod
-from simplescn.scnrequest import do_request_simple, do_request
-from simplescn.tools import getlocalclient, rw_socket
-from simplescn.tools.checks import check_local
+from .. import pwcallmethod
+from ..scnrequest import do_request_simple, do_request
+from ..tools import getlocalclient, rw_socket
+from ..tools.checks import check_local
 
 def cmdloop(ip, use_unix=False, forcehash=None):
     while True:
@@ -185,15 +180,13 @@ def direct_proxy(argv=sys.argv[1:]):
         ret_proxy[0].sock = None
         threading.Thread(target=rw_socket, args=(conn, wrapsoc), daemon=True).start()
 
-def _init_method_main(argv=sys.argv[1:]):
+allowed_methods = {"single", "single_ip", "single_unix", "loop", "loop_ip", "loop_unix", \
+                   "test_ip", "test_unix", "direct_proxy"}
+def init_cmdcom(argv=sys.argv[1:]):
     if len(argv) >= 1:
-        toexe = globals().get(argv[0].strip("_"), None)
-        if callable(toexe):
-            toexe(argv[1:])
+        if argv[0] in allowed_methods:
+            globals()[argv[0]](argv[1:])
+            return
         else:
-            print("Available: single{_ip, _unix, -}, loop{_ip, _unix, -}, test{_ip, _unix}}, direct_proxy", file=sys.stderr)
-    else:
-        print("Available: single{_ip, _unix, -}, loop{_ip, _unix, -}, test{_ip, _unix}}, direct_proxy", file=sys.stderr)
-
-if __name__ == "__main__":
-    _init_method_main()
+            print("Method not available", file=sys.stderr)
+    print("Available:", *allowed_methods, file=sys.stderr)

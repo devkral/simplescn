@@ -10,10 +10,10 @@ import logging
 import socket
 from http.client import HTTPSConnection
 
-from simplescn import config, pwcallmethod
-from simplescn.config import isself
+from .. import config, pwcallmethod
+from ..config import isself
 
-from simplescn.tools import badnamechars, dhash, default_sslcont, url_to_ipv6
+from . import badnamechars, dhash, default_sslcont, url_to_ipv6
 
 allowed_permissions = {"gettrust", "admin", "client"}
 

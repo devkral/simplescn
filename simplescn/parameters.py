@@ -31,7 +31,7 @@ dbending = ".sqlite"
 
 ## password prompts:
 pwcertgen_prompt = "(optional) Enter passphrase for encrypting key"
-pwrealm_prompt = "Please enter server password"
+pwrealm_prompt = "Please enter password"
 pwdecrypt_prompt = "Please enter password to unlock key"
 
 ## timeouts ##

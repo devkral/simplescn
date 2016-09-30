@@ -10,11 +10,11 @@ import threading
 import logging
 import abc
 
-from simplescn.config import isself
-from simplescn.tools import dhash, generate_certs, genc_error
-from simplescn.tools.checks import check_reference_type, namestr, permissionstr, \
+from .config import isself
+from .tools import dhash, generate_certs, genc_error
+from .tools.checks import check_reference_type, namestr, permissionstr, \
 hashstr, priorityint, namelist, hashlist, securitystr, addressstr, referencestr
-from simplescn._decos import classify_admin, classify_local, check_args_deco, classify_accessable
+from ._decos import classify_admin, classify_local, check_args_deco, classify_accessable
 
 def _mipcheck_inlisthelper(_name, _hash, entities, hashes):
     """ massimport helper """

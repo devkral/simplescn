@@ -52,8 +52,8 @@ def threaded_bar(func, threadsem, counter, args=(), kwargs={}):
         threadsem.acquire(True)
 
 def init_sem():
-    sem = threading.Semaphore(0)
-    for e in range(0, parallelnum):
+    sem = threading.Semaphore(1)
+    for e in range(0, parallelnum-1):
         sem.acquire(False)
     return sem
 

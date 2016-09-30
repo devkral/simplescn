@@ -10,12 +10,12 @@ import abc
 import logging
 
 
-from simplescn import EnforcedPortError
-from simplescn.config import isself
-from simplescn.tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
-from simplescn.tools.checks import check_updated_certs, check_local, check_args, \
+from . import EnforcedPortError
+from .config import isself
+from .tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
+from .tools.checks import check_updated_certs, check_local, check_args, \
 namestr, hashstr, securitystr, destportint, referencestr, addressstr, fastit
-from simplescn._decos import check_args_deco, classify_local, classify_accessable
+from ._decos import check_args_deco, classify_local, classify_accessable
 
 _checkgetresp =  {"address": addressstr, "security": securitystr, "traverse_needed": bool}
 _checkgetrespupdate =  {"address": addressstr, "security": securitystr, "name": namestr, "hash": hashstr, "traverse_needed": bool}

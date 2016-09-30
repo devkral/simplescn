@@ -31,9 +31,9 @@ except ImportError:
     psutil = None
 
 
-from simplescn import config, pwcallmethod
-from simplescn.config import isself
-from simplescn import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
+from .. import config, pwcallmethod
+from ..config import isself
+from .. import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
 ##### init ######
 
 def generate_certs(_path):

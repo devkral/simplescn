@@ -6,13 +6,6 @@ license: MIT, see LICENSE.txt
 import sys
 import os
 
-
-#__all__ = ["simplescn.tools", "AuthNeeded", "AddressError"]
-#__all__ += ["EnforcedPortError", "AddressEmptyError", "AddressInvalidError"]
-#__all__ += ["InvalidLoadError"]
-#__all__ += ["VALError", "VALNameError", "VALHashError", "VALMITMError"]
-#__all__ += ["pwcallmethodinst", "pwcallmethodinst", "resp_st"]
-
 ###### encode pw ######
 def hashpw(argv=sys.argv[1:]):
     """ create pw hash for *pwhash """

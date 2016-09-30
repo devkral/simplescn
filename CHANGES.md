@@ -32,6 +32,7 @@
 * fix+improve cmdcom single
 * register allows to use a different name to register with
 * fix sending packets at arbitary addresses (DDOS prevention)
+* reorganize simplescn structure
 
 ## bugfixes
 * better validation of serveranswers

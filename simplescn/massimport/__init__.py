@@ -8,14 +8,9 @@ license: MIT, see LICENSE.txt
 import sys
 import os
 
-# don't load different module
-if __name__ == "__main__":
-    ownpath = os.path.dirname(os.path.realpath(__file__))
-    sys.path.insert(0, os.path.dirname(ownpath))
-
-from simplescn import config, pwcallmethod
-from simplescn.scnrequest import do_request
-from simplescn._common import scnparse_args, parsepath
+from .. import config, pwcallmethod
+from ..scnrequest import do_request
+from .._common import scnparse_args, parsepath
 
 def massparse(inp):
     if inp == "":
@@ -78,6 +73,3 @@ def massimport_paramhelp():
     for _key, elem in sorted(massimport_args.items(), key=lambda x: x[0]):
         temp_doc += "  * key: {}, default: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return temp_doc
-
-if __name__ == "__main__":
-    cmdmassimport()

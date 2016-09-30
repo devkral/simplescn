@@ -18,11 +18,11 @@ from http.server import BaseHTTPRequestHandler
 import socketserver
 
 
-from simplescn import config
-from simplescn.config import isself, file_family
+from . import config
+from .config import isself, file_family
 
-from simplescn.tools import dhash, safe_mdecode, default_sslcont, loglevel_converter
-from simplescn.tools.checks import namestr, hashstr, securitystr, \
+from .tools import dhash, safe_mdecode, default_sslcont, loglevel_converter
+from .tools.checks import namestr, hashstr, securitystr, \
 check_typename, check_reference, check_reference_type, check_local, check_permission, priorityint
 
 

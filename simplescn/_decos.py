@@ -1,8 +1,8 @@
 
 import functools
 
-from simplescn.tools import generate_error
-from simplescn.tools.checks import check_args
+from .tools import generate_error
+from .tools.checks import check_args
 
 #def generate_permissionactions_deco(DecoClass):
 #    DecoClass.validactions_admin = set()

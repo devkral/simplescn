@@ -27,9 +27,8 @@ install_extras["md"] = ["markdown"]
 # speed as extra
 #install_extras["speed"] = speed_requirements
 
-entry_points["console_scripts"].append('scnmain = simplescn.__main__:_init_method_main')
-entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:_init_method_main')
-#entry_points["gui_scripts"] += ['simplescngui = simplescn.__main__:client']
+entry_points["console_scripts"].append('scnmain = simplescn.tools.start:init_method_main')
+entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:init_cmdcom')
 
 # plugins imported by MANIFEST.in
 setup(name='simplescn',
@@ -50,7 +49,7 @@ setup(name='simplescn',
       },
       install_requires=install_requirements,
       extras_require=install_extras,
-      packages=['simplescn', 'simplescn.tools'],
+      packages=['simplescn', 'simplescn.tools', 'simplescn.massimport', 'simplescn.cmdcom'],
       #ext_modules=distributions,
       test_suite="tests",
       classifiers=[
