@@ -471,7 +471,10 @@ class ViaServerStruct(object):
             wrapbody["traverseaddress"] = via_ret[2]["server"]
             if via_ret[2]["hashedpw"]:
                 wrapbody["traversepw"] = via_ret[2]["hashedpw"]
-        return self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash)
+        ret = self.do_request("/client/wrap", wrapbody, {}, addrcon=addrcon, keepalive=True, forcehash=forcehash)
+        if ret[1]:
+            ret[2]["address"] = via_ret[2]["address"]
+        return ret
 
     def prioty_via_server(self, _hash: hashstr, sname: namestr, server=None, name=None, sforcehash=None, \
                           nosearchs=False, nosearchn=False, forcehash=None, addrcon=None):
@@ -494,7 +497,10 @@ class ViaServerStruct(object):
             pdirectb["traverseaddress"] = via_ret[2]["server"]
             if via_ret[2]["hashedpw"]:
                 pdirectb["traversepw"] = via_ret[2]["hashedpw"]
-        return self._do_request2("/client/prioty_direct", pdirectb, {}, addrcon=addrcon, forcehash=forcehash)
+        ret = self._do_request2("/client/prioty_direct", pdirectb, {}, addrcon=addrcon, forcehash=forcehash)
+        if ret[1]:
+            ret[2]["address"] = via_ret[2]["address"]
+        return ret
 
 class Requester(ViaServerStruct):
     """ cache arguments, be careful, slows down requests by using copy() """

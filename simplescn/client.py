@@ -333,7 +333,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                     self.scn_send_answer(400, message="service speaks not scn post protocol")
                     return
             wrappedsocket.settimeout(self.etablished_timeout)
-            self.scn_send_answer(200, body=bytes(json.dumps({"port":port}), "utf-8"), mime="application/json", docache=False, dokeepalive=True)
+            self.scn_send_answer(200, body=b"{}", docache=False, dokeepalive=True)
             self.wfile.flush()
             rw_socket(self.connection, wrappedsocket, self.etablished_timeout)
             self.close_connection = True
