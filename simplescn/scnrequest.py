@@ -426,7 +426,7 @@ class ViaServerStruct(object):
             nosearchs=nosearchs, nosearchn=nosearchn, forcehash=forcehash, addrcon=addrcon)
         if not via_ret[1]:
             return via_ret
-        _check_directb = {"address": "{}-{}".format(via_ret[2]["address"], via_ret[2]["port"]), "hash": _hash, \
+        _check_directb = {"address": via_ret[2]["address"], "hash": _hash, \
                           "security": via_ret[2].get("security", "valid")}
         if via_ret[2].get("security", "valid") != "valid":
             _check_directb["forcehash"] = via_ret[2].get("hash")
@@ -466,7 +466,7 @@ class ViaServerStruct(object):
         if not via_ret[1]:
             return via_ret
         # can throw exception if invalid change
-        wrapbody = {"address": "{}-{}".format(via_ret[2]["address"], via_ret[2]["port"]),"name": sname, "forcehash": via_ret[2]["hash"]}
+        wrapbody = {"address": via_ret[2]["address"], "name": sname, "forcehash": via_ret[2]["hash"]}
         if via_ret[2].get("traverse_needed", False):
             wrapbody["traverseaddress"] = via_ret[2]["server"]
             if via_ret[2]["hashedpw"]:
@@ -489,7 +489,7 @@ class ViaServerStruct(object):
         if not via_ret[1]:
             return via_ret
         # can throw exception if invalid change
-        pdirectb = {"address": "{}-{}".format(via_ret[2]["address"], via_ret[2]["port"]), "forcehash": via_ret[2]["hash"]}
+        pdirectb = {"address": via_ret[2]["address"], "forcehash": via_ret[2]["hash"]}
         if via_ret[2].get("traverse_needed", False):
             pdirectb["traverseaddress"] = via_ret[2]["server"]
             if via_ret[2]["hashedpw"]:

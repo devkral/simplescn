@@ -65,11 +65,14 @@ class TestCommunication(unittest.TestCase):
 
     def test_register_get(self):
         reqister1 = self.client.links["client"].access_dict("register", {"server": "::1-{}".format(self.server_port)})
-        self.assertEqual(reqister1[0], True, reqister1[1])
+        self.assertTrue(reqister1[0], reqister1[1])
         self.assertDictEqual(reqister1[1], {'traverse_needed': True})
         ret1 = self.client.links["client"].access_dict("get", {"server": "::1-{}".format(self.server_port), "name": self.name, "hash": self.client_hash})
-        self.assertEqual(ret1[0], True, ret1[1])
-        
+        self.assertTrue(ret1[0], ret1[1])
+        self.assertTrue(ret1[1]["address"].rfind("-") != -1, ret1[1]["address"])
+        self.assertIn("pureaddress", ret1[1], ret1[1])
+        self.assertIn("port", ret1[1], ret1[1])
+
         register2 = self.client.links["client"].access_dict("register", {"server": "127.0.0.1-{}".format(self.server_port)})
         self.assertEqual(register2[0], True, register2[1])
         self.assertDictEqual(register2[1], {'traverse_needed': True}, register2[1])

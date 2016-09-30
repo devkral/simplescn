@@ -103,6 +103,8 @@ class TestSpeed(unittest.TestCase):
         cls.server_addressscn = "::1-{}".format(cls.server_port)
         cls.test_server_port = cls.testserver.server_port
         cls.testserver.serve_forever_nonblock()
+        # grace period before starting speed tests
+        time.sleep(1)
 
     # needed to run ONCE; tearDownModule runs async
     @classmethod

@@ -17,8 +17,8 @@ from .tools.checks import check_updated_certs, check_local, check_args, \
 namestr, hashstr, securitystr, destportint, referencestr, addressstr, fastit
 from ._decos import check_args_deco, classify_local, classify_accessable
 
-_checkgetresp =  {"address": addressstr, "security": securitystr, "traverse_needed": bool}
-_checkgetrespupdate =  {"address": addressstr, "security": securitystr, "name": namestr, "hash": hashstr, "traverse_needed": bool}
+_checkgetresp =  {"pureaddress": addressstr, "port": destportint, "security": securitystr, "traverse_needed": bool}
+_checkgetrespupdate =  {"pureaddress": addressstr, "port": destportint, "security": securitystr, "name": namestr, "hash": hashstr, "traverse_needed": bool}
 
 #@generate_validactions_deco
 class ClientClientSafe(object, metaclass=abc.ABCMeta):
@@ -213,9 +213,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             if not check_args(_getret[1], _checkgetresp):
                 return False, genc_error("invalid serveranswer")
         # case: remote node runs on server
-        if check_local(_getret[1]["address"]):
+        if check_local(_getret[1]["pureaddress"]):
             # use serveraddress instead
-            _getret[1]["address"] = scnparse_url(obdict["server"])[0]
+            _getret[1]["pureaddress"] = scnparse_url(obdict["server"])[0]
+        _getret[1]["address"] = "{}-{}".format( _getret[1]["pureaddress"] ,  _getret[1]["port"])
         return _getret
 
     @check_args_deco({"address": addressstr})
