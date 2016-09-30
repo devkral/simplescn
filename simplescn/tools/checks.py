@@ -88,12 +88,22 @@ def check_dport(dport):
 destportint = checkclass(check_dport, int)
 
 def check_address(address):
+    """ quick check ip address for common errors """
     if isinstance(address, str) and len(address) <= config.max_urllength and \
         address != "" and address != " ":
         return True
     else:
         return False
 addressstr = checkclass(check_address)
+
+def check_ipaddr(address):
+    """ quick check ip address for common errors """
+    if isinstance(address, str) and len(address) < 50 and \
+        ("." in address or ":" in address):
+        return True
+    else:
+        return False
+ipaddrstr = checkclass(check_ipaddr)
 
 def check_local(addr):
     if addr.lower() in ["127.0.0.1", "::1", "::ffff:127.0.0.1"]:

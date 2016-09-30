@@ -14,11 +14,11 @@ from . import EnforcedPortError
 from .config import isself
 from .tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
 from .tools.checks import check_updated_certs, check_local, check_args, \
-namestr, hashstr, securitystr, destportint, referencestr, addressstr, fastit
+namestr, hashstr, securitystr, destportint, referencestr, addressstr, fastit, ipaddrstr
 from ._decos import check_args_deco, classify_local, classify_accessable
 
-_checkgetresp =  {"pureaddress": addressstr, "port": destportint, "security": securitystr, "traverse_needed": bool}
-_checkgetrespupdate =  {"pureaddress": addressstr, "port": destportint, "security": securitystr, "name": namestr, "hash": hashstr, "traverse_needed": bool}
+_checkgetresp =  {"pureaddress": ipaddrstr, "port": destportint, "security": securitystr, "traverse_needed": bool}
+_checkgetrespupdate =  {"pureaddress": ipaddrstr, "port": destportint, "security": securitystr, "name": namestr, "hash": hashstr, "traverse_needed": bool}
 
 #@generate_validactions_deco
 class ClientClientSafe(object, metaclass=abc.ABCMeta):
