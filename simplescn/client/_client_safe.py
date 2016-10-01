@@ -10,12 +10,12 @@ import abc
 import logging
 
 
-from . import EnforcedPortError
-from .config import isself
-from .tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, quick_error
-from .tools.checks import check_updated_certs, check_local, check_args, \
+from ..exceptions import EnforcedPortError
+from ..config import isself
+from ..tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, quick_error
+from ..tools.checks import check_updated_certs, check_local, check_args, \
 namestr, hashstr, securitystr, destportint, referencestr, addressstr, fastit, ipaddrstr
-from ._decos import check_args_deco, classify_local, classify_accessable
+from .._decos import check_args_deco, classify_local, classify_accessable
 
 _checkgetresp =  {"pureaddress": ipaddrstr, "port": destportint, "security": securitystr, "traverse_needed": bool}
 _checkgetrespupdate =  {"pureaddress": ipaddrstr, "port": destportint, "security": securitystr, "name": namestr, "hash": hashstr, "traverse_needed": bool}

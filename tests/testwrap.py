@@ -13,8 +13,7 @@ import os
 # fix import
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-import simplescn
-from simplescn import scnrequest, config
+from simplescn import scnrequest, config, pwrequester
 from simplescn.tools import start, default_sslcont
 
 class httpserver(server.HTTPServer):
@@ -75,10 +74,10 @@ class TestWrap(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         #print(cls.temptestdir, cls.temptestdir2)
-        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        simplescn.pwcallmethodinst = lambda msg: ""
+        cls.oldpwcallmethodinst = pwrequester.pwcallmethodinst
+        pwrequester.pwcallmethodinst = lambda msg: ""
         config.debug_mode = True
-        config.harden = False
+        config.harden_mode = False
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
@@ -107,7 +106,7 @@ class TestWrap(unittest.TestCase):
         cls.client.quit()
         #cls.client2.quit()
         #cls.server.quit()
-        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+        pwrequester.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_wrap1(self):
         body = {"address": "::1-{}".format(self.client_port), "name": "test1"}

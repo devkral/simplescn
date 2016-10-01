@@ -31,9 +31,10 @@ except ImportError:
     psutil = None
 
 
-from .. import config, pwcallmethod
+from .. import config
+from ..pwrequester import pwcallmethod
 from ..config import isself
-from .. import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
+from ..exceptions import AddressError, AddressEmptyError, AddressLengthError, EnforcedPortError
 ##### init ######
 
 def generate_certs(_path):

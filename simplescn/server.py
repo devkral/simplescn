@@ -13,7 +13,9 @@ import json
 import logging
 import ssl
 
-from . import config, InvalidLoadSizeError, InvalidLoadLevelError, pwcallmethod
+from . import config
+from .pwrequester import pwcallmethod
+from .exceptions import InvalidLoadSizeError, InvalidLoadLevelError
 
 from .tools import generate_certs, init_config_folder, \
 dhash, SCNAuthServer, TraverserDropper, scnparse_url, default_sslcont, get_pidlock
@@ -191,7 +193,7 @@ class Server(CommonSCN):
             if not ret[0]:
                 return False, quick_error("unreachable client")
             use_traversal = True
-        elif not config.kwargs["notraverse_local"] and self.traverse and check_local(caddress[0]):
+        elif not self.links["kwargs"]["notraverse_local"] and self.traverse and check_local(caddress[0]):
             use_traversal = True
         else:
             use_traversal = False

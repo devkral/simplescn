@@ -5,11 +5,10 @@ license: MIT, see LICENSE.txt
 """
 import shlex
 import sys
-import os
 import socket
 import threading
 
-from .. import pwcallmethod
+from ..pwrequester import pwcallmethod
 from ..scnrequest import do_request_simple, do_request
 from ..tools import getlocalclient, rw_socket
 from ..tools.checks import check_local

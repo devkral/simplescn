@@ -35,6 +35,7 @@ dbending = ".sqlite"
 pwcertgen_prompt = "(optional) Enter passphrase for encrypting key"
 pwrealm_prompt = "Please enter password"
 pwdecrypt_prompt = "Please enter password to unlock key"
+hashpw_prompt = "Please enter password or generate with: 'random' a random pw: "
 
 ## timeouts ##
 # time out for auth requests

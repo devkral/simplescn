@@ -10,7 +10,8 @@ import logging
 import socket
 from http.client import HTTPSConnection
 
-from .. import config, pwcallmethod
+from .. import config
+from ..pwrequester import pwcallmethod
 from ..config import isself
 
 from . import badnamechars, dhash, default_sslcont, url_to_ipv6

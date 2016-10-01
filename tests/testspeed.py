@@ -16,9 +16,8 @@ if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
 from http.server import BaseHTTPRequestHandler
 from http.client import HTTPSConnection
 
-import simplescn
 from simplescn._common import SHTTPServer
-from simplescn import scnrequest, tools, config
+from simplescn import scnrequest, tools, config, pwrequester
 from simplescn.tools import start
 
 avgtestnum = 20
@@ -46,25 +45,23 @@ def _threaded_bar(func, threadsem, args, kwargs):
     threadsem.release()
 
 def threaded_bar(func, threadsem, counter, args=(), kwargs={}):
+    threadsem.acquire(False)
     threading.Thread(target=_threaded_bar, args=(func, threadsem, args, kwargs), daemon=True).start()
     counter[0] += 1
     if counter[0] >= counter[1]:
         threadsem.acquire(True)
 
-def init_sem():
-    sem = threading.Semaphore(1)
-    for e in range(0, parallelnum-1):
-        sem.acquire(False)
-    return sem
-
 class TestServerHandler(BaseHTTPRequestHandler):
     server_timeout = 4
     def do_POST(self):
-        self.send_response(200, "ok")
+        self.send_response(200)
         self.send_header("Content-Length", str(2))
         self.send_header("Content-Type", "text/html")
         self.end_headers()
         self.wfile.write(b"ok")
+
+    def log_request(self, code='-', size='-'):
+        pass
 
 class TestSpeed(unittest.TestCase):
     temptestdir = tempfile.TemporaryDirectory()
@@ -79,10 +76,10 @@ class TestSpeed(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         compileall.compile_dir(os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "simplescn"))
-        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        simplescn.pwcallmethodinst = lambda msg: ""
-        config.debug_mode = True
-        config.harden = False
+        cls.oldpwcallmethodinst = pwrequester.pwcallmethodinst
+        pwrequester.pwcallmethodinst = lambda msg: ""
+        config.debug_mode = False
+        config.harden_mode = True
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
@@ -117,7 +114,7 @@ class TestSpeed(unittest.TestCase):
         #cls.client2.quit()
         cls.server.quit()
         cls.testserver.server_close()
-        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+        pwrequester.pwcallmethodinst = cls.oldpwcallmethodinst
         print(cls.referencestuff)
         print(cls.referencestuffinvalid)
 
@@ -130,7 +127,7 @@ class TestSpeed(unittest.TestCase):
 
     def test_regspeed_parallel(self):
         counter = [0, parallelnum]
-        bar = init_sem()
+        bar = threading.Semaphore(1)
         fun = lambda : threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("register", {"server": self.server_addressscn}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
@@ -147,7 +144,7 @@ class TestSpeed(unittest.TestCase):
 
     def test_show_parallel(self):
         counter = [0, parallelnum]
-        bar = init_sem()
+        bar = threading.Semaphore(1)
         fun = lambda: threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("show", {}))
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
@@ -163,7 +160,7 @@ class TestSpeed(unittest.TestCase):
     
     def test_capspeed_parallel(self):
         counter = [0, parallelnum]
-        bar = init_sem()
+        bar = threading.Semaphore(1)
         fun = lambda: threaded_bar(self.client.links["client"].access_dict, bar, counter, args=("cap", {"address": self.server_addressscn}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
@@ -194,7 +191,7 @@ class TestSpeed(unittest.TestCase):
 
     def test_connectspeedinvalid_parallel(self):
         counter = [0, parallelnum]
-        bar = init_sem()
+        bar = threading.Semaphore(1)
         fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.client_port2), "/client/teststubnotvalidparallel", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
@@ -210,7 +207,7 @@ class TestSpeed(unittest.TestCase):
     
     def test_connecttestserver_parallel(self):
         counter = [0, parallelnum]
-        bar = init_sem()
+        bar = threading.Semaphore(1)
         fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:

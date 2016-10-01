@@ -693,6 +693,8 @@ class CommonSCNHandler(BaseHTTPRequestHandler):
         """Log an accepted request.
         This is called by send_response().
         """
+        if config.harden_mode:
+            return
         if isinstance(code, http.HTTPStatus):
             _code = code.value
         else:

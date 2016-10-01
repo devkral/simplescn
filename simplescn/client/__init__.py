@@ -12,18 +12,20 @@ import json
 import logging
 from http import client
 
-from . import config, VALError, AuthNeeded, AddressError, pwcallmethod
-from .config import isself, file_family
+from .. import config
+from ..pwrequester import pwcallmethod
+from ..exceptions import VALError, AuthNeeded, AddressError
+from ..config import isself, file_family
 #, create_certhashheader
-from ._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, CerthashDb, loglevel_converter, PermissionHashDb
-from .tools import default_sslcont, try_traverse, SecdirHandler, generate_certs, \
+from .._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, CerthashDb, loglevel_converter, PermissionHashDb
+from ..tools import default_sslcont, try_traverse, SecdirHandler, generate_certs, \
 init_config_folder, dhash, rw_socket, SCNAuthServer, TraverserHelper, \
 generate_error, gen_result, writemsg, quick_error
-from .tools.checks import check_certs, check_local, check_classify, hashstr, namestr
-from ._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
+from ..tools.checks import check_certs, check_local, check_classify, hashstr, namestr
+from .._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from ._client_admin import ClientClientAdmin
 from ._client_safe import ClientClientSafe
-from .scnrequest import do_request
+from ..scnrequest import do_request
 
 
 @generate_validactions_deco
@@ -630,7 +632,7 @@ class ClientInit(object):
             ret["cserver_unix"] = _r.server_name
         return ret
 
-if config.file_family:
+if file_family:
     default_nounix = "False"
     default_noip = "True"
 else:

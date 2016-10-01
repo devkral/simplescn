@@ -10,7 +10,7 @@ from .config import isself
 from .tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, quick_error, \
 dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6, gen_result
-from . import AuthNeeded, VALHashError, VALNameError, VALMITMError
+from .exceptions import AuthNeeded, VALHashError, VALNameError, VALMITMError
 from .tools.checks import namestr, hashstr, checkclass
 
 reference_header = \
