@@ -477,7 +477,7 @@ default_server_args = {
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "notraversal": ["False", parsebool, "<bool>: disable traversal"],
     "nolock": ["False", parsebool, "<bool>: deactivate port lock"],
-    "notraverse_local": ["False", parsebool, "<bool>: don't traverse if connecting client runs local"]}
+    "notraverse_local": ["False", parsebool, "<bool>: don't enable traverse for clients on localhost"]}
 
 def server_paramhelp():
     _temp = "# parameters\n"
