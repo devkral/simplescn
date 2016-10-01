@@ -227,4 +227,4 @@ class TestSpeed(unittest.TestCase):
         self.assertLess(ret/avgtestnum, avg)
 
 if __name__ == "__main__":
-    unittest.main(verbosity=0)
+    unittest.main(verbosity=2)
