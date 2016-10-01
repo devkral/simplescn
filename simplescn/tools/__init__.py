@@ -557,7 +557,7 @@ def dhash(oblist, algo=config.DEFAULT_HASHALGORITHM, prehash=""):
     return ret
 
 @functools.lru_cache(maxsize=config.default_cache_size)
-def encode_bo(inp, encoding, charset="utf-8"):
+def encode_bo(inp: bytes, encoding: str, charset="utf-8"):
     splitted = encoding.split(";", 1)
     if len(splitted) == 2:
         #splitted in format charset=utf-8
@@ -565,8 +565,8 @@ def encode_bo(inp, encoding, charset="utf-8"):
         charset = split2[1].strip().rstrip()
     return str(inp, charset, errors="ignore")
 
-@functools.lru_cache(maxsize=config.default_cache_size)
-def safe_mdecode(inp, encoding, charset="utf-8"):
+# don't cache, elsewise could errors happen because returned dict is changed (mutable return)
+def safe_mdecode(inp, encoding: str, charset="utf-8"):
     try:
         # extract e.g. application/json
         enctype = encoding.split(";", 1)[0].strip().rstrip()

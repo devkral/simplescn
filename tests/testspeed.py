@@ -21,12 +21,14 @@ from simplescn import scnrequest, tools, config, pwrequester
 from simplescn.tools import start
 
 avgtestnum = 50
-avg = 0.4
+avg = 0.3
 
 parallelnum = 50
-maxtime = 4 # fails with 2 if ./setup.py is used
+maxtime = 3
 
 printresults = False
+if not printresults and "SCNDEBUG" in os.environ:
+    printresults = True
 
 def stubconnect(addr, _port):
     con = HTTPSConnection(addr, _port, context=tools.default_sslcont())

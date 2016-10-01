@@ -53,6 +53,7 @@ def check_reference(_reference):
     return True
 referencestr = checkclass(check_reference)
 
+@functools.lru_cache(maxsize=128, typed=True)
 def check_reference_type(_reference_type):
     if not isinstance(_reference_type, str):
         return False
@@ -117,9 +118,10 @@ def check_local(addr):
 #        return True
 #    return False
 
+@functools.lru_cache(maxsize=config.default_cache_size, typed=True)
 def check_hash(hashstring):
     """ check if valid hash (for scn) """
-    if hashstring in [None, ""]:
+    if not isinstance(hashstring, str):
         return False
     if len(hashstring) not in config.validhexhashlengths:
         return False
@@ -130,9 +132,10 @@ def check_hash(hashstring):
 hashstr = checkclass(check_hash)
 hashlist = checkclass(classlist_helper(check_hash), list)
 
+@functools.lru_cache(maxsize=config.default_cache_size, typed=True)
 def check_name(_name, maxlength=config.max_namelength):
     """ check node name """
-    if _name is None:
+    if not isinstance(_name, str):
         return False
     # name shouldn't be too long or 0
     if len(_name) > maxlength or len(_name) == 0:
@@ -148,10 +151,10 @@ def check_name(_name, maxlength=config.max_namelength):
 namestr = checkclass(check_name)
 namelist = checkclass(classlist_helper(check_name), list)
 
-@functools.lru_cache(maxsize=16)
+@functools.lru_cache(maxsize=16, typed=True)
 def check_typename(_type, maxlength=config.max_typelength):
     """ check if valid node type """
-    if _type is None:
+    if not isinstance(_type, str):
         return False
     # type shouldn't be too long or 0
     if len(_type) > maxlength or len(_type) == 0:
@@ -166,8 +169,6 @@ def check_typename(_type, maxlength=config.max_typelength):
 
 
 def check_permission(_type):
-    if _type is None:
-        return False
     if _type in allowed_permissions:
         return True
     return False
@@ -200,7 +201,7 @@ def check_certs(path):
 
 # removed support for checking multiple classifier in one call
 # reason: huge speed improvements
-@functools.lru_cache()
+@functools.lru_cache(maxsize=256)
 def check_classify(func, perm: str) -> bool:
     if not hasattr(func, "classify"):
         return False

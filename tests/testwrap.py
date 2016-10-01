@@ -43,7 +43,7 @@ class WrapTestHandler(server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def confirm(self):
-        ob = bytes(json.dumps({"origcertinfo":  self.certtupel}), "utf-8")
+        ob = bytes(json.dumps({"origcertinfo": self.certtupel}), "utf-8")
         self.send_response(200)
         self.send_header("Content-Length", str(len(ob)))
         self.send_header('Connection', 'close')
@@ -61,7 +61,7 @@ class WrapTestHandler(server.BaseHTTPRequestHandler):
 
 class TestWrap(unittest.TestCase):
     temptestdir = tempfile.TemporaryDirectory("testwrap")
-    temptestdir2 = tempfile.TemporaryDirectory("testwrap")
+    temptestdir2 = tempfile.TemporaryDirectory("testwrap2")
     #param_server = ["--config={}".format(temptestdir), "--nolock", "--port=0"]
     param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip=False", "port=0"]
     param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip", "port=0"]

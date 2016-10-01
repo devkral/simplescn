@@ -149,7 +149,7 @@ class ClientServer(CommonSCN):
             dcserver["name"] = "noname"
         self.name = dcserver["name"]
         self.message = dcserver["message"]
-        self.priority = self.links["kwargs"].get("priority")
+        self.priority = self.links["kwargs"]["priority"]
         self.cache["dumpservices"] = json.dumps({"dict": {}})
         self.update_cache()
         self.validactions.update(self.cache.keys())
@@ -222,7 +222,7 @@ class ClientServer(CommonSCN):
             return: security trust level
             hash: hash for which trust should be retrieved
         """
-        if not self.links["kwargs"].get("trustforall", False):
+        if not self.links["kwargs"]["trustforall"]:
             if not "origcertinfo" in obdict:
                 return False, quick_error("no certificate sent")
             if not self.links["permsdb"].exist(obdict["origcertinfo"][1], "gettrust"):
@@ -272,8 +272,12 @@ class ClientServer(CommonSCN):
         else:
             return False, quick_error("Traversal could not opened")
 
-def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
+def gen_ClientHandler(_links, hasserver=False, hasclient=False):
     """ create handler with: links, server_timeout, default_timeout, ... """
+    remote = hasserver and hasclient
+    # only activate wrap if hasserver
+    # and nowrap == False
+    haswrap = hasserver and not _links["kwargs"]["nowrap"]
     checklocalcert = _links["kwargs"]["checklocalcert"]
     class ClientHandler(CommonSCNHandler):
         """ client handler """
@@ -397,6 +401,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                     conn.sock = None
                 else:
                     wrappedsocket = None
+                #assert isinstance(resultob, dict), "{} (resultob) is not a dict".format(resultob)
                 jsonnized = bytes(json.dumps(resultob), "utf-8", errors="ignore")
                 self.scn_send_answer(status, body=jsonnized, mime="application/json", docache=False, dokeepalive=True)
                 if wrappedsocket:
@@ -460,7 +465,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                 sub = ""
             else:
                 sub = splitted[1]
-            if resource == "wrap" and not nowrap:
+            if resource == "wrap" and haswrap:
                 if not self.links["auth_server"].verify(self.auth_info):
                     authreq = self.links["auth_server"].request_auth()
                     ob = bytes(json.dumps(authreq), "utf-8")
@@ -489,7 +494,7 @@ class ClientInit(object):
 
     @classmethod
     def create(cls, **kwargs):
-        if not kwargs.get("nolock", False):
+        if not kwargs["nolock"]:
             secdirpath = os.path.join(kwargs["run"], "{}-simplescn-client".format(os.getuid()))
             secdirinst = SecdirHandler.create(secdirpath, 0o700)
             if not secdirinst:
@@ -515,7 +520,7 @@ class ClientInit(object):
     def __init__(self, secdirinst, **kwargs):
         self.links = {}
         self.secdirinst = secdirinst
-        self.links["config_root"] = kwargs.get("config")
+        self.links["config_root"] = kwargs["config"]
         self.links["kwargs"] = kwargs
         _cpath = os.path.join(self.links["config_root"], "client")
         init_config_folder(self.links["config_root"], "client")
@@ -531,12 +536,12 @@ class ClientInit(object):
         self.links["permsdb"] = kwargs["permsdb"]
         self.links["hashdb"] = kwargs["hashdb"]
 
-        if bool(kwargs.get("spwhash")):
-            if kwargs.get("spwhash") not in hashstr:
-                logging.error("hashtest failed for spwhash, spwhash: %s", kwargs.get("spwhash"))
+        if bool(kwargs["spwhash"]):
+            if kwargs["spwhash"] not in hashstr:
+                logging.error("hashtest failed for spwhash, spwhash: %s", kwargs["spwhash"])
             else:
-                self.links["auth_server"].init(kwargs.get("spwhash"))
-        elif bool(kwargs.get("spwfile")):
+                self.links["auth_server"].init(kwargs["spwhash"])
+        elif bool(kwargs["spwfile"]):
             with open(kwargs["spwfile"], "r") as op:
                 pw = op.readline()
                 if pw[-1] == "\n":
@@ -548,14 +553,14 @@ class ClientInit(object):
         with open(_cpath+"_message.txt", 'r') as readinmes:
             _message = readinmes.read()
         #report missing file
-        if None in [pub_cert, _name, _message]:
+        if None in {pub_cert, _name, _message}:
             raise Exception("missing")
         _name = _name.split("/")
         if len(_name) > 2 or _name[0] not in namestr:
             logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _cpath + "_name")
             sys.exit(1)
-        if kwargs.get("port") > -1:
-            port = kwargs.get("port")
+        if kwargs["port"] > -1:
+            port = kwargs["port"]
         elif len(_name) >= 2:
             port = int(_name[1])
         else:
@@ -563,20 +568,19 @@ class ClientInit(object):
         sslcont = default_sslcont()
         sslcont.load_cert_chain(_cpath+"_cert.pub", _cpath+"_cert.priv", lambda pwmsg: bytes(pwcallmethod(config.pwdecrypt_prompt), "utf-8"))
 
-        if kwargs.get("remote", False):
-            self.links["shandler"] = gen_ClientHandler(self.links, hasserver=True, hasclient=True, remote=True, nowrap=kwargs.get("nowrap", False))
+        if kwargs["remote"]:
+            self.links["shandler"] = gen_ClientHandler(self.links, hasserver=True, hasclient=True)
             kwargs["noip"] = True
         else:
-            self.links["shandler"] = gen_ClientHandler(self.links, hasserver=True, \
-            hasclient=False, remote=False, nowrap=kwargs.get("nowrap", False))
+            self.links["shandler"] = gen_ClientHandler(self.links, hasserver=True, hasclient=False)
         self.links["hserver"] = SHTTPServer(("::", port), sslcont, self.links["shandler"])
 
-        if not kwargs.get("noip", False) or (not kwargs.get("nounix") and file_family):
-            self.links["chandler"] = gen_ClientHandler(self.links, hasserver=False, hasclient=True, remote=False, nowrap=True)
-            if file_family is not None and secdirinst and not kwargs.get("nounix"):
+        if not kwargs["noip"] or (not kwargs["nounix"] and file_family):
+            self.links["chandler"] = gen_ClientHandler(self.links, hasserver=False, hasclient=True)
+            if file_family is not None and secdirinst and not kwargs["nounix"]:
                 rpath = os.path.join(secdirinst.filepath, "socket")
                 self.links["cserver_unix"] = SHTTPServer(rpath, sslcont, self.links["chandler"], use_unix=True)
-            if not kwargs.get("noip", False):
+            if not kwargs["noip"]:
                 self.links["cserver_ip"] = SHTTPServer(("::1", port), sslcont, self.links["chandler"])
                 self.links["cserver_ip4"] = SHTTPServer(("::ffff:127.0.0.1", self.links["cserver_ip"].server_port), sslcont, self.links["chandler"])
 

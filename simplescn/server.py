@@ -289,7 +289,6 @@ class Server(CommonSCN):
 def gen_ServerHandler(_links):
     class ServerHandler(CommonSCNHandler):
         server_version = 'simplescn/1.0 (server)'
-        webgui = False
         links = _links
         server_timeout = _links["kwargs"]["server_timeout"]
         etablished_timeout = _links["kwargs"]["timeout"]
@@ -388,7 +387,7 @@ class ServerInit(object):
 
     def __init__(self, **kwargs):
         self.links = {}
-        self.links["config_root"] = kwargs.get("config")
+        self.links["config_root"] = kwargs["config"]
         self.links["kwargs"] = kwargs
         self.links["handler"] = gen_ServerHandler(self.links)
         _spath = os.path.join(self.links["config_root"], "server")
@@ -422,7 +421,7 @@ class ServerInit(object):
         if None in [pub_cert, _name, _message]:
             raise Exception("missing")
         _name = _name.split("/")
-        if len(_name) > 2 or _name not in namestr:
+        if len(_name) > 2 or _name[0] not in namestr:
             logging.error("Configuration error in %s\nshould be: <name>/<port>\nor name contains some restricted characters", _spath + "_name")
 
         if kwargs["port"] > -1:
