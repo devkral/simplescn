@@ -16,7 +16,7 @@
 * optimize hashdb, permsdb
 * add exist
 * remove mode from register
-* add option to configure traversal behaviour for local clients
+* add option to configure traversal behavior for local clients
 * Requester calls changed
 * move prioty, check to ViaServer
 * ViaServer provides via_direct, via_server using references
@@ -42,7 +42,7 @@
 * drastically improve speed by not using Requester
 * fix blocked pw requests by moving composed requests
 * fix cleaning certreferences
-* fix traversal (untested)
+* fix traversal (still untested)
 * fix invalid chars in default name
 * fix loop_unix
 

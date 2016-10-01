@@ -10,8 +10,7 @@ import os, sys
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-import simplescn
-from simplescn import config
+from simplescn import config, exceptions, pwrequester
 from simplescn import tools
 from simplescn.tools import checks
 
@@ -21,7 +20,7 @@ class TestGenerateError(unittest.TestCase):
         self.assertDictEqual(tools.generate_error(None), {"msg": "unknown", "type":"unknown"})
     def test_stack(self):
         try:
-            raise(simplescn.AddressInvalidError)
+            raise(exceptions.AddressInvalidError)
         except Exception as e:
             try:
                 raise(e)
@@ -40,21 +39,21 @@ class TestGenerateCerts(unittest.TestCase):
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
-        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
+        cls.oldpwcallmethodinst = pwrequester.pwcallmethodinst
 
     # needed to run ONCE; tearDownModule runs async
     @classmethod
     def tearDownClass(cls):
-        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+        pwrequester.pwcallmethodinst = cls.oldpwcallmethodinst
     
     def test_NoPw(self):
-        simplescn.pwcallmethodinst = lambda msg: ""
+        pwrequester.pwcallmethodinst = lambda msg: ""
         tools.generate_certs(os.path.join(self.temptestdir.name, "testnopw"))
         self.assertTrue(checks.check_certs(os.path.join(self.temptestdir.name, "testnopw")))
     
     def test_WithPw(self):
         pw = str(os.urandom(10), "utf-8", "backslashreplace")
-        simplescn.pwcallmethodinst = lambda msg: pw
+        pwrequester.pwcallmethodinst = lambda msg: pw
         tools.generate_certs(os.path.join(self.temptestdir.name, "testwithpw"))
         self.assertTrue(checks.check_certs(os.path.join(self.temptestdir.name, "testwithpw")))
 

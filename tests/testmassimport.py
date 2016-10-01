@@ -11,8 +11,7 @@ if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 
-import simplescn
-from simplescn import tools
+from simplescn import tools, config, pwrequester
 from simplescn.tools import start
 
 def cparam_client(cdir):
@@ -25,8 +24,10 @@ class TestMassimport(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         #print(cls.temptestdir, cls.temptestdir2)
-        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        simplescn.pwcallmethodinst = lambda msg: ""
+        cls.oldpwcallmethodinst = pwrequester.pwcallmethodinst
+        pwrequester.pwcallmethodinst = lambda msg: ""
+        config.debug_mode = True
+        config.harden_mode = False
         cls.client = start.client(["--config={}".format(cls.temptestdirsource.name), "--nolock", "--nounix", "--noip=False"], doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.show()["cserver_ip"][1]
@@ -48,7 +49,7 @@ class TestMassimport(unittest.TestCase):
         # server side needs some time to cleanup, elsewise strange exceptions happen
         time.sleep(2)
         cls.client.quit()
-        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+        pwrequester.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_importall(self):
         with tempfile.TemporaryDirectory("testmassimportdestall") as path:

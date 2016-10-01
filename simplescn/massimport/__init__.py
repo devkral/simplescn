@@ -6,9 +6,9 @@ license: MIT, see LICENSE.txt
 """
 
 import sys
-import os
 
-from .. import config, pwcallmethod
+from .. import config
+from ..pwrequester import pwcallmethod
 from ..scnrequest import do_request
 from .._common import scnparse_args, parsepath
 

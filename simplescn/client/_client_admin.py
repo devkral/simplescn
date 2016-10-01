@@ -10,11 +10,11 @@ import threading
 import logging
 import abc
 
-from .config import isself
-from .tools import dhash, generate_certs, genc_error
-from .tools.checks import check_reference_type, namestr, permissionstr, \
+from ..config import isself
+from ..tools import dhash, generate_certs, quick_error
+from ..tools.checks import check_reference_type, namestr, permissionstr, \
 hashstr, priorityint, namelist, hashlist, securitystr, addressstr, referencestr
-from ._decos import classify_admin, classify_local, check_args_deco, classify_accessable
+from .._decos import classify_admin, classify_local, check_args_deco, classify_accessable
 
 def _mipcheck_inlisthelper(_name, _hash, entities, hashes):
     """ massimport helper """
@@ -152,10 +152,10 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             reference: reference (=where to find node)
             reftype: reference type """
         if not check_reference_type(obdict["reftype"]):
-            return False, genc_error("reference type invalid")
+            return False, quick_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, genc_error("hash not found")
+            return False, quick_error("hash not found")
         return self.links["hashdb"].addreference(_tref[4], obdict["reference"], obdict["reftype"])
 
     @check_args_deco({"hash": hashstr, "reference": referencestr, "newreference": referencestr, "newreftype": str})
@@ -170,10 +170,10 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             newreference: new reference (=new location)
             newreftype: new reference type """
         if not check_reference_type(obdict["newreftype"]):
-            return False, genc_error("reference type invalid")
+            return False, quick_error("reference type invalid")
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, genc_error("hash not found")
+            return False, quick_error("hash not found")
         return self.links["hashdb"].updatereference(_tref[4], obdict["reference"], obdict["newreference"], obdict["newreftype"])
 
     @check_args_deco({"hash": hashstr, "reference": referencestr})
@@ -187,7 +187,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             reference: reference (=where to find node)"""
         _tref = self.links["hashdb"].get(obdict["hash"])
         if _tref is None:
-            return False, genc_error("hash not found")
+            return False, quick_error("hash not found")
         return self.links["hashdb"].delreference(_tref[4], obdict["reference"])
 
     @check_args_deco({"reason": securitystr})
@@ -199,7 +199,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             return: success or error
             reason: reason (=security level) for invalidating cert"""
         if obdict.get("reason") == "valid":
-            return False, genc_error("wrong reason")
+            return False, quick_error("wrong reason")
         self.delperm({"hash": self.links["certtupel"][1]})
         _cpath = os.path.join(self.links["config_root"], "client_cert")
         if os.path.isfile(_cpath+".pub"):
@@ -214,7 +214,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             with open(_brokenpath+".reason", "w") as wr:
                 wr.write(obdict.get("reason"))
         else:
-            return False, genc_error("no pubcert")
+            return False, quick_error("no pubcert")
         ret = generate_certs(_cpath)
         if not ret:
             logging.critical("Fatal error: certs could not be regenerated")
@@ -276,7 +276,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
                 with open(os.path.join(configr, "client_name.txt"), "r") as readn:
                     oldt = readn.read().strip().rstrip().split("/")
                 if oldt is None:
-                    return False, genc_error("reading name failed")
+                    return False, quick_error("reading name failed")
                 with open(os.path.join(configr, "client_name.txt"), "w") as writen:
                     if len(oldt) == 2:
                         writen.write("{}/{}".format(newname, oldt[1]))
@@ -315,7 +315,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             hash: certhash of trusted """
         ret = self.links["permsdb"].get(obdict["hash"], None)
         if ret is None:
-            return False, genc_error("retrieving permission(s) failed")
+            return False, quick_error("retrieving permission(s) failed")
         return True, {"items": ret, "map": ["permission"]}
 
     @check_args_deco({"sourceaddress": addressstr, "sourcehash": hashstr}, optional={"entities": namelist, "hashes": hashlist, "traverseaddress": addressstr, "traversepw": hashstr})
@@ -371,7 +371,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
                 self.links["hashdb"].addhash(_name, _hash, _type, _priority, _security)
             localref = self.links["hashdb"].get(_hash)
             if localref is None:
-                return False, genc_error("could not write entry")
+                return False, quick_error("could not write entry")
             localreferences = self.links["hashdb"].getreferences(localref[4])
             # reuse connection
             # retransmit clientcert after connection loss, e.g. Connection close

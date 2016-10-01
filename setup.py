@@ -49,7 +49,7 @@ setup(name='simplescn',
       },
       install_requires=install_requirements,
       extras_require=install_extras,
-      packages=['simplescn', 'simplescn.tools', 'simplescn.massimport', 'simplescn.cmdcom'],
+      packages=['simplescn', 'simplescn.client', 'simplescn.cmdcom', 'simplescn.config', 'simplescn.massimport', 'simplescn.pwrequester', 'simplescn.tools'],
       #ext_modules=distributions,
       test_suite="tests",
       classifiers=[

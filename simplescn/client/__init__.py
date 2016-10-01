@@ -12,18 +12,20 @@ import json
 import logging
 from http import client
 
-from . import config, VALError, AuthNeeded, AddressError, pwcallmethod
-from .config import isself, file_family
+from .. import config
+from ..pwrequester import pwcallmethod
+from ..exceptions import VALError, AuthNeeded, AddressError
+from ..config import isself, file_family
 #, create_certhashheader
-from ._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, CerthashDb, loglevel_converter, PermissionHashDb
-from .tools import default_sslcont, try_traverse, SecdirHandler, generate_certs, \
+from .._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, CerthashDb, loglevel_converter, PermissionHashDb
+from ..tools import default_sslcont, try_traverse, SecdirHandler, generate_certs, \
 init_config_folder, dhash, rw_socket, SCNAuthServer, TraverserHelper, \
-generate_error, gen_result, writemsg, genc_error
-from .tools.checks import check_certs, check_local, check_classify, hashstr, namestr
-from ._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
+generate_error, gen_result, writemsg, quick_error
+from ..tools.checks import check_certs, check_local, check_classify, hashstr, namestr
+from .._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from ._client_admin import ClientClientAdmin
 from ._client_safe import ClientClientSafe
-from .scnrequest import do_request
+from ..scnrequest import do_request
 
 
 @generate_validactions_deco
@@ -135,11 +137,11 @@ class ClientServer(CommonSCN):
         self.wlock = threading.Lock()
         self.links = dcserver["links"]
         self.capabilities = ["basic", "client", "trust"]
-        if not self.links["kwargs"].get("nowrap", False):
+        if not self.links["kwargs"]["nowrap"]:
             self.capabilities.append("wrap")
-        if not self.links["kwargs"].get("notraversal", False):
+        if not self.links["kwargs"]["notraversal"]:
             self.capabilities.append("traversal")
-        if self.links["kwargs"].get("trustforall", False):
+        if self.links["kwargs"]["trustforall"]:
             self.capabilities.append("trustforall")
 
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
@@ -167,9 +169,9 @@ class ClientServer(CommonSCN):
             hidden: port and servicename are not listed (default: False)
             post: send http post request with certificate in header to service (activates wrappedport if not explicitly deactivated) """
         if not check_local(obdict["clientaddress"][0]):
-            return False, genc_error("no permission")
+            return False, quick_error("no permission")
         if prefix and obdict["name"][0] != prefix:
-            return False, genc_error("service name without/with wrong prefix")
+            return False, quick_error("service name without/with wrong prefix")
         wrappedport = obdict.get("wrappedport", None)
         # activates wrappedport if unspecified
         if wrappedport is None:
@@ -197,9 +199,9 @@ class ClientServer(CommonSCN):
             return: success or error
             name: service name """
         if not check_local(obdict["clientaddress"][0]):
-            return False, genc_error("no permission")
+            return False, quick_error("no permission")
         if prefix and obdict["name"][0] != prefix:
-            return False, genc_error("service name without/with wrong prefix")
+            return False, quick_error("service name without/with wrong prefix")
 
         with self.wlock:
             if  obdict["name"] in self.spmap_meta:
@@ -222,9 +224,9 @@ class ClientServer(CommonSCN):
         """
         if not self.links["kwargs"].get("trustforall", False):
             if not "origcertinfo" in obdict:
-                return False, genc_error("no certificate sent")
+                return False, quick_error("no certificate sent")
             if not self.links["permsdb"].exist(obdict["origcertinfo"][1], "gettrust"):
-                return False, genc_error("No permission")
+                return False, quick_error("No permission")
         hasho = self.links["client"].links["hashdb"].get(obdict.get("hash"))
         if hasho:
             return True, {"security": hasho[3]}
@@ -240,7 +242,7 @@ class ClientServer(CommonSCN):
             name: servicename """
         serviceob = self.spmap_meta.get(obdict["name"], None)
         if not serviceob:
-            return False, genc_error("Service not available")
+            return False, quick_error("Service not available")
 
         if not serviceob[1]:
             return True, {"port": serviceob[0]}
@@ -254,12 +256,12 @@ class ClientServer(CommonSCN):
             return: portnumber or error
             name: servicename """
         if not self.links["kwargs"]["notraversal"]:
-            return False, genc_error("traversal disabled")
+            return False, quick_error("traversal disabled")
         serviceob = self.spmap_meta.get(obdict["name"], None)
         if not serviceob:
-            return False, genc_error("Service not available")
+            return False, quick_error("Service not available")
         if not serviceob[1]:
-            return False, genc_error("Service not traversable")
+            return False, quick_error("Service not traversable")
         #_port = obdict.get("destport", None)
         #if not _port:
         #    _port = obdict["clientaddress"][1]
@@ -268,19 +270,19 @@ class ClientServer(CommonSCN):
         if try_traverse(travaddr, destaddr, connect_timeout=self.links["kwargs"]["connect_timeout"], retries=config.traverse_retries):
             return True, {"port": serviceob[0]}
         else:
-            return False, genc_error("Traversal could not opened")
+            return False, quick_error("Traversal could not opened")
 
 def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
     """ create handler with: links, server_timeout, default_timeout, ... """
-    checklocalcert = _links["kwargs"].get("checklocalcert", False)
+    checklocalcert = _links["kwargs"]["checklocalcert"]
     class ClientHandler(CommonSCNHandler):
         """ client handler """
         server_version = 'simplescn/1.0 (client)'
         # set onlylocal variable if remote is deactivated and not server
         onlylocal = not remote and not hasserver
         links = _links
-        server_timeout = _links["kwargs"].get("server_timeout")
-        etablished_timeout = _links["kwargs"].get("default_timeout")
+        server_timeout = _links["kwargs"]["server_timeout"]
+        etablished_timeout = _links["kwargs"]["timeout"]
 
         def handle_wrap(self, servicename):
             """ wrap service """
@@ -301,7 +303,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
             for addr in ["::1", "::ffff:127.0.0.1"]:
                 try:
                     # handles udp, tcp, ipv6, ipv4 so use this instead own solution
-                    wrappedsocket = socket.create_connection((addr, port), self.links["kwargs"].get("connect_timeout"))
+                    wrappedsocket = socket.create_connection((addr, port), self.links["kwargs"]["connect_timeout"])
                     _waddr = addr.replace("::ffff:", "")
                     break
                 except Exception as e:
@@ -373,13 +375,17 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                     error = response[1]
                     # with harden mode do not show errormessage
                     if config.harden_mode and not isinstance(error, (AddressError, VALError)):
-                        resultob = genc_error("unknown")
+                        # create unknown error object
+                        resultob = {"msg": "unknown", "type": "unknown"}
                     else:
                         shallstack = not isinstance(error, (AddressError, VALError)) and \
                                      config.debug_mode and \
                                      (self.server.address_family != file_family or check_local(self.client_address[0]))
                         resultob = generate_error(error, shallstack)
-                    status = 500
+                    if isinstance(error, Exception):
+                        status = 500
+                    else:
+                        status = 400
                 else:
                     resultob = response[1]
                     status = 200
@@ -428,7 +434,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
                 except Exception as exc:
                     # with harden mode do not show errormessage
                     if config.harden_mode and not isinstance(exc, (AddressError, VALError)):
-                        generror = genc_error("unknown")
+                        generror = quick_error("unknown")
                     else:
                         shallstack = not isinstance(exc, (AddressError, VALError)) and \
                                      config.debug_mode and \
@@ -619,14 +625,14 @@ class ClientInit(object):
         _r = self.links.get("cserver_ip", None)
         if _r:
             ret["cserver_ip"] = _r.server_name, _r.server_port
-        elif self.links["kwargs"].get("remote", False):
+        elif self.links["kwargs"]["remote"]:
             ret["cserver_ip"] = ret["hserver"]
         _r = self.links.get("cserver_unix", None)
         if _r:
             ret["cserver_unix"] = _r.server_name
         return ret
 
-if config.file_family:
+if file_family:
     default_nounix = "False"
     default_noip = "True"
 else:
@@ -653,7 +659,7 @@ default_client_args = \
     "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb security"],
     "nowrap": ["False", parsebool, "<bool>: disable wrap"],
     "checklocalcert": ["False", parsebool, "<bool>: require certificate for local connections"],
-    "notraverse": ["True", parsebool, "<bool>: disable traversal"],
+    "notraversal": ["True", parsebool, "<bool>: disable traversal for services"],
     "nolock": ["False", parsebool, "<bool>: deactivate port lock+unix socket+info"]
 }
 

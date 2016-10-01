@@ -7,9 +7,11 @@ import threading
 import socket
 import ssl
 import json
+import logging
 
 from http import server, client
-from simplescn import scnrequest, pwcallmethod
+from simplescn import scnrequest
+from simplescn.pwrequester import pwcallmethod
 from simplescn.tools import scnparse_url, getlocalclient, dhash, default_sslcont, logcheck_con
 
 hserver = None

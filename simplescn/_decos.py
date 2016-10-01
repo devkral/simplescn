@@ -1,7 +1,7 @@
 
 import functools
 
-from .tools import generate_error
+from .tools import quick_error
 from .tools.checks import check_args
 
 #def generate_permissionactions_deco(DecoClass):
@@ -131,7 +131,7 @@ def check_args_deco(requires=None, optional=None):
             error = []
             if not check_args(obdict, requires, optional, error=error):
                 assert len(error) == 2, "assert: check_args failed ({})+error broken: {}".format(func.__name__, error)
-                return False, generate_error("check_args failed ({}) argument: {}, reason:{}".format(func.__name__, *error), False), self.links["certtupel"]
+                return False, quick_error("check_args failed ({}) argument: {}, reason: {}".format(func.__name__, *error)), self.links["certtupel"]
             resp = func(self, obdict, **kwargs)
             assert resp is not None, "assert: no return value in function {}".format(type(func).__name__)
 

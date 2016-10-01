@@ -10,8 +10,7 @@ import os
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-import simplescn
-from simplescn import tools, config
+from simplescn import tools, config, pwrequester
 from simplescn.tools import start
 
 
@@ -35,10 +34,10 @@ class TestCommunication(unittest.TestCase):
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
-        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        simplescn.pwcallmethodinst = lambda msg: ""
-        cls.oldconfig = config.traverse_local
-        config.traverse_local = True
+        cls.oldpwcallmethodinst = pwrequester.pwcallmethodinst
+        pwrequester.pwcallmethodinst = lambda msg: ""
+        config.debug_mode = True
+        config.harden_mode = False
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
@@ -60,8 +59,7 @@ class TestCommunication(unittest.TestCase):
         cls.client.quit()
         cls.client2.quit()
         cls.server.quit()
-        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
-        config.traverse_local = cls.oldconfig
+        pwrequester.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_register_get(self):
         reqister1 = self.client.links["client"].access_dict("register", {"server": "::1-{}".format(self.server_port)})

@@ -35,7 +35,7 @@ def init_scn():
 def server(argv, doreturn=False):
     """ start server component """
     init_scn()
-    from simplescn.server import server_paramhelp, default_server_args, ServerInit
+    from ..server import server_paramhelp, default_server_args, ServerInit
     kwargs = scnparse_args(argv, server_paramhelp, default_server_args)
     os.makedirs(kwargs["config"], 0o700, True)
     server_instance = ServerInit.create(**kwargs)
@@ -49,7 +49,7 @@ def server(argv, doreturn=False):
 def client(argv, doreturn=False):
     """ start client component """
     init_scn()
-    from simplescn.client import client_paramhelp, default_client_args, ClientInit
+    from ..client import client_paramhelp, default_client_args, ClientInit
     kwargs = scnparse_args(argv, client_paramhelp, default_client_args)
     os.makedirs(kwargs["config"], 0o700, True)
     client_instance = ClientInit.create(**kwargs)
@@ -62,19 +62,32 @@ def client(argv, doreturn=False):
 
 def cmdcom(argv=sys.argv[1:]):
     """ wrapper for cmdcom """
-    from simplescn.cmdcom import init_cmdcom
+    from ..cmdcom import init_cmdcom
     return init_cmdcom(argv)
 
 def cmd_massimport(argv=sys.argv[1:]):
     """ wrapper for cmdmassimport """
-    from simplescn.massimport import cmdmassimport
+    from ..massimport import cmdmassimport
     return cmdmassimport(argv)
 
+
 def hashpw(argv=sys.argv[1:]):
+    """ create pw hash for *pwhash """
+    from .tools import dhash
+    from ..pwrequester import pwcallmethod
+    import base64
+    if len(sys.argv) and sys.argv[1] in ["--help", "help"]:
+        print("Usage: {} hashpw [<pw>/\"random\"]".format(sys.argv[0]))
+        return
     if len(argv) == 0:
-        print(dhash(input(config.pwrealm_prompt)))
+        pw = pwcallmethod(config.hashpw_prompt)
     else:
-        print(dhash(argv[0]))
+        pw = argv[0]
+    
+    pw = argv[0]
+    if pw == "random":
+        pw = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
+    print("pw: {}, hash: {}".format(pw, dhash(pw)))
 
 allowed_methods = {"client", "server", "hashpw", "cmdcom", "cmd_massimport"}
 def init_method_main(argv=sys.argv[1:]):

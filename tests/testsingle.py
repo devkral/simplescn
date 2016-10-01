@@ -9,8 +9,7 @@ import os, sys
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-import simplescn
-from simplescn import tools
+from simplescn import tools, config, pwrequester
 from simplescn.tools import start
 
 class Test_single(unittest.TestCase):
@@ -26,8 +25,10 @@ class Test_single(unittest.TestCase):
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
-        cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
-        simplescn.pwcallmethodinst = lambda msg: ""
+        cls.oldpwcallmethodinst = pwrequester.pwcallmethodinst
+        pwrequester.pwcallmethodinst = lambda msg: ""
+        config.debug_mode = True
+        config.harden_mode = False
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client2 = start.client(cls.param_client2, doreturn=True)
 
@@ -35,7 +36,7 @@ class Test_single(unittest.TestCase):
     def tearDownClass(cls):
         cls.client.quit()
         cls.client2.quit()
-        simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
+        pwrequester.pwcallmethodinst = cls.oldpwcallmethodinst
 
     def test_blockclient(self):
         with self.assertLogs(level=logging.INFO):

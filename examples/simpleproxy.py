@@ -3,14 +3,12 @@
 
 import sys
 import os
-import threading
 import socket
-import ssl
-import json
 
-from http import server, client
-from simplescn import scnrequest, pwcallmethod
-from simplescn.tools import scnparse_url, getlocalclient, dhash, default_sslcont
+from http import server
+from simplescn import scnrequest
+from simpplescn.pwrequester import pwcallmethod
+from simplescn.tools import getlocalclient, rw_socket
 
 hserver = None
 

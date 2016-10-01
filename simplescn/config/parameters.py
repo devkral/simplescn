@@ -1,16 +1,18 @@
 
-# public domain  (only options)
+"""
+config
+public domain (only options)
+"""
 import tempfile
+import os
 from cryptography.hazmat.primitives import hashes
 
 logformat = '%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'
 
 # debug mode (activates server stacktraces)
-debug_mode = True
+debug_mode = "SCNDEBUG" in os.environ
 # all transmitted error messages are unknown
 harden_mode = False
-# scnserver activates traversal for local scnclients
-traverse_local = True
 
 ## sizes ##
 salt_size = 10
@@ -33,6 +35,7 @@ dbending = ".sqlite"
 pwcertgen_prompt = "(optional) Enter passphrase for encrypting key"
 pwrealm_prompt = "Please enter password"
 pwdecrypt_prompt = "Please enter password to unlock key"
+hashpw_prompt = "Please enter password or generate with: 'random' a random pw: "
 
 ## timeouts ##
 # time out for auth requests
