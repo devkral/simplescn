@@ -14,7 +14,7 @@ import os
 if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import simplescn
-from simplescn import scnrequest
+from simplescn import scnrequest, config
 from simplescn.tools import start, default_sslcont
 
 class httpserver(server.HTTPServer):

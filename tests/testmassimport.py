@@ -12,7 +12,7 @@ if os.path.dirname(os.path.dirname(os.path.realpath(__file__))) not in sys.path:
 
 
 import simplescn
-from simplescn import tools
+from simplescn import tools, config
 from simplescn.tools import start
 
 def cparam_client(cdir):

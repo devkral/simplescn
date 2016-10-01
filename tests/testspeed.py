@@ -18,7 +18,7 @@ from http.client import HTTPSConnection
 
 import simplescn
 from simplescn._common import SHTTPServer
-from simplescn import scnrequest, tools
+from simplescn import scnrequest, tools, config
 from simplescn.tools import start
 
 avgtestnum = 20
