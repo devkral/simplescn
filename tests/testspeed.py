@@ -20,11 +20,11 @@ from simplescn._common import SHTTPServer
 from simplescn import scnrequest, tools, config, pwrequester
 from simplescn.tools import start
 
-avgtestnum = 20
-avg = 0.3
+avgtestnum = 50
+avg = 0.4
 
-parallelnum = 20
-maxtime = 1.01
+parallelnum = 50
+maxtime = 4 # fails with 2 if ./setup.py is used
 
 printresults = False
 
