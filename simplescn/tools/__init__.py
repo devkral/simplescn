@@ -591,11 +591,10 @@ def safe_mdecode(inp, encoding, charset="utf-8"):
         logging.error(exc)
         return None
 
-@functools.lru_cache(maxsize=256)
-def genc_error(err: str):
-    """ Quick error, be careful: if used for more different strings than maxsize, old entries are deleted """
-    #assert isinstance(err, str), "genc_error only accepts str"
-    return generate_error(err, False)
+def quick_error(err: str):
+    """ Quick error """
+    #assert isinstance(err, str), "quick_error only accepts str"
+    return {"msg": err, "type": ""}
 
 def generate_error(err, withstack=True):
     """ generate error from string/exception/... """

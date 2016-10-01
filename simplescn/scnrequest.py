@@ -8,7 +8,7 @@ import logging
 from . import config
 from .config import isself
 from .tools import default_sslcont, scnparse_url, \
-safe_mdecode, encode_bo, try_traverse, genc_error, \
+safe_mdecode, encode_bo, try_traverse, quick_error, \
 dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6, gen_result
 from . import AuthNeeded, VALHashError, VALNameError, VALMITMError
 from .tools.checks import namestr, hashstr, checkclass
@@ -208,7 +208,7 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
     if con.sock is None:
         con.connect()
     if con.sock is None:
-        return None, False, genc_error("Could not open connection"), (isself, kwargs.get("ownhash", None), None)
+        return None, False, quick_error("Could not open connection"), (isself, kwargs.get("ownhash", None), None)
 
     if kwargs.get("sendclientcert", False):
         if kwargs.get("certcontext", None) and kwargs.get("ownhash", None):
@@ -216,7 +216,7 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
             sendheaders["X-certrewrap"] = _header
         else:
             con.close()
-            return None, False, genc_error("missing: certcontext or ownhash"), con.certtupel
+            return None, False, quick_error("missing: certcontext or ownhash"), con.certtupel
 
     if kwargs.get("keepalive", True):
         sendheaders["Connection"] = 'keep-alive'
@@ -241,7 +241,7 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
     if kwargs.get("sendclientcert", False):
         if _random != response.getheader("X-certrewrap", ""):
             con.close()
-            return None, False, genc_error("rewrapped cert secret does not match"), con.certtupel
+            return None, False, quick_error("rewrapped cert secret does not match"), con.certtupel
 
     if kwargs.get("sendclientcert", False):
         if _random != response.getheader("X-certrewrap", ""):
@@ -250,7 +250,7 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
     if response.status == 401:
         if not response.headers.get("Content-Length", "").isdigit():
             con.close()
-            return None, False, genc_error("pwrequest has no content length"), con.certtupel
+            return None, False, quick_error("pwrequest has no content length"), con.certtupel
         readob = response.read(int(response.getheader("Content-Length")))
         reqob = safe_mdecode(readob, response.getheader("Content-Type", "application/json"))
         if headers and headers.get("X-SCN-Authorization", None):
@@ -362,7 +362,7 @@ class ViaServerStruct(object):
         if name:
             namelist.insert(0, name)
 
-        get_ret = None, False, genc_error("no reference found"), (None, None, None)
+        get_ret = None, False, quick_error("no reference found"), (None, None, None)
         for _server in serverlist:
             for _name in namelist:
                 get_b = {"server": _server, "hash": _hash, "name": _name}
@@ -397,7 +397,7 @@ class ViaServerStruct(object):
             if not getrefs_address[1]:
                 return getrefs_address
             addresslist = [elem[0] for elem in getrefs_address[2]["items"]]
-        direct_ret = None, False, genc_error("addresslist empty"), (None, None, None)
+        direct_ret = None, False, quick_error("addresslist empty"), (None, None, None)
         for _address in addresslist:
             _check_directb = {"address": _address, "hash": _hash, "forcehash": _hash}
             if traverseaddress:

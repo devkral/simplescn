@@ -81,6 +81,8 @@ class TestSpeed(unittest.TestCase):
         compileall.compile_dir(os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "simplescn"))
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
+        config.debug_mode = True
+        config.harden = False
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port

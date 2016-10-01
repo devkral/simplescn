@@ -37,8 +37,8 @@ class TestCommunication(unittest.TestCase):
     def setUpClass(cls):
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
-        cls.oldconfig = config.traverse_local
-        config.traverse_local = True
+        config.debug_mode = True
+        config.harden = False
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
@@ -61,7 +61,6 @@ class TestCommunication(unittest.TestCase):
         cls.client2.quit()
         cls.server.quit()
         simplescn.pwcallmethodinst = cls.oldpwcallmethodinst
-        config.traverse_local = cls.oldconfig
 
     def test_register_get(self):
         reqister1 = self.client.links["client"].access_dict("register", {"server": "::1-{}".format(self.server_port)})

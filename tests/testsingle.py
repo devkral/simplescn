@@ -28,6 +28,8 @@ class Test_single(unittest.TestCase):
     def setUpClass(cls):
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
+        config.debug_mode = True
+        config.harden = False
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client2 = start.client(cls.param_client2, doreturn=True)
 

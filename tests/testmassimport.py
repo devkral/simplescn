@@ -27,6 +27,8 @@ class TestMassimport(unittest.TestCase):
         #print(cls.temptestdir, cls.temptestdir2)
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
         simplescn.pwcallmethodinst = lambda msg: ""
+        config.debug_mode = True
+        config.harden = False
         cls.client = start.client(["--config={}".format(cls.temptestdirsource.name), "--nolock", "--nounix", "--noip=False"], doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.show()["cserver_ip"][1]

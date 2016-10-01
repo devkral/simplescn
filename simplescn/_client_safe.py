@@ -12,7 +12,7 @@ import logging
 
 from . import EnforcedPortError
 from .config import isself
-from .tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, genc_error
+from .tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, quick_error
 from .tools.checks import check_updated_certs, check_local, check_args, \
 namestr, hashstr, securitystr, destportint, referencestr, addressstr, fastit, ipaddrstr
 from ._decos import check_args_deco, classify_local, classify_accessable
@@ -149,7 +149,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             ret = self.do_request(obdict["client"], "/server/getservice", senddict, _headers, forcehash=obdict.get("forcehash", None), \
                 traverseaddress=obdict.get("traverseaddress", None), traversepw=obdict.get("traversepw", None), forceport=True)
             if ret[0] and not isinstance(ret[1].get("port", None), int):
-                return False, genc_error("invalid serveranswer")
+                return False, quick_error("invalid serveranswer")
             return ret
         else:
             # access direct (more speed+no pwcheck)
@@ -174,7 +174,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             if not _tservices[0]:
                 return _tservices
             if not isinstance(_tservices[1].get("dict", None), dict):
-                return False, genc_error("invalid serveranswer")
+                return False, quick_error("invalid serveranswer")
             out = []
             for elem in _tservices[1]["dict"].items():
                 if elem[0] not in namestr or not isinstance(elem[1], int):
@@ -208,10 +208,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         # if brokencert check also update stuff
         if _getret[1].get("security", "") != "valid":
             if not check_args(_getret[1], _checkgetrespupdate):
-                return False, genc_error("invalid serveranswer")
+                return False, quick_error("invalid serveranswer")
         else:
             if not check_args(_getret[1], _checkgetresp):
-                return False, genc_error("invalid serveranswer")
+                return False, quick_error("invalid serveranswer")
         # case: remote node runs on server
         if check_local(_getret[1]["pureaddress"]):
             # use serveraddress instead
@@ -233,9 +233,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             pcert = ssl.DER_cert_to_PEM_cert(sslsock.getpeercert(True)).strip().rstrip()
             return True, {"hash": dhash(pcert), "cert": pcert}
         except ssl.SSLError:
-            return False, genc_error("server speaks no tls 1.2")
+            return False, quick_error("server speaks no tls 1.2")
         except ConnectionRefusedError:
-            return False, genc_error("server does not exist")
+            return False, quick_error("server does not exist")
         except EnforcedPortError as exc:
             return False, generate_error(exc, False)
         except Exception as exc:
@@ -257,7 +257,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                               traverseaddress=obdict.get("traverseaddress", None), \
                               traversepw=obdict.get("traversepw", None))
         if ret[0] and not isinstance(ret[1].get("security", None), str):
-            return False, genc_error("invalid serveranswer")
+            return False, quick_error("invalid serveranswer")
         return ret
 
     @check_args_deco({"address": addressstr, "name": namestr}, optional={"forcehash": hashstr, "traverseaddress": addressstr, "traversepw": hashstr})
@@ -289,7 +289,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if not _tnames[0]:
             return _tnames
         if not isinstance(_tnames[1].get("items", None), fastit):
-                return False, genc_error("invalid serveranswer")
+                return False, quick_error("invalid serveranswer")
         out = []
         # throw if "items" entry has invalid amount of parameters or is not iterable (catched)
         for name, _hash, _security in sorted(_tnames[1]["items"], key=lambda t: t[0]):
@@ -318,7 +318,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                     traverseaddress=obdict.get("traverseaddress", None), \
                     traversepw=obdict.get("traversepw", None))
             if not check_args(ret[1], {"type": str, "name": namestr, "message": str}):
-                return False, genc_error("invalid serveranswer")
+                return False, quick_error("invalid serveranswer")
             return ret
         else:
             # access direct (more speed+no pwcheck)
@@ -341,7 +341,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                     traverseaddress=obdict.get("traverseaddress", None), \
                     traversepw=obdict.get("traversepw", None))
             if ret[0] and not isinstance(ret[1].get("caps", None), fastit):
-                return False, genc_error("invalid serveranswer")
+                return False, quick_error("invalid serveranswer")
             return ret
         else:
             # access direct (more speed+no pwcheck)
@@ -364,7 +364,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                                 traverseaddress=obdict.get("traverseaddress", None), \
                                 traversepw=obdict.get("traversepw", None))
             if ret[0] and (not isinstance(ret[1].get("priority", None), int) or not isinstance(ret[1].get("type", None), str)):
-                return False, genc_error("invalid serveranswer")
+                return False, quick_error("invalid serveranswer")
             return ret
         else:
             # access direct (more speed+no pwcheck)
@@ -389,7 +389,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         if obdict["hash"] == self.links["certtupel"][1]:
             # forcehash if hash is from client itself
             if _obdsecurity != "valid":
-                return False, genc_error("Error: own client is marked not valid")
+                return False, quick_error("Error: own client is marked not valid")
             _priotydirectbody["forcehash"] = self.links["certtupel"][1]
         elif "forcehash" in obdict:
              # forcehash if requested
@@ -417,9 +417,9 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             address, port = scnparse_url(obdict.get("address"), False)
             check_ret = check_updated_certs(address, port, [(obdict["hash"], _newsecurity)], newhash=prioty_ret[2][1])
             if check_ret in [None, []] and _obdsecurity == "valid":
-                return False, genc_error("MITM attack?, Certmismatch")
+                return False, quick_error("MITM attack?, Certmismatch")
             elif check_ret in [None, []]:
-                return False, genc_error("MITM?, Wrong Server information?, Certmismatch and security!=valid")
+                return False, quick_error("MITM?, Wrong Server information?, Certmismatch and security!=valid")
             hashgetl = self.links["hashdb"].get(obdict["hash"])
             # is in db and was valid before
             if hashgetl and hashgetl[3] == "valid":
@@ -464,7 +464,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             hash: node certificate hash """
         out = self.links["hashdb"].get(obdict["hash"])
         if out is None:
-            return False, genc_error("Not in db")
+            return False, quick_error("Not in db")
         ret = \
         {
             "name": out[0],
@@ -541,10 +541,10 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         elif "hash" in obdict :
             _trethash = self.links["hashdb"].get(obdict["hash"])
             if _trethash is None:
-                return False, genc_error("hash not found")
+                return False, quick_error("hash not found")
             _tref = _trethash[4]
         else:
-            return False, genc_error("neither hash nor certreferenceid given")
+            return False, quick_error("neither hash nor certreferenceid given")
         temp = self.links["hashdb"].getreferences(_tref, obdict.get("filter", None))
         if temp is None:
             return False
@@ -559,5 +559,5 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             reference: reference """
         temp = self.links["hashdb"].findbyref(obdict["reference"], obdict.get("filter", None))
         if temp is None:
-            return False, genc_error("error looking up reference")
+            return False, quick_error("error looking up reference")
         return True, {"items": temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}

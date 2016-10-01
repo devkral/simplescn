@@ -41,6 +41,8 @@ class TestGenerateCerts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.oldpwcallmethodinst = simplescn.pwcallmethodinst
+        config.debug_mode = True
+        config.harden = False
 
     # needed to run ONCE; tearDownModule runs async
     @classmethod

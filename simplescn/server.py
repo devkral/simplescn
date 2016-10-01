@@ -19,7 +19,7 @@ from .tools import generate_certs, init_config_folder, \
 dhash, SCNAuthServer, TraverserDropper, scnparse_url, default_sslcont, get_pidlock
 from .tools.checks import check_certs, hashstr, check_local, namestr, check_updated_certs, destportint, addressstr, fastit
 from ._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
-from .tools import generate_error, genc_error
+from .tools import generate_error, quick_error
 from ._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, loglevel_converter
 
 @generate_validactions_deco
@@ -176,7 +176,7 @@ class Server(CommonSCN):
             port: listen port of client
             update: list with compromised hashes (includes reason=security) """
         if obdict["origcertinfo"][1] is None:
-            return False, genc_error("no_cert")
+            return False, quick_error("no_cert")
         if obdict["clientaddress"][0][:7] == "::ffff:":
             caddress = (obdict["clientaddress"][0][7:], obdict["clientaddress"][1])
         else:
@@ -189,9 +189,9 @@ class Server(CommonSCN):
                 return ret
             ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
             if not ret[0]:
-                return False, genc_error("unreachable client")
+                return False, quick_error("unreachable client")
             use_traversal = True
-        elif config.traverse_local and self.traverse and check_local(caddress[0]):
+        elif not config.kwargs["notraverse_local"] and self.traverse and check_local(caddress[0]):
             use_traversal = True
         else:
             use_traversal = False
@@ -237,13 +237,13 @@ class Server(CommonSCN):
             return: traverse_address (=remote own address)
             destaddr: destination address """
         if self.traverse is None:
-            return False, genc_error("no traversal possible")
+            return False, quick_error("no traversal possible")
         try:
             destaddr = scnparse_url(obdict.get("destaddr"), True)
         except Exception:
-            return False, genc_error("destaddr invalid")
+            return False, quick_error("destaddr invalid")
         if destaddr not in self.registered_addrs:
-            return False, genc_error("destaddr is not registered")
+            return False, quick_error("destaddr is not registered")
         travaddr = obdict.get("clientaddress")
         threading.Thread(target=self.traverse.send, args=(travaddr, destaddr), daemon=True).start()
         return True, {"traverseaddress": travaddr}
@@ -265,9 +265,9 @@ class Server(CommonSCN):
             hash: client hash
             autotraverse: open traversal when necessary (default: True) """
         if obdict["name"] not in self.nhipmap:
-            return False, genc_error("name not found")
+            return False, quick_error("name not found")
         if obdict["hash"] not in self.nhipmap[obdict["name"]]:
-            return False, genc_error("hash not found")
+            return False, quick_error("hash not found")
         _obj = self.nhipmap[obdict["name"]][obdict["hash"]]
         retob = {"security": _obj.get("security", "valid")}
         if _obj.get("security", "") != "valid":
@@ -319,7 +319,8 @@ def gen_ServerHandler(_links):
             except Exception as exc:
                 # with harden mode do not show errormessage
                 if config.harden_mode:
-                    generror = genc_error("unknown")
+                    # create unknown error object
+                    generror = {"msg": "unknown", "type": "unknown"}
                 else:
                     shallstack = config.debug_mode and \
                         (check_local(self.client_address[0]))
@@ -475,7 +476,8 @@ default_server_args = {
     "loglevel": [str(config.default_loglevel), loglevel_converter, "<int/str>: loglevel"],
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
     "notraversal": ["False", parsebool, "<bool>: disable traversal"],
-    "nolock": ["False", parsebool, "<bool>: deactivate port lock"]}
+    "nolock": ["False", parsebool, "<bool>: deactivate port lock"],
+    "notraverse_local": ["False", parsebool, "<bool>: don't traverse if connecting client runs local"]}
 
 def server_paramhelp():
     _temp = "# parameters\n"
