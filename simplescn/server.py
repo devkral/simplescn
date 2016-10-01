@@ -56,6 +56,7 @@ class Server(CommonSCN):
         self.nhipmap_cond = threading.Event()
         self.changeip_lock = threading.Lock()
         self.links = d["links"]
+        self.notraverse_local = self.links["kwargs"]["notraverse_local"]
         # now: always None, because set manually
         #  traversesrcaddr = d.get("traversesrcaddr", None)
         if len(config.very_low_load) != 2 or len(config.low_load) != 3 or len(config.medium_load) != 3 or len(config.high_load) != 3:
@@ -65,9 +66,9 @@ class Server(CommonSCN):
         if d["name"] is None or len(d["name"]) == 0:
             logging.debug("Name empty")
             d["name"] = "noname"
-        self.timeout = self.links["kwargs"].get("timeout")
-        self.connect_timeout = self.links["kwargs"].get("connect_timeout")
-        self.priority = self.links["kwargs"].get("priority")
+        self.timeout = self.links["kwargs"]["timeout"]
+        self.connect_timeout = self.links["kwargs"]["connect_timeout"]
+        self.priority = self.links["kwargs"]["priority"]
         self.name = d["name"]
         self.message = d["message"]
         self.cache["dumpnames"] = json.dumps({"items": []})
@@ -193,7 +194,7 @@ class Server(CommonSCN):
             if not ret[0]:
                 return False, quick_error("unreachable client")
             use_traversal = True
-        elif not self.links["kwargs"]["notraverse_local"] and self.traverse and check_local(caddress[0]):
+        elif not self.notraverse_local and self.traverse and check_local(caddress[0]):
             use_traversal = True
         else:
             use_traversal = False
@@ -290,8 +291,8 @@ def gen_ServerHandler(_links):
         server_version = 'simplescn/1.0 (server)'
         webgui = False
         links = _links
-        server_timeout = _links["kwargs"].get("server_timeout")
-        etablished_timeout = _links["kwargs"].get("default_timeout")
+        server_timeout = _links["kwargs"]["server_timeout"]
+        etablished_timeout = _links["kwargs"]["timeout"]
 
         def handle_server(self, action):
             if action not in self.links["server_server"].validactions:

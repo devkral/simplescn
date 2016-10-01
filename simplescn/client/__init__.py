@@ -137,11 +137,11 @@ class ClientServer(CommonSCN):
         self.wlock = threading.Lock()
         self.links = dcserver["links"]
         self.capabilities = ["basic", "client", "trust"]
-        if not self.links["kwargs"].get("nowrap", False):
+        if not self.links["kwargs"]["nowrap"]:
             self.capabilities.append("wrap")
-        if not self.links["kwargs"].get("notraversal", False):
+        if not self.links["kwargs"]["notraversal"]:
             self.capabilities.append("traversal")
-        if self.links["kwargs"].get("trustforall", False):
+        if self.links["kwargs"]["trustforall"]:
             self.capabilities.append("trustforall")
 
         if dcserver["name"] is None or len(dcserver["name"]) == 0:
@@ -274,15 +274,15 @@ class ClientServer(CommonSCN):
 
 def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, nowrap=False):
     """ create handler with: links, server_timeout, default_timeout, ... """
-    checklocalcert = _links["kwargs"].get("checklocalcert", False)
+    checklocalcert = _links["kwargs"]["checklocalcert"]
     class ClientHandler(CommonSCNHandler):
         """ client handler """
         server_version = 'simplescn/1.0 (client)'
         # set onlylocal variable if remote is deactivated and not server
         onlylocal = not remote and not hasserver
         links = _links
-        server_timeout = _links["kwargs"].get("server_timeout")
-        etablished_timeout = _links["kwargs"].get("default_timeout")
+        server_timeout = _links["kwargs"]["server_timeout"]
+        etablished_timeout = _links["kwargs"]["timeout"]
 
         def handle_wrap(self, servicename):
             """ wrap service """
@@ -303,7 +303,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False, remote=False, no
             for addr in ["::1", "::ffff:127.0.0.1"]:
                 try:
                     # handles udp, tcp, ipv6, ipv4 so use this instead own solution
-                    wrappedsocket = socket.create_connection((addr, port), self.links["kwargs"].get("connect_timeout"))
+                    wrappedsocket = socket.create_connection((addr, port), self.links["kwargs"]["connect_timeout"])
                     _waddr = addr.replace("::ffff:", "")
                     break
                 except Exception as e:
@@ -625,7 +625,7 @@ class ClientInit(object):
         _r = self.links.get("cserver_ip", None)
         if _r:
             ret["cserver_ip"] = _r.server_name, _r.server_port
-        elif self.links["kwargs"].get("remote", False):
+        elif self.links["kwargs"]["remote"]:
             ret["cserver_ip"] = ret["hserver"]
         _r = self.links.get("cserver_unix", None)
         if _r:
@@ -659,7 +659,7 @@ default_client_args = \
     "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb security"],
     "nowrap": ["False", parsebool, "<bool>: disable wrap"],
     "checklocalcert": ["False", parsebool, "<bool>: require certificate for local connections"],
-    "notraverse": ["True", parsebool, "<bool>: disable traversal"],
+    "notraversal": ["True", parsebool, "<bool>: disable traversal for services"],
     "nolock": ["False", parsebool, "<bool>: deactivate port lock+unix socket+info"]
 }
 
