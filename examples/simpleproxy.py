@@ -54,8 +54,8 @@ def init(requester, port):
     resp = requester.do_request("/client/show", {}, {})
     if not resp[1]:
         return
-    requester.saved_kwargs["forcehash"] = resp[3][1]
-    requester.saved_kwargs["ownhash"] = resp[3][1]
+    requester.p.keywords["forcehash"] = resp[3][1]
+    requester.p.keywords["ownhash"] = resp[3][1]
     ProxyHandler.requester = requester
     hserver = httpserver(("::1", port), ProxyHandler)
     print('{"port": %s}' % hserver.socket.getsockname()[1])
@@ -64,16 +64,16 @@ def init(requester, port):
 if __name__ == "__main__":
     if len(sys.argv) == 3:
         if os.path.exists(sys.argv[1]):
-            init(scnrequest.Requester(sys.argv[1], use_unix=True, pwhandler=pwcallmethod), int(sys.argv[2]))
+            init(scnrequest.Requester(addrcon=sys.argv[1], use_unix=True, pwhandler=pwcallmethod), int(sys.argv[2]))
         else:
-            init(scnrequest.Requester(sys.argv[1], use_unix=False, pwhandler=pwcallmethod), int(sys.argv[2]))
+            init(scnrequest.Requester(addrcon=sys.argv[1], use_unix=False, pwhandler=pwcallmethod), int(sys.argv[2]))
     else:
         port = 0
         if len(sys.argv) == 2:
             port = int(sys.argv[1])
         p = getlocalclient()
         if p:
-            init(scnrequest.Requester(p[0], use_unix=p[1], pwhandler=pwcallmethod), port)
+            init(scnrequest.Requester(addrcon=p[0], use_unix=p[1], pwhandler=pwcallmethod), port)
         else:
             print("Error: client not found", file=sys.stderr)
 

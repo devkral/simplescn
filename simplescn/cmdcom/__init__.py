@@ -9,7 +9,7 @@ import socket
 import threading
 
 from ..pwrequester import pwcallmethod
-from ..scnrequest import do_request_simple, do_request
+from ..scnrequest import do_request
 from ..tools import getlocalclient, rw_socket
 from ..tools.checks import check_local
 
@@ -23,10 +23,10 @@ def cmdloop(ip, use_unix=False, forcehash=None):
                 body[splitted[0]] = splitted[1]
         action = body.pop("action", "show")
         #try:
-        ret = do_request_simple(ip, "/client/{}".format(action), body, {}, pwhandler=pwcallmethod, use_unix=use_unix, forcehash=forcehash, ownhash=forcehash)
-        if "origcertinfo" in ret[1]:
-            del ret[1]["origcertinfo"]
-        print(ret)
+        ret = do_request(ip, "/client/{}".format(action), body, {}, pwhandler=pwcallmethod, use_unix=use_unix, forcehash=forcehash, ownhash=forcehash)
+        if "origcertinfo" in ret[2]:
+            del ret[2]["origcertinfo"]
+        print(ret[1], ret[2], ret[3][0], ret[3][1])
         #except Exception as exc:
         #    print(exc, file=sys.stderr)
 
@@ -41,8 +41,8 @@ def _single(address, use_unix, argv):
             body[splitted[0]] = splitted[1]
     command = body.pop("action", "show")
     headers = {"Content-Type": "application/json; charset=utf-8"}
-    ret = do_request_simple(address, "/client/{}".format(command), body, headers, use_unix=use_unix)
-    print(ret)
+    ret = do_request(address, "/client/{}".format(command), body, headers, use_unix=use_unix)
+    print(ret[1], ret[2], ret[3][0], ret[3][1])
 
 
 def single(argv=sys.argv[1:]):
@@ -142,7 +142,7 @@ def direct_proxy(argv=sys.argv[1:]):
         return
     if not address:
         bodyserver = {"name": name, "hash": certhash}
-        ret = do_request_simple(server, "/server/get", bodyserver, {})
+        ret = do_request(server, "/server/get", bodyserver, {})
         if ret[1]:
             address = ret[2].get("address", None)
             if ret[2].get("traverse_needed", False):

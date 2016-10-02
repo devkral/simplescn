@@ -293,14 +293,6 @@ def do_request(addrcon, path: str, body, headers: dict, **kwargs) -> (SCNConnect
         else:
             return con, success, obdict, con.certtupel
 
-def do_request_simple(addrcon, path: str, body: dict, headers: dict, **kwargs):
-    """ autoclose connection and strip connection and certificate """
-    # keepalive is not possible so deactivate it
-    kwargs["keepalive"] = False
-    ret = do_request(addrcon, path, body, headers, **kwargs)
-    return ret[1], ret[2], ret[3][0], ret[3][1]
-
-
 def check_addrcon(addrcon):
     if isinstance(addrcon, str) and len(addrcon) <= config.max_urllength:
         return True
@@ -312,7 +304,7 @@ addrconob = checkclass(check_addrcon, classtype=object)
 
 
 class ViaServerStruct(object):
-    def do_request(self, path: str, body, headers: dict, addrcon=None, **kwargs):
+    def do_request(self, path: str, body, headers: dict, **kwargs):
         raise NotImplementedError
 
     def _do_request2(self, path: str, body, headers: dict, forcehash=None, addrcon=None, **kwargs):
@@ -505,29 +497,17 @@ class ViaServerStruct(object):
 
 class Requester(ViaServerStruct):
     """ cache arguments, be careful, slows down requests by using copy() """
-    saved_kwargs = None
-    default_addrcon = None
-    part_do_request = None
-    def __init__(self, default_addrcon=None, **kwargs):
+    p = None
+    def __init__(self, addrcon=None, **kwargs):
         """ set default kwargs and address.
              address can be overwritten in a request by specifing addrcon=newaddress
              kwargs can be overwritten in a request by specifing key=newvalue """
-        self.default_addrcon = default_addrcon
-        self.part_do_request = functools.partial(do_request, **kwargs)
-        self.saved_kwargs = self.part_do_request.keywords
+        self.p = functools.partial(do_request, addrcon=addrcon, **kwargs)
 
-    def do_request(self, path, body, headers, addrcon=None, **kwargs):
+    def do_request(self, path, body, headers, **kwargs):
         """ wrapped do_request """
-        if not addrcon:
-            addrcon = self.default_addrcon
-        return self.part_do_request(addrcon, path, body, headers, **kwargs)
-
-    def do_request_simple(self, path, body, headers, addrcon=None, **kwargs):
-        """ do_request_simple for requester """
-        # keepalive is not possible so deactivate it
-        kwargs["keepalive"] = False
-        if not addrcon:
-            addrcon = self.default_addrcon
-        ret = self.part_do_request(addrcon, path, body, headers, **kwargs)
-        return ret[1], ret[2], ret[3][0], ret[3][1]
-
+        assert self.p.keywords.get("addrcon") or kwargs.get("addrcon"), "No addrcon given"
+        #assert "addrcon" in kwargs and not kwargs["addrcon"], "addrcon set to None"
+        if "addrcon" in kwargs and not kwargs["addrcon"]:
+            del kwargs["addrcon"]
+        return self.p(path=path, body=body, headers=headers, **kwargs)

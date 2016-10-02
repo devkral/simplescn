@@ -96,10 +96,9 @@ def cmdloop(requester, ownscnport):
             print("No valid action")
             continue
         body = {"name": "examplechat", "address": req[0]}
-        resp = requester.do_request("/client/wrap", body, {})
-        if logcheck_con(resp, logging.ERROR):
+        resp = requester.do_request("/client/wrap", body, {}, keepalive=True)
+        if not logcheck_con(resp, logging.ERROR):
             continue
-        
         con = client.HTTPConnection(*scnparse_url(req[0]))
         con.sock = resp[0].sock
         resp[0].sock = None
@@ -111,7 +110,7 @@ def cmdloop(requester, ownscnport):
         con.send(ob)
         respl = con.getresponse()
 
-        if respl.status!=200:
+        if respl.status != 200:
             print(respl.read())
 
 class httpserver(server.HTTPServer):
@@ -130,20 +129,20 @@ def init(requester):
         print(resp2[2])
         hserver.shutdown()
         return
-    requester.saved_kwargs["forcehash"] = resp[3][1]
-    requester.saved_kwargs["ownhash"] = resp[3][1]
+    requester.p.keywords["forcehash"] = resp[3][1]
+    requester.p.keywords["ownhash"] = resp[3][1]
     cmdloop(requester, resp2[2].get("port"))
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:
         if os.path.exists(sys.argv[1]):
-            init(scnrequest.Requester(default_addrcon=sys.argv[1], use_unix=True, pwhandler=pwcallmethod))
+            init(scnrequest.Requester(addrcon=sys.argv[1], use_unix=True, pwhandler=pwcallmethod))
         else:
-            init(scnrequest.Requester(default_addrcon=sys.argv[1], use_unix=False, pwhandler=pwcallmethod))
+            init(scnrequest.Requester(addrcon=sys.argv[1], use_unix=False, pwhandler=pwcallmethod))
     else:
         p = getlocalclient()
         if p:
-            init(scnrequest.Requester(default_addrcon=p[0], use_unix=p[1], pwhandler=pwcallmethod))
+            init(scnrequest.Requester(addrcon=p[0], use_unix=p[1], pwhandler=pwcallmethod))
         else:
             print("Error: client not found", file=sys.stderr)
         #elif os.path.exists(p.format("info")):

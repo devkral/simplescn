@@ -177,7 +177,7 @@ class TestSpeed(unittest.TestCase):
         self.assertLess(ret/avgtestnum, avg)
 
     def test_connectspeedshow(self):
-        fun = lambda: scnrequest.do_request_simple("::1-{}".format(self.client_port2), "/client/show", {}, {})
+        fun = lambda: scnrequest.do_request("::1-{}".format(self.client_port2), "/client/show", {}, {})
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
             print("test_connectspeedshow", "{:0.10f}".format(ret/avgtestnum))
@@ -185,7 +185,7 @@ class TestSpeed(unittest.TestCase):
 
 
     def test_connectspeedinvalid(self):
-        fun = lambda : scnrequest.do_request_simple("::1-{}".format(self.client_port2), "/client/teststubnotvalid", {}, {})
+        fun = lambda : scnrequest.do_request("::1-{}".format(self.client_port2), "/client/teststubnotvalid", {}, {})
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
             print("test_connectspeedinvalid", "{:0.10f}".format(ret/avgtestnum))
@@ -194,14 +194,14 @@ class TestSpeed(unittest.TestCase):
     def test_connectspeedinvalid_parallel(self):
         counter = [0, parallelnum]
         bar = threading.Semaphore(1)
-        fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.client_port2), "/client/teststubnotvalidparallel", {}, {}))
+        fun = lambda : threaded_bar(scnrequest.do_request, bar, counter, args=("::1-{}".format(self.client_port2), "/client/teststubnotvalidparallel", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
             print("test_connectspeedinvalid_parallel", "{:0.10f}".format(ret))
         self.assertLess(ret, maxtime)
 
     def test_connecttestserver(self):
-        fun = lambda : scnrequest.do_request_simple("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {})
+        fun = lambda : scnrequest.do_request("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {})
         ret = timeit.timeit(fun, number=avgtestnum)
         if printresults:
             print("test_connecttestserver", "{:0.10f}".format(ret/avgtestnum))
@@ -210,7 +210,7 @@ class TestSpeed(unittest.TestCase):
     def test_connecttestserver_parallel(self):
         counter = [0, parallelnum]
         bar = threading.Semaphore(1)
-        fun = lambda : threaded_bar(scnrequest.do_request_simple, bar, counter, args=("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {}))
+        fun = lambda : threaded_bar(scnrequest.do_request, bar, counter, args=("::1-{}".format(self.test_server_port), "/just/an/url/without/meaning", {}, {}))
         ret = timeit.timeit(fun, number=parallelnum)
         if printresults:
             print("test_connecttestserver_parallel", "{:0.10f}".format(ret))

@@ -33,6 +33,8 @@
 * register allows to use a different name to register with
 * fix sending packets at arbitary addresses (DDOS prevention)
 * reorganize simplescn structure
+* remove do_request_simple
+* Requester uses partial and p.keywords instead saved_kwargs
 
 ## bugfixes
 * better validation of serveranswers
