@@ -82,9 +82,12 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         name = obdict.get("name", self.links["client_server"].name)
         body = {"name": name, "port": self.links["hserver"].server_port, "update": self.brokencerts}
+        travreturn = self.scntraverse_helper.add_desttupel(scnparse_url(obdict["server"]))
         ret = self.do_request(obdict["server"], "/server/register", body, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
-        if ret[0] and ret[1].get("traverse_needed", False):
-            self.scntraverse_helper.add_desttupel(scnparse_url(obdict["server"]))
+        # was tupel not already in desttupels and adding didn't failed
+        # if error or no need cleanup
+        if travreturn and (not ret[0] or ret[1].get("traverse_needed", False)):
+            self.scntraverse_helper.del_desttupel(scnparse_url(obdict["server"]))
         return ret
 
     @check_args_deco({"name": namestr, "port": destportint}, optional={"client": addressstr, "wrappedport": bool, "post": bool, "hidden": bool, "forcehash": hashstr})

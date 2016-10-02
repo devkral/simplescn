@@ -467,7 +467,8 @@ class TraverserHelper(object):
             return False
         with self.mutex:
             if destaddrtupel in self.desttupels:
-                return True
+                # was not added by caller so return False
+                return False
             self.desttupels.add(destaddrtupel)
         threading.Thread(target=self._pinger, args=(destaddrtupel,), daemon=True).start()
         return True

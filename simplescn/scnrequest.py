@@ -4,6 +4,7 @@ import socket
 import json
 import ssl
 import logging
+import functools
 
 from . import config
 from .config import isself
@@ -506,25 +507,27 @@ class Requester(ViaServerStruct):
     """ cache arguments, be careful, slows down requests by using copy() """
     saved_kwargs = None
     default_addrcon = None
+    part_do_request = None
     def __init__(self, default_addrcon=None, **kwargs):
         """ set default kwargs and address.
              address can be overwritten in a request by specifing addrcon=newaddress
              kwargs can be overwritten in a request by specifing key=newvalue """
         self.default_addrcon = default_addrcon
-        self.saved_kwargs = kwargs
+        self.part_do_request = functools.partial(do_request, **kwargs)
+        self.saved_kwargs = self.part_do_request.keywords
 
     def do_request(self, path, body, headers, addrcon=None, **kwargs):
         """ wrapped do_request """
         if not addrcon:
             addrcon = self.default_addrcon
-        _kwargs = self.saved_kwargs.copy()
-        _kwargs.update(kwargs)
-        return do_request(addrcon, path, body, headers, **_kwargs)
+        return self.part_do_request(addrcon, path, body, headers, **kwargs)
 
     def do_request_simple(self, path, body, headers, addrcon=None, **kwargs):
-        """ wrapped do_request_simple """
+        """ do_request_simple for requester """
+        # keepalive is not possible so deactivate it
+        kwargs["keepalive"] = False
         if not addrcon:
             addrcon = self.default_addrcon
-        _kwargs = self.saved_kwargs.copy()
-        _kwargs.update(kwargs)
-        return do_request_simple(addrcon, path, body, headers, **_kwargs)
+        ret = self.part_do_request(addrcon, path, body, headers, **kwargs)
+        return ret[1], ret[2], ret[3][0], ret[3][1]
+
