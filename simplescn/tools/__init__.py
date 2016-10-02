@@ -629,6 +629,7 @@ def gen_result(res):
 def logcheck(ret, level=logging.DEBUG):
     """ check if request was successful + log """
     # don't share code because findCaller can only find the last calling function
+    # check if return has connection stripped (e.g. access_dict)
     if isinstance(ret[0], bool):
         offset = 0
     else:
