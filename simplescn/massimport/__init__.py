@@ -38,23 +38,6 @@ def _getclientcon(addr, configdir=config.default_configdir, forcehash=None):
         raise Exception("Invalid client")
     return ret[0], ret[3][1]
 
-def cmdmassimport(argv=sys.argv[1:]):
-    kwargs = scnparse_args(argv, massimport_paramhelp, massimport_args)
-    _hash = kwargs.get("forcehash")
-    saddr = kwargs.get("sourceaddress")
-    if not bool(saddr):
-        print("Error: no sourceaddress", file=sys.stderr)
-        return
-
-    shash = kwargs.get("sourcehash")
-    if not bool(shash):
-        print("Error: no sourcehash", file=sys.stderr)
-        return
-    con, _hash = _getclientcon(kwargs["address"], kwargs["config"], forcehash=_hash)
-    ret = massimport(con, saddr, shash, kwargs["listentities"], \
-        kwargs["listhashes"], pwhandler=lambda: pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
-    print(ret)
-
 massimport_args = \
 {
     #"cpwhash": ["", str, "<lowercase hash>: sha256 hash of pw for auth"],
@@ -73,3 +56,21 @@ def massimport_paramhelp():
     for _key, elem in sorted(massimport_args.items(), key=lambda x: x[0]):
         temp_doc += "  * key: {}, default: {}, doc: {}\n".format(_key, elem[0], elem[2])
     return temp_doc
+
+def cmdmassimport(argv=sys.argv[1:]):
+    kwargs = scnparse_args(argv, massimport_paramhelp, massimport_args)
+    _hash = kwargs.get("forcehash")
+    saddr = kwargs.get("sourceaddress")
+    if not bool(saddr):
+        print("Error: no sourceaddress", file=sys.stderr)
+        return
+
+    shash = kwargs.get("sourcehash")
+    if not bool(shash):
+        print("Error: no sourcehash", file=sys.stderr)
+        return
+    con, _hash = _getclientcon(kwargs["address"], kwargs["config"], forcehash=_hash)
+    ret = massimport(con, saddr, shash, kwargs["listentities"], \
+        kwargs["listhashes"], pwhandler=lambda: pwcallmethod(config.pwrealm_prompt), forcehash=_hash)
+    print(ret)
+

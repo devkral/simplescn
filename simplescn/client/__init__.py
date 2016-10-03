@@ -489,7 +489,6 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False):
 class ClientInit(object):
     config_root = None
     links = None
-    active = True
     secdirinst = None
 
     @classmethod
@@ -511,7 +510,7 @@ class ClientInit(object):
         return ret
 
     def __del__(self):
-        if self.links:
+        if self.secdirinst:
             try:
                 del self.secdirinst
             except Exception:
@@ -605,10 +604,10 @@ class ClientInit(object):
         self.links["hserver"].serve_join()
 
     def quit(self):
-        # server may need some time to cleanup, elsewise strange exceptions appear
-        if not self.active:
+        """ clean quit, close everything. Failsave if not called exist (__del__ stuff) """
+        if not self.links["client_server"].isactive:
             return
-        self.active = False
+        self.links["client_server"].isactive = False
         self.links["hserver"].server_close()
         if "cserver_ip" in self.links:
             self.links["cserver_ip"].server_close()
@@ -618,9 +617,10 @@ class ClientInit(object):
             self.links["cserver_unix"].server_close()
         if self.secdirinst:
             self.secdirinst.cleanup()
-            self.secdirinst.filepath = None
+            self.secdirinst = None
 
     def show(self):
+        """ show client info """
         ret = dict()
         ret["cert_hash"] = self.links["certtupel"][1]
         ret["name"] = self.links["client_server"].name

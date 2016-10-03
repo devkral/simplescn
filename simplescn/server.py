@@ -360,7 +360,6 @@ def gen_ServerHandler(_links):
 class ServerInit(object):
     config_path = None
     links = None
-    active = True
     pidpath = None
 
     @classmethod
@@ -448,13 +447,14 @@ class ServerInit(object):
         self.links["hserver"].serve_forever_nonblock()
 
     def quit(self):
-        # server may need some time to cleanup, elsewise strange exceptions appear
-        if not self.active:
+        """ clean quit, close everything. Failsave if not called exist (__del__ stuff) """
+        if not self.links["server_server"].isactive:
             return
-        self.active = False
+        self.links["server_server"].isactive = False
         self.links["hserver"].server_close()
 
     def show(self):
+        """ show server info """
         ret = dict()
         ret["cert_hash"] = self.links["certtupel"][1]
         hserver = self.links["hserver"]

@@ -15,7 +15,12 @@ from ..tools.checks import check_local
 
 def cmdloop(ip, use_unix=False, forcehash=None):
     while True:
-        inp = input("Enter action:\n")
+        try:
+            inp = input("Enter action:\n")
+        except KeyboardInterrupt:
+            break
+        if inp in {"quit"}:
+            break
         body = {}
         for elem in shlex.split(inp):
             splitted = elem.split("=", 1)
@@ -87,14 +92,14 @@ def loop_unix(argv=sys.argv[1:]):
         cmdloop(argv[0], True)
 
 def _test(argv, use_unix):
-    from simplescn.tools.start import client, server, running_instances
+    from simplescn.tools.start import client, server, init_scn
     aargv = argv.copy()
     if use_unix:
         aargv.append("--nounix=False")
     else:
         aargv.append("--noip=False")
+    init_scn()
     c = client(aargv, doreturn=True)
-    running_instances.append(c)
     if not c:
         print("Client could not start (maybe other instance)")
         return
@@ -104,7 +109,6 @@ def _test(argv, use_unix):
         print("Server could not start")
         return
     t2 = s.show()
-    running_instances.append(s)
     print("client ip", t.get("cserver_ip", None),  sep=":\t")
     print("client unix", t.get("cserver_unix", None),  sep=":\t")
     print("client server", t.get("hserver"),  sep=":\t")
@@ -115,6 +119,9 @@ def _test(argv, use_unix):
         cmdloop(t.get("cserver_unix"), use_unix=True, forcehash=t.get("cert_hash"))
     else:
         cmdloop("::1-{}".format(t.get("cserver_ip")[1]), forcehash=t.get("cert_hash"))
+    c.quit()
+    s.quit()
+
 
 def test_ip(argv=sys.argv[1:]):
     _test(argv, False)

@@ -15,26 +15,31 @@ from .. import config
 from .._common import scnparse_args, loglevel_converter
 
 ###### start ######
-running_instances = []
-def _signal_handler(_signal, frame):
-    """ handles signals; shutdown properly """
-    for elem in running_instances:
-        elem.quit()
-    logging.shutdown()
-    sys.exit(0)
 
-_is_init_already = False
-def init_scn():
+
+def block():
+    """ blocks until SIGINT, SIGTERM """
+    event = threading.Event()
+    def _block(_signal, frame):
+       event.set()
+
+    oldhandlersigint = signal.signal(signal.SIGINT, _block)
+    oldhandlersigterm = signal.signal(signal.SIGTERM, _block)
+    event.wait()
+    signal.signal(signal.SIGINT, oldhandlersigint)
+    signal.signal(signal.SIGTERM, oldhandlersigterm)
+
+
+
+def init_scn(doreturn):
     """ initialize once and only in mainthread """
-    global _is_init_already
-    if not _is_init_already and threading.current_thread() == threading.main_thread():
-        _is_init_already = True
+    assert doreturn or threading.current_thread() == threading.main_thread(), "use doreturn instead starting own thread"
+    if not doreturn:
         logging.basicConfig(level=loglevel_converter(config.default_loglevel), format=config.logformat)
-        signal.signal(signal.SIGINT, _signal_handler)
 
 def server(argv, doreturn=False):
     """ start server component """
-    init_scn()
+    init_scn(doreturn)
     from ..server import server_paramhelp, default_server_args, ServerInit
     kwargs = scnparse_args(argv, server_paramhelp, default_server_args)
     os.makedirs(kwargs["config"], 0o700, True)
@@ -42,13 +47,13 @@ def server(argv, doreturn=False):
     if doreturn or not server_instance:
         return server_instance
     else:
-        running_instances.append(server_instance)
         print(json.dumps(server_instance.show()))
-        server_instance.join()
+        block()
+        server_instance.quit()
 
 def client(argv, doreturn=False):
     """ start client component """
-    init_scn()
+    init_scn(doreturn)
     from ..client import client_paramhelp, default_client_args, ClientInit
     kwargs = scnparse_args(argv, client_paramhelp, default_client_args)
     os.makedirs(kwargs["config"], 0o700, True)
@@ -56,9 +61,9 @@ def client(argv, doreturn=False):
     if doreturn or not client_instance:
         return client_instance
     else:
-        running_instances.append(client_instance)
         print(json.dumps(client_instance.show()))
-        client_instance.join()
+        block()
+        client_instance.quit()
 
 def cmdcom(argv=sys.argv[1:]):
     """ wrapper for cmdcom """
@@ -76,7 +81,7 @@ def hashpw(argv=sys.argv[1:]):
     from .tools import dhash
     from ..pwrequester import pwcallmethod
     import base64
-    if len(sys.argv) and sys.argv[1] in ["--help", "help"]:
+    if len(sys.argv) and sys.argv[1].strip("-") == "help":
         print("Usage: {} hashpw [<pw>/\"random\"]".format(sys.argv[0]))
         return
     if len(argv) == 0:
@@ -99,3 +104,4 @@ def init_method_main(argv=sys.argv[1:]):
         else:
             print("Method not available", file=sys.stderr)
     print("Available:", *allowed_methods, file=sys.stderr)
+

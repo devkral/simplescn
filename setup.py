@@ -29,6 +29,7 @@ install_extras["md"] = ["markdown"]
 
 entry_points["console_scripts"].append('scnmain = simplescn.tools.start:init_method_main')
 entry_points["console_scripts"].append('scnconnect = simplescn.cmdcom:init_cmdcom')
+#entry_points["console_scripts"].append('scnmassimport = simplescn.massimport:cmdmassimport')
 
 # plugins imported by MANIFEST.in
 setup(name='simplescn',
