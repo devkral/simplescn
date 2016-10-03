@@ -50,7 +50,7 @@ traverse_retries = 3
 urlttl = 30
 
 ## file positions ##
-default_configdir = '~/.simplescn'
+default_configdir = '$HOME/.simplescn'
 default_runpath = tempfile.gettempdir()
 # don't change
 isself = 'isself'
