@@ -33,7 +33,8 @@ def block():
 
 def init_scn(doreturn):
     """ initialize once and only in mainthread """
-    assert doreturn or threading.current_thread() == threading.main_thread(), "use doreturn instead starting own thread"
+    # don't activate as debugger may start script as thread
+    #assert doreturn or threading.current_thread() == threading.main_thread(), "use doreturn instead starting own thread"
     if not doreturn:
         logging.basicConfig(level=loglevel_converter(config.default_loglevel), format=config.logformat)
 
