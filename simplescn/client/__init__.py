@@ -384,7 +384,7 @@ def gen_ClientHandler(_links, hasserver=False, hasclient=False):
                     else:
                         shallstack = not isinstance(error, (AddressError, VALError)) and \
                                      config.debug_mode and \
-                                     (self.server.address_family != file_family or check_local(self.client_address[0]))
+                                     (self.server.address_family == file_family or check_local(self.client_address[0]))
                         resultob = generate_error(error, shallstack)
                     if isinstance(error, Exception):
                         status = 500
