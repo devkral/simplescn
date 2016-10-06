@@ -178,7 +178,7 @@ class CerthashDb(CommonDbInit):
         assert _name in namestr, "invalid name {}".format(_name)
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
-        if cur.fetchone() is not None:
+        if cur.fetchone():
             logging.info("name exist: %s", _name)
             return False
         cur.execute('''INSERT INTO certs(name,certhash) values (?,'default');''', (_name,))
@@ -203,11 +203,11 @@ class CerthashDb(CommonDbInit):
         assert _newname in namestr, "invalid newname {}".format(_newname)
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("name does not exist: %s", _name)
             return False
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
-        if cur.fetchone() is not None:
+        if cur.fetchone():
             logging.warning("newname already exist: %s", _newname)
             return False
         cur.execute('''UPDATE certs SET name=? WHERE name=?;''', (_newname, _name,))
@@ -229,12 +229,12 @@ class CerthashDb(CommonDbInit):
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("name does not exist: %s", _name)
             return False
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (certhash,))
         _oldname = cur.fetchone()
-        if _oldname is not None:
+        if _oldname:
             logging.info("hash already exist: %s", certhash)
             return False
 
@@ -258,7 +258,7 @@ class CerthashDb(CommonDbInit):
             return False
         cur.execute('''SELECT name FROM certs WHERE certhash=?;''', (certhash,))
         _oldname = cur.fetchone()
-        if _oldname is None:
+        if not _oldname:
             logging.warning("certhash does not exist: %s", certhash)
             return False
         cur.execute('''UPDATE certs SET name=? WHERE certhash=?;''', (_newname, certhash,))
@@ -273,7 +273,7 @@ class CerthashDb(CommonDbInit):
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (certhash,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("hash does not exist: %s", certhash)
             return False
         cur.execute('''UPDATE certs SET type=? WHERE certhash=?;''', (_type, certhash))
@@ -288,7 +288,7 @@ class CerthashDb(CommonDbInit):
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (certhash,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("hash does not exist: %s", certhash)
             return False
         cur.execute('''UPDATE certs SET priority=? WHERE certhash=?;''', (_priority, certhash))
@@ -303,7 +303,7 @@ class CerthashDb(CommonDbInit):
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certhash FROM certs WHERE certhash=?;''', (certhash,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("hash does not exist: %s", certhash)
             return False
         cur.execute('''UPDATE certs SET security=? WHERE certhash=?;''', (_security, certhash))
@@ -329,7 +329,7 @@ class CerthashDb(CommonDbInit):
         cur.execute('''SELECT certreferenceid FROM certs WHERE certhash=?;''', (certhash,))
         ret = cur.fetchone()
         if ret:
-            cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (ret,))
+            cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (ret[0],))
         cur.execute('''DELETE FROM certs WHERE certhash=?;''', (certhash,))
         dbcon.commit()
         return True
@@ -340,7 +340,7 @@ class CerthashDb(CommonDbInit):
         cur = dbcon.cursor()
         cur.execute('''SELECT name,type,priority,security,certreferenceid FROM certs WHERE certhash=?;''', (certhash,))
         ret = cur.fetchone()
-        if ret is not None and ret[0] == isself:
+        if ret and ret[0] == isself:
             logging.critical("\"%s\" is in the db", isself)
             return None
         return ret
@@ -351,7 +351,7 @@ class CerthashDb(CommonDbInit):
         cur = dbcon.cursor()
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         # should be an error if name is not in db
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             return None
         if _nodetype is None:
             cur.execute('''SELECT certhash,type,priority,security,certreferenceid FROM certs WHERE name=? AND certhash!='default' ORDER BY priority DESC;''', (_name,))
@@ -405,10 +405,7 @@ class CerthashDb(CommonDbInit):
             cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         else:
             cur.execute('''SELECT name FROM certs WHERE name=? AND certhash=?;''', (_name, certhash))
-        if cur.fetchone() is None:
-            return False
-        else:
-            return True
+        return cur.fetchone() is not None
 
     @connecttodb
     def existreference(self, _certreferenceid, _reference, dbcon=None):
@@ -439,7 +436,7 @@ class CerthashDb(CommonDbInit):
             logging.error("referenceid does not exist: %s", _certreferenceid)
             return False
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
-        if cur.fetchone() is not None:
+        if cur.fetchone():
             logging.info("certreference exist: %s", _reference)
             return False
         cur.execute('''INSERT INTO certreferences(certreferenceid,certreference,type) values(?,?,?);''', (_certreferenceid, _reference, _reftype))
@@ -472,12 +469,12 @@ class CerthashDb(CommonDbInit):
             return False
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("certreferenceid/reference does not exist: %s, %s", _certreferenceid, _reference)
             return False
         if _reference != _newreference:
             cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _newreference))
-            if cur.fetchone() is not None:
+            if cur.fetchone():
                 logging.warning("new reference does exist: %s, %s", _certreferenceid, _reference)
                 return False
         cur.execute('''UPDATE certreferences SET certreference=?, type=? WHERE certreferenceid=? and certreference=?;''', (_newreference, _newreftype, _certreferenceid, _reference))
@@ -503,11 +500,11 @@ class CerthashDb(CommonDbInit):
         assert isinstance(_newrefid, int), "invalid newrefid"
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_oldrefid,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("src certrefid does not exist: %s", _oldrefid)
             return False
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_newrefid,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("dest certrefid does not exist: %s", _newrefid)
             return False
         cur.execute('''UPDATE certreferences SET certreferenceid=? WHERE certreferenceid=?;''', (_newrefid, _oldrefid))
@@ -520,11 +517,11 @@ class CerthashDb(CommonDbInit):
         assert isinstance(newrefid, int), "invalid newrefid"
         cur = dbcon.cursor()
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (oldrefid,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("src certrefid does not exist: %s", oldrefid)
             return False
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (newrefid,))
-        if cur.fetchone() is None:
+        if not cur.fetchone():
             logging.warning("dest certrefid does not exist: %s", newrefid)
             return False
         cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=?;''', (newrefid,))
