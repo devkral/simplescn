@@ -28,6 +28,9 @@ if use_sorteddict in {None, "blist"}:
         except ImportError:
             sorteddict = None
 
+if use_sorteddict and not sorteddict:
+    logging.warning("sorteddict not found")
+
 # define file_family
 if hasattr(socket, "AF_UNIX"):
     file_family = socket.AF_UNIX
