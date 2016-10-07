@@ -3,5 +3,11 @@ code (exclude plugins except no seperate license is available): see LICENSE.txt,
 config (=parameters.py): public domain (only options)
 examples: public domain
 
-gobject, gtk, ...: GPL; code: git.gnome.org
-python: www.python.org
+python: www.python.org (python license)
+cryptography: https://cryptography.io/ (BSD3)
+psutil: https://github.com/giampaolo/psutil (BSD3)
+(markdown): https://pythonhosted.org/Markdown/ (BSD3)
+# performance (optional but required by default)
+cachetools: https://github.com/tkem/cachetools/ (MIT)
+sortedcontainers: http://www.grantjenks.com/docs/sortedcontainers/ (Apache2) (can be replaced with blist)
+(blist): https://github.com/DanielStutzbach/blist (BSD3)

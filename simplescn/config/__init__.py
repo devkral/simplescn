@@ -15,6 +15,19 @@ except ImportError:
 socket.setdefaulttimeout(default_timeout)
 
 
+if use_sorteddict in {None, "sortedcontainer"}:
+    try:
+        from sortedcontainers import SortedDict as sorteddict
+    except ImportError:
+        sorteddict = None
+
+if use_sorteddict in {None, "blist"}:
+    if not sorteddict:
+        try:
+            from blist import sorteddict
+        except ImportError:
+            sorteddict = None
+
 # define file_family
 if hasattr(socket, "AF_UNIX"):
     file_family = socket.AF_UNIX

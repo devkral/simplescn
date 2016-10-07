@@ -207,7 +207,7 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
         _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
         _getret = self.do_request(obdict["server"], "/server/get", senddict, _headers, forcehash=obdict.get("forcehash", None))
         if not _getret[0]:
-            return _getret 
+            return _getret
         # if brokencert check also update stuff
         if _getret[1].get("security", "") != "valid":
             if not check_args(_getret[1], _checkgetrespupdate):
@@ -291,11 +291,12 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                                   _headers, forcehash=obdict.get("forcehash", None))
         if not _tnames[0]:
             return _tnames
-        if not isinstance(_tnames[1].get("items", None), fastit):
+        if not isinstance(_tnames[1].get("items", None), fastit) or \
+                          not isinstance(_tnames[1].get("sorted", None), bool):
                 return False, quick_error("invalid serveranswer")
         out = []
         # throw if "items" entry has invalid amount of parameters or is not iterable (catched)
-        for name, _hash, _security in sorted(_tnames[1]["items"], key=lambda t: t[0]):
+        for name, _hash, _security in _tnames[1]["items"]:
             if name not in namestr or _hash not in hashstr or _security not in securitystr:
                 logging.info("skip invalid server entry")
                 continue
@@ -303,6 +304,8 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
                 out.append((name, _hash, _security, isself))
             else:
                 out.append((name, _hash, _security, self.links["hashdb"].certhash_as_name(_hash)))
+        if not _tnames[1]["sorted"]:
+            out.sort(key=lambda t: t[0])
         return _tnames[0], {"items": out, "map": ["name", "hash", "security", "localname"]}, _tnames[2]
 
     @check_args_deco(optional={"address": addressstr, "forcehash": hashstr, "traverseaddress": addressstr, "traversepw": hashstr})

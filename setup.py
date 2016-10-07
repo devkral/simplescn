@@ -12,6 +12,9 @@ entry_points = {"console_scripts": []}
 
 # for more speed/caching (increases performance in some cases e.g. rotating disk)
 speed_requirements = ["cachetools>=1.1.0"]
+# for server side sorting (only one needed)
+# speed_requirements.append("blist>=1.3.6")
+speed_requirements.append("sortedcontainers>=1.5.3")
 
 install_requirements = []
 # for certificate generation

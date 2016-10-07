@@ -36,6 +36,7 @@
 * remove do_request_simple
 * Requester uses partial and p.keywords instead saved_kwargs
 * remove running_instances
+* speed by sorting serverside
 
 ## bugfixes
 * better validation of serveranswers

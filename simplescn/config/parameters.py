@@ -37,6 +37,9 @@ pwrealm_prompt = "Please enter password"
 pwdecrypt_prompt = "Please enter password to unlock key"
 hashpw_prompt = "Please enter password or generate with: 'random' a random pw: "
 
+## can be None (auto select), False (no), "sortedcontainers", "blist"
+use_sorteddict = None
+
 ## timeouts ##
 # time out for auth requests
 auth_request_expire_time = 60*3

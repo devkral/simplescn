@@ -30,7 +30,6 @@ try:
 except ImportError:
     psutil = None
 
-
 from .. import config
 from ..pwrequester import pwcallmethod
 from ..config import isself

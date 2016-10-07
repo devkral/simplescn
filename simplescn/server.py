@@ -50,7 +50,10 @@ class Server(CommonSCN):
         CommonSCN.__init__(self)
         self.capabilities = ["basic", "server"]
         # init here (multi instance situation)
-        self.nhipmap = {}
+        if config.sorteddict:
+            self.nhipmap = config.sorteddict()
+        else:
+            self.nhipmap = dict()
         # needed only if traverse is active
         self.registered_addrs = set()
         self.nhipmap_cond = threading.Event()
@@ -71,7 +74,7 @@ class Server(CommonSCN):
         self.priority = self.links["kwargs"]["priority"]
         self.name = d["name"]
         self.message = d["message"]
-        self.cache["dumpnames"] = json.dumps({"items": []})
+        self.cache["dumpnames"] = json.dumps({"items": [], "sorted": config.sorteddict is not None})
         self.update_cache()
         self.validactions.update(self.cache.keys())
         self.load_balance(0)
@@ -95,6 +98,7 @@ class Server(CommonSCN):
         while self.isactive:
             count = 0
             dump = []
+            issorted = config.sorteddict is not None
             istraverse = self.traverse is not None
             with self.changeip_lock:
                 if istraverse:
@@ -112,7 +116,7 @@ class Server(CommonSCN):
                     if len(self.nhipmap[_name]) == 0:
                         del self.nhipmap[_name]
                 ### don't annote list with "map" dict structure on serverside (overhead)
-                self.cache["dumpnames"] = json.dumps({"items": dump})
+                self.cache["dumpnames"] = json.dumps({"items": dump, "sorted": issorted})
                 self.cache["num_nodes"] = json.dumps({"count": count})
                 self.cache["update_time"] = json.dumps({"time": int(time.time())})
             self.nhipmap_cond.clear()
@@ -208,7 +212,10 @@ class Server(CommonSCN):
         istraverse = self.traverse is not None
         _name = obdict["name"]
         # prepared dict, so no dict must be allocated while having lock
-        _prepdict = dict()
+        if config.sorteddict:
+            _prepdict = config.sorteddict()
+        else:
+            _prepdict = dict()
         _nhipmapneedupdate = False
         with self.changeip_lock:
             if _name not in self.nhipmap:

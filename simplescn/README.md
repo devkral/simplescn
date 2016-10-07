@@ -13,7 +13,9 @@ Dependencies:
 * python-cryptography (not needed with working certs)
 * python-psutil (for pid lock, not needed with "nolock" option)
 * python-cachetools (for caching urls, optional, but required by default for more speed)
-* optional: python-markdown (for more beautiful help)
+* python-blist (serverside sorting) or
+* python-sortedcontainers ""
+* optional: python-markdown (for html help)
 
 cryptography, psutil and cachetools are install requirements (setuptools)
 
