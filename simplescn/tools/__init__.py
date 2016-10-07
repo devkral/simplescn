@@ -186,7 +186,8 @@ class SecdirHandler(object):
             try:
                 shutil.rmtree(self.filepath)
             except Exception as exc:
-                logging.error(exc)
+                if logging:
+                    logging.error(exc)
             self.filepath = None
 
     @classmethod
