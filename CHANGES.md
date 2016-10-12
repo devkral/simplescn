@@ -7,7 +7,6 @@
 * add name to show() information
 * generate_validactions_deco is now recursive
 * add check_priority
-* use daemon threads for SHTTPServer
 * add tests (locking, massimport)
 * use TemporaryDirectory for tests
 * findbyref supports filtering
