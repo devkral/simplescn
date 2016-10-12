@@ -63,8 +63,8 @@ class TestWrap(unittest.TestCase):
     temptestdir = tempfile.TemporaryDirectory("testwrap")
     temptestdir2 = tempfile.TemporaryDirectory("testwrap2")
     #param_server = ["--config={}".format(temptestdir), "--nolock", "--port=0"]
-    param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip=False", "port=0"]
-    param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip", "port=0"]
+    param_client = ["--config={}".format(temptestdir.name), "--nolock", "--nounix", "--noip=False", "port=0", "timeout=5"]
+    param_client2 = ["--config={}".format(temptestdir2.name), "--nolock", "--nounix", "--noip", "port=0", "timeout=5"]
 
     client = None
     #server = None

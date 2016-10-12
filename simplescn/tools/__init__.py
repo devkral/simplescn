@@ -703,6 +703,7 @@ def rw_socket(sockrw1, sockrw2, timeout=None):
                 else:
                     sockets[soc.fd].sendall(ret)
         except (socket.timeout, BrokenPipeError, TimeoutError):
+            sfsel.close()
             sockrw2.close()
             sockrw1.close()
             break
