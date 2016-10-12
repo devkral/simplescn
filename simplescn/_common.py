@@ -614,7 +614,7 @@ class SHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
             self.server_port = port
 
     def serve_forever_nonblock(self):
-        self._listenthread = threading.Thread(target=self.serve_forever, daemon=False)
+        self._listenthread = threading.Thread(target=self.serve_forever, daemon=True)
         self._listenthread.start()
 
     def serve_join(self):

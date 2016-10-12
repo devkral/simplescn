@@ -689,6 +689,10 @@ def rw_socket(sockrw1, sockrw2, timeout=None):
     sfsel.register(sockrw1, selectors.EVENT_READ)
     sockrw2.setblocking(False)
     sfsel.register(sockrw2, selectors.EVENT_READ)
+    def close():
+        sfsel.close()
+        sockrw2.close()
+        sockrw1.close()
     while active:
         try:
             inpl = sfsel.select(timeout)
@@ -696,18 +700,17 @@ def rw_socket(sockrw1, sockrw2, timeout=None):
                 ret = soc.fileobj.recv(config.default_buffer_size)
                 if ret == b"":
                     active = False
-                    sfsel.close()
-                    sockrw2.close()
-                    sockrw1.close()
+                    close()
                     break
                 else:
                     sockets[soc.fd].sendall(ret)
         except (socket.timeout, BrokenPipeError, TimeoutError):
-            sfsel.close()
-            sockrw2.close()
-            sockrw1.close()
+            active = False
+            close()
             break
         except Exception as exc:
+            active = False
+            sfsel.close()
             logging.error(exc)
             break
 
