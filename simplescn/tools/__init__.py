@@ -182,11 +182,7 @@ class SecdirHandler(object):
 
     def cleanup(self):
         if self.filepath:
-            try:
-                shutil.rmtree(self.filepath)
-            except Exception as exc:
-                if logging:
-                    logging.error(exc)
+            shutil.rmtree(self.filepath, ignore_errors=True)
             self.filepath = None
 
     @classmethod
@@ -754,5 +750,5 @@ def getlocalclient(extractipv6=True, rundir=config.default_runpath):
             return parselocalclient(p2, extractipv6)
         else:
             # cleanup own and old information
-            shutil.rmtree(p1)
+            shutil.rmtree(p1, ignore_errors=True)
     return None
