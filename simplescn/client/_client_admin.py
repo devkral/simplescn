@@ -82,7 +82,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
             name: entity name """
         return self.links["hashdb"].delentity(obdict["name"])
 
-    @check_args_deco({"name": namestr, "newname": namestr})
+    @check_args_deco({"name": namestr, "newname": namestr}, optional={"merge": bool})
     @classify_admin
     @classify_local
     @classify_accessable
@@ -90,8 +90,9 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
         """ func: rename entity (=named group for hashes)
             return success or error
             name: entity name
-            newname: new entity name """
-        return self.links["hashdb"].renameentity(obdict["name"], obdict["newname"])
+            newname: new entity name
+            merge: merge if new entity name already exist (strips references) (default: False) """
+        return self.links["hashdb"].renameentity(obdict["name"], obdict["newname"], obdict.get("merge", False))
 
     @check_args_deco({"name": namestr, "hash": hashstr}, optional={"type": str, "priority": int})
     @classify_admin

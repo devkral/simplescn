@@ -40,21 +40,14 @@ def parsebool(inp):
 
 def connecttodb(func):
     def funcwrap(self, *args, **kwargs):
+        if "dbcon" in kwargs:
+            return func(self, *args, **kwargs)
         temp = None
         with self.lock:
-            #try:
             dbcon = sqlite3.connect(self.db_path)
             kwargs["dbcon"] = dbcon
             temp = func(self, *args, **kwargs)
             dbcon.close()
-            #except Exception as exc:
-            #    st = "{} (dbfile: {})".format(exc, self.db_path)
-            #    if hasattr(exc, "__traceback__"):
-            #        st = "{}\n\n{}".format(st, "".join(traceback.format_tb(exc.__traceback__)).replace("\\n", ""))
-            #    elif sys.exc_info()[2] is not None:
-            #        st = "{}\n\n{}".format(st, "".join(traceback.format_tb(sys.exc_info()[2])).replace("\\n", ""))
-            #    logging.error("%s\n%s", st, type(func).__name__)
-            #    raise exc
         return temp
     return funcwrap
 
@@ -198,7 +191,30 @@ class CerthashDb(CommonDbInit):
         return True
 
     @connecttodb
-    def renameentity(self, _name: namestr, _newname: namestr, dbcon=None) -> bool:
+    def transfer_leftovers(self, newname, oldcerthash=None, oldname=None, dbcon=None):
+        assert oldcerthash or oldname, "Neither oldcerthash nor oldname given"
+        cur = dbcon.cursor()
+        if oldcerthash:
+            cur.execute('''SELECT certhash,certreferenceid FROM certs WHERE certhash=?;''', (oldcerthash, ))
+        else:
+            cur.execute('''SELECT certhash,certreferenceid FROM certs WHERE name=?;''', (oldname,))
+        if oldname:
+            name = oldname
+        else:
+            cur.execute('''SELECT DISTINCT name FROM certs WHERE certhash=?;''', (oldcerthash,))
+            name = cur.fetchone()
+        assert name, "name is None"
+        listleftovers = cur.fetchall()
+        for chash, cid in listleftovers:
+            if chash != 'default':
+                cur.execute('''UPDATE OR IGNORE certreferences SET
+                certreferenceid=(SELECT DISTINCT certreferenceid FROM certs WHERE certhash=?) WHERE certreferenceid=?;''', (chash, cid))
+                cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (cid,))
+            cur.execute('''DELETE FROM certs WHERE name=? AND certhash=?;''', (name, chash))
+        dbcon.commit()
+
+    @connecttodb
+    def renameentity(self, _name: namestr, _newname: namestr, merge=False, dbcon=None) -> bool:
         assert _name in namestr, "invalid name {}".format(_name)
         assert _newname in namestr, "invalid newname {}".format(_newname)
         cur = dbcon.cursor()
@@ -206,12 +222,16 @@ class CerthashDb(CommonDbInit):
         if not cur.fetchone():
             logging.warning("name does not exist: %s", _name)
             return False
-        cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
-        if cur.fetchone():
-            logging.warning("newname already exist: %s", _newname)
-            return False
-        cur.execute('''UPDATE certs SET name=? WHERE name=?;''', (_newname, _name,))
+        if not merge:
+            cur.execute('''SELECT certreferenceid FROM certs WHERE name=?;''', (_newname,))
+            if cur.fetchone():
+                logging.warning("newname already exist: %s", _newname)
+                return False
+        cur.execute('''UPDATE OR IGNORE certs SET name=? WHERE name=?;''', (_newname, _name,))
         dbcon.commit()
+        if merge:
+            # merging is recessive
+            self.transfer_leftovers(_newname, oldname=_name, dbcon=dbcon)
         return True
 
     @connecttodb
@@ -248,7 +268,7 @@ class CerthashDb(CommonDbInit):
         return True
 
     @connecttodb
-    def movehash(self, certhash: hashstr, _newname: namestr, dbcon=None) -> bool:
+    def movehash(self, certhash: hashstr, _newname: namestr, merge=False, dbcon=None) -> bool:
         assert _newname in namestr, "invalid newname {}".format(_newname)
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
@@ -261,8 +281,9 @@ class CerthashDb(CommonDbInit):
         if not _oldname:
             logging.warning("certhash does not exist: %s", certhash)
             return False
-        cur.execute('''UPDATE certs SET name=? WHERE certhash=?;''', (_newname, certhash,))
+        cur.execute('''UPDATE OR IGNORE certs SET name=? WHERE certhash=?;''', (_newname, certhash,))
         dbcon.commit()
+        self.transfer_leftovers(_newname, oldcerthash=certhash, dbcon=dbcon)
         return True
 
     @connecttodb
@@ -310,16 +331,17 @@ class CerthashDb(CommonDbInit):
         dbcon.commit()
         return True
 
-    def updatehash(self, certhash: hashstr, certtype=None, priority=None, security=None) -> bool:
+    @connecttodb
+    def updatehash(self, certhash: hashstr, certtype=None, priority=None, security=None, dbcon=None) -> bool:
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
         if certtype is not None:
-            if not self.changetype(certhash, certtype):
+            if not self.changetype(certhash, certtype, dbcon=dbcon):
                 return False
         if priority is not None:
-            if not self.changepriority(certhash, priority):
+            if not self.changepriority(certhash, priority, dbcon=dbcon):
                 return False
         if certtype is not None:
-            if not self.changesecurity(certhash, security):
+            if not self.changesecurity(certhash, security, dbcon=dbcon):
                 return False
 
     @connecttodb
@@ -353,7 +375,7 @@ class CerthashDb(CommonDbInit):
         # should be an error if name is not in db
         if not cur.fetchone():
             return None
-        if _nodetype is None:
+        if not _nodetype:
             cur.execute('''SELECT certhash,type,priority,security,certreferenceid FROM certs WHERE name=? AND certhash!='default' ORDER BY priority DESC;''', (_name,))
         else:
             cur.execute('''SELECT certhash,type,priority,security,certreferenceid FROM certs WHERE name=? AND certhash!='default' AND type=? ORDER BY priority DESC;''', (_name, _nodetype))
@@ -507,7 +529,8 @@ class CerthashDb(CommonDbInit):
         if not cur.fetchone():
             logging.warning("dest certrefid does not exist: %s", _newrefid)
             return False
-        cur.execute('''UPDATE certreferences SET certreferenceid=? WHERE certreferenceid=?;''', (_newrefid, _oldrefid))
+        cur.execute('''UPDATE OR IGNORE certreferences SET certreferenceid=? WHERE certreferenceid=?;''', (_newrefid, _oldrefid))
+        cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (_oldrefid))
         dbcon.commit()
         return True
 

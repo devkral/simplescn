@@ -1,3 +1,10 @@
+# 0.71
+## changes
+* add merge option for renameentity
+
+## bugfixes
+* transfer and cleanup leftovers
+
 # 0.7
 
 ## changes
