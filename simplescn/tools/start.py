@@ -79,7 +79,7 @@ def cmd_massimport(argv=sys.argv[1:]):
 
 def hashpw(argv=sys.argv[1:]):
     """ create pw hash for *pwhash """
-    from .tools import dhash
+    from . import dhash
     from ..pwrequester import pwcallmethod
     import base64
     if len(sys.argv) and sys.argv[1].strip("-") == "help":
@@ -89,7 +89,7 @@ def hashpw(argv=sys.argv[1:]):
         pw = pwcallmethod(config.hashpw_prompt)
     else:
         pw = argv[0]
-    
+
     pw = argv[0]
     if pw == "random":
         pw = str(base64.urlsafe_b64encode(os.urandom(10)), "utf-8")
