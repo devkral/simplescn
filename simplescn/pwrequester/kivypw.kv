@@ -1,0 +1,21 @@
+<PwDialog>:
+    Label:
+        id: msglabel
+        pos_hint: {"x": 0, 'y': 0.5}
+        size_hint: 1, 0.5
+    TextInput:
+        id: pwfield
+        password: True
+        multiline: False
+        pos_hint: {"x": 0, 'y': 0.3}
+        size_hint: 1, 0.2
+    Button:
+        text: "Ok"
+        pos_hint: {"x": 0, 'y': 0.0}
+        size_hint: 0.5, 0.3
+        on_press: root.ok()
+    Button:
+        text: "Cancel"
+        pos_hint: {"x": 0.5, 'y': 0.0}
+        size_hint: 0.5, 0.3
+        on_press: root.cancel()

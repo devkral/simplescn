@@ -3,24 +3,26 @@
 pwcallmethods
 license: MIT, see LICENSE.txt
 """
-from . import cmd
+import importlib
+pwcallmethodinst = None
+def sel_pwcallmethodinst(modulename):
+    global pwcallmethodinst
+    try:
+        module = importlib.import_module(modulename, "simplescn.pwrequester")
+        pwcallmethodinst = module.pwcallmethod
+        return True
+    except ImportError:
+        return False
 
+def init():
+    if sel_pwcallmethodinst(".gtkpw"):
+        return
+    if sel_pwcallmethodinst(".kivypw"):
+        return
+    if sel_pwcallmethodinst(".cmdpw"):
+        return
 
-pwcallmethodinst = cmd.pwcallmethod
-#def sel_pwcallmethodinst(modulename):
-#    global pwcallmethodinst
-#    try:
-#        module = importlib.import_module(modulename)
-#        pwcallmethodinst = module.pwcallmethod
-#        return True
-#    except ImportError:
-#        return False
-
-
-
-#sel_pwcallmethodinst("pwcallmethod.cmd")
-
-
+init()
 
 # returns pw or ""
 def pwcallmethod(msg):
