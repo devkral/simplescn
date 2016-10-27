@@ -1,12 +1,14 @@
 # 0.71
 ## changes
 * add merge option for renameentity
+* add more pwrequest providers
 
 ## bugfixes
 * transfer and cleanup leftovers
+* fix exception in __del__
+* fix hang in rw_socket
 
 # 0.7
-
 ## changes
 * remove cleanoldfiles hack
 * get_pidlock returns now state instead path or None

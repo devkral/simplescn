@@ -178,7 +178,10 @@ class SecdirHandler(object):
     def __init__(self, path):
         self.filepath = path
     def __del__(self):
-        self.cleanup()
+        try:
+            self.cleanup()
+        except:
+            pass
 
     def cleanup(self):
         if self.filepath:
@@ -699,7 +702,7 @@ def rw_socket(sockrw1, sockrw2, timeout=None):
                     close()
                     break
                 else:
-                    sockets[soc.fd].sendall(ret)
+                    sockets[soc.fd].send(ret)
         except (socket.timeout, BrokenPipeError, TimeoutError):
             active = False
             close()
