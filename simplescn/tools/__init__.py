@@ -16,7 +16,6 @@ import hashlib
 import re
 import threading
 import json
-import selectors
 import shutil
 import functools
 
@@ -680,38 +679,32 @@ def loglevel_converter(loglevel):
     else:
         return int(loglevel)
 
-def rw_socket(sockrw1, sockrw2, timeout=None):
-    sfsel = selectors.DefaultSelector()
-    sockets = {sockrw1.fileno(): sockrw2, sockrw2.fileno(): sockrw1}
-    active = True
-    sockrw1.setblocking(False)
-    sfsel.register(sockrw1, selectors.EVENT_READ)
-    sockrw2.setblocking(False)
-    sfsel.register(sockrw2, selectors.EVENT_READ)
-    def close():
-        sfsel.close()
-        sockrw2.close()
-        sockrw1.close()
-    while active:
+def _rw_socket(sockread, sockwrite, active):
+    retbuffer = b""
+    while not active.is_set():
         try:
-            inpl = sfsel.select(timeout)
-            for soc, evnt in inpl:
-                ret = soc.fileobj.recv(config.default_buffer_size)
-                if ret == b"":
-                    active = False
-                    close()
-                    break
-                else:
-                    sockets[soc.fd].send(ret)
+            retbuffer = sockread.recv(config.default_buffer_size)
+            if retbuffer == b"":
+                active.set()
+                break
+            sockwrite.sendall(retbuffer)
         except (socket.timeout, BrokenPipeError, TimeoutError):
-            active = False
-            close()
+            active.set()
             break
         except Exception as exc:
-            active = False
-            sfsel.close()
+            active.set()
             logging.error(exc)
             break
+
+def rw_socket(sockrw1, sockrw2, timeout=None):
+    sockrw1.settimeout(timeout)
+    sockrw2.settimeout(timeout)
+    active = threading.Event()
+    threading.Thread(target=_rw_socket, args=(sockrw1, sockrw2, active), daemon=True).start()
+    threading.Thread(target=_rw_socket, args=(sockrw2, sockrw1, active), daemon=True).start()
+    active.wait()
+    sockrw1.close()
+    sockrw2.close()
 
 ## for finding local simplescn client ##
 def parselocalclient(path, extractipv6=True):

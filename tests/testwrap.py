@@ -7,6 +7,7 @@ from http import server, client
 import json
 import tempfile
 import socket
+import random
 
 import sys
 import os
@@ -50,12 +51,23 @@ class WrapTestHandler(server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(ob)
 
+    def echo(self):
+        ob = bytes(self.rfile.read(int(self.headers["Content-Length"])))
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(ob)))
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        self.wfile.write(ob)
+
+
     def log_request(self, *args):
         pass
 
     def do_POST(self):
         if self.path == "/wrapping":
             self.wrap()
+        elif self.path == "/echo":
+            self.echo()
         else:
             self.confirm()
 
@@ -78,6 +90,8 @@ class TestWrap(unittest.TestCase):
         pwrequester.pwcallmethodinst = lambda msg: ""
         config.debug_mode = True
         config.harden_mode = False
+        cls.testob = os.urandom(433)+bytes(1200)+os.urandom(433)
+        print("Success creating samplebytes")
         cls.client = start.client(cls.param_client, doreturn=True)
         cls.client_hash = cls.client.links["certtupel"][1]
         cls.client_port = cls.client.links["hserver"].server_port
@@ -124,6 +138,7 @@ class TestWrap(unittest.TestCase):
         testob = {"origcertinfo": list(self.client.links["certtupel"])}
         self.assertDictEqual(job, testob)
 
+
     def test_wrap2(self):
         body = {"address": "::1-{}".format(self.client_port), "name": "test2"}
         wrap1 = scnrequest.do_request("::1-{}".format(self.client_c_port), "/client/wrap", body, {}, keepalive=True, ownhash=self.client_hash)
@@ -140,6 +155,22 @@ class TestWrap(unittest.TestCase):
         ob = resp.read(int(resp.headers["Content-Length"]))
         job = json.loads(str(ob, "utf-8"))
         self.assertDictEqual(job, {"origcertinfo": [None, None, None]})
+
+    def test_wrap3(self):
+        body = {"address": "::1-{}".format(self.client_port), "name": "test1"}
+        wrap1 = scnrequest.do_request("::1-{}".format(self.client_c_port), "/client/wrap", body, {}, keepalive=True, ownhash=self.client_hash)
+        self.assertEqual(wrap1[1], True)
+        con = client.HTTPConnection("::1", self.client_c_port)
+        con.sock = wrap1[0].sock
+        wrap1[0].sock = None
+        con.putrequest("POST", "/echo")
+        con.putheader("Content-Length", str(len(self.testob)))
+        con.endheaders()
+        con.send(self.testob)
+        resp = con.getresponse()
+        ob = resp.read(int(resp.headers["Content-Length"]))
+        self.assertEqual(ob, self.testob)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
