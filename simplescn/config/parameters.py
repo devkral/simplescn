@@ -49,6 +49,8 @@ default_timeout = 60
 connect_timeout = 5
 server_timeout = 20
 traverse_retries = 3
+# auto update (register) in interval, <=0 to deactivate
+autoupdate = 300
 # url to ipv6 caching time to live (possibly not used)
 urlttl = 30
 

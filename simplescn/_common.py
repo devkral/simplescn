@@ -504,16 +504,22 @@ class CerthashDb(CommonDbInit):
         return True
 
     @connecttodb
-    def getreferences(self, _certreferenceid: int, reftype=None, dbcon=None):
-        assert isinstance(_certreferenceid, int), "invalid certreferenceid"
+    def getreferences(self, _certreferenceid=None, reftype=None, dbcon=None):
+        assert _certreferenceid is None or isinstance(_certreferenceid, int), "invalid certreferenceid"
         if reftype and not check_reference_type(reftype):
             logging.error("invalid referencetype")
             return None
         cur = dbcon.cursor()
-        if reftype is None:
-            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? ORDER BY certreference ASC;''', (_certreferenceid,))
-        else:
+
+        if reftype and _certreferenceid:
             cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? and type=? ORDER BY certreference ASC;''', (_certreferenceid, reftype))
+        elif _certreferenceid:
+            cur.execute('''SELECT certreference, type FROM certreferences WHERE certreferenceid=? ORDER BY certreference ASC;''', (_certreferenceid,))
+        elif reftype:
+            cur.execute('''SELECT certreference, type FROM certreferences WHERE type=? ORDER BY certreference ASC;''', (reftype,))
+        else:
+            cur.execute('''SELECT certreference, type FROM certreferences ORDER BY certreference ASC;''')
+
         return cur.fetchall()
 
     @connecttodb
@@ -557,18 +563,22 @@ class CerthashDb(CommonDbInit):
         return True
 
     @connecttodb
-    def findbyref(self, reference, reftype=None, dbcon=None):
-        if not check_reference(reference):
+    def findbyref(self, reference=None, reftype=None, dbcon=None):
+        if reference and not check_reference(reference):
             logging.error("invalid reference, %s", reference)
             return None
         if reftype and not check_reference_type(reftype):
             logging.error("invalid referencetype, %s", reftype)
             return None
         cur = dbcon.cursor()
-        if reftype:
+        if reftype and reference:
             cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=? AND type=?) ORDER BY name ASC;''', (reference, reftype))
-        else:
+        elif reference:
             cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE certreference=?) ORDER BY name ASC;''', (reference,))
+        elif reftype:
+            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences WHERE type=?) ORDER BY name ASC;''', (reftype,))
+        else:
+            cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences) ORDER BY name ASC;''')
         return cur.fetchall()
 
 class SHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):

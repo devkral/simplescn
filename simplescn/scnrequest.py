@@ -5,12 +5,14 @@ import json
 import ssl
 import logging
 import functools
+import time
+import threading
 
 from . import config
 from .config import isself
 from .tools import default_sslcont, scnparse_url, \
 safe_mdecode, encode_bo, try_traverse, quick_error, \
-dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6, gen_result
+dhash, create_certhashheader, scn_hashedpw_auth, url_to_ipv6, gen_result, logcheck
 from .exceptions import AuthNeeded, VALHashError, VALNameError, VALMITMError
 from .tools.checks import namestr, hashstr, checkclass
 
@@ -511,3 +513,45 @@ class Requester(ViaServerStruct):
         if "addrcon" in kwargs and not kwargs["addrcon"]:
             del kwargs["addrcon"]
         return self.p(path=path, body=body, headers=headers, **kwargs)
+
+
+
+class KeepServerUpdated(object):
+    func = None
+    active = True
+    interval = None
+    def __init__(self, funcOrAddress, interval=None):
+        self.interval = interval
+        if callable(funcOrAddress):
+            self.func = funcOrAddress
+        else:
+            self.func = lambda action, obdict: do_request(funcOrAddress, "/client/{}".format(action), obdict, {})[1:]
+
+    def update_entry(self, entry):
+        ret2 = self.func("getreferences", {"hash": entry[1], "filter": "url"})
+        if logcheck(ret2):
+            for elem in ret2[1]["items"]:
+                try:
+                    # can fail for many reasons (e.g. pw or hashmissmatch)
+                    self.func("register", {"server": elem[0], "forcehash":entry[1]})
+                except:
+                    pass
+    def run(self):
+        while self.active:
+            try:
+                ret = self.func("findbyref", {"reference": "True", "filter": "autoupd"})
+                if logcheck(ret):
+                    for elem in ret[1]["items"]:
+                        if elem[1] == "server":
+                            self.update_entry(elem)
+            except Exception as exc:
+                logging.error(exc)
+            time.sleep(self.interval)
+
+    def nonblock(self):
+        # program doesn't terminate without daemon=True
+        self._thread = threading.Thread(target=self.run, daemon=True)
+        self._thread.start()
+
+    def join(self):
+        self._listenthread.join()

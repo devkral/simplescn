@@ -35,7 +35,7 @@ class TestGenerateError(unittest.TestCase):
 
 class TestGenerateCerts(unittest.TestCase):
     temptestdir = tempfile.TemporaryDirectory("testcommoncerts")
-    
+
     # needed to run ONCE; setUpModule runs async
     @classmethod
     def setUpClass(cls):
@@ -45,12 +45,12 @@ class TestGenerateCerts(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         pwrequester.pwcallmethodinst = cls.oldpwcallmethodinst
-    
+
     def test_NoPw(self):
         pwrequester.pwcallmethodinst = lambda msg: ""
         tools.generate_certs(os.path.join(self.temptestdir.name, "testnopw"))
         self.assertTrue(checks.check_certs(os.path.join(self.temptestdir.name, "testnopw")))
-    
+
     def test_WithPw(self):
         pw = str(os.urandom(10), "utf-8", "backslashreplace")
         pwrequester.pwcallmethodinst = lambda msg: pw
@@ -63,14 +63,14 @@ class TestAuth(unittest.TestCase):
     def setUpClass(cls):
         cls.hashserver = tools.dhash(os.urandom(10).hex())
         cls.hashserver_wrong = tools.dhash(os.urandom(10).hex())
-        
+
         cls.pwserver = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwadmin = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.authserver = tools.SCNAuthServer(cls.hashserver)
         #cls.authclient = tools.scnauth_client()
         cls.authserver.init(tools.dhash(cls.pwserver))
-    
+
     def test_construct_correct(self):
         serverra = self.authserver.request_auth()
         self.assertEqual(serverra.get("algo"), config.DEFAULT_HASHALGORITHM)
@@ -79,9 +79,9 @@ class TestAuth(unittest.TestCase):
         clienta = tools.scn_hashedpw_auth(tools.dhash(self.pwserver), serverra, self.hashserver)
         self.assertEqual(clienta.get("timestamp"), serverra.get("timestamp"))
         self.assertIn("cnonce", clienta)
-        
+
         #self.assertIn("auth", clienta)
-        
+
     def test_verisuccess(self):
         serverra = self.authserver.request_auth()
         clienta = tools.scn_hashedpw_auth(tools.dhash(self.pwserver), serverra, self.hashserver)
@@ -102,7 +102,7 @@ class Test_safe_mdecode(unittest.TestCase):
         cls.pwclient = str(os.urandom(10), "utf-8", "backslashreplace")
         cls.pwinvalid = str(os.urandom(10), "utf-8", "backslashreplace")
         cls._testseq_json1 = json.dumps({"action": "show", "headers": {"X-SCN-Authorization": tools.dhash(cls.pwserver)}})
-    
+
     def test_valid_json(self):
         result = tools.safe_mdecode(self._testseq_json1, "application/json")
         self.assertIn("action", result)
@@ -110,7 +110,7 @@ class Test_safe_mdecode(unittest.TestCase):
         self.assertIn("headers", result)
         self.assertIn("X-SCN-Authorization", result["headers"])
         self.assertEqual(result["headers"]["X-SCN-Authorization"], tools.dhash(self.pwserver))
-    
+
     def test_valid_convert(self):
         result = tools.safe_mdecode(bytes(self._testseq_json1, "utf-8"), "application/json")
         self.assertIn("action", result)
@@ -118,7 +118,7 @@ class Test_safe_mdecode(unittest.TestCase):
         self.assertIn("headers", result)
         self.assertIn("X-SCN-Authorization", result["headers"])
         self.assertEqual(result["headers"]["X-SCN-Authorization"], tools.dhash(self.pwserver))
-        
+
         result = tools.safe_mdecode(bytes(self._testseq_json1, "iso8859_8"), "application/json", "iso8859_8")
         self.assertIn("action", result)
         self.assertEqual(result["action"], "show")

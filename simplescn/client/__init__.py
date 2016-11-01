@@ -25,7 +25,7 @@ from ..tools.checks import check_certs, check_local, check_classify, hashstr, na
 from .._decos import check_args_deco, classify_local, classify_accessable, classify_private, generate_validactions_deco
 from ._client_admin import ClientClientAdmin
 from ._client_safe import ClientClientSafe
-from ..scnrequest import do_request
+from ..scnrequest import do_request, KeepServerUpdated
 
 
 @generate_validactions_deco
@@ -588,6 +588,9 @@ class ClientInit(object):
         clientserverdict = {"name": _name[0], "message": _message, "links": self.links}
 
         self.links["client_server"] = ClientServer(clientserverdict)
+        if kwargs["autoupdate"] > 0:
+            self.links["autoupdater"] = KeepServerUpdated(self.links["client"].access_dict, kwargs["autoupdate"])
+            self.links["autoupdater"].nonblock()
 
         self.links["hserver"].serve_forever_nonblock()
         if "cserver_unix" in self.links:
@@ -658,6 +661,8 @@ default_client_args = \
     "port": [str(-1), int, "<int>: port of server component, -1: use port in \"client_name.txt\""],
     "config": [config.default_configdir, parsepath, "<dir>: path to config dir"],
     "run": [config.default_runpath, parsepath, "<dir>: path where unix socket and pid are saved"],
+    "autoupdate": [config.autoupdate, int, "<int>: automagically register to servers with reference\
+                                            autoupd=True in interval (seconds), <=0 to deactivate autoupdate"],
     "nounix": [default_nounix, parsebool, "<bool>: deactivate unix socket client server"],
     "noip": [default_noip, parsebool, "<bool>: deactivate ip socket client server"],
     "trustforall": ["False", parsebool, "<bool>: everyone can access hashdb security"],

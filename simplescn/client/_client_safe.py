@@ -538,32 +538,33 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
     @classify_accessable
     def getreferences(self, obdict: dict):
         """ func: get references of a node certificate hash
-            return: reference, referencetype list for hash/referenceid
+            return: reference, referencetype list for hash/referenceid or all
             hash: local hash (or use certreferenceid)
             certreferenceid: reference id of certificate hash (or use hash)
             filter: filter reference type """
         if "certreferenceid" in obdict :
             _tref = obdict.get("certreferenceid")
-        elif "hash" in obdict :
+        elif "hash" in obdict:
             _trethash = self.links["hashdb"].get(obdict["hash"])
             if _trethash is None:
                 return False, quick_error("hash not found")
             _tref = _trethash[4]
         else:
-            return False, quick_error("neither hash nor certreferenceid given")
+            _tref = None
         temp = self.links["hashdb"].getreferences(_tref, obdict.get("filter", None))
         if temp is None:
             return False
         return True, {"items": temp, "map": ["reference", "type"]}
 
-    @check_args_deco({"reference": str}, optional={"filter": str})
+    @check_args_deco({}, optional={"reference": referencestr, "filter": str})
     @classify_local
     @classify_accessable
     def findbyref(self, obdict: dict):
-        """ func:find nodes in hashdb by reference
+        """ func:find nodes in hashdb by reference or reftype
             return: certhash with additional informations
-            reference: reference """
-        temp = self.links["hashdb"].findbyref(obdict["reference"], obdict.get("filter", None))
+            reference: reference
+            filter: reference type """
+        temp = self.links["hashdb"].findbyref(obdict.get("reference", None), obdict.get("filter", None))
         if temp is None:
             return False, quick_error("error looking up reference")
         return True, {"items": temp, "map": ["name", "hash", "type", "priority", "security", "certreferenceid"]}

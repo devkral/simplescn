@@ -2,6 +2,8 @@
 ## changes
 * add merge option for renameentity
 * add more pwrequest providers
+* relax search restrictions of getreferences, findbyref
+* add autoregister
 
 ## bugfixes
 * transfer and cleanup leftovers
