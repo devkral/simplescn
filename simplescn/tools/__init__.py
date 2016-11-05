@@ -679,32 +679,36 @@ def loglevel_converter(loglevel):
     else:
         return int(loglevel)
 
-def _rw_socket(sockread, sockwrite, active):
+def _rw_socket(sockread, sockwrite, active, size, ismain):
     retbuffer = b""
-    while not active.is_set():
+    while active:
         try:
-            retbuffer = sockread.recv(config.default_buffer_size)
+            retbuffer = sockread.recv(size)
             if retbuffer == b"":
-                active.set()
+                active = False
                 break
             sockwrite.sendall(retbuffer)
-        except (socket.timeout, BrokenPipeError, TimeoutError):
-            active.set()
+        except (socket.timeout, BrokenPipeError, TimeoutError, OSError):
+            active = False
             break
         except Exception as exc:
-            active.set()
+            active = False
             logging.error(exc)
             break
+    if ismain:
+        sockread.close()
+        sockwrite.close()
 
-def rw_socket(sockrw1, sockrw2, timeout=None):
+def default_rw_socket(sockrw1, sockrw2, size, timeout):
     sockrw1.settimeout(timeout)
     sockrw2.settimeout(timeout)
-    active = threading.Event()
-    threading.Thread(target=_rw_socket, args=(sockrw1, sockrw2, active), daemon=True).start()
-    threading.Thread(target=_rw_socket, args=(sockrw2, sockrw1, active), daemon=True).start()
-    active.wait()
-    sockrw1.close()
-    sockrw2.close()
+    active = True
+    threading.Thread(target=_rw_socket, args=(sockrw1, sockrw2, active, size, False)).start()
+    _rw_socket(sockrw2, sockrw1, active, size, True)
+
+rw_socketinst = default_rw_socket
+def rw_socket(sockrw1, sockrw2, timeout=None):
+    rw_socketinst(sockrw1, sockrw2, config.default_buffer_size, timeout)
 
 ## for finding local simplescn client ##
 def parselocalclient(path, extractipv6=True):
