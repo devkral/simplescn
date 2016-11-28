@@ -15,6 +15,8 @@ def sel_pwcallmethodinst(modulename):
         return False
 
 def init():
+    if sel_pwcallmethodinst(".qtpw"):
+        return
     if sel_pwcallmethodinst(".gtkpw"):
         return
     if sel_pwcallmethodinst(".kivypw"):
