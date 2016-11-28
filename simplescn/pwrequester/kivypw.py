@@ -18,8 +18,8 @@ def pwcallmethod(msg):
     if sys.executable in ["", None]:
         logging.error("Cannot open interpreter for subprocess")
         return ""
-    with subprocess.Popen([sys.executable, __file__, msg], stdin=subprocess.PIPE, stdout=subprocess.PIPE) as proc:
-        return str(proc.communicate()[0][:-1], "utf-8")
+    with subprocess.Popen([sys.executable, __file__], stdin=subprocess.PIPE, stdout=subprocess.PIPE) as proc:
+        return str(proc.communicate(bytes(msg, "utf-8"))[0][:-1], "utf-8")
 
 if __name__ == "__main__":
     from kivy.app import App
@@ -60,6 +60,6 @@ if __name__ == "__main__":
             ret.ids["msglabel"].text = self.msg
             return ret
 
-    app = KivyPwApp(sys.argv[1])
+    app = KivyPwApp(input())
     app.run()
     sys.exit(0)
