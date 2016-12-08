@@ -87,6 +87,7 @@ class PermissionHashDb(CommonDbInit):
         self.lock = threading.Lock()
 
     def initdb(self, con):
+        """ init PermissionHashDb, commit() is called in create """
         con.execute('''CREATE TABLE if not exists certperms(certhash TEXT, permission TEXT, PRIMARY KEY(certhash,permission));''')
 
     @connecttodb
@@ -160,11 +161,12 @@ class CerthashDb(CommonDbInit):
         self.lock = threading.RLock()
 
     def initdb(self, con):
-        con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, security TEXT, certreferenceid INTEGER, PRIMARY KEY(name,certhash));''') #, UNIQUE(certhash)
+        """ init CerthashDb, commit() is called in create """
+        con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, security TEXT, certreferenceid INTEGER, PRIMARY KEY(name,certhash), UNIQUE(certreferenceid));''')
         con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, type TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
         #hack:
         con.execute('''CREATE TABLE if not exists certrefcount(certreferenceid INTEGER);''')
-        con.execute('''INSERT INTO certrefcount(certreferenceid) values(?);''', (0,))
+        con.execute('''INSERT OR IGNORE INTO certrefcount(certreferenceid) values(?);''', (0,))
 
     @connecttodb
     def addentity(self, _name: namestr, dbcon=None) -> bool:
@@ -348,10 +350,11 @@ class CerthashDb(CommonDbInit):
     def delhash(self, certhash: hashstr, dbcon=None) -> bool:
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreferenceid FROM certs WHERE certhash=?;''', (certhash,))
-        ret = cur.fetchone()
-        if ret:
-            cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (ret[0],))
+        # sqlite3 delete cascade does it
+        #cur.execute('''SELECT certreferenceid FROM certs WHERE certhash=?;''', (certhash,))
+        #ret = cur.fetchone()
+        #if ret:
+        #    cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (ret[0],))
         cur.execute('''DELETE FROM certs WHERE certhash=?;''', (certhash,))
         dbcon.commit()
         return True
