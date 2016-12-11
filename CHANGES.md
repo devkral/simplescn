@@ -4,11 +4,14 @@
 * add more pwrequest providers
 * relax search restrictions of getreferences, findbyref
 * add autoregister
+* prepare for alternative rw_socket implementations
 
 ## bugfixes
 * transfer and cleanup leftovers
 * fix exception in __del__
 * fix hang in rw_socket
+* fix missing unique
+* use STDIN instead sys.argv (more privacy)
 
 # 0.7
 ## changes
