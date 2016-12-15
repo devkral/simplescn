@@ -1,3 +1,13 @@
+# 0.7.2
+## changes
+* remove certrefcount hack
+* autoupdate old db format (0.7.1 can't do this)
+* add option for updating old db format
+
+## bugfixes
+* add missing sqlite3 pragmas (if db is changed)
+* db can stay locked if exception happens
+
 # 0.71
 ## changes
 * add merge option for renameentity

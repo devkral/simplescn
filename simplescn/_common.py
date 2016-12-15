@@ -46,7 +46,12 @@ def connecttodb(func):
         with self.lock:
             dbcon = sqlite3.connect(self.db_path)
             kwargs["dbcon"] = dbcon
-            temp = func(self, *args, **kwargs)
+            try:
+                temp = func(self, *args, **kwargs)
+            except Exception as exc:
+                dbcon.rollback()
+                dbcon.close()
+                raise exc;
             dbcon.close()
         return temp
     return funcwrap
@@ -74,8 +79,8 @@ class CommonDbInit(object):
                 return ret
             except Exception as exc:
                 dbcon.rollback()
-                logging.error(exc)
                 dbcon.close()
+                logging.error(exc)
                 return None
 
 class PermissionHashDb(CommonDbInit):
@@ -88,7 +93,8 @@ class PermissionHashDb(CommonDbInit):
 
     def initdb(self, con):
         """ init PermissionHashDb, commit() is called in create """
-        con.execute('''CREATE TABLE if not exists certperms(certhash TEXT, permission TEXT, PRIMARY KEY(certhash,permission));''')
+        cur = con.cursor()
+        cur.execute('''CREATE TABLE if not exists certperms(certhash TEXT, permission TEXT, PRIMARY KEY(certhash,permission));''')
 
     @connecttodb
     def add(self, certhash: hashstr, permission, dbcon=None) -> bool:
@@ -162,11 +168,32 @@ class CerthashDb(CommonDbInit):
 
     def initdb(self, con):
         """ init CerthashDb, commit() is called in create """
-        con.execute('''CREATE TABLE if not exists certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, security TEXT, certreferenceid INTEGER, PRIMARY KEY(name,certhash), UNIQUE(certreferenceid));''')
-        con.execute('''CREATE TABLE if not exists certreferences(certreferenceid INTEGER, certreference TEXT, type TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
-        #hack:
-        con.execute('''CREATE TABLE if not exists certrefcount(certreferenceid INTEGER);''')
-        con.execute('''INSERT OR IGNORE INTO certrefcount(certreferenceid) values(?);''', (0,))
+        cur = con.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
+        if config.update_old_dbformat:
+            cur.execute('''SELECT name FROM sqlite_master WHERE type='table' AND name='certrefcount';''')
+            if cur.fetchone():
+                cur.execute('''ALTER TABLE certs RENAME TO certs_old;''')
+                cur.execute('''ALTER TABLE certreferences RENAME TO certreferences_old;''')
+                cur.execute('''DROP TABLE certrefcount;''')
+                logging.info("old DB Format detected, tables renamed to _old, TODO: recover data and insert in new tablestructure")
+
+        cur.execute('''CREATE TABLE IF NOT EXISTS certs(name TEXT, certhash TEXT, type TEXT, priority INTEGER, security TEXT, certreferenceid INTEGER PRIMARY KEY AUTOINCREMENT, UNIQUE(name,certhash));''')
+        cur.execute('''CREATE TABLE IF NOT EXISTS certreferences(certreferenceid INTEGER, certreference TEXT, type TEXT, PRIMARY KEY(certreferenceid,certreference), FOREIGN KEY(certreferenceid) REFERENCES certs(certreferenceid) ON DELETE CASCADE);''')
+
+        if config.update_old_dbformat:
+            cur.execute('''SELECT name FROM sqlite_master WHERE type='table' AND name='certs_old';''')
+            if cur.fetchone():
+                cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs_old;''')
+                for name,certhash,_type,priority,security,certreferenceid in cur.fetchall():
+                    cur.execute('''INSERT INTO certs (name,certhash,type,priority,security) VALUES(?,?,?,?,?);''', (name,certhash,_type,priority,security))
+                    cur.execute('SELECT certreferenceid FROM certs WHERE name=? AND certhash=?', (name,certhash))
+                    newrefid = cur.fetchone()[0]
+                    cur.execute('''SELECT type,certreference FROM certreferences_old WHERE certreferenceid=?;''', (certreferenceid,))
+                    for certtype, certref in cur.fetchall():
+                        cur.execute('''INSERT INTO certreferences (certreferenceid,type,certreference) VALUES(?,?,?);''', (newrefid,certtype, certref))
+                cur.execute('''DROP TABLE certs_old;''')
+                cur.execute('''DROP TABLE certreferences_old;''')
 
     @connecttodb
     def addentity(self, _name: namestr, dbcon=None) -> bool:
@@ -184,10 +211,8 @@ class CerthashDb(CommonDbInit):
     def delentity(self, _name: namestr, dbcon=None) -> bool:
         assert _name in namestr, "invalid name {}".format(_name)
         cur = dbcon.cursor()
-        cur.execute('''SELECT certreferenceid FROM certs WHERE name=?;''', (_name,))
-        ret = cur.fetchall()
-        for elem in ret:
-            cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (elem[0],))
+        # sqlite3 deletes references with foreign_keys = ON
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''DELETE FROM certs WHERE name=?;''', (_name,))
         dbcon.commit()
         return True
@@ -196,6 +221,7 @@ class CerthashDb(CommonDbInit):
     def transfer_leftovers(self, newname, oldcerthash=None, oldname=None, dbcon=None):
         assert oldcerthash or oldname, "Neither oldcerthash nor oldname given"
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         if oldcerthash:
             cur.execute('''SELECT certhash,certreferenceid FROM certs WHERE certhash=?;''', (oldcerthash, ))
         else:
@@ -220,6 +246,7 @@ class CerthashDb(CommonDbInit):
         assert _name in namestr, "invalid name {}".format(_name)
         assert _newname in namestr, "invalid newname {}".format(_newname)
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if not cur.fetchone():
             logging.warning("name does not exist: %s", _name)
@@ -250,6 +277,7 @@ class CerthashDb(CommonDbInit):
             logging.error("priority is invalid: %s", security)
             return False
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_name,))
         if not cur.fetchone():
             logging.warning("name does not exist: %s", _name)
@@ -260,12 +288,7 @@ class CerthashDb(CommonDbInit):
             logging.info("hash already exist: %s", certhash)
             return False
 
-        # hack
-        cur.execute('''SELECT certreferenceid FROM certrefcount''')
-        count = cur.fetchone()[0]
-        cur.execute('''UPDATE certrefcount SET certreferenceid=?''', (count+1,))
-        # hack end
-        cur.execute('''INSERT INTO certs(name,certhash,type,priority,security,certreferenceid) values(?,?,?,?,?,?);''', (_name, certhash, nodetype, priority, security, count))
+        cur.execute('''INSERT INTO certs(name,certhash,type,priority,security) values(?,?,?,?,?);''', (_name, certhash, nodetype, priority, security))
         dbcon.commit()
         return True
 
@@ -274,6 +297,7 @@ class CerthashDb(CommonDbInit):
         assert _newname in namestr, "invalid newname {}".format(_newname)
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''SELECT name FROM certs WHERE name=?;''', (_newname,))
         if cur.fetchone() is None:
             logging.warning("name does not exist: %s", _newname)
@@ -350,11 +374,8 @@ class CerthashDb(CommonDbInit):
     def delhash(self, certhash: hashstr, dbcon=None) -> bool:
         assert certhash in hashstr, "invalid hash: {}".format(certhash)
         cur = dbcon.cursor()
-        # sqlite3 delete cascade does it
-        #cur.execute('''SELECT certreferenceid FROM certs WHERE certhash=?;''', (certhash,))
-        #ret = cur.fetchone()
-        #if ret:
-        #    cur.execute('''DELETE FROM certreferences WHERE certreferenceid=?;''', (ret[0],))
+        # sqlite3 delete cascade does it, needs PRAGME foreign_keys = ON
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''DELETE FROM certs WHERE certhash=?;''', (certhash,))
         dbcon.commit()
         return True
@@ -456,6 +477,7 @@ class CerthashDb(CommonDbInit):
             logging.error("reference type invalid: %s", _reftype)
             return False
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_certreferenceid, ))
         if not cur.fetchone():
             logging.error("referenceid does not exist: %s", _certreferenceid)
@@ -475,6 +497,7 @@ class CerthashDb(CommonDbInit):
             logging.error("invalid reference")
             return False
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         # just delete
         cur.execute('''DELETE FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         dbcon.commit()
@@ -493,6 +516,7 @@ class CerthashDb(CommonDbInit):
             logging.error("invalid referencetype")
             return False
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''SELECT certreferenceid FROM certreferences WHERE certreferenceid=? and certreference=?;''', (_certreferenceid, _reference))
         if not cur.fetchone():
             logging.warning("certreferenceid/reference does not exist: %s, %s", _certreferenceid, _reference)
@@ -530,6 +554,7 @@ class CerthashDb(CommonDbInit):
         assert isinstance(_oldrefid, int), "invalid oldrefid"
         assert isinstance(_newrefid, int), "invalid newrefid"
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (_oldrefid,))
         if not cur.fetchone():
             logging.warning("src certrefid does not exist: %s", _oldrefid)
@@ -548,6 +573,7 @@ class CerthashDb(CommonDbInit):
         assert isinstance(oldrefid, int), "invalid oldrefid"
         assert isinstance(newrefid, int), "invalid newrefid"
         cur = dbcon.cursor()
+        cur.execute('''PRAGMA foreign_keys = ON;''')
         cur.execute('''SELECT certreferenceid FROM certs WHERE certreferenceid=?;''', (oldrefid,))
         if not cur.fetchone():
             logging.warning("src certrefid does not exist: %s", oldrefid)
