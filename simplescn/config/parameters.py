@@ -4,10 +4,16 @@ config
 public domain (only options)
 """
 import tempfile
+import socketserver
 import os
 from cryptography.hazmat.primitives import hashes
 
 logformat = '%(levelname)s::%(filename)s:%(lineno)d::%(funcName)s::%(message)s'
+# threading/forking
+use_threading = True
+server_mixin = socketserver.ThreadingMixIn
+## for more performance
+server_mixin.daemon_threads = False
 
 # debug mode (activates server stacktraces)
 debug_mode = "SCNDEBUG" in os.environ

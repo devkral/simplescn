@@ -20,7 +20,8 @@ from .exceptions import InvalidLoadSizeError, InvalidLoadLevelError
 from .tools import generate_certs, init_config_folder, \
 dhash, SCNAuthServer, TraverserDropper, scnparse_url, default_sslcont, get_pidlock
 from .tools.checks import check_certs, hashstr, check_local, namestr, check_updated_certs, destportint, addressstr, fastit
-from ._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco
+from ._decos import check_args_deco, classify_local, classify_private, classify_accessable, generate_validactions_deco, namespaceproperty
+
 from .tools import generate_error, quick_error
 from ._common import parsepath, parsebool, CommonSCN, CommonSCNHandler, SHTTPServer, loglevel_converter
 
@@ -29,7 +30,7 @@ class Server(CommonSCN):
     # replace not add (multi instance)
     capabilities = None
     nhipmap = None
-    nhipmap_cache = ""
+    nhipmap_cache = None
     registered_addrs = None
     refreshthread = None
     scn_type = "server"
@@ -50,14 +51,12 @@ class Server(CommonSCN):
         CommonSCN.__init__(self)
         self.capabilities = ["basic", "server"]
         # init here (multi instance situation)
-        if config.sorteddict:
-            self.nhipmap = config.sorteddict()
-        else:
-            self.nhipmap = dict()
+        self.nhipmap =  config.SDict
+        self.nhipmap_cache = namespaceproperty(self.namespace, "nhipmap_cache", "")
         # needed only if traverse is active
-        self.registered_addrs = set()
-        self.nhipmap_cond = threading.Event()
-        self.changeip_lock = threading.Lock()
+        self.registered_addrs = namespaceproperty(self.namespace, "registered_addrs", set())
+        self.nhipmap_cond = config.Event()
+        self.changeip_lock = config.Lock()
         self.links = d["links"]
         self.notraverse_local = self.links["kwargs"]["notraverse_local"]
         # now: always None, because set manually
@@ -78,7 +77,7 @@ class Server(CommonSCN):
         self.update_cache()
         self.validactions.update(self.cache.keys())
         self.load_balance(0)
-        self.refreshthread = threading.Thread(target=self.refresh_nhipmap, daemon=True)
+        self.refreshthread = namespaceproperty(self.namespace, "refreshthread", threading.Thread(target=self.refresh_nhipmap, daemon=True))
         self.refreshthread.start()
         # now: traversesrcaddr always invalid, set manually by init
         #  if traversesrcaddr:

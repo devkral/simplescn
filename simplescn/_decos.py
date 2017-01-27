@@ -3,6 +3,18 @@ import functools
 
 from .tools import quick_error
 from .tools.checks import check_args
+from . import config
+
+
+def namespaceproperty(namespace, varname, var):
+    setattr(namespace,varname, var)
+    def getvar():
+        return namespace.__getattr__(varname)
+    def setvar(newvar):
+        return namespace.__setattr__(varname, newvar)
+    def delvar():
+        return namespace.__delattr__(varname)
+    return property(getvar, setvar, delvar)
 
 #def generate_permissionactions_deco(DecoClass):
 #    DecoClass.validactions_admin = set()

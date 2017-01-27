@@ -132,11 +132,11 @@ class ClientServer(CommonSCN):
     def __init__(self, dcserver):
         CommonSCN.__init__(self)
         # init here (multi instance situation)
-        self.spmap = {}
-        self.spmap_meta = {}
-        self.wlock = threading.Lock()
+        self.spmap = config.Dict()
+        self.spmap_meta = config.Dict()
+        self.wlock = config.Lock()
         self.links = dcserver["links"]
-        self.capabilities = ["basic", "client", "trust"]
+        self.capabilities += ["basic", "client", "trust"]
         if not self.links["kwargs"]["nowrap"]:
             self.capabilities.append("wrap")
         if not self.links["kwargs"]["notraversal"]:

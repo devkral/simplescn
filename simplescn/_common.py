@@ -21,6 +21,7 @@ import socketserver
 from . import config
 from .config import isself, file_family
 
+from ._decos import namespaceproperty
 from .tools import dhash, safe_mdecode, default_sslcont, loglevel_converter
 from .tools.checks import namestr, hashstr, securitystr, \
 check_typename, check_reference, check_reference_type, check_local, check_permission, priorityint
@@ -68,7 +69,7 @@ class CommonDbInit(object):
             dbcon = sqlite3.connect(dbpath)
             os.chmod(dbpath, 0o600)
         except Exception as exc:
-            logging.error(exc)
+            logging.exception(exc)
             return None
         ret = cls(dbpath)
         with ret.lock:
@@ -80,7 +81,7 @@ class CommonDbInit(object):
             except Exception as exc:
                 dbcon.rollback()
                 dbcon.close()
-                logging.error(exc)
+                logging.exception(exc)
                 return None
 
 class PermissionHashDb(CommonDbInit):
@@ -89,7 +90,7 @@ class PermissionHashDb(CommonDbInit):
 
     def __init__(self, dbpath):
         self.db_path = dbpath
-        self.lock = threading.Lock()
+        self.lock = config.Lock()
 
     def initdb(self, con):
         """ init PermissionHashDb, commit() is called in create """
@@ -164,7 +165,7 @@ class CerthashDb(CommonDbInit):
 
     def __init__(self, dbpath):
         self.db_path = dbpath
-        self.lock = threading.RLock()
+        self.lock = config.RLock()
 
     def initdb(self, con):
         """ init CerthashDb, commit() is called in create """
@@ -610,15 +611,13 @@ class CerthashDb(CommonDbInit):
             cur.execute('''SELECT name,certhash,type,priority,security,certreferenceid FROM certs WHERE certreferenceid IN (SELECT DISTINCT certreferenceid FROM certreferences) ORDER BY name ASC;''')
         return cur.fetchall()
 
-class SHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+class SHTTPServer(config.server_mixin, socketserver.TCPServer):
     """ server part of client/server """
     sslcont = None
     rawsock = None
     timeout = None
     _listenthread = None
     use_unix = False
-    # for more performance
-    daemon_threads = False
 
     def __init__(self, _address, sslcont, _handler, use_unix=False):
         self.use_unix = use_unix
@@ -684,29 +683,36 @@ class SHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self._listenthread.join()
 
 class CommonSCN(object):
+    scn_type = "unknown"
+    namespace = None
     # replace not add elsewise bugs in multi instance situation
     capabilities = None
     priority = None
     name = None
     message = None
-    scn_type = "unknown"
-    pluginmanager = None
     isactive = True
     update_cache_lock = None
 
     # set in __init__, elsewise bugs in multi instance situation (references)
     cache = None
 
+
     def __init__(self):
+        self.namespace = config.Namespace()
         if not self.capabilities:
-            self.capabilities = []
-        self.cache = {"cap": "", "info": "", "prioty": ""}
-        self.update_cache_lock = threading.Lock()
+            self.capabilities = config.List([])
+        self.cache = config.Dict({"cap": "", "info": "", "prioty": ""})
+        self.update_cache_lock = config.Lock()
+        self.isactive =  namespaceproperty(self.namespace, "isactive", True)
+        self.priority = namespaceproperty(self.namespace, "priority", None)
+        self.name = namespaceproperty(self.namespace, "name", None)
+        self.message = namespaceproperty(self.namespace, "message", None)
+        
     def __del__(self):
         self.isactive = False
 
     def update_cache(self):
-        with self.update_cache_lock:
+        with self.lock:
             self.cache["cap"] = json.dumps({"caps": self.capabilities})
             self.cache["info"] = json.dumps({"type": self.scn_type, "name": self.name, "message":self.message})
             self.cache["prioty"] = json.dumps({"priority": self.priority, "type": self.scn_type})
