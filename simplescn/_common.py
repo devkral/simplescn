@@ -712,7 +712,7 @@ class CommonSCN(object):
         self.isactive = False
 
     def update_cache(self):
-        with self.lock:
+        with self.update_cache_lock:
             self.cache["cap"] = json.dumps({"caps": self.capabilities})
             self.cache["info"] = json.dumps({"type": self.scn_type, "name": self.name, "message":self.message})
             self.cache["prioty"] = json.dumps({"priority": self.priority, "type": self.scn_type})

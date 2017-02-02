@@ -41,10 +41,12 @@ if use_threading:
     RLock = threading.RLock
     Lock = threading.Lock
     Event = threading.Event
+    Condition = threading.Condition
+    Set = set
     List = list
     Dict = dict
-    if config.sorteddict:
-        SDict = config.sorteddict
+    if sorteddict:
+        SDict = sorteddict
     else:
         SDict = dict
     class Namespace(object):
@@ -59,10 +61,12 @@ else:
     Lock = manager.Lock
     RLock = manager.RLock
     Event = manager.Event
+    Condition = manager.Condition
+    Set = manager.set
     List = manager.list
     Dict = manager.dict
-    if config.sorteddict:
-        manager.register('SDict', config.sorteddict, DictProxy)
+    if sorteddict:
+        manager.register('SDict', sorteddict, DictProxy)
         SDict = manager.SDict
     else:
         SDict = manager.dict

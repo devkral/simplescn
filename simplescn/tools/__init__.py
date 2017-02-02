@@ -401,20 +401,21 @@ def try_traverse(srcaddr, destaddr, connect_timeout=config.connect_timeout, retr
 class TraverserDropper(object):
     _srcaddrtupel = None
     _sock = None
-    active = None
+    namespace = None
     _checker = None
     def __init__(self, _srcaddrtupel):
-        self.active = True
-        self._checker = threading.Condition()
-        self._sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-        self._sock.bind(_srcaddrtupel)
-        self._sock.settimeout(None)
+        self.namespace = config.Namespace()
+        self.namespace.active = True
+        self._checker = config.Condition()
+        self.namespace._sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        self.namespace._sock.bind(_srcaddrtupel)
+        self.namespace._sock.settimeout(None)
         t = threading.Thread(target=self._dropper, daemon=True)
         t.start()
 
     def _dropper(self):
         while self.active:
-            recv = self._sock.recv(512)
+            recv = self.namespace._sock.recv(512)
             if recv == scn_yesstruct:
                 self._checker.notify_all()
 
@@ -438,24 +439,23 @@ class TraverserDropper(object):
         binaddr = bytes(_conaddr[0], "utf-8")
         construct = struct.pack(addrstrformat, _conaddr[1], len(binaddr), binaddr)
         for elem in range(0, 3):
-            self._sock.sendto(construct, _dstaddr)
+            self.namespace._sock.sendto(construct, _dstaddr)
         if timeout:
             return self.check(timeout)
         else:
             return True
 
 class TraverserHelper(object):
-    desttupels = None
-    allowed_addresses = None
-    active = None
     mutex = None
+    namespace = None
     def __init__(self, connectsock, srcsock, interval=config.ping_interval):
-        self.desttupels = set()
-        self.active = True
-        self.interval = interval
-        self.connectsock = connectsock
-        self.srcsock = srcsock
-        self.mutex = threading.Lock()
+        self.namespace = config.Namespace()
+        self.desttupels = config.Set()
+        self.namespace.active = True
+        self.namespace.interval = interval
+        self.namespace.connectsock = connectsock
+        self.namespace.srcsock = srcsock
+        self.mutex = config.Lock()
         threading.Thread(target=self._connecter, daemon=True).start()
 
     def add_desttupel(self, destaddr):
@@ -486,12 +486,12 @@ class TraverserHelper(object):
     # makes client reachable by server by (just by udp?)
     def _pinger(self, destaddrtupel):
         try:
-            while self.active:
+            while self.namespace.active:
                 with self.mutex:
                     if destaddrtupel not in self.desttupels:
                         break
                 self.srcsock.sendto(scn_pingstruct, destaddrtupel)
-                time.sleep(self.interval)
+                time.sleep(self.namespace.interval)
         except Exception as exc:
             logging.info(exc)
             # error: cleanup
@@ -506,7 +506,7 @@ class TraverserHelper(object):
     def _connecter(self):
         while self.active:
             try:
-                recv, requesteraddress = self.srcsock.recvfrom(512)
+                recv, requesteraddress = self.namespace.srcsock.recvfrom(512)
                 if len(recv) != 512:
                     # drop invalid packages
                     continue
@@ -519,10 +519,10 @@ class TraverserHelper(object):
                     if addrn not in self.desttuppels:
                         logging.info("%s not in desttupels", addrn)
                         continue
-                    self.connectsock.connect(addrn)
-                    self.srcsock.sendto(scn_yesstruct, requesteraddress)
+                    self.namespace.connectsock.connect(addrn)
+                    self.namespace.srcsock.sendto(scn_yesstruct, requesteraddress)
                 except Exception as exc:
-                    self.srcsock.sendto(scn_nostruct, requesteraddress)
+                    self.namespace.srcsock.sendto(scn_nostruct, requesteraddress)
                     logging.info(exc)
             except Exception as exc:
                 logging.info(exc)

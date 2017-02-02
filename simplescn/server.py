@@ -32,7 +32,6 @@ class Server(CommonSCN):
     nhipmap = None
     nhipmap_cache = None
     registered_addrs = None
-    refreshthread = None
     scn_type = "server"
     traverse = None
     links = None
@@ -51,7 +50,7 @@ class Server(CommonSCN):
         CommonSCN.__init__(self)
         self.capabilities = ["basic", "server"]
         # init here (multi instance situation)
-        self.nhipmap =  config.SDict
+        self.nhipmap =  config.SDict()
         self.nhipmap_cache = namespaceproperty(self.namespace, "nhipmap_cache", "")
         # needed only if traverse is active
         self.registered_addrs = namespaceproperty(self.namespace, "registered_addrs", set())
@@ -77,8 +76,8 @@ class Server(CommonSCN):
         self.update_cache()
         self.validactions.update(self.cache.keys())
         self.load_balance(0)
-        self.refreshthread = namespaceproperty(self.namespace, "refreshthread", threading.Thread(target=self.refresh_nhipmap, daemon=True))
-        self.refreshthread.start()
+        self.namespace.refreshthread = threading.Thread(target=self.refresh_nhipmap, daemon=True)
+        self.namespace.refreshthread.start()
         # now: traversesrcaddr always invalid, set manually by init
         #  if traversesrcaddr:
         #      self.traverse = TraverserDropper(traversesrcaddr)
@@ -87,7 +86,7 @@ class Server(CommonSCN):
         CommonSCN.__del__(self)
         self.nhipmap_cond.set()
         try:
-            self.refreshthread.join(4)
+            self.namespace.refreshthread.join(4)
         except Exception as exc:
             logging.error(exc)
 
@@ -139,16 +138,28 @@ class Server(CommonSCN):
 
     # private, do not include in validactions
     @classify_private
+    def check_register_hook(self, obdict: dict):
+        """ func: Implement client access control (e.g. registering ip). By default:return True (allowed)
+            return: True (allowed),False (rejected)
+            """
+        return True
+
+    # private, do not include in validactions
+    @classify_private
     def check_register(self, addresst, _hash):
         try:
             _cert = ssl.get_server_certificate(addresst, ssl_version=ssl.PROTOCOL_TLSv1_2).strip().rstrip()
         except ConnectionRefusedError:
-            return False, "use_traversal"
+            # no partner
+            return False
         except ssl.SSLError:
-            return False, "use_traversal"
+            # no partner
+            return False
         if dhash(_cert) != _hash:
-            return False, "hash_mismatch"
-        return True, "registered_ip"
+            # hash mismatch (nat collision?)
+            logging.warning("hashmismatch: client: %s port: %s", *addresst)
+            return False
+        return True
 
     # private: don't include
     @classify_private
@@ -182,19 +193,19 @@ class Server(CommonSCN):
             port: listen port of client
             update: list with compromised hashes (includes reason=security) """
         if obdict["origcertinfo"][1] is None:
-            return False, quick_error("no_cert")
+            return False, quick_error("no certificate")
         if obdict["clientaddress"][0][:7] == "::ffff:":
             caddress = (obdict["clientaddress"][0][7:], obdict["clientaddress"][1])
         else:
             caddress = obdict["clientaddress"]
         clientcerthash = obdict["origcertinfo"][1]
-        ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
-        if not ret[0]:
+        if not check_register_hook(obdict):
+            return False, quick_error("access denied")
+        if not self.check_register((caddress[0], obdict["port"]), clientcerthash):
             ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1]), "destaddr": "{}-{}".format(caddress[0], obdict["port"])})
             if not ret[0]:
                 return ret
-            ret = self.check_register((caddress[0], obdict["port"]), clientcerthash)
-            if not ret[0]:
+            if not self.check_register((caddress[0], obdict["port"]), clientcerthash):
                 return False, quick_error("unreachable client")
             use_traversal = True
         elif not self.notraverse_local and self.traverse and check_local(caddress[0]):
@@ -256,6 +267,11 @@ class Server(CommonSCN):
         travaddr = obdict.get("clientaddress")
         threading.Thread(target=self.traverse.send, args=(travaddr, destaddr), daemon=True).start()
         return True, {"traverseaddress": travaddr}
+
+    @check_args_deco({"name": namestr, "hash": hashstr}, optional={"other": dict()})
+    @classify_accessable
+    def register_hash(self, obdict: dict):
+        return False, quick_error("register hash not possible")
 
     @check_args_deco()
     @classify_local

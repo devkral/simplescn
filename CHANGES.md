@@ -1,8 +1,11 @@
-# 0.7.2
+# 0.8.0
 ## changes
 * remove certrefcount hack
 * autoupdate old db format (0.7.1 can't do this)
 * add option for updating old db format
+* prepare for multiprocessing
+* add register_hash (for permanent registering a hash)
+* add check_register_hook for access control
 
 ## bugfixes
 * add missing sqlite3 pragmas (if db is changed)

@@ -37,6 +37,8 @@ default_cache_size = 256
 ## dbending
 dbending = ".sqlite"
 
+update_old_dbformat = False
+
 ## password prompts:
 pwcertgen_prompt = "(optional) Enter passphrase for encrypting key"
 pwrealm_prompt = "Please enter password"
