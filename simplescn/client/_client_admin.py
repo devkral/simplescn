@@ -51,6 +51,7 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
         
     @check_args_deco({"provider": addressstr}, optional={"forcehash": hashstr, "name": namestr, "hash": hashstr, "other": dict})
     @classify_accessable
+    @classify_admin
     def register_hash(self, obdict: dict):
         """ func: register client hash on server
             return: success or error
