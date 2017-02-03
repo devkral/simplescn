@@ -268,11 +268,6 @@ class Server(CommonSCN):
         threading.Thread(target=self.traverse.send, args=(travaddr, destaddr), daemon=True).start()
         return True, {"traverseaddress": travaddr}
 
-    @check_args_deco({"name": namestr, "hash": hashstr}, optional={"other": dict()})
-    @classify_accessable
-    def register_hash(self, obdict: dict):
-        return False, quick_error("register hash not possible")
-
     @check_args_deco()
     @classify_local
     @classify_accessable

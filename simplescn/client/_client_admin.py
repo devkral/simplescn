@@ -46,8 +46,25 @@ class ClientClientAdmin(object, metaclass=abc.ABCMeta):
     changeNameLock = None
 
     def __init__(self):
-        self.writeMsgLock = threading.Lock()
-        self.changeNameLock = threading.Lock()
+        self.writeMsgLock = config.Lock()
+        self.changeNameLock = config.Lock()
+        
+    @check_args_deco({"provider": addressstr}, optional={"forcehash": hashstr, "name": namestr, "hash": hashstr, "other": dict})
+    @classify_accessable
+    def register_hash(self, obdict: dict):
+        """ func: register client hash on server
+            return: success or error
+            forcehash: enforce node with hash==forcehash
+            name: name to register (default: own name)
+            hash: hash to register (default: own hash=register self)
+            other: optional dict with pw, email,... (create account)
+            provider: address of provider """
+        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
+        name = obdict.get("name", self.links["client_server"].name)
+        _hash = obdict.get("hash", self.links["certtupel"][1])
+        body = {"name": name, "hash": _hash, "other": obdict.get("other", dict())}
+        ret = self.do_request(obdict["provider"], "/provider/register_hash", body, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
+        return ret
 
     @check_args_deco({"priority": priorityint})
     @classify_admin

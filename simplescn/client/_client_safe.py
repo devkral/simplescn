@@ -90,22 +90,6 @@ class ClientClientSafe(object, metaclass=abc.ABCMeta):
             self.scntraverse_helper.del_desttupel(scnparse_url(obdict["server"]))
         return ret
 
-    @check_args_deco({"server": addressstr}, optional={"forcehash": hashstr, "name": namestr, "hash": hashstr, "other": dict})
-    @classify_accessable
-    def register_hash(self, obdict: dict):
-        """ func: register client hash on server
-            return: success or error
-            forcehash: enforce node with hash==forcehash
-            name: name to register (default: own name)
-            hash: hash to register (default: own hash=register self)
-            other: optional dict with pw, email,...
-            server: address of server """
-        _headers = {"Authorisation": obdict.get("headers", {}).get("Authorisation", "scn {}")}
-        name = obdict.get("name", self.links["client_server"].name)
-        _hash = obdict.get("hash", self.links["certtupel"][1])
-        body = {"name": name, "hash": _hash, "other": obdict.get("other", dict())}
-        ret = self.do_request(obdict["server"], "/server/register_hash", body, _headers, sendclientcert=True, forcehash=obdict.get("forcehash"))
-        return ret
 
     @check_args_deco({"name": namestr, "port": destportint}, optional={"client": addressstr, "wrappedport": bool, "post": bool, "hidden": bool, "forcehash": hashstr})
     @classify_accessable
