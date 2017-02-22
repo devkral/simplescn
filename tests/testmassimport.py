@@ -75,8 +75,9 @@ class TestMassimport(unittest.TestCase):
             ttget6 = clientd1.access_dict("getlocal", {"hash": tools.dhash("c")})
             self.assertTrue(ttget6[0], ttget6[1])
             self.assertEqual(ttget6[1]["name"], "testmass2", ttget6[1])
-            ttgetfalse = clientd1.access_dict("getreferences", {"filter": "surl"})
-            self.assertFalse(ttgetfalse[0], ttgetfalse[1])
+            # works, is now valid
+            ttget7 = clientd1.access_dict("getreferences", {"filter": "surl"})
+            self.assertTrue(ttget7[0], ttget7[1])
 
     def test_importhashes(self):
         with tempfile.TemporaryDirectory("testmasshashes") as path:

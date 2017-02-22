@@ -53,7 +53,7 @@ class Server(CommonSCN):
         self.nhipmap =  config.SDict()
         self.nhipmap_cache = namespaceproperty(self.namespace, "nhipmap_cache", "")
         # needed only if traverse is active
-        self.registered_addrs = namespaceproperty(self.namespace, "registered_addrs", set())
+        self.registered_addrs = config.Set()
         self.nhipmap_cond = config.Event()
         self.changeip_lock = config.Lock()
         self.links = d["links"]
@@ -199,7 +199,7 @@ class Server(CommonSCN):
         else:
             caddress = obdict["clientaddress"]
         clientcerthash = obdict["origcertinfo"][1]
-        if not check_register_hook(obdict):
+        if not self.check_register_hook(obdict):
             return False, quick_error("access denied")
         if not self.check_register((caddress[0], obdict["port"]), clientcerthash):
             ret = self.open_traversal({"clientaddress": ('', obdict["socket"].getsockname()[1]), "destaddr": "{}-{}".format(caddress[0], obdict["port"])})

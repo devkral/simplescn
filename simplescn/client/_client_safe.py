@@ -10,6 +10,7 @@ import abc
 import logging
 
 
+from .. import config
 from ..exceptions import EnforcedPortError
 from ..config import isself
 from ..tools import dhash, scnparse_url, default_sslcont, extract_senddict, generate_error, gen_result, quick_error

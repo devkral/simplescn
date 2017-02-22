@@ -45,6 +45,8 @@ if use_threading:
     Set = set
     List = list
     Dict = dict
+    server_mixin = socketserver.ThreadingMixIn
+    server_mixin.daemon_threads = daemon_threads
     if sorteddict:
         SDict = sorteddict
     else:
@@ -65,6 +67,8 @@ else:
     Set = manager.set
     List = manager.list
     Dict = manager.dict
+    server_mixin = socketserver.ForkingMixIn
+    server_mixin.max_children = max_children
     if sorteddict:
         manager.register('SDict', sorteddict, DictProxy)
         SDict = manager.SDict

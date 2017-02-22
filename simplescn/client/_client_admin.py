@@ -10,6 +10,7 @@ import threading
 import logging
 import abc
 
+from .. import config
 from ..config import isself
 from ..tools import dhash, generate_certs, quick_error
 from ..tools.checks import check_reference_type, namestr, permissionstr, \

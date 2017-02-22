@@ -414,7 +414,7 @@ class TraverserDropper(object):
         t.start()
 
     def _dropper(self):
-        while self.active:
+        while self.namespace.active:
             recv = self.namespace._sock.recv(512)
             if recv == scn_yesstruct:
                 self._checker.notify_all()
@@ -490,7 +490,7 @@ class TraverserHelper(object):
                 with self.mutex:
                     if destaddrtupel not in self.desttupels:
                         break
-                self.srcsock.sendto(scn_pingstruct, destaddrtupel)
+                self.namespace.srcsock.sendto(scn_pingstruct, destaddrtupel)
                 time.sleep(self.namespace.interval)
         except Exception as exc:
             logging.info(exc)
@@ -504,7 +504,7 @@ class TraverserHelper(object):
 
     # sub __init__ thread
     def _connecter(self):
-        while self.active:
+        while self.namespace.active:
             try:
                 recv, requesteraddress = self.namespace.srcsock.recvfrom(512)
                 if len(recv) != 512:

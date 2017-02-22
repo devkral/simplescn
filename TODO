@@ -1,9 +1,6 @@
-## 0.8
+## 0.9
 * compile rw_socket for less latency
 * traverse_service
-
-
-## 0.9
 * tests for traversal
 * more tests
 * ipv4, ipv6 compatibility checks
