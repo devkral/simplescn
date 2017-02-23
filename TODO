@@ -1,6 +1,7 @@
 ## 0.9
 * compile rw_socket for less latency
 * traverse_service
+* use multiprocessing contexts (spawn) for pwrequests
 * tests for traversal
 * more tests
 * ipv4, ipv6 compatibility checks
