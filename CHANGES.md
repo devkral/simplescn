@@ -4,6 +4,7 @@
 * autoupdate old db format (0.7.1 can't do this)
 * add option for updating old db format
 * prepare for multiprocessing
+* add forking support (untested)
 * add register_hash (for permanent registering a hash)
 * add check_register_hook for access control
 
